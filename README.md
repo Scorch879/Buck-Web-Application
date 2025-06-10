@@ -59,17 +59,13 @@ integrates frontend user interfaces with backend processing and specialized mach
 ## Data Flow Diagram
 
 ```markdown
-## Data Flow Diagram
+## System Architecture
 
-```mermaid
-graph LR;
-    Frontend[“User Interface”] -->|logs expenses| Backend[Data Processing];
-    Backend -->|feeds data| AI_Engine{Auto-Categorization};
-    AI_Engine --> OpenAI_Embedding[(OpenAI Embedding)];
-    AI_Engine --> XGBoost_Classifier[(XGBoost Classifier)];
-    AI_Engine --> Prophet_Forecaster[(Facebook Prophet)];
-```
-```
+| Component         | Function                                       |
+|-------------------|-----------------------------------------------|
+| Frontend           | User interface & data display                  |
+| Backend            | Core processing & API management               |
+| AI Engine          | Auto-categorization, prediction & forecasting |
 
 ---
 
