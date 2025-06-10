@@ -1,43 +1,106 @@
-# Buck-Web-Application
+# Buck Web Application
 
-🏗️ ##System Architecture
-Architectural Design
-The system follows a modular architecture, separating concerns between the frontend, backend, and AI engine:
+```markdown
+# Expense Forecasting System
 
-🚀 Frontend (React/Next.js + Firebase Auth)
-Handles user interaction, expense input, goal setting (Normal / Moderate / Aggressive), and forecast display.
+## Overview
+A modular system designed to track expenses and forecast spending using AI-powered components. The architecture
+integrates frontend user interfaces with backend processing and specialized machine learning models.
 
-⚙️ Backend (Python FastAPI/Flask)
-Processes data, runs AI models, and returns categorized expenses and forecasted spending.
+---
 
-🧠 AI Engine (Python)
-Three integrated models:
+## Architecture Components
 
-OpenAI Embedding API — for auto-categorizing expenses.
+### 1️⃣ Frontend (React/Next.js + Firebase Auth)
+- **Purpose**: User interaction interface for expense logging, goal management, and visualization
+- **Key Features**:
+  - Expense input forms with real-time validation
+  - Interactive UI for setting financial goals (Normal/Moderate/Aggressive profiles)
+  - Data visualization dashboard showcasing spending forecasts and insights
+  - Authentication system using Firebase identity services
 
-XGBoost Classifier — predicts the adjustment multiplier based on the user's saving attitude.
+### 2️⃣ Backend (Python FastAPI/Flask)
+- **Purpose**: Core business logic processing and API gateway
+- **Responsibilities**:
+  ```python
+  • Processes raw expense data from frontend
+  • Orchestrates AI model workflows for predictions
+  • Coordinates data storage across all components
+  • Serves as communication bridge between frontend/UI and ML services
+  ```
 
-Facebook Prophet — forecasts spending trends and adjusts based on user behavior and emergencies.
+### 3️⃣ AI Engine (Python)
+- **Powered by Three Integrated Machine Learning Models**:
+  - **OpenAI Embedding API**: Auto-categorization of expenses using advanced NLP embeddings
 
-graph LR
-  A[Frontend (React/Next.js + Firebase Auth)] --> B[Backend API (Python FastAPI/Flask)]
-  B --> C[AI Engine (Python)]
-  C -->|OpenAI Embedding API| C
-  C -->|XGBoost Classifier| C
-  C -->|Facebook Prophet| C
-  B -->|Firebase (User data storage)| D[Firebase]
+  ```mermaid
+  graph TD;
+    A[Expense Text] --> B((Embedding));
+    B --> C{Category Prediction};
+    C --> D[Lifestyle Expenses];
+    C --> E[Utilities];
+    C --> F[Dining Out];
+  ```
 
-🔍 Key Modules
-Frontend
-Built with React and Next.js, uses Firebase Authentication for user login and session management.
+  - **XGBoost Classifier**: Predicts adjustment multipliers based on:
+    ```python
+      • User's historical saving patterns
+      • Financial goal profiles (Normal/Moderate/Aggressive)
+      • Behavioral spending signatures
+    ```
 
-Backend
-Python-based API (FastAPI or Flask) to handle data processing, user requests, and communication with the AI engine.
+  - **Facebook Prophet**:
+    - Time-series forecasting of monthly spending trends
+    - Adapts predictions dynamically to detect behavioral changes
+    - Incorporates emergency scenario adjustments
 
-AI Engine
+---
 
-OpenAI Embedding API for expense categorization.
+## Data Flow Diagram
 
-XGBoost for predicting savings attitude.
+```mermaid
+graph LR;
+  Frontend["User Interface"] --> Backend[Data Processing];
+  Backend -->|Raw Expense Data| AI_Engine[Auto-Categorization];
+  AI_Engine --> Classifier{Saving Attitude Analysis};
+  Classifier --> Multiplier[(Adjustment Factor)];
+  AI_Engine --> Prophet[Spending Trend Forecasting];
 
-Facebook Prophet for forecasting and emergency adjustments.
+  Subgraph "Frontend Components” do
+    User_Interface((Input Forms));
+    Visualization(Dashboard);
+    Auth(Firebase Security)
+  end
+
+  Subgraph "Backend Services" do
+    Data_Validation;
+    API_Gateway;
+    Storage_Management;
+  end
+
+  Subgraph “AI Engine Processing” do
+    OpenAI_Embedding[Text Analysis];
+    XGBoost_Classifier[Savings Pattern ML];
+    Prophet_Forecaster[Trend Prediction];
+  end
+```
+
+---
+
+## Technologies Used
+
+| Component | Stack Highlights |
+|-----------|------------------|
+| Frontend   | React, Next.js, Firebase Authentication, Tailwind CSS |
+| Backend    | Python (FastAPI/Flask), PostgreSQL, Redis caching |
+| AI Engine   | XGBoost, OpenAI API, Prophet time-series library |
+
+---
+
+## System Features
+
+- **Auto-expense categorization** using transformer embeddings
+- **Dynamic forecasting** adapting to user behavioral patterns
+- **Multi-model integration** for comprehensive financial insights
+- **Firebase-backed authentication** ensuring secure transactions
+```
