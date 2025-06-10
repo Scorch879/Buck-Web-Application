@@ -1,6 +1,6 @@
 # Buck-Web-Application
 
-🏗️@ System Architecture
+##🏗️ System Architecture
 Architectural Design
 The system follows a modular architecture, separating concerns between the frontend, backend, and AI engine:
 
