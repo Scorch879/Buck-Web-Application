@@ -58,31 +58,17 @@ integrates frontend user interfaces with backend processing and specialized mach
 
 ## Data Flow Diagram
 
+```markdown
+## Data Flow Diagram
+
 ```mermaid
 graph LR;
-  Frontend["User Interface"] --> Backend[Data Processing];
-  Backend -->|Raw Expense Data| AI_Engine[Auto-Categorization];
-  AI_Engine --> Classifier{Saving Attitude Analysis};
-  Classifier --> Multiplier[(Adjustment Factor)];
-  AI_Engine --> Prophet[Spending Trend Forecasting];
-
-  Subgraph "Frontend Components” do
-    User_Interface((Input Forms));
-    Visualization(Dashboard);
-    Auth(Firebase Security)
-  end
-
-  Subgraph "Backend Services" do
-    Data_Validation;
-    API_Gateway;
-    Storage_Management;
-  end
-
-  Subgraph “AI Engine Processing” do
-    OpenAI_Embedding[Text Analysis];
-    XGBoost_Classifier[Savings Pattern ML];
-    Prophet_Forecaster[Trend Prediction];
-  end
+    Frontend[“User Interface”] -->|logs expenses| Backend[Data Processing];
+    Backend -->|feeds data| AI_Engine{Auto-Categorization};
+    AI_Engine --> OpenAI_Embedding[(OpenAI Embedding)];
+    AI_Engine --> XGBoost_Classifier[(XGBoost Classifier)];
+    AI_Engine --> Prophet_Forecaster[(Facebook Prophet)];
+```
 ```
 
 ---
