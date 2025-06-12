@@ -1,11 +1,18 @@
+import openai
+from dotenv import load_dotenv
+import os
+
 from prophet import Prophet
 import openai
 import numpy as np
 from xgboost import XGBClassifier
 import pandas as pd
 
+
+load_dotenv("../buck.env")
+
 # Set your OpenAI key here
-openai.api_key = 'sk-...'
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # --- OpenAI Embedding Model ---
 def get_expense_category(text):
