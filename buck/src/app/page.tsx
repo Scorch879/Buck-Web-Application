@@ -6,6 +6,7 @@ import GetStartedButton from "../component/GetStartedButton";
 export default function Home() {
   return (
     <>
+    <Header/>
     <div className="mainStrip">
       <div className="welcomeSign">
         <div className="buckmsg">
@@ -20,7 +21,6 @@ export default function Home() {
       </div>
     <GetStartedButton />
     </div>
-      
     </>
   );
 }
