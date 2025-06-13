@@ -1,7 +1,7 @@
 import Image from "next/image";
 import styles from "../component/page.module.css";
 import {Header,Footer} from '../component/HeaderFooter'
-
+import GetStartedButton from "../component/GetStartedButton";
 
 export default function Home() {
   return (
@@ -19,11 +19,8 @@ export default function Home() {
       <div className="welcomeMsg">  
         <p>Hello World</p>
       </div>
-      <button id="btnGetstarted">
-        <span>Get Started</span>
-      </button>
+    <GetStartedButton />
     </div>
-    <Footer/>
     </>
   );
 }
