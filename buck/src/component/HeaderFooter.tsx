@@ -1,5 +1,5 @@
-import './page.module.css'
 import './componentGlobal.css'
+
 function Header(){
     return(
         <div className="header">
