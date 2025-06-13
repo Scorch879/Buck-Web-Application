@@ -6,16 +6,24 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ### 1️⃣ First, clone the repository using GitHub Desktop or Git Bash 
 
+In using Git CMD or Git Bash, use the command below
+
 ```bash
 # Git CMD or Git Bash
 git clone <http link of the repository>
+
+# Github Desktop
+Press File > Clone Repository > Select Buck-Web-Application Repository
+```
+
+```bash
 # then
 npm install
 # or
 npx create-next-app@latest
 ```
 
-First, run the development server:
+Second, run the development server:
 
 ```bash
 npm run dev
