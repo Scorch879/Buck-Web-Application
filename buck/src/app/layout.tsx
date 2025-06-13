@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import {Header,Footer} from "../component/HeaderFooter"
+import "../component/signup.css"
 
 export const metadata: Metadata = {
   title: "Buck",
