@@ -5,9 +5,9 @@ export default function SignUp(){
         <>
         <Header/>
             <div className="mainStrip">
-                <div className="darken">
-                    <div className="signupContainer">   
-
+                <div className="darken animate-fade-bg">
+                    <div className="signupContainer animate-fade-in">   
+                        {/* Sign up form goes here */}
                     </div>
                 </div>
             </div>
