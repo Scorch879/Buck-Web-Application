@@ -1,15 +1,11 @@
 "use client";
 import React from 'react';
+import Link from 'next/link';
 
 export default function GetStartedButton() {
-
-  const handleGetStarted = () => {
-    alert("Get Started clicked!");
-  };
-
   return (
-    <button id="btnGetstarted" onClick={handleGetStarted}>
-      <span>Get Started</span>
-    </button>
+    <Link href="/signup" >
+      <span id="btnGetstarted" >Sign Up</span>
+    </Link>
   );
 }
