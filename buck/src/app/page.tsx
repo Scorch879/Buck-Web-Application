@@ -21,6 +21,7 @@ export default function Home() {
       </div>
     <GetStartedButton />
     </div>
+    <Footer/>
     </>
   );
 }
