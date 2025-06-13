@@ -6,6 +6,7 @@ import {Header,Footer} from '../component/HeaderFooter'
 export default function Home() {
   return (
     <>
+    <Header/>
     <div className="mainStrip">
       <div className="welcomeSign">
         <div className="buckmsg">
@@ -22,6 +23,7 @@ export default function Home() {
         <span>Get Started</span>
       </button>
     </div>
+    <Footer/>
     </>
   );
 }
