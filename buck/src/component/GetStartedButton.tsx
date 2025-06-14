@@ -4,8 +4,8 @@ import Link from 'next/link';
 
 export default function GetStartedButton() {
   return (
-    <Link href="/signup" >
-      <span id="btnGetstarted" >Sign Up</span>
+    <Link href="/sign-in" >
+      <span id="btnGetstarted" >Get Started</span>
     </Link>
   );
 }
