@@ -1,0 +1,19 @@
+.darken{  
+  position:fixed;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  height:100vh;
+  width: 100vw;
+  background-color: rgba(0, 0, 0, 0.452);
+  z-index:10;
+}
+
+.signupContainer{
+    width:40%;
+    height: 60%;
+    background-color: #EF8A57;
+    border-radius: 25px;
+    z-index: 5;
+}
