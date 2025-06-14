@@ -10,14 +10,6 @@
   z-index:10;
 }
 
-.signupContainer{
-    width:40%;
-    height: 60%;
-    background-color: #EF8A57;
-    border-radius: 25px;
-    z-index: 5;
-}
-
 /* signup.css or a global CSS file */
 @keyframes fadeInUp {
   from {
