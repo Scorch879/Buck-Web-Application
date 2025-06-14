@@ -1,23 +1,6 @@
 "use client";
 import React, { useState } from 'react';
 import { Header, Footer } from '../../component/HeaderFooter';
-<<<<<<< Updated upstream
-
-export default function SignUp(){
-    return(
-        <>
-        <Header/>
-            <div className="mainStrip">
-                <div className="darken animate-fade-bg">
-                    <div className="signupContainer animate-fade-in">   
-                        {/* Sign up form goes here */}
-                    </div>
-                </div>
-            </div>
-        <Footer/>
-        </>
-    );
-=======
 import TextBox from '@/component/textBox';
 import { useSignUp }  from "@/component/authentication";
 
@@ -45,5 +28,5 @@ export default function SignUp() {
       <Footer />
     </>
   );
->>>>>>> Stashed changes
+
 }
