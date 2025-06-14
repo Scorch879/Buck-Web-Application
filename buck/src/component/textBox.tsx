@@ -16,7 +16,6 @@ export default function TextBox({ label, id, type = "text", value, onChange}: Te
       type={type}
       value={value}
       onChange={onChange}
-       
       />  
     </div>
   );
