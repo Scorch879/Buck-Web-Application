@@ -53,3 +53,25 @@
 a {
   text-decoration: none;
 }
+<<<<<<< Updated upstream
+=======
+
+.textBox{
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+}
+.textBox {
+  padding: 0.5em 1em;
+  border: 2px solid #EF8A57;
+  border-radius: 8px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.textBox :focus {
+  border-color: #FF3131;
+  box-shadow: 0 0 4px #FF313133;
+}
+>>>>>>> Stashed changes
