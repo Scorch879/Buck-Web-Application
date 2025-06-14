@@ -1,5 +1,8 @@
 "use client";
-import { useState } from 'react';
+import { useState } from "react";
+import { auth, db } from "@/utils/firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 
 type FormData = {
   username: string;
@@ -19,38 +22,45 @@ export function useSignUp() {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  setForm({ ...form, [e.target.id]: e.target.value });
-};
+    setForm({ ...form, [e.target.id]: e.target.value });
+  };
 
- const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-     if(form.username === "" || form.pass === "" || form.email === "") {
+    if (form.username === "" || form.pass === "" || form.email === "") {
       alert("Please fill in all fields");
       return;
     }
-    // Validation logic
     if (form.pass !== form.confirm) {
       alert("Passwords do not match");
       return;
     }
-
     if (!emailRegex.test(form.email)) {
       alert("Please enter a valid email address");
       return;
     }
 
-   
+    try {
+      // 1. Create user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, form.email, form.pass);
+      const user = userCredential.user;
 
+      // 2. Store additional user info in Firestore (not the password!)
+      await setDoc(doc(db, "users", user.uid), {
+        username: form.username,
+        email: form.email,
+        createdAt: new Date()
+      });
 
-    // Here you would typically send the form data to your backend
-    // ...other logic (API calls, etc.)...
-
-    alert("Sign up successful!");
+      alert("Sign up successful!");
+    } catch (error: any) {
+      alert(error.message);
+    }
   };
 
   return {
-    form, 
-    handleChange, 
+    form,
+    handleChange,
     handleSubmit
   };
 }
