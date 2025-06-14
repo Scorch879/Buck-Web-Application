@@ -16,20 +16,21 @@ git clone <http link of the repository>
 Press File > Clone Repository > Select Buck-Web-Application Repository
 ```
 
-
-### For the Firebase SDK to work properly make sure to do the command below in your code
-
-```base
-#npm install for Firebase
-npm install firebase
-```
-
 ```bash
 # then
 npm install
 # or
 npx create-next-app@latest
 ```
+
+### For the Firebase SDK to work properly, make sure to do the command below in your code
+
+```base
+#npm install for Firebase
+npm install firebase
+```
+
+
 
 Second, run the development server:
 
