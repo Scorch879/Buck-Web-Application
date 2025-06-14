@@ -1,6 +1,6 @@
 .header{
   width:100%;
-  height:10%;
+  height:7%;
   margin: 0px;
   background:linear-gradient(to right , #F7BC3C 40%,#FF3131);
   border-bottom-left-radius:  25px;
@@ -12,7 +12,7 @@
 }
 .footer{
   width:100%;
-  height:12%;
+  height:7%;
   margin: 0px;
   background:linear-gradient(to right , #F7BC3C 40%,#FF3131);
   border-top-left-radius:  25px;
