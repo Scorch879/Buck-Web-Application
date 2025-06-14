@@ -3,6 +3,7 @@ import { useState } from "react";
 import { auth, db } from "@/utils/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
+import { signInWithEmailAndPassword } from "firebase/auth";
 
 type FormData = {
   username: string;
@@ -58,9 +59,19 @@ export function useSignUp() {
     }
   };
 
+  
   return {
     form,
     handleChange,
     handleSubmit
   };
+}
+
+export async function signInUser(email: string, password: string) {
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return { success: true, user: userCredential.user };
+  } catch (error: any) {
+    return { success: false, message: error.message };
+  }
 }

@@ -3,8 +3,25 @@ import Image from "next/image";
 import React from "react";
 import Link from "next/link";
 import "./style.css";
+import { signInUser } from "@/component/authentication";
+import { useState } from "react";
 
 export const SignInSignUp = (): React.JSX.Element => {
+
+  const [email, setEmail] = useState("");
+  const [pass, setPass] = useState("");
+
+  const handleSignIn = async () => {
+    const result = await signInUser(email, pass);
+    if (result.success) {
+      alert("Sign in successful!");
+      // Optionally redirect or update UI here
+    } else {
+      alert(result.message || "Sign in failed.");
+    }
+  };
+
+
   return (
     <div className="sign-in-sign-up">
       <div className="overlap-wrapper">
@@ -21,13 +38,16 @@ export const SignInSignUp = (): React.JSX.Element => {
 
               <div className="text-wrapper-2">Password</div>
 
-              <div className="text-wrapper-3">Username</div>
+              <div className="text-wrapper-3">Email</div>
 
               
 
-              <input type="password" className="password-box" placeholder="Password" />
-
-              <input type="text" className="username-box" placeholder="Username" />
+             
+              <input type="password" value={pass} onChange={e => setPass(e.target.value)}  className="password-box" placeholder="Password" />
+              
+              
+             
+              <input type="text" value={email} onChange={e => setEmail(e.target.value)} className="username-box" placeholder="Email" />
             </div>
 
             <div className="duck-image">
@@ -59,15 +79,18 @@ export const SignInSignUp = (): React.JSX.Element => {
               </div>
             </button>
 
-            <button className="sign-in-btn" onClick={() => console.log('Sign in clicked')}>
+           
+            <button onClick={handleSignIn} className="sign-in-btn">
               <div className="div-wrapper">
                 <div className="text-wrapper-5">Sign In</div>
               </div>
             </button>
+         
           </div>
         </div>
       </div>
     </div>
+   
   );
 };
 

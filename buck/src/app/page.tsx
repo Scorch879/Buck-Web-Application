@@ -1,14 +1,12 @@
-"use client";
-import Image from "next/image";
-import styles from "../component/page.module.css";
-import { Header, Footer } from '../component/HeaderFooter'
-import { useRouter } from 'next/navigation';
+import {Header,Footer} from '@/component/HeaderFooter'
+import GetStartedButton from "@/component/GetStartedButton";
+import "./globals.css";
+
 
 export default function Home() {
-  const router = useRouter();
-
   return (
-     <Header/>
+    <>
+    <Header/>
     <div className="mainStrip">
       <div className="welcomeSign">
         <div className="buckmsg">
@@ -17,14 +15,13 @@ export default function Home() {
           <p id="desc">The Budget Tracker</p>
         </div>
           <div className="buckmascot"></div>
-        </div>
-        <div className="welcomeMsg">
-          <p>Hello World</p>
-        </div>
-        <button id="btnGetstarted" onClick={() => router.push('/sign-in')}>
-          <span>Get Started</span>
-        </button>
       </div>
+      <div className="welcomeMsg">  
+        <p>Hello World</p>
+      </div>
+    <GetStartedButton />
+    </div>
+    <Footer/>
     </>
   );
 }
