@@ -1,7 +1,8 @@
-import {Header,Footer} from '../component/HeaderFooter'
-import GetStartedButton from "../component/GetStartedButton";
+import {Header,Footer} from '@/component/HeaderFooter'
+import GetStartedButton from "@/component/GetStartedButton";
 import "./globals.css";
-import "../component/signup.css"
+import "./signup/signup.css"
+
 export default function Home() {
   return (
     <>
