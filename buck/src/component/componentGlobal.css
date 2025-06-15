@@ -32,7 +32,7 @@
   padding: 0.8em 2em;
   position: relative;
   overflow: hidden;
-  box-shadow: -5px 5px 5px 5px rgba(0, 0, 0, 0.250);
+
   transition: all 0.3s ease;
   display: flex;
   align-items: center;
