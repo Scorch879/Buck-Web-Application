@@ -4,8 +4,9 @@
   flex-direction: row;
   justify-content: center;
   width: 100%;
-  height: 100vh;
+  height: calc(100vh - 15%); /* Account for header and footer height */
   overflow: hidden;
+  flex-grow: 1;
 }
 
 .sign-in-sign-up .overlap-wrapper {
@@ -27,7 +28,7 @@
 
 .sign-in-sign-up .BG-inner-rect {
   background-color: #d9d9d9;
-  height: 100vh;
+  height: 100%;
   left: 14%;
   position: absolute;
   top: 0;
@@ -37,7 +38,7 @@
 
 .sign-in-sign-up .BG-outer-rect {
   background-color: #00000080;
-  height: 100vh;
+  height: 100%;
   position: absolute;
   width: 100%;
   overflow: hidden;

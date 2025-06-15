@@ -15,8 +15,6 @@
   height:7%;
   margin: 0px;
   background:linear-gradient(to right , #F7BC3C 40%,#FF3131);
-  border-top-left-radius:  25px;
-  border-top-right-radius:  25px;
   border: 2px solid black;
   z-index: 20;
   position:relative;
@@ -26,30 +24,68 @@
   height: 10%;
   font-size: 2rem;
   color: #ffffff;
-  background-color: #ffffff;
+  background: linear-gradient(90deg, #F7BC3C 0%, #FF3131 100%);
   -webkit-text-stroke: 1.5px black;
   border: 2px solid #000;
   border-radius: 15px;
   font-weight: bold;
-  padding: 0.1em 1.5em;
+  padding: 0.8em 2em;
   position: relative;
   overflow: hidden;
-   box-shadow: -5px 5px 5px 5px rgba(0, 0, 0, 0.250) ;
+  box-shadow: -5px 5px 5px 5px rgba(0, 0, 0, 0.250);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 200px;
+  letter-spacing: 0.5px;
+  font-family: 'Inter', 'Segoe UI', 'Montserrat', system-ui, -apple-system, sans-serif;
 }
 
 #btnGetstarted span {
-  background: linear-gradient(90deg, #F7BC3C 0%, #FF3131 100%);
+  background: #ffffff;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   color: transparent;
   display: inline-block;
   -webkit-text-stroke: 1px black;
+  transition: all 0.3s ease;
+  text-align: center;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+  font-family: 'Inter', 'Segoe UI', 'Montserrat', system-ui, -apple-system, sans-serif;
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.10), 0 1px 1px rgba(0,0,0,0.10);
+  text-transform: uppercase;
 }
 
-#btnGetstarted:hover{
-  background: linear-gradient(30deg, #FF3131 0%, #F7BC3C 100%);
+#btnGetstarted:hover {
+  transform: translateY(-2px);
+  box-shadow: -8px 8px 5px 5px rgba(0, 0, 0, 0.250);
+  background: linear-gradient(90deg, #FFD700 0%, #FF6B6B 100%);
+  filter: brightness(1.1);
+  letter-spacing: 0.8px;
 }
+
+#btnGetstarted:hover span {
+  background: linear-gradient(90deg, #FFD700 0%, #FF6B6B 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: brightness(1.2);
+}
+
+#btnGetstarted:active {
+  transform: translateY(2px);
+  box-shadow: -3px 3px 5px 5px rgba(0, 0, 0, 0.250);
+  filter: brightness(0.95);
+  letter-spacing: 0.5px;
+}
+
 a {
   text-decoration: none;
 }

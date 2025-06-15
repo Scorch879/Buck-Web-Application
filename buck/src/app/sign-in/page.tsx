@@ -5,6 +5,8 @@ import Link from "next/link";
 import "./style.css";
 import { signInUser, signInWithGoogle } from "@/component/authentication";
 import { useState } from "react";
+import { Header, Footer } from "@/component/HeaderFooter";
+import { motion } from "framer-motion";
 
 const SignInSignUp = (): React.JSX.Element => {
   const [email, setEmail] = useState("");
@@ -31,77 +33,80 @@ const SignInSignUp = (): React.JSX.Element => {
   };  
 
   return (
-    <div className="sign-in-sign-up">
-      <div className="overlap-wrapper">
-        <div className="overlap">
-          <div className="BG-inner-rect" />
+    <>
+      <Header />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.5 }}
+        className="sign-in-sign-up"
+      >
+        <div className="overlap-wrapper">
+          <div className="overlap">
+            <div className="BG-inner-rect" />
+            <div className="BG-outer-rect" />
+            <div className="main-panel">
+              <div className="text-input-layer">
+                <a
+                  href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                  className="text-wrapper"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Create an Account
+                </a>
 
-          <div className="BG-outer-rect" />
+                <Link href="/forgot-password" className="div">Forgot Password</Link>
 
-          <div className="main-panel">
-            <div className="text-input-layer">
-              <a
-                href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-                className="text-wrapper"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Create an Account
-              </a>
+                <div className="text-wrapper-2">Password</div>
 
-              <Link href="/forgot-password" className="div">Forgot Password</Link>
+                <div className="text-wrapper-3">Email</div>
 
-              <div className="text-wrapper-2">Password</div>
+                <input type="password" value={pass} onChange={e => setPass(e.target.value)}  className="password-box" placeholder="Password" />
+                
+                <input type="text" value={email} onChange={e => setEmail(e.target.value)} className="username-box" placeholder="Email" />
+              </div>
 
-              <div className="text-wrapper-3">Email</div>
+              <div className="duck-image">
+                <div className="overlap-group">
+                  <div className="ellipse" />
+                  <Image
+                    className="duck-rect-shape"
+                    alt="Duck rect shape"
+                    src="/BuckMascot.png"
+                    width={98}
+                    height={107}
+                    priority
+                  />
+                </div>
+              </div>
 
-              <input type="password" value={pass} onChange={e => setPass(e.target.value)}  className="password-box" placeholder="Password" />
-              
-             
-              <input type="text" value={email} onChange={e => setEmail(e.target.value)} className="username-box" placeholder="Email" />
+              <button className="google-btn" onClick={handleGoogleSignIn}>
+                <div className="overlap-2">
+                  <div className="text-wrapper-4">Google Sign In</div>
+                  <Image
+                    className="google"
+                    alt="Google"
+                    src="/google.png"
+                    width={20}
+                    height={20}
+                    priority
+                  />
+                </div>
+              </button>
+
+              <button onClick={handleSignIn} className="sign-in-btn">
+                <div className="div-wrapper">
+                  <div className="text-wrapper-5">Sign In</div>
+                </div>
+              </button>
             </div>
-
-            <div className="duck-image">
-              <div className="overlap-group">
-                <div className="ellipse" />
-                <Image
-                  className="duck-rect-shape"
-                  alt="Duck rect shape"
-                  src="/BuckMascot.png"
-                  width={98}
-                  height={107}
-                  priority // optional, loads image ASAP
-                />
-              </div>
-            </div>
-
-            <button className="google-btn" onClick={handleGoogleSignIn}>
-              <div className="overlap-2">
-                <div className="text-wrapper-4">Google Sign In</div>
-
-                <Image
-                  className="google"
-                  alt="Google"
-                  src="/google.png"
-                  width={20}
-                  height={20}
-                  priority
-                />
-              </div>
-            </button>
-
-           
-            <button onClick={handleSignIn} className="sign-in-btn">
-              <div className="div-wrapper">
-                <div className="text-wrapper-5">Sign In</div>
-              </div>
-            </button>
-         
           </div>
         </div>
-      </div>
-    </div>
-   
+      </motion.div>
+      <Footer />
+    </>
   );
 };
 
