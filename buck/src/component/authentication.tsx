@@ -4,6 +4,7 @@ import { auth, db } from "@/utils/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { sendPasswordResetEmail } from "firebase/auth";
 
 type FormData = {
   username: string;
@@ -82,6 +83,21 @@ export async function signInWithGoogle() {
     const result = await signInWithPopup(auth, provider);
     // result.user contains the signed-in user info
     return { success: true, user: result.user };
+  } catch (error: any) {
+    return { success: false, message: error.message };
+  }
+}
+
+/**
+ * Sends a password reset email to the given address.
+ * @param email The user's email address.
+ * @returns {Promise<{success: boolean, message?: string}>}
+ */
+
+export async function sendPasswordReset(email: string) {
+  try {
+    await sendPasswordResetEmail(auth, email);
+    return { success: true, message: "Password reset email sent!" };
   } catch (error: any) {
     return { success: false, message: error.message };
   }
