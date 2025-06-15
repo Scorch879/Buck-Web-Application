@@ -6,8 +6,7 @@ import "./style.css";
 import { signInUser } from "@/component/authentication";
 import { useState } from "react";
 
-export const SignInSignUp = (): React.JSX.Element => {
-
+const SignInSignUp = (): React.JSX.Element => {
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
 
@@ -32,7 +31,14 @@ export const SignInSignUp = (): React.JSX.Element => {
 
           <div className="main-panel">
             <div className="text-input-layer">
-              <div className="text-wrapper">Create an Account</div>
+              <a
+                href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                className="text-wrapper"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Create an Account
+              </a>
 
               <Link href="/forgot-password" className="div">Forgot Password</Link>
 
@@ -94,4 +100,4 @@ export const SignInSignUp = (): React.JSX.Element => {
   );
 };
 
-export default SignInSignUp; 
+export default SignInSignUp;
