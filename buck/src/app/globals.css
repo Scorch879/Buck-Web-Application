@@ -28,11 +28,12 @@ body {
   flex-grow: 1;
   gap:5%;
   z-index: 1;
+  padding-top: 2.5rem;
 }
 .welcomeSign{
-  width:60%;
-  height: 25%;
-  margin-top: -5%;
+  width: clamp(350px, 50vw, 700px);
+  padding: clamp(1rem, 4vw, 2.5rem) 0;
+  margin-top: 0;
   background:linear-gradient(60deg, #F7BC3C 50% ,#FF3131);
   border: 2px solid black;
   border-radius: 25px;
@@ -40,7 +41,9 @@ body {
   display:flex;
   justify-content: center;
   align-items: center;
-  gap:0%
+  gap:0%;
+  margin-left: auto;
+  margin-right: auto;
 }
 .buckmsg {
   font-family: 'Comic Sans MS', 'Comic Sans', cursive;
