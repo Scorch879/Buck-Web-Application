@@ -49,7 +49,7 @@ const SignInSignUp = (): React.JSX.Element => {
             <div className="main-panel">
               <div className="text-input-layer">
                 <a
-                  href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                  href="/create-account"
                   className="text-wrapper"
                   target="_blank"
                   rel="noopener noreferrer"
