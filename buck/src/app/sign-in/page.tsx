@@ -3,7 +3,7 @@ import Image from "next/image";
 import React from "react";
 import Link from "next/link";
 import "./style.css";
-import { signInUser } from "@/component/authentication";
+import { signInUser, signInWithGoogle } from "@/component/authentication";
 import { useState } from "react";
 
 const SignInSignUp = (): React.JSX.Element => {
@@ -20,6 +20,15 @@ const SignInSignUp = (): React.JSX.Element => {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    const result = await signInWithGoogle();
+    if (result.success) {
+      alert("Google sign in successful!");
+      // Optionally redirect or update UI here
+    } else {
+      alert(result.message || "Google sign in failed.");
+    }
+  };  
 
   return (
     <div className="sign-in-sign-up">
@@ -46,11 +55,7 @@ const SignInSignUp = (): React.JSX.Element => {
 
               <div className="text-wrapper-3">Email</div>
 
-              
-
-             
               <input type="password" value={pass} onChange={e => setPass(e.target.value)}  className="password-box" placeholder="Password" />
-              
               
              
               <input type="text" value={email} onChange={e => setEmail(e.target.value)} className="username-box" placeholder="Email" />
@@ -70,7 +75,7 @@ const SignInSignUp = (): React.JSX.Element => {
               </div>
             </div>
 
-            <button className="google-btn" onClick={() => console.log('Google sign in clicked')}>
+            <button className="google-btn" onClick={handleGoogleSignIn}>
               <div className="overlap-2">
                 <div className="text-wrapper-4">Google Sign In</div>
 

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { auth, db } from "@/utils/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 
 type FormData = {
   username: string;
@@ -71,6 +71,17 @@ export async function signInUser(email: string, password: string) {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     return { success: true, user: userCredential.user };
+  } catch (error: any) {
+    return { success: false, message: error.message };
+  }
+}
+
+export async function signInWithGoogle() {
+  const provider = new GoogleAuthProvider();
+  try {
+    const result = await signInWithPopup(auth, provider);
+    // result.user contains the signed-in user info
+    return { success: true, user: result.user };
   } catch (error: any) {
     return { success: false, message: error.message };
   }
