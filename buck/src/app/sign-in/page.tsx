@@ -6,8 +6,7 @@ import "./style.css";
 import { signInUser } from "@/component/authentication";
 import { useState } from "react";
 
-export const SignInSignUp = (): React.JSX.Element => {
-
+const SignInSignUp = (): React.JSX.Element => {
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
 
@@ -94,4 +93,4 @@ export const SignInSignUp = (): React.JSX.Element => {
   );
 };
 
-export default SignInSignUp; 
+export default SignInSignUp;
