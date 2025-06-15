@@ -1,0 +1,165 @@
+.forgot-password-page {
+  background-color: #d5cac3;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  width: 100%;
+  height: calc(100vh - 14%); /* Account for header and footer height */
+  overflow: hidden;
+  flex-grow: 1;
+}
+
+.forgot-password-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Exact styles from sign-in/style.css for BG-inner-rect */
+.BG-inner-rect {
+  background-color: #d9d9d9;
+  height: 100vh; /* Use 100vh for full viewport height as in sign-in */
+  left: 14%;
+  position: absolute;
+  top: 0;
+  width: 75%;
+  overflow: hidden;
+}
+
+/* Exact styles from sign-in/style.css for BG-outer-rect */
+.BG-outer-rect {
+  background-color: #00000080;
+  height: 100vh; /* Use 100vh for full viewport height as in sign-in */
+  position: absolute;
+  width: 100%;
+  overflow: hidden;
+}
+
+.forgot-password-panel {
+  background-color: #ef8a57;
+  border: 2px solid;
+  border-color: #000000;
+  border-radius: 25px;
+  box-shadow: 0px 10px 0px #00000040;
+  height: auto; /* Allow height to adjust based on content */
+  min-height: 350px; /* Maintain a minimum height */
+  width: 450px; /* Adjusted width */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start; /* Align content from the top */
+  align-items: center;
+  padding: 30px 20px; /* Increase vertical padding */
+  box-sizing: border-box;
+  z-index: 2; /* Ensure panel is above the background elements */
+}
+
+.forgot-password-panel h2 {
+  color: #f0f0f0;
+  font-family: "Montserrat", "Segoe UI", "Helvetica Neue", sans-serif;
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+  text-align: center;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.4), 0 0 8px rgba(0,0,0,0.2);
+  width: 100%; /* Ensure heading takes full width */
+}
+
+.forgot-password-panel p {
+  color: #f8f8f8;
+  font-family: "Inter", "Segoe UI", "Helvetica Neue", sans-serif;
+  font-size: 1rem;
+  margin-bottom: 25px;
+  text-align: center;
+  line-height: 1.5;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  width: 100%; /* Ensure paragraph takes full width */
+}
+
+.email-input {
+  background-color: #ffffff;
+  border: 2px solid;
+  border-color: #000000;
+  box-shadow: 0px 4px 0px #00000040;
+  height: 40px;
+  width: 100%; /* Ensure input takes full width of available space */
+  max-width: 350px; /* Set a maximum width for consistency */
+  padding: 0 15px;
+  margin-bottom: 25px;
+  box-sizing: border-box;
+  font-family: "Inter", "Segoe UI", "Roboto", sans-serif;
+  font-size: 1rem;
+  color: #333;
+}
+
+.email-input::placeholder {
+  color: #888; /* Softer placeholder color */
+}
+
+.reset-button {
+  height: 50px;
+  width: 100%; /* Ensure it takes full width of available space */
+  max-width: 280px; /* Set a maximum width for consistency */
+  min-width: 200px; /* Set a minimum width */
+  background: linear-gradient(141deg, rgba(247, 188, 60, 1) 0%, rgba(255, 49, 49, 1) 100%);
+  border: 2px solid #000000;
+  border-radius: 15px;
+  box-shadow: -10px 10px 0px #00000040;
+  color: #f0f0f0;
+  font-family: "Montserrat", "Segoe UI", "Helvetica Neue", sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+  margin: 0 auto 25px auto; /* Center button and control bottom margin */
+}
+
+.reset-button:hover {
+  transform: translateY(-2px);
+  box-shadow: -8px 8px 0px #00000040;
+}
+
+.reset-button:active {
+  transform: translateY(2px);
+  box-shadow: -5px 5px 0px #00000040;
+}
+
+.success-message,
+.error-message {
+  width: 100%; /* Ensure messages take full width */
+  text-align: center;
+  margin-top: 0; /* Adjust margin as needed, controlled by button's margin-bottom */
+  padding-top: 15px; /* Add padding to separate from button */
+  font-family: "Inter", "Segoe UI", "Helvetica Neue", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.success-message {
+  color: #c8e6c9; /* Lighter green for success */
+}
+
+.error-message {
+  color: #ff9999; /* Lighter red for error */
+}
+
+.back-to-signin {
+  color: #f8f8f8;
+  font-family: "Inter", "Segoe UI", "Helvetica Neue", sans-serif;
+  font-size: 0.95rem;
+  margin-top: auto; /* Push to the bottom */
+  text-decoration: underline;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.back-to-signin:hover {
+  opacity: 0.8;
+} 
