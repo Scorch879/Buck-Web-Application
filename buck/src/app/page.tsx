@@ -1,9 +1,19 @@
-import {Header,Footer} from '@/component/HeaderFooter'
+"use client";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Header, Footer } from "@/component/HeaderFooter";
 import GetStartedButton from "@/component/GetStartedButton";
 import "./globals.css";
 
 
 export default function Home() {
+  const router = useRouter();
+
+  //Prefetching for optimization
+  useEffect(() => {
+    router.prefetch('/sign-in');
+  }, [router]);
+
   return (
     <>
     <Header/>
