@@ -1,0 +1,293 @@
+.create-account {
+  align-items: center;
+  background-color: #d5cac3;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 100vh;
+  width: 100vw;
+  position: relative;
+  overflow: hidden;
+}
+
+.create-account .inner-rect {
+  background-color: #d9d9d9;
+  height: 100vh;
+  width: 80vw;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.create-account .outer-rect {
+  background-color: #00000080;
+  height: 100vh;
+  width: 100vw;
+  position: relative;
+}
+
+.create-account .create-acc-panel {
+  height: 70vh;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80vw;
+  max-width: 1479px;
+}
+
+.create-account .overlap {
+  background-color: #ef8a57;
+  border: 2px solid;
+  border-color: #000000;
+  border-radius: 25px;
+  box-shadow: 0px 10px 0px #00000040;
+  height: 100%;
+  position: relative;
+  width: 100%;
+}
+
+.create-account .overlap-group {
+  height: 55%;
+  left: 55%;
+  position: absolute;
+  top: 5%;
+  width: 38%;
+}
+
+.create-account .div {
+  height: 100%;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 100%;
+}
+
+.create-account .input-box {
+  height: 50%;
+  left: 0;
+  position: absolute;
+  top: 10%;
+  width: 100%;
+}
+
+.create-account .confirm-password,
+.create-account .password,
+.create-account .email,
+.create-account .username {
+  height: 23%;
+  left: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.create-account .confirm-password {
+  top: 90%;
+}
+
+.create-account .password {
+  top: 60%;
+}
+
+.create-account .email {
+  top: 30%;
+}
+
+.create-account .username {
+  top: 0;
+}
+
+.create-account .confirm-text,
+.create-account .password-text,
+.create-account .text-wrapper {
+  color: #ffffff;
+  font-family: "Segoe UI-Semibold", Helvetica;
+  font-size: 1.5vw;
+  font-weight: 400;
+  height: 33%;
+  left: 1%;
+  letter-spacing: 0;
+  line-height: 1.5;
+  position: absolute;
+  top: 100;
+  white-space: nowrap;
+  width: 60%;
+}
+
+.create-account .duck-image {
+  height: 26%;
+  left: 71%;
+  position: absolute;
+  top: -10%;
+  width: 16%;
+}
+
+.create-account .overlap-2 {
+  height: 100%;
+  position: relative;
+}
+
+.create-account .ellipse {
+  background-color: #1b1725;
+  border: 1px solid;
+  border-color: #000000;
+  border-radius: 50%;
+  box-shadow: 0px 4px 0px #00000040;
+  height: 92%;
+  left: 0;
+  position: absolute;
+  top: 8%;
+  width: 92%;
+}
+
+.create-account .duck-rect-shape {
+  height: 100%;
+  left: 1%;
+  object-fit: cover;
+  position: absolute;
+  top: 0;
+  width: 77%;
+}
+
+.create-account .h {
+  color: #ffffff;
+  font-family: "Segoe UI-Bold", Helvetica;
+  font-size: 2.2vw;
+  font-weight: 700;
+  height: 20%;
+  letter-spacing: 0;
+  line-height: 1.5;
+  position: absolute;
+  top: 0;
+  width: 60%;
+}
+
+.create-account .google-btn,
+.create-account .create-account-btn {
+  
+  height: 8%;
+  position: absolute;
+  width: 16%;
+}
+
+.create-account .google-btn {
+  left: 65%;
+  top: 80%;
+}
+
+.create-account .create-account-btn {
+  left: 65%;
+  top: 70%;
+}
+
+.create-account .div-wrapper {
+  background: linear-gradient(270deg, #fd523b 0%, #FCC145 100%);
+  border: 2px solid;
+  border-color: #000000;
+  border-radius: 15px;
+  box-shadow: -10px 10px 0px #00000040;
+  height: 100%;
+  position: relative;
+  width: 100%;
+}
+
+.create-account .text-wrapper-2 {
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  background-image: linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 1) 0%,
+      rgba(255, 49, 49, 1) 100%
+    )
+    1;
+  color: #ffffff;
+  font-family: "Segoe UI-Bold", Helvetica;
+  font-size: 1.5vw;
+  font-weight: 700;
+  height: 56%;
+  left: 0;
+  letter-spacing: 0;
+  line-height: 1.5;
+  position: absolute;
+  text-align: center;
+  text-shadow: 0px 4px 0px #00000040;
+  top: 9%;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.create-account .sign-in-text {
+  color: #ffffff;
+  font-family: "Segoe UI-Bold", Helvetica;
+  font-size: 0.9vw;
+  font-weight: 500;
+  height: 3%;
+  left: 62%;
+  letter-spacing: 0;
+  line-height: 1.5;
+  position: absolute;
+  text-align: center;
+  text-shadow: 0px 4px 0px #00000040;
+  top: 89%;
+  white-space: nowrap;
+  width: 22%;
+}
+
+.create-account .img {
+  height: 2.5px;
+  margin-bottom: -0.25px;
+  margin-top: -1.25px;
+  position: relative;
+  width: 32%;
+}
+
+.create-account .register-text {
+  color: #ffffffbf;
+  font-family: "Segoe UI-Bold", Helvetica;
+  font-size: 1vw;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.5;
+  margin-bottom: -16px;
+  margin-top: -19px;
+  position: relative;
+  text-align: center;
+  white-space: nowrap;
+  width: fit-content;
+}
+
+.create-account .buck-logo {
+  height: 84%;
+  left: 2%;
+  object-fit: cover;
+  position: absolute;
+  top: 8%;
+  width: 49%;
+}
+
+.input-label {
+  color: #fff;
+  font-family: "Segoe UI-Semibold", Helvetica;
+  font-size: 1.2vw;
+
+  margin-top: 1em;
+  display: block;
+}
+
+.input-field {
+  width: 100%;
+  padding: 0.3em 1em;
+  border: 2px solid #000;
+  box-shadow: 0px 4px 0px #00000040;
+  font-size: 1.1vw;
+  font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+  background: #fff;
+  color: #222;
+  outline: none;
+  transition: border 0.2s;
+}
+.input-field:focus {
+  border-color: #ef8a57;
+}

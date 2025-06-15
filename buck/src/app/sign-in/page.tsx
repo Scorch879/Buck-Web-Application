@@ -23,10 +23,36 @@ export const SignInSignUp = (): React.JSX.Element => {
 
 
   return (
+<<<<<<< Updated upstream
     <div className="sign-in-sign-up">
       <div className="overlap-wrapper">
         <div className="overlap">
           <div className="BG-inner-rect" />
+=======
+    <>
+      <Header />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.5 }}
+        className="sign-in-sign-up"
+      >
+        <div className="overlap-wrapper">
+          <div className="overlap">
+            <div className="BG-inner-rect" />
+            <div className="BG-outer-rect" />
+            <div className="main-panel">
+              <div className="text-input-layer">
+                <a
+                  href="/create-account"
+                  className="text-wrapper"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Create an Account
+                </a>
+>>>>>>> Stashed changes
 
           <div className="BG-outer-rect" />
 
