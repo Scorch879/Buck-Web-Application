@@ -74,9 +74,16 @@ export default function Home() {
             <div className="smoothLine"></div>
             <p id="desc">The Budget Tracker</p>
           </div>
-
-          <div className="buckmascot" >
-
+            <div className="buckmascot" >
+              <Image
+              src="/BuckMascot.png"
+              alt ="Buck Logo"
+              fill
+              className="buckmascotImg"
+              priority
+              style={{ objectFit: "contain" }}
+              >
+              </Image>
           </div>
          
         </div>
