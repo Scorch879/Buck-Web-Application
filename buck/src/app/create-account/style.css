@@ -1,3 +1,8 @@
+html {
+   height:100vh;
+  width: 100vw; 
+   background: #ef8a57;
+}
 .ca-bg {
   min-height: 100vh;
   min-width: 100vw; /* Add this line */
