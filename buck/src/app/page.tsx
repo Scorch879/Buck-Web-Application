@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { Header, Footer } from "@/component/HeaderFooter";
 import GetStartedButton from "@/component/GetStartedButton";
@@ -9,7 +10,7 @@ import "./globals.css";
 export default function Home() {
   const router = useRouter();
   const welcomeMsgRef = useRef<HTMLDivElement>(null);
-  const [trailDots, setTrailDots] = useState<Array<{id: number, x: number, y: number}>>([]);
+  const [trailDots, setTrailDots] = useState<Array<{ id: number, x: number, y: number }>>([]);
   const nextDotId = useRef(0);
 
   const text = "Need help in saving your money? Guess what, go BUCK yourself! Buck can help you manage your weekly spending with a press of a button!";
@@ -17,7 +18,7 @@ export default function Home() {
 
   const containerVariants = {
     hidden: { opacity: 0 },
-    visible: { 
+    visible: {
       opacity: 1,
       transition: {
         staggerChildren: 0.05, // Stagger animation for each word
@@ -65,49 +66,53 @@ export default function Home() {
 
   return (
     <>
-    <Header/>
-    <div className="mainStrip">
-      <div className="welcomeSign">
-        <div className="buckmsg">
-          <p id="name">Buck</p>
-          <div className="smoothLine"></div>
-          <p id="desc">The Budget Tracker</p>
+      <Header />
+      <div className="mainStrip">
+        <div className="welcomeSign">
+          <div className="buckmsg">
+            <p id="name">Buck</p>
+            <div className="smoothLine"></div>
+            <p id="desc">The Budget Tracker</p>
+          </div>
+
+          <div className="buckmascot" >
+
+          </div>
+         
         </div>
-          <div className="buckmascot"></div>
-      </div>
-      <div 
-        className="welcomeMsg"
-        onMouseMove={handleMouseMove}
-        ref={welcomeMsgRef}
-      >
-        <motion.p
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          style={{ display: "flex", flexWrap: "wrap", justifyContent: "center" }}
+        <div
+          className="welcomeMsg"
+          onMouseMove={handleMouseMove}
+          ref={welcomeMsgRef}
         >
-          {words.map((word, index) => (
-            <motion.span key={index} variants={wordVariants} style={{ marginRight: "0.25em" }}>
-              {word}
-            </motion.span>
-          ))}
-        </motion.p>
-        {
-          trailDots.map(dot => (
-            <div
-              key={dot.id}
-              className="mouse-trail-dot"
-              style={{
-                left: `${dot.x}px`,
-                top: `${dot.y}px`,
-              }}
-            />
-          ))
-        }
+          <motion.p
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            style={{ display: "flex", flexWrap: "wrap", justifyContent: "center" }}
+          >
+            {words.map((word, index) => (
+              <motion.span key={index} variants={wordVariants} style={{ marginRight: "0.25em" }}>
+                {word}
+              </motion.span>
+            ))}
+          </motion.p>
+          {
+            trailDots.map(dot => (
+              <div
+                key={dot.id}
+                className="mouse-trail-dot"
+                style={{
+                  left: `${dot.x}px`,
+                  top: `${dot.y}px`,
+                }}
+              />
+            ))
+          }
+        </div>
+        <GetStartedButton />
       </div>
-    <GetStartedButton />
-    </div>
-    <Footer/>
+      <Footer />
     </>
   );
 }

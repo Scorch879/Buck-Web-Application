@@ -11,26 +11,46 @@ import { motion } from "framer-motion";
 const SignInSignUp = (): React.JSX.Element => {
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
+  const [error, setError] = useState("");
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
 
   const handleSignIn = async () => {
+    setError("");
+    if (!email || !pass) {
+      setError("Please enter both email and password.");
+      return;
+    }
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (pass.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
     const result = await signInUser(email, pass);
     if (result.success) {
       alert("Sign in successful!");
-      // Optionally redirect or update UI here
+      // Redirect or update UI here
     } else {
-      alert(result.message || "Sign in failed.");
+      setError(result.message || "Sign in failed.");
     }
   };
 
   const handleGoogleSignIn = async () => {
     const result = await signInWithGoogle();
     if (result.success) {
-      alert("Google sign in successful!");
-      // Optionally redirect or update UI here
+      alert("Google Sign-In successful!");
+    } else if (result.cancelled) {
+      // Do nothing, user cancelled
     } else {
-      alert(result.message || "Google sign in failed.");
+      alert(result.message || "Google Sign-In failed.");
     }
-  };  
+  };
 
   return (
     <>
@@ -61,8 +81,8 @@ const SignInSignUp = (): React.JSX.Element => {
 
                 <div className="text-wrapper-3">Email</div>
 
-                <input type="password" value={pass} onChange={e => setPass(e.target.value)}  className="password-box" placeholder="Password" />
-                
+                <input type="password" value={pass} onChange={e => setPass(e.target.value)} className="password-box" placeholder="Password" />
+
                 <input type="text" value={email} onChange={e => setEmail(e.target.value)} className="username-box" placeholder="Email" />
               </div>
 
@@ -86,7 +106,7 @@ const SignInSignUp = (): React.JSX.Element => {
                   <Image
                     className="google"
                     alt="Google"
-                    src="/google.png"
+                    src="/Google.png"
                     width={20}
                     height={20}
                     priority

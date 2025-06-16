@@ -60,7 +60,7 @@ export function useSignUp() {
     }
   };
 
-  
+
   return {
     form,
     handleChange,
@@ -83,7 +83,12 @@ export async function signInWithGoogle() {
     const result = await signInWithPopup(auth, provider);
     // result.user contains the signed-in user info
     return { success: true, user: result.user };
-  } catch (error: any) {
+  }
+  catch (error: any) {
+    if (error.code === "auth/popup-closed-by-user") {
+      return { success: false, cancelled: true }; //if user closed the popup it is treated as a cancellation of your life
+    }
+
     return { success: false, message: error.message };
   }
 }
