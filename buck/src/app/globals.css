@@ -111,15 +111,6 @@ body {
   margin-left: -5%;
 }
 
-.buckmascot2 {
-  height: 200px;
-  width: 48px;
-  /* Remove background-image */
-  
-  /* Ensures the image scales nicely */
-  /* ...other styles as needed... */
-}
-
 .welcomeMsg {
   background-color: #EF8A57;
   height: auto;

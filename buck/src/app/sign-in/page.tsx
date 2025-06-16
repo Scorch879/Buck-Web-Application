@@ -21,15 +21,15 @@ const SignInSignUp = (): React.JSX.Element => {
   const handleSignIn = async () => {
     setError("");
     if (!email || !pass) {
-      setError("Please enter both email and password.");
+      alert("Please enter both email and password.");
       return;
     }
     if (!validateEmail(email)) {
-      setError("Please enter a valid email address.");
+      alert("Please enter a valid email address.");
       return;
     }
     if (pass.length < 6) {
-      setError("Password must be at least 6 characters.");
+      alert("Password must be at least 6 characters.");
       return;
     }
     const result = await signInUser(email, pass);
@@ -37,7 +37,7 @@ const SignInSignUp = (): React.JSX.Element => {
       alert("Sign in successful!");
       // Redirect or update UI here
     } else {
-      setError(result.message || "Sign in failed.");
+      alert(result.message || "Sign in failed.");
     }
   };
 

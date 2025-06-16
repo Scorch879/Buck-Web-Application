@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { auth, db } from "@/utils/firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { sendPasswordResetEmail } from "firebase/auth";
@@ -13,7 +13,7 @@ type FormData = {
   email: string;
 };
 
-export function useSignUp() {
+export function SignInSignUp() {
   const [form, setForm] = useState<FormData>({
     username: "",
     pass: "",
@@ -68,6 +68,20 @@ export function useSignUp() {
   };
 }
 
+export async function signUpUser(email: string, password: string, username: string) {
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    // Optionally set display name
+    if (auth.currentUser && username) {
+      await updateProfile(auth.currentUser, { displayName: username });
+    }
+    return { success: true, user: userCredential.user };
+  } catch (error: any) {
+    console.error("Sign up error:", error);
+    return { success: false, message: error.message };
+  }
+}
+
 export async function signInUser(email: string, password: string) {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -107,3 +121,5 @@ export async function sendPasswordReset(email: string) {
     return { success: false, message: error.message };
   }
 }
+
+

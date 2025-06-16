@@ -169,6 +169,33 @@
   display: none;
 }
 
+
+
+/*For messages */
+.success-message {
+  color: #2e7d32;
+  background: #e8f5e9;
+  border: 1px solid #a5d6a7;
+  border-radius: 6px;
+  padding: 0.75em 1em;
+  margin-top: 1em;
+  text-align: center;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.error-message {
+  color: #c62828;
+  background: #ffebee;
+  border: 1px solid #ef9a9a;
+  border-radius: 6px;
+  padding: 0.75em 1em;
+  margin-top: 1em;
+  text-align: center;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
 @media (max-width: 500px) {
   .ca-card {
     padding: 1.2rem 0.7rem 1.2rem 0.7rem;
@@ -178,3 +205,4 @@
     display: none;
   }
 }
+
