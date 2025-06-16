@@ -1,10 +1,5 @@
-html {
-   height:100vh;
-  width: 100vw; 
-   background: #ef8a57;
-}
 .ca-bg {
-  min-height: 100vh;
+  min-height: 100dvh;
   min-width: 100vw; /* Add this line */
   background: #ef8a57;
   display: flex;
@@ -16,7 +11,7 @@ html {
   background: #fff;
   padding: 2.5rem 2rem 2rem 2rem;
   border-radius: 18px;
-  box-shadow: 0 6px 32px 0 rgba(0,0,0,0.10);
+  box-shadow: 0 6px 32px 0 rgba(0, 0, 0, 0.1);
   width: 100%;
   max-width: 370px;
   display: flex;
@@ -80,7 +75,7 @@ html {
   border-radius: 7px;
   cursor: pointer;
   transition: background 0.2s;
-  box-shadow: 0 2px 8px 0 rgba(239,138,87,0.10);
+  box-shadow: 0 2px 8px 0 rgba(239, 138, 87, 0.1);
 }
 
 .ca-btn:hover {
@@ -155,10 +150,10 @@ html {
   height: 90px;
   background: #ef8a57;
   border-radius: 50%;
-  overflow: hidden;         /* This makes the circle act as a mask */
-  box-shadow: 0 2px 8px 0 rgba(239,138,87,0.10);
+  overflow: hidden; /* This makes the circle act as a mask */
+  box-shadow: 0 2px 8px 0 rgba(239, 138, 87, 0.1);
   display: flex;
-  align-items: flex-end;    /* Align mascot to bottom of circle */
+  align-items: flex-end; /* Align mascot to bottom of circle */
   justify-content: center;
 }
 
@@ -167,38 +162,11 @@ html {
   width: 70px;
   height: 100px;
   object-fit: contain;
-  top: 20px;                /* Move mascot up/down to control peep */
+  top: 20px; /* Move mascot up/down to control peep */
 }
 
 .ca-mascot {
   display: none;
-}
-
-
-
-/*For messages */
-.success-message {
-  color: #2e7d32;
-  background: #e8f5e9;
-  border: 1px solid #a5d6a7;
-  border-radius: 6px;
-  padding: 0.75em 1em;
-  margin-top: 1em;
-  text-align: center;
-  font-weight: 600;
-  font-size: 1rem;
-}
-
-.error-message {
-  color: #c62828;
-  background: #ffebee;
-  border: 1px solid #ef9a9a;
-  border-radius: 6px;
-  padding: 0.75em 1em;
-  margin-top: 1em;
-  text-align: center;
-  font-weight: 600;
-  font-size: 1rem;
 }
 
 @media (max-width: 500px) {
@@ -211,3 +179,52 @@ html {
   }
 }
 
+.ca-password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ca-password-wrapper .ca-input {
+  width: 100%;
+  padding-right: 2.5rem;
+}
+
+.ca-toggle-btn {
+  position: absolute;
+  right: 0.7rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  color: #ef8a57;
+  padding: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.ca-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.ca-eye-btn {
+  background: none;
+  border: none;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0;
+  cursor: pointer;
+  height: 24px;
+  width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ca-input-wrapper .ca-input {
+  width: 100%;
+  padding-right: 36px;
+}
