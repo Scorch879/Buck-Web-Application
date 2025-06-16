@@ -67,132 +67,134 @@ const CreateAccount = () => {
   };
 
   return (
-    <div className="ca-bg">
-      <div className="ca-card">
-        <div className="ca-mascot-top">
-          <div className="ca-mascot-circle">
+    <div className="whole-page">
+      <div className="ca-bg">
+        <div className="ca-card">
+          <div className="ca-mascot-top">
+            <div className="ca-mascot-circle">
+              <Image
+                src="/BuckMascot.png"
+                alt="Buck Mascot"
+                width={70}
+                height={100}
+                className="ca-mascot-img"
+                priority
+              />
+            </div>
+          </div>
+          <h2 className="ca-title">Create Account</h2>
+          <form
+            className="ca-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleCreateAccount();
+            }}
+          >
+            <label htmlFor="username" className="ca-label">
+              Username
+            </label>
+            <input
+              id="username"
+              className="ca-input"
+              type="text"
+              placeholder="Username"
+              value={form.username}
+              onChange={handleChange}
+            />
+
+            <label htmlFor="email" className="ca-label">
+              Email Address *
+            </label>
+            <input
+              id="email"
+              className="ca-input"
+              type="email"
+              placeholder="Email Address"
+              value={form.email}
+              onChange={handleChange}
+            />
+
+            <label htmlFor="password" className="ca-label">
+              Password *
+            </label>
+            <div className="ca-input-wrapper">
+              <input
+                id="password"
+                className="ca-input"
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                value={form.password}
+                onChange={handleChange}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                className="ca-eye-btn"
+                tabIndex={-1}
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                <Image
+                  src={showPassword ? "/duck-eye.png" : "/duck-eye-closed.png"}
+                  alt={showPassword ? "Hide password" : "Show password"}
+                  width={24}
+                  height={24}
+                />
+              </button>
+            </div>
+
+            <label htmlFor="confirm" className="ca-label">
+              Confirm Password *
+            </label>
+            <div className="ca-input-wrapper">
+              <input
+                id="confirm"
+                className="ca-input"
+                type={showConfirm ? "text" : "password"}
+                placeholder="Confirm Password"
+                value={form.confirm}
+                onChange={handleChange}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                className="ca-eye-btn"
+                tabIndex={-1}
+                onClick={() => setShowConfirm((v) => !v)}
+                aria-label={showConfirm ? "Hide password" : "Show password"}
+              >
+                <Image
+                  src={showConfirm ? "/duck-eye.png" : "/duck-eye-closed.png"}
+                  alt={showConfirm ? "Hide password" : "Show password"}
+                  width={24}
+                  height={24}
+                />
+              </button>
+            </div>
+
+            <button type="submit" className="ca-btn">
+              Create Account
+            </button>
+
+            {message && <div className="success-message">{message}</div>}
+            {error && <div className="error-message">{error}</div>}
+          </form>
+          <button className="ca-google-btn" onClick={handleGoogleSignIn}>
             <Image
-              src="/BuckMascot.png"
-              alt="Buck Mascot"
-              width={70}
-              height={100}
-              className="ca-mascot-img"
-              priority
+              src="/Google.png"
+              alt="Google"
+              width={20}
+              height={20}
+              className="ca-google-icon"
             />
-          </div>
-        </div>
-        <h2 className="ca-title">Create Account</h2>
-        <form
-          className="ca-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleCreateAccount();
-          }}
-        >
-          <label htmlFor="username" className="ca-label">
-            Username
-          </label>
-          <input
-            id="username"
-            className="ca-input"
-            type="text"
-            placeholder="Username"
-            value={form.username}
-            onChange={handleChange}
-          />
-
-          <label htmlFor="email" className="ca-label">
-            Email Address *
-          </label>
-          <input
-            id="email"
-            className="ca-input"
-            type="email"
-            placeholder="Email Address"
-            value={form.email}
-            onChange={handleChange}
-          />
-
-          <label htmlFor="password" className="ca-label">
-            Password *
-          </label>
-          <div className="ca-input-wrapper">
-            <input
-              id="password"
-              className="ca-input"
-              type={showPassword ? "text" : "password"}
-              placeholder="Password"
-              value={form.password}
-              onChange={handleChange}
-              autoComplete="new-password"
-            />
-            <button
-              type="button"
-              className="ca-eye-btn"
-              tabIndex={-1}
-              onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? "Hide password" : "Show password"}
-            >
-              <Image
-                src={showPassword ? "/duck-eye.png" : "/duck-eye-closed.png"}
-                alt={showPassword ? "Hide password" : "Show password"}
-                width={24}
-                height={24}
-              />
-            </button>
-          </div>
-
-          <label htmlFor="confirm" className="ca-label">
-            Confirm Password *
-          </label>
-          <div className="ca-input-wrapper">
-            <input
-              id="confirm"
-              className="ca-input"
-              type={showConfirm ? "text" : "password"}
-              placeholder="Confirm Password"
-              value={form.confirm}
-              onChange={handleChange}
-              autoComplete="new-password"
-            />
-            <button
-              type="button"
-              className="ca-eye-btn"
-              tabIndex={-1}
-              onClick={() => setShowConfirm((v) => !v)}
-              aria-label={showConfirm ? "Hide password" : "Show password"}
-            >
-              <Image
-                src={showConfirm ? "/duck-eye.png" : "/duck-eye-closed.png"}
-                alt={showConfirm ? "Hide password" : "Show password"}
-                width={24}
-                height={24}
-              />
-            </button>
-          </div>
-
-          <button type="submit" className="ca-btn">
-            Create Account
+            Sign up with Google
           </button>
-
-          {message && <div className="success-message">{message}</div>}
-          {error && <div className="error-message">{error}</div>}
-        </form>
-        <button className="ca-google-btn" onClick={handleGoogleSignIn}>
-          <Image
-            src="/Google.png"
-            alt="Google"
-            width={20}
-            height={20}
-            className="ca-google-icon"
-          />
-          Sign up with Google
-        </button>
-        <div className="ca-footer">
-          Already have an account?{" "}
-          <a href="/sign-in" className="ca-link">
-            Sign In
-          </a>
+          <div className="ca-footer">
+            Already have an account?{" "}
+            <a href="/sign-in" className="ca-link">
+              Sign In
+            </a>
+          </div>
         </div>
       </div>
     </div>
