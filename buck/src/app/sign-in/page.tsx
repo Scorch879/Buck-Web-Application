@@ -86,7 +86,7 @@ const SignInSignUp = (): React.JSX.Element => {
                   <Image
                     className="google"
                     alt="Google"
-                    src="/google.png"
+                    src="/Google.png"
                     width={20}
                     height={20}
                     priority
