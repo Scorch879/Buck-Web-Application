@@ -48,14 +48,12 @@ const SignInSignUp = (): React.JSX.Element => {
             <div className="BG-outer-rect" />
             <div className="main-panel">
               <div className="text-input-layer">
-                <a
+                <Link
                   href="/create-account"
                   className="text-wrapper"
-                  target="_blank"
-                  rel="noopener noreferrer"
                 >
                   Create an Account
-                </a>
+                </Link>
 
                 <Link href="/forgot-password" className="div">Forgot Password</Link>
 
