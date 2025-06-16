@@ -17,6 +17,8 @@ const CreateAccount = () => {
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [btnMouse, setBtnMouse] = useState<{ x: number; y: number } | null>(null);
+  const btnRef = React.useRef<HTMLButtonElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.id]: e.target.value });
@@ -178,9 +180,31 @@ const CreateAccount = () => {
             </button>
           </div>
 
-          <button type="submit" className="ca-btn">
+          <motion.button
+            ref={btnRef}
+            type="submit"
+            className="ca-btn"
+            onMouseMove={e => {
+              const rect = btnRef.current?.getBoundingClientRect();
+              if (rect) {
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                setBtnMouse({ x, y });
+              }
+            }}
+            onMouseLeave={() => setBtnMouse(null)}
+            style={{
+              background: btnMouse
+                ? `radial-gradient(circle at ${btnMouse.x}px ${btnMouse.y}px, #fd523b 0%, #ef8a57 100%)`
+                : "linear-gradient(90deg, #ef8a57 60%, #fd523b 100%)",
+              transition: btnMouse ? "background 0.1s" : "background 0.3s",
+            }}
+            whileHover={{
+              scale: 1.03,
+            }}
+          >
             Create Account
-          </button>
+          </motion.button>
 
           {message && <div className="success-message">{message}</div>}
           {error && <div className="error-message">{error}</div>}
