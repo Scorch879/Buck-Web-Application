@@ -3,7 +3,7 @@ import React from "react";
 import Image from "next/image";
 import "./style.css";
 
-export const CreateAccount = (): React.JSX.Element => {
+const CreateAccount = (): React.JSX.Element => {
   return (
     <div className="create-account">
       <div className="inner-rect" />
