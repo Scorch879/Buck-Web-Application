@@ -1,5 +1,5 @@
 .ca-bg {
-  min-height: 100vh;
+  min-height: 100dvh;
   min-width: 100vw; /* Add this line */
   background: #ef8a57;
   display: flex;
@@ -11,7 +11,7 @@
   background: #fff;
   padding: 2.5rem 2rem 2rem 2rem;
   border-radius: 18px;
-  box-shadow: 0 6px 32px 0 rgba(0,0,0,0.10);
+  box-shadow: 0 6px 32px 0 rgba(0, 0, 0, 0.1);
   width: 100%;
   max-width: 370px;
   display: flex;
@@ -75,7 +75,7 @@
   border-radius: 7px;
   cursor: pointer;
   transition: background 0.2s;
-  box-shadow: 0 2px 8px 0 rgba(239,138,87,0.10);
+  box-shadow: 0 2px 8px 0 rgba(239, 138, 87, 0.1);
 }
 
 .ca-btn:hover {
@@ -150,10 +150,10 @@
   height: 90px;
   background: #ef8a57;
   border-radius: 50%;
-  overflow: hidden;         /* This makes the circle act as a mask */
-  box-shadow: 0 2px 8px 0 rgba(239,138,87,0.10);
+  overflow: hidden; /* This makes the circle act as a mask */
+  box-shadow: 0 2px 8px 0 rgba(239, 138, 87, 0.1);
   display: flex;
-  align-items: flex-end;    /* Align mascot to bottom of circle */
+  align-items: flex-end; /* Align mascot to bottom of circle */
   justify-content: center;
 }
 
@@ -162,7 +162,7 @@
   width: 70px;
   height: 100px;
   object-fit: contain;
-  top: 20px;                /* Move mascot up/down to control peep */
+  top: 20px; /* Move mascot up/down to control peep */
 }
 
 .ca-mascot {
@@ -177,4 +177,29 @@
   .ca-mascot {
     display: none;
   }
+}
+
+.ca-password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ca-password-wrapper .ca-input {
+  width: 100%;
+  padding-right: 2.5rem;
+}
+
+.ca-toggle-btn {
+  position: absolute;
+  right: 0.7rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  color: #ef8a57;
+  padding: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
 }
