@@ -4,7 +4,7 @@ import React from "react";
 import "./style.css";
 import Image from "next/image";
 
-export const Dashboard = (): React.JSX.Element => {
+const Dashboard = (): React.JSX.Element => {
   return (
     <div className="dashboard" data-model-id="94:4481">
       <div className="overlap-wrapper">
