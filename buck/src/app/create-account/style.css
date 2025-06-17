@@ -6,6 +6,14 @@
   align-items: center;
   justify-content: center;
 }
+.background{
+  min-height: 100dvh;
+  min-width: 100vw; /* Add this line */
+  background: #ef8a57;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 .ca-card {
   background: #fff;

@@ -77,153 +77,155 @@ const CreateAccount = () => {
       transition={{ duration: 0.5 }}
       className="ca-bg"
     >
-      <div className="ca-card">
-        <div className="ca-mascot-top">
-          <div className="ca-mascot-circle">
-            <Image
-              src="/BuckMascot.png"
-              alt="Buck Mascot"
-              width={70}
-              height={100}
-              className="ca-mascot-img"
-              priority
-            />
-          </div>
-        </div>
-        <h2 className="ca-title">Create Account</h2>
-        <form
-          className="ca-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleCreateAccount();
-          }}
-        >
-          <label htmlFor="username" className="ca-label">
-            Username
-          </label>
-          <input
-            id="username"
-            className="ca-input"
-            type="text"
-            placeholder="Username"
-            value={form.username}
-            onChange={handleChange}
-          />
-
-          <label htmlFor="email" className="ca-label">
-            Email Address *
-          </label>
-          <input
-            id="email"
-            className="ca-input"
-            type="email"
-            placeholder="Email Address"
-            value={form.email}
-            onChange={handleChange}
-          />
-
-          <label htmlFor="password" className="ca-label">
-            Password *
-          </label>
-          <div className="ca-input-wrapper">
-            <input
-              id="password"
-              className="ca-input"
-              type={showPassword ? "text" : "password"}
-              placeholder="Password"
-              value={form.password}
-              onChange={handleChange}
-              autoComplete="new-password"
-            />
-            <button
-              type="button"
-              className="ca-eye-btn"
-              tabIndex={-1}
-              onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? "Hide password" : "Show password"}
-            >
+      <div className="background">
+        <div className="ca-card">
+          <div className="ca-mascot-top">
+            <div className="ca-mascot-circle">
               <Image
-                src={showPassword ? "/duck-eye.png" : "/duck-eye-closed.png"}
-                alt={showPassword ? "Hide password" : "Show password"}
-                width={24}
-                height={24}
+                src="/BuckMascot.png"
+                alt="Buck Mascot"
+                width={70}
+                height={100}
+                className="ca-mascot-img"
+                priority
               />
-            </button>
+            </div>
           </div>
-
-          <label htmlFor="confirm" className="ca-label">
-            Confirm Password *
-          </label>
-          <div className="ca-input-wrapper">
-            <input
-              id="confirm"
-              className="ca-input"
-              type={showConfirm ? "text" : "password"}
-              placeholder="Confirm Password"
-              value={form.confirm}
-              onChange={handleChange}
-              autoComplete="new-password"
-            />
-            <button
-              type="button"
-              className="ca-eye-btn"
-              tabIndex={-1}
-              onClick={() => setShowConfirm((v) => !v)}
-              aria-label={showConfirm ? "Hide password" : "Show password"}
-            >
-              <Image
-                src={showConfirm ? "/duck-eye.png" : "/duck-eye-closed.png"}
-                alt={showConfirm ? "Hide password" : "Show password"}
-                width={24}
-                height={24}
-              />
-            </button>
-          </div>
-
-          <motion.button
-            ref={btnRef}
-            type="submit"
-            className="ca-btn"
-            onMouseMove={e => {
-              const rect = btnRef.current?.getBoundingClientRect();
-              if (rect) {
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                setBtnMouse({ x, y });
-              }
-            }}
-            onMouseLeave={() => setBtnMouse(null)}
-            style={{
-              background: btnMouse
-                ? `radial-gradient(circle at ${btnMouse.x}px ${btnMouse.y}px, #fd523b 0%, #ef8a57 100%)`
-                : "linear-gradient(90deg, #ef8a57 60%, #fd523b 100%)",
-              transition: btnMouse ? "background 0.1s" : "background 0.3s",
-            }}
-            whileHover={{
-              scale: 1.03,
+          <h2 className="ca-title">Create Account</h2>
+          <form
+            className="ca-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleCreateAccount();
             }}
           >
-            Create Account
-          </motion.button>
+            <label htmlFor="username" className="ca-label">
+              Username
+            </label>
+            <input
+              id="username"
+              className="ca-input"
+              type="text"
+              placeholder="Username"
+              value={form.username}
+              onChange={handleChange}
+            />
 
-          {message && <div className="success-message">{message}</div>}
-          {error && <div className="error-message">{error}</div>}
-        </form>
-        <button className="ca-google-btn" onClick={handleGoogleSignIn}>
-          <Image
-            src="/Google.png"
-            alt="Google"
-            width={20}
-            height={20}
-            className="ca-google-icon"
-          />
-          Sign up with Google
-        </button>
-        <div className="ca-footer">
-          Already have an account?{" "}
-          <a href="/sign-in" className="ca-link">
-            Sign In
-          </a>
+            <label htmlFor="email" className="ca-label">
+              Email Address *
+            </label>
+            <input
+              id="email"
+              className="ca-input"
+              type="email"
+              placeholder="Email Address"
+              value={form.email}
+              onChange={handleChange}
+            />
+
+            <label htmlFor="password" className="ca-label">
+              Password *
+            </label>
+            <div className="ca-input-wrapper">
+              <input
+                id="password"
+                className="ca-input"
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                value={form.password}
+                onChange={handleChange}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                className="ca-eye-btn"
+                tabIndex={-1}
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                <Image
+                  src={showPassword ? "/duck-eye.png" : "/duck-eye-closed.png"}
+                  alt={showPassword ? "Hide password" : "Show password"}
+                  width={24}
+                  height={24}
+                />
+              </button>
+            </div>
+
+            <label htmlFor="confirm" className="ca-label">
+              Confirm Password *
+            </label>
+            <div className="ca-input-wrapper">
+              <input
+                id="confirm"
+                className="ca-input"
+                type={showConfirm ? "text" : "password"}
+                placeholder="Confirm Password"
+                value={form.confirm}
+                onChange={handleChange}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                className="ca-eye-btn"
+                tabIndex={-1}
+                onClick={() => setShowConfirm((v) => !v)}
+                aria-label={showConfirm ? "Hide password" : "Show password"}
+              >
+                <Image
+                  src={showConfirm ? "/duck-eye.png" : "/duck-eye-closed.png"}
+                  alt={showConfirm ? "Hide password" : "Show password"}
+                  width={24}
+                  height={24}
+                />
+              </button>
+            </div>
+
+            <motion.button
+              ref={btnRef}
+              type="submit"
+              className="ca-btn"
+              onMouseMove={e => {
+                const rect = btnRef.current?.getBoundingClientRect();
+                if (rect) {
+                  const x = e.clientX - rect.left;
+                  const y = e.clientY - rect.top;
+                  setBtnMouse({ x, y });
+                }
+              }}
+              onMouseLeave={() => setBtnMouse(null)}
+              style={{
+                background: btnMouse
+                  ? `radial-gradient(circle at ${btnMouse.x}px ${btnMouse.y}px, #fd523b 0%, #ef8a57 100%)`
+                  : "linear-gradient(90deg, #ef8a57 60%, #fd523b 100%)",
+                transition: btnMouse ? "background 0.1s" : "background 0.3s",
+              }}
+              whileHover={{
+                scale: 1.03,
+              }}
+            >
+              Create Account
+            </motion.button>
+
+            {message && <div className="success-message">{message}</div>}
+            {error && <div className="error-message">{error}</div>}
+          </form>
+          <button className="ca-google-btn" onClick={handleGoogleSignIn}>
+            <Image
+              src="/Google.png"
+              alt="Google"
+              width={20}
+              height={20}
+              className="ca-google-icon"
+            />
+            Sign up with Google
+          </button>
+          <div className="ca-footer">
+            Already have an account?{" "}
+            <a href="/sign-in" className="ca-link">
+              Sign In
+            </a>
+          </div>
         </div>
       </div>
     </motion.div>

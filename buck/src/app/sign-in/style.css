@@ -1,342 +1,158 @@
-.sign-in-sign-up {
-  background-color: #d5cac3;
+.background{
+  min-height: 100dvh;
+  min-width: 100vw; /* Add this line */
+  background: #ef8a57;
   display: flex;
-  flex-direction: row;
-  justify-content: center;
-  width: 100%;
-  height: calc(100vh - 15%); /* Account for header and footer height */
-  overflow: hidden;
-  flex-grow: 1;
-}
-
-.sign-in-sign-up .overlap-wrapper {
-  background-color: #d5cac3;
-  height: 100%;
-  width: 100%;
-  position: center;
-  overflow: hidden;
-}
-
-.sign-in-sign-up .overlap {
-  display: flex;
-  justify-content: center;
   align-items: center;
-  height: 100vh;  
-  position: relative;
-  overflow: hidden;
-}
-
-.sign-in-sign-up .BG-inner-rect {
-  background-color: #d9d9d9;
-  height: 100%;
-  left: 14%;
-  position: absolute;
-  top: 0;
-  width: 75%;
-  overflow: hidden;
-}
-
-.sign-in-sign-up .BG-outer-rect {
-  background-color: #00000080;
-  height: 100%;
-  position: absolute;
-  width: 100%;
-  overflow: hidden;
-}
-
-.sign-in-sign-up .main-panel {
-  background-color: #ef8a57;
-  border: 2px solid;
-  border-color: #000000;
-  border-radius: 25px;
-  box-shadow: 0px 10px 0px #00000040;
-  height: 400px;
-  position: relative;
-  width: 50%;
-  display: flex;
   justify-content: center;
-  align-items: center;
 }
-
-.sign-in-sign-up .text-input-layer {
-  height: 267px;
-  position: relative;
-  width: 507px;
+.SI-Background {
+  min-height: 100dvh;
+  min-width: 100vw; /* Add this line */
+  background: #ef8a57;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.SI-Container{
+  background: #fff;
+  padding: 2.5rem 2rem 2rem 2rem;
+  border-radius: 18px;
+  box-shadow: 0 6px 32px 0 rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 370px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  overflow: hidden;
-  bottom: 20px;
-}
-
-.sign-in-sign-up .div { /*forget password*/
-  color: #ffffff;
-  font-family: "Segoe UI-Semibold", Helvetica;
-  font-size: 15px;
-  font-weight: 400;
-  height: 27px;
-  right: 60px;
-  letter-spacing: 0;
-  line-height: 22.5px;
-  position: absolute;
-  text-align: right;
-  top: 155px;
-  width: 140px;
-  overflow: hidden;
-}
-
-.sign-in-sign-up .text-wrapper { /*Create an Account*/
-  color: #ffffff;
-  font-family: "Segoe UI-Semibold", Helvetica;
-  font-size: 15px;
-  font-weight: 400;
-  height: 27px;
-  letter-spacing: 0;
-  line-height: 22.5px;
-  position: absolute;
-  left: 48px;
-  top: 155px;
-  width: 140px;
-  overflow: hidden;
-}
-
-.sign-in-sign-up .text-wrapper-3 { /* Username */
-  color: #ffffff;
-  font-family: "Segoe UI-Semibold", Helvetica;
-  font-size: 20px;
-  font-weight: 400;
-  height: 20px;
-  left: 48px;
-  letter-spacing: 0;
-  line-height: 36px;
-  position: absolute;
-  width: 140px;
-}
-
-.sign-in-sign-up .text-wrapper-2 { /* Password */
-  color: #ffffff;
-  font-family: "Segoe UI-Semibold", Helvetica;
-  font-size: 20px;
-  font-weight: 400;
-  height: 20px;
-  left: 48px;
-  letter-spacing: 0;
-  line-height: 36px;
-  position: absolute;
-  top: 75px;
-  width: 140px;
-}
-
-.sign-in-sign-up .text-wrapper-4 { /* google */
-  font-family: "Segoe UI-Bold", Helvetica;
-  font-size: 25px;
-  font-weight: 700;
-  background: linear-gradient(
-    141deg,
-    rgba(247, 188, 60, 1) 0%,
-    rgba(255, 49, 49, 1) 100%
-  );
-  left: 10px;
-  top: 8px;
-  width: 225px;
-  -webkit-background-clip: text;
-  background-clip: text;
-  background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
   position: relative;
-  white-space: nowrap;
-  -webkit-text-stroke: #000000 1px; /* Stroke for better visibility */
-  /* Fake text shadow by duplicating the element behind */
+}
+.ca-mascot {
+  position: absolute;
+  right: -30px;
+  bottom: -30px;
+  width: 70px;
+  height: 70px;
+  opacity: 0.9;
+  pointer-events: none;
 }
 
-.sign-in-sign-up .p { /* Invalid */
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-stroke: #000000 0.2px;
-  background-image: linear-gradient(
-      0deg,
-      rgba(0, 0, 0, 1) 0%,
-      rgba(102, 102, 102, 1) 88%
-    )
-    1;
-  color: #ff3131;
-  font-family: "Segoe UI-Semibold", Helvetica;
-  font-size: 16px;
-  font-weight: 400;
-  height: 41px;
-  left: 0;
-  letter-spacing: 0;
-  line-height: 24px;
-  position: absolute;
-  text-align: center;
-  
-  top: 170px;
-  width: 497px;
-}
-
-.sign-in-sign-up .password-box {
-  background-color: #ffffff;
-  border: 2px solid;
-  border-color: #000000;
-  box-shadow: 0px 4px 0px #00000040;
-  height: 35px;
-  left: 45px;
-  position: absolute;
-  top: 110px;
-  width: 403px;
-  overflow: hidden;
-}
-
-.sign-in-sign-up .username-box {
-  background-color: #ffffff;
-  border: 2px solid;
-  border-color: #000000;
-  box-shadow: 0px 4px 0px #00000040;
-  height: 35px;
-  left: 45px;
-  position: absolute;
-  top: 34px;
-  width: 403px;
-  overflow: hidden;
-}
-
-.sign-in-sign-up .duck-image {
-  height: auto;
-  position: absolute;
-  top: -57px;
-  width: 98px;
+.SI-Mascot-Top {
   display: flex;
   justify-content: center;
   align-items: center;
+  margin-bottom: 1.2rem;
+  width: 100%;
 }
 
-.sign-in-sign-up .overlap-group {
-  height: 107px;
+.SI-Mascot-Circle {
   position: relative;
+  width: 90px;
+  height: 90px;
+  background: #ef8a57;
+  border-radius: 50%;
+  overflow: hidden; /* This makes the circle act as a mask */
+  box-shadow: 0 2px 8px 0 rgba(239, 138, 87, 0.1);
+  display: flex;
+  align-items: flex-end; /* Align mascot to bottom of circle */
+  justify-content: center;
 }
 
-.sign-in-sign-up .ellipse {
-  background-color: #1b1725;
-  border: 1px solid;
-  border-color: #000000;
-  border-radius: 49px;
-  box-shadow: 0px 4px 0px #00000040;
-  height: 75%;
+.SI-Mascot-Img {
   position: relative;
-  top: 9px;
-  width: 75px;
+  width: 70px;
+  height: 100px;
+  object-fit: contain;
+  top: 20px; /* Move mascot up/down to control peep */
 }
-
-.sign-in-sign-up .duck-rect-shape {
-  
-  object-fit: cover;
-  position: absolute;
-  left: 7px;
-  top: 15px;
-  height: 70px;
-  width: 54px;
+.SI-Form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
 }
-
-.sign-in-sign-up .google-btn {
-  height: 67px;
-  position: absolute;
-  top: 310px;
-  width: 320px;
-  overflow: hidden;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
-
-.sign-in-sign-up .google-btn:hover {
-  transform: translateY(-2px);
-}
-
-.sign-in-sign-up .google-btn:active {
-  transform: translateY(2px);
-}
-
-.sign-in-sign-up .sign-in-btn {
-  height: 45px;
-  position: absolute;
-  top: 260px;
-  width: 220px;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
-
-.sign-in-sign-up .sign-in-btn:hover {
-  transform: translateY(-2px);
-}
-
-.sign-in-sign-up .sign-in-btn:active {
-  transform: translateY(2px);
-}
-
-.sign-in-sign-up .overlap-2 { /* Google Button */
-  background-color: #ffffff;
-  border: 2px solid;
-  border-color: #000000;
-  border-radius: 15px;
-  box-shadow: -10px 10px 0px #00000040;
-  left: 13px;
-  position: relative;
-  width: 280px;
-  transition: box-shadow 0.1s ease;
-  height: 45px;
-}
-
-.sign-in-sign-up .google-btn:hover .overlap-2 {
-  box-shadow: -8px 8px 0px #00000040;
-}
-
-.sign-in-sign-up .google {
-  height: auto;
-  left: 100px;
-  position: relative;
-  bottom: 23px;
-  width: 30px;
-}
-
-.sign-in-sign-up .div-wrapper {
-  background-color: #ffffff;
-  border: 2px solid;
-  border-color: #000000;
-  border-radius: 15px;
-  box-shadow: -10px 10px 0px #00000040;
-  height: 37px;
-  position: relative;
-  width: 210px;
-  transition: box-shadow 0.1s ease;
-}
-
-.sign-in-sign-up .sign-in-btn:hover .div-wrapper {
-  box-shadow: -8px 8px 0px #00000040;
-}
-
-.sign-in-sign-up .text-wrapper-5 { /* Sign In */
-  font-family: "Segoe UI-Bold", Helvetica;
-  font-size: 25px;
+.SI-Title {
+  font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 1.7rem;
   font-weight: 700;
-  top: 3px;
-  background: linear-gradient(
-    141deg,
-    rgba(247, 188, 60, 1) 0%,
-    rgba(255, 49, 49, 1) 100%
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-  position: relative;
-  white-space: nowrap;
-  -webkit-text-stroke: #000000 1px; /* Stroke for better visibility */
-  /* Fake text shadow by duplicating the element behind */
+  color: #ef8a57;
+  margin-bottom: 1.2rem;
+  letter-spacing: 0.5px;
+}
+.SI-Label {
+  font-size: 1rem;
+  color: #222;
+  font-weight: 500;
+  margin-bottom: 0.2rem;
+}
+
+.SI-Input {
+  padding: 0.5rem 0.9rem;
+  border: 1.5px solid #ef8a57;
+  border-radius: 7px;
+  font-size: 1rem;
+  font-family: inherit;
+  background: #f9f9f9;
+  color: #222;
+  outline: none;
+  transition: border 0.2s;
+}
+
+.SI-Input:focus {
+  border-color: #fd523b;
+  background: #fff;
+}
+.SI-Btn {
+  margin-top: 1.1rem;
+  padding: 0.6rem 0;
+  background: linear-gradient(90deg, #ef8a57 60%, #fd523b 100%);
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.2s;
+  box-shadow: 0 2px 8px 0 rgba(239, 138, 87, 0.1);
+}
+.SI-Google-Btn {
+  margin-top: 0.7rem;
+  width: 100%;
+  padding: 0.5rem 0;
+  background: #fff;
+  color: #ef8a57;
+  border: 1.5px solid #ef8a57;
+  border-radius: 7px;
+  font-size: 1rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.SI-Google-Btn:hover {
+  background: #ef8a57;
+  color: #fff;
+}
+
+.SI-Google-Icon {
+  vertical-align: middle;
+}
+.SI-Footer {
+  margin-top: 1.2rem;
+  font-size: 0.98rem;
+  color: #444;
+}
+
+.SI-Link {
+  color: #ef8a57;
+  text-decoration: none;
+  font-weight: 600;
+  margin-left: 0.2em;
+}
+
+.SI-Link:hover {
+  text-decoration: underline;
 }
