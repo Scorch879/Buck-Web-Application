@@ -1,11 +1,13 @@
-.background{
-  background-color:#ef8a57;
+.background {
+  background-color: #ef8a57;
   width: 100dvw;
   height: 100dvh;
 }
+
 .forgot-password-page {
   min-height: 100dvh;
-  min-width: 100vw; /* Add this line */
+  min-width: 100vw;
+  /* Add this line */
   background: #ef8a57;
   display: flex;
   align-items: center;
@@ -21,8 +23,9 @@
   width: 100%;
   position: relative;
   overflow: hidden;
-  color:#ffffff ;
+  color: #ffffff;
 }
+
 .SI-Mascot-Top {
   display: flex;
   justify-content: center;
@@ -37,10 +40,12 @@
   height: 90px;
   background: #ef8a57;
   border-radius: 50%;
-  overflow: hidden; /* This makes the circle act as a mask */
+  overflow: hidden;
+  /* This makes the circle act as a mask */
   box-shadow: 0 2px 8px 0 rgba(239, 138, 87, 0.1);
   display: flex;
-  align-items: flex-end; /* Align mascot to bottom of circle */
+  align-items: flex-end;
+  /* Align mascot to bottom of circle */
   justify-content: center;
 }
 
@@ -49,7 +54,8 @@
   width: 70px;
   height: 100px;
   object-fit: contain;
-  top: 20px; /* Move mascot up/down to control peep */
+  top: 20px;
+  /* Move mascot up/down to control peep */
 }
 
 .forgot-password-panel {
@@ -57,15 +63,21 @@
   border: 2px solid;
   border-radius: 18px;
   box-shadow: 0 6px 32px 0 rgba(0, 0, 0, 0.2);
-  height: auto; /* Allow height to adjust based on content */
-  min-height: 350px; /* Maintain a minimum height */
-  width: 450px; /* Adjusted width */
+  height: auto;
+  /* Allow height to adjust based on content */
+  min-height: 350px;
+  /* Maintain a minimum height */
+  width: 450px;
+  /* Adjusted width */
   display: flex;
   flex-direction: column;
-  justify-content: flex-start; /* Align content from the top */
+  justify-content: flex-start;
+  /* Align content from the top */
   align-items: center;
-  padding: 30px 20px; /* Increase vertical padding */
-  z-index: 2; /* Ensure panel is above the background elements */
+  padding: 30px 20px;
+  /* Increase vertical padding */
+  z-index: 2;
+  /* Ensure panel is above the background elements */
 }
 
 .forgot-password-panel h2 {
@@ -85,7 +97,8 @@
   margin-bottom: 25px;
   text-align: center;
   line-height: 1.5;
-  width: 100%; /* Ensure paragraph takes full width */
+  width: 100%;
+  /* Ensure paragraph takes full width */
 }
 
 .email-input {
@@ -102,7 +115,8 @@
 }
 
 .email-input::placeholder {
-  color: #888; /* Softer placeholder color */
+  color: #888;
+  /* Softer placeholder color */
 }
 
 
@@ -121,38 +135,45 @@
   box-shadow: 0 2px 8px 0 rgba(239, 138, 87, 0.1);
 }
 
-.success-message,
-.error-message {
-  width: 100%; /* Ensure messages take full width */
-  text-align: center;
-  margin-top: 0; /* Adjust margin as needed, controlled by button's margin-bottom */
-  padding-top: 15px; /* Add padding to separate from button */
-  font-family: "Inter", "Segoe UI", "Helvetica Neue", sans-serif;
-  font-size: 0.95rem;
+.forgot-message-card {
+  width: 80%;
+  box-sizing: border-box;
+  padding: 0.8em 0;
+  margin-top: 0.5em;
+  border-radius: 12px;
   font-weight: 600;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  font-size: 1.1rem;
+  text-align: center;
+  border: 2px solid transparent;
+  transition: background 0.2s, border 0.2s;
 }
 
-.success-message {
-  color: #c8e6c9; /* Lighter green for success */
+.forgot-success {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-color: #a5d6a7;
 }
 
-.error-message {
-  color: #ff9999; /* Lighter red for error */
+.forgot-error {
+  background: #ffebee;
+  color: #c62828;
+  border-color: #ef9a9a;
 }
 
 .back-to-signin {
   color: #ef8a57;
   font-family: inherit;
   font-size: 0.95rem;
-  margin-top: auto; /* Push to the bottom */
+  margin-top: auto;
+  /* Push to the bottom */
   text-decoration: underline;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .back-to-signin:hover {
   opacity: 0.8;
-} 
+}
+
 .FP-Link {
   color: #ef8a57;
   text-decoration: none;

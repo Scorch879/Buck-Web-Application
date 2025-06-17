@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { Header, Footer } from "@/component/HeaderFooter";
 import "./style.css";
 import Image from "next/image";
+
 const ForgotPassword = (): React.JSX.Element => {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
@@ -94,8 +95,8 @@ const ForgotPassword = (): React.JSX.Element => {
               >
                 Send Reset Link
               </motion.button>
-              {message && <p className="success-message">{message}</p>}
-              {error && <p className="error-message">{error}</p>}
+              {message && <div className="forgot-message-card forgot-success">{message}</div>}
+              {error && <div className="forgot-message-card forgot-error">{error}</div>}
               <a href="/sign-in" className="FP-Link">
                 Back to sign In
               </a>
