@@ -93,12 +93,12 @@ const ForgotPassword = (): React.JSX.Element => {
                 }}
               >
                 Send Reset Link
-              </motion.button>         
+              </motion.button>
               {message && <p className="success-message">{message}</p>}
               {error && <p className="error-message">{error}</p>}
-              <Link href="/sign-in" className="back-to-signin">
-                Back to Sign In
-              </Link>
+              <a href="/sign-in" className="FP-Link">
+                Back to sign In
+              </a>
             </div>
           </div>
         </div>
