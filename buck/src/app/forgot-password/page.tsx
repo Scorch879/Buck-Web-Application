@@ -7,11 +7,20 @@ import { motion } from "framer-motion";
 import { Header, Footer } from "@/component/HeaderFooter";
 import "./style.css";
 import Image from "next/image";
+
 const ForgotPassword = (): React.JSX.Element => {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [btnMouse, setBtnMouse] = useState<{ x: number; y: number } | null>(null);
+  const [btnMouse, setBtnMouse] = useState<{ x: number; y: number } | null>(
+    null
+  );
+
+  const playQuack = () => {
+    const audio = new Audio("/quack.mp3");
+    audio.play();
+  };
+
   const btnRef = React.useRef<HTMLButtonElement>(null);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -56,6 +65,8 @@ const ForgotPassword = (): React.JSX.Element => {
                     height={100}
                     className="SI-Mascot-Img"
                     priority
+                    onClick={playQuack} // <-- Add this line
+                    style={{ cursor: "pointer" }}
                   />
                 </div>
               </div>
@@ -73,7 +84,7 @@ const ForgotPassword = (): React.JSX.Element => {
                 type="submit"
                 className="SI-Btn"
                 onClick={handleResetPassword}
-                onMouseMove={e => {
+                onMouseMove={(e) => {
                   const rect = btnRef.current?.getBoundingClientRect();
                   if (rect) {
                     const x = e.clientX - rect.left;
@@ -107,4 +118,4 @@ const ForgotPassword = (): React.JSX.Element => {
   );
 };
 
-export default ForgotPassword; 
+export default ForgotPassword;

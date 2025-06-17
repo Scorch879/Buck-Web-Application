@@ -17,7 +17,9 @@ const CreateAccount = () => {
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [btnMouse, setBtnMouse] = useState<{ x: number; y: number } | null>(null);
+  const [btnMouse, setBtnMouse] = useState<{ x: number; y: number } | null>(
+    null
+  );
   const btnRef = React.useRef<HTMLButtonElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,6 +71,11 @@ const CreateAccount = () => {
     }
   };
 
+  const playQuack = () => {
+    const audio = new Audio("/quack.mp3");
+    audio.play();
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -88,6 +95,8 @@ const CreateAccount = () => {
                 height={100}
                 className="ca-mascot-img"
                 priority
+                onClick={playQuack} // <-- Add this line
+                style={{ cursor: "pointer" }}
               />
             </div>
           </div>
@@ -185,7 +194,7 @@ const CreateAccount = () => {
               ref={btnRef}
               type="submit"
               className="ca-btn"
-              onMouseMove={e => {
+              onMouseMove={(e) => {
                 const rect = btnRef.current?.getBoundingClientRect();
                 if (rect) {
                   const x = e.clientX - rect.left;
