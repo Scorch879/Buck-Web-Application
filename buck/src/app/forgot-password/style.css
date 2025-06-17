@@ -1,7 +1,8 @@
-.background {
+.background, html {
   background-color: #ef8a57;
   width: 100dvw;
   height: 100dvh;
+  display:flex;
 }
 
 .forgot-password-page {
@@ -22,7 +23,6 @@
   height: 100%;
   width: 100%;
   position: relative;
-  overflow: hidden;
   color: #ffffff;
 }
 
