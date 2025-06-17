@@ -53,7 +53,8 @@ const SignIn = () => {
   const handleGoogleSignIn = async () => {
     const result = await signInWithGoogle();
     if (result.success) {
-      alert("Google Sign-In successful!");
+      setMsg("Google Sign-In successful!");
+      router.push("/dashboard"); // Redirect to dashboard or home page
     } else if (result.cancelled) {
       // Do nothing, user cancelled
     } else {
