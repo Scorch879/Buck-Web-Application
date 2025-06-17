@@ -60,6 +60,13 @@
   height: 100px;
   object-fit: contain;
   top: 20px;
+  cursor: pointer;
+  transition: transform 0.2s;
+  /* Move mascot up/down to control peep */
+}
+
+.SI-Mascot-Img:hover {
+  transform: translateY(-5px);
   /* Move mascot up/down to control peep */
 }
 
@@ -171,7 +178,8 @@
   font-family: inherit;
 }
 
-.success-message, .error-message {
+.success-message,
+.error-message {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -181,7 +189,7 @@
   margin-top: 1em;
   font-weight: 600;
   font-size: 1rem;
-  box-shadow: 0 2px 8px 0 rgba(239,138,87,0.10);
+  box-shadow: 0 2px 8px 0 rgba(239, 138, 87, 0.10);
 }
 
 .success-message {
