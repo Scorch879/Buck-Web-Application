@@ -1,14 +1,17 @@
 .ca-bg {
   min-height: 100dvh;
-  min-width: 100vw; /* Add this line */
+  min-width: 100vw;
+  /* Add this line */
   background: #ef8a57;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.background{
+
+.background {
   min-height: 100dvh;
-  min-width: 100vw; /* Add this line */
+  min-width: 100vw;
+  /* Add this line */
   background: #ef8a57;
   display: flex;
   align-items: center;
@@ -158,10 +161,12 @@
   height: 90px;
   background: #ef8a57;
   border-radius: 50%;
-  overflow: hidden; /* This makes the circle act as a mask */
+  overflow: hidden;
+  /* This makes the circle act as a mask */
   box-shadow: 0 2px 8px 0 rgba(239, 138, 87, 0.1);
   display: flex;
-  align-items: flex-end; /* Align mascot to bottom of circle */
+  align-items: flex-end;
+  /* Align mascot to bottom of circle */
   justify-content: center;
 }
 
@@ -170,7 +175,8 @@
   width: 70px;
   height: 100px;
   object-fit: contain;
-  top: 20px; /* Move mascot up/down to control peep */
+  top: 20px;
+  /* Move mascot up/down to control peep */
 }
 
 .ca-mascot {
@@ -182,6 +188,7 @@
     padding: 1.2rem 0.7rem 1.2rem 0.7rem;
     max-width: 98vw;
   }
+
   .ca-mascot {
     display: none;
   }
@@ -217,6 +224,7 @@
   display: flex;
   align-items: center;
 }
+
 .ca-eye-btn {
   background: none;
   border: none;
@@ -232,7 +240,40 @@
   align-items: center;
   justify-content: center;
 }
+
 .ca-input-wrapper .ca-input {
   width: 100%;
   padding-right: 36px;
+}
+
+.success-message, .error-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  border-radius: 7px;
+  padding: 0.75em 1em;
+  margin-top: 1em;
+  font-weight: 600;
+  font-size: 1rem;
+  box-shadow: 0 2px 8px 0 rgba(239,138,87,0.10);
+}
+
+.success-message {
+  color: #2e7d32;
+  background: #e8f5e9;
+  border: 1.5px solid #a5d6a7;
+}
+
+.error-message {
+  color: #c62828;
+  background: #ffebee;
+  border: 1.5px solid #ef9a9a;
+}
+
+.msg-icon {
+  font-size: 1.2em;
+  margin-right: 0.3em;
+  display: flex;
+  align-items: center;
 }
