@@ -95,6 +95,13 @@ const SignIn = (): React.JSX.Element => {
                             type="password"
                             placeholder="Password"
                         />
+                        <div className="SI-Anchors">
+                            <div className="SI-Forgot">
+                                <a href="/forgot-password" className="SI-Link">
+                                    Forgot Password
+                                </a>
+                            </div>
+                        </div>
                         <motion.button
                             ref={btnRef}
                             type="submit"
@@ -131,13 +138,12 @@ const SignIn = (): React.JSX.Element => {
                         />
                         Sign In with Google
                     </button>
-                    <div className="SI-Footer">
+                    <div className="SI-Create">
                         Don't have an account?{" "}
                         <a href="/create-account" className="SI-Link">
                             Create Account
                         </a>
                     </div>
-
                 </div>
             </div>
         </motion.div >

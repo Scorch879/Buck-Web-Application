@@ -140,11 +140,12 @@
 .SI-Google-Icon {
   vertical-align: middle;
 }
-.SI-Footer {
+.SI-Create {
   margin-top: 1.2rem;
   font-size: 0.98rem;
   color: #444;
 }
+
 
 .SI-Link {
   color: #ef8a57;
@@ -155,4 +156,13 @@
 
 .SI-Link:hover {
   text-decoration: underline;
+}
+
+.SI-Anchors{
+  margin-top:-10px;
+  display:flex;
+  align-items: flex-end;
+  flex-direction: column;
+  font-size: 1rem;
+  font-family: inherit;
 }
