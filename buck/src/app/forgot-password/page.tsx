@@ -6,11 +6,13 @@ import { auth } from "@/utils/firebase";
 import { motion } from "framer-motion";
 import { Header, Footer } from "@/component/HeaderFooter";
 import "./style.css";
-
+import Image from "next/image";
 const ForgotPassword = (): React.JSX.Element => {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [btnMouse, setBtnMouse] = useState<{ x: number; y: number } | null>(null);
+  const btnRef = React.useRef<HTMLButtonElement>(null);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -25,20 +27,16 @@ const ForgotPassword = (): React.JSX.Element => {
       setError("Please enter a valid email address.");
       return;
     }
-
-    try 
-    {
+    try {
       await sendPasswordResetEmail(auth, email);
       setMessage("Password reset email sent! Check your inbox.");
-    } catch (err: any) 
-    {
+    } catch (err: any) {
       setError("Failed to send password reset link. Please try again later.");
     }
   };
 
   return (
     <>
-      <Header />
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -46,31 +44,65 @@ const ForgotPassword = (): React.JSX.Element => {
         transition={{ duration: 0.5 }}
         className="forgot-password-page"
       >
-        <div className="forgot-password-container">
-          <div className="BG-inner-rect" />
-          <div className="BG-outer-rect" />
-          <div className="forgot-password-panel">
-            <h2>Forgot Password</h2>
-            <p>Enter your email to receive a password reset link.</p>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="email-input"
-              placeholder="Email Address"
-            />
-            <button onClick={handleResetPassword} className="reset-button">
-              Send Reset Link
-            </button>
-            {message && <p className="success-message">{message}</p>}
-            {error && <p className="error-message">{error}</p>}
-            <Link href="/sign-in" className="back-to-signin">
-              Back to Sign In
-            </Link>
+        <div className="background">
+          <div className="forgot-password-container">
+            <div className="forgot-password-panel">
+              <div className="SI-Mascot-Top">
+                <div className="SI-Mascot-Circle">
+                  <Image
+                    src="/BuckMascot.png"
+                    alt="Buck Mascot"
+                    width={70}
+                    height={100}
+                    className="SI-Mascot-Img"
+                    priority
+                  />
+                </div>
+              </div>
+              <h2>Forgot Password</h2>
+              <p>Enter your email to receive a password reset link.</p>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="email-input"
+                placeholder="Email Address"
+              />
+              <motion.button
+                ref={btnRef}
+                type="submit"
+                className="SI-Btn"
+                onClick={handleResetPassword}
+                onMouseMove={e => {
+                  const rect = btnRef.current?.getBoundingClientRect();
+                  if (rect) {
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    setBtnMouse({ x, y });
+                  }
+                }}
+                onMouseLeave={() => setBtnMouse(null)}
+                style={{
+                  background: btnMouse
+                    ? `radial-gradient(circle at ${btnMouse.x}px ${btnMouse.y}px, #fd523b 0%, #ef8a57 100%)`
+                    : "linear-gradient(90deg, #ef8a57 60%, #fd523b 100%)",
+                  transition: btnMouse ? "background 0.1s" : "background 0.3s",
+                }}
+                whileHover={{
+                  scale: 1.03,
+                }}
+              >
+                Send Reset Link
+              </motion.button>         
+              {message && <p className="success-message">{message}</p>}
+              {error && <p className="error-message">{error}</p>}
+              <Link href="/sign-in" className="back-to-signin">
+                Back to Sign In
+              </Link>
+            </div>
           </div>
         </div>
       </motion.div>
-      <Footer />
     </>
   );
 };

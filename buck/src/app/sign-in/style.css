@@ -26,15 +26,6 @@
   align-items: center;
   position: relative;
 }
-.ca-mascot {
-  position: absolute;
-  right: -30px;
-  bottom: -30px;
-  width: 70px;
-  height: 70px;
-  opacity: 0.9;
-  pointer-events: none;
-}
 
 .SI-Mascot-Top {
   display: flex;
