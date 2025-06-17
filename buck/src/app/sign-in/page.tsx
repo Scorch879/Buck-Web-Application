@@ -11,6 +11,8 @@ import { form } from "framer-motion/client";
 import { useRouter } from "next/navigation";
 
 const SignIn = () => {
+  const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [message, setMsg] = useState("");
@@ -42,7 +44,7 @@ const SignIn = () => {
     const result = await signInUser(email, pass);
     if (result.success) {
       setMsg("Sign in successful!");
-      // Redirect or update UI here
+      router.push("/dashboard"); // Redirect to dashboard or home page
     } else {
       setError(result.message || "Sign in failed.");
     }

@@ -1,3 +1,5 @@
+"use client";
+import { useState } from "react";
 import React from "react";
 import "./style.css";
 import Image from "next/image";
@@ -20,7 +22,9 @@ export const Dashboard = (): React.JSX.Element => {
               <Image
                 className="duck-rect-shape"
                 alt="Duck rect shape"
-                src="/public/BuckMascot.png"
+                src="/BuckMascot.png"
+                width={24}
+                height={24}
               />
             </div>
           </div>
