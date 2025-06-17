@@ -1,20 +1,24 @@
-.background{
+.background {
   min-height: 100dvh;
-  min-width: 100vw; /* Add this line */
+  min-width: 100vw;
+  /* Add this line */
   background: #ef8a57;
   display: flex;
   align-items: center;
   justify-content: center;
 }
+
 .SI-Background {
   min-height: 100dvh;
-  min-width: 100vw; /* Add this line */
+  min-width: 100vw;
+  /* Add this line */
   background: #ef8a57;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.SI-Container{
+
+.SI-Container {
   background: #fff;
   padding: 2.5rem 2rem 2rem 2rem;
   border-radius: 18px;
@@ -41,10 +45,12 @@
   height: 90px;
   background: #ef8a57;
   border-radius: 50%;
-  overflow: hidden; /* This makes the circle act as a mask */
+  overflow: hidden;
+  /* This makes the circle act as a mask */
   box-shadow: 0 2px 8px 0 rgba(239, 138, 87, 0.1);
   display: flex;
-  align-items: flex-end; /* Align mascot to bottom of circle */
+  align-items: flex-end;
+  /* Align mascot to bottom of circle */
   justify-content: center;
 }
 
@@ -53,14 +59,17 @@
   width: 70px;
   height: 100px;
   object-fit: contain;
-  top: 20px; /* Move mascot up/down to control peep */
+  top: 20px;
+  /* Move mascot up/down to control peep */
 }
+
 .SI-Form {
   width: 100%;
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
 }
+
 .SI-Title {
   font-family: "Segoe UI", Helvetica, Arial, sans-serif;
   font-size: 1.7rem;
@@ -69,6 +78,7 @@
   margin-bottom: 1.2rem;
   letter-spacing: 0.5px;
 }
+
 .SI-Label {
   font-size: 1rem;
   color: #222;
@@ -92,6 +102,7 @@
   border-color: #fd523b;
   background: #fff;
 }
+
 .SI-Btn {
   margin-top: 1.1rem;
   padding: 0.6rem 0;
@@ -105,6 +116,7 @@
   transition: background 0.2s;
   box-shadow: 0 2px 8px 0 rgba(239, 138, 87, 0.1);
 }
+
 .SI-Google-Btn {
   margin-top: 0.7rem;
   width: 100%;
@@ -131,6 +143,7 @@
 .SI-Google-Icon {
   vertical-align: middle;
 }
+
 .SI-Create {
   margin-top: 1.2rem;
   font-size: 0.98rem;
@@ -149,11 +162,43 @@
   text-decoration: underline;
 }
 
-.SI-Anchors{
-  margin-top:-10px;
-  display:flex;
+.SI-Anchors {
+  margin-top: -10px;
+  display: flex;
   align-items: flex-end;
   flex-direction: column;
   font-size: 1rem;
   font-family: inherit;
+}
+
+.success-message, .error-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  border-radius: 7px;
+  padding: 0.75em 1em;
+  margin-top: 1em;
+  font-weight: 600;
+  font-size: 1rem;
+  box-shadow: 0 2px 8px 0 rgba(239,138,87,0.10);
+}
+
+.success-message {
+  color: #2e7d32;
+  background: #e8f5e9;
+  border: 1.5px solid #a5d6a7;
+}
+
+.error-message {
+  color: #c62828;
+  background: #ffebee;
+  border: 1.5px solid #ef9a9a;
+}
+
+.msg-icon {
+  font-size: 1.2em;
+  margin-right: 0.3em;
+  display: flex;
+  align-items: center;
 }

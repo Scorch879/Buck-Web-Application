@@ -7,10 +7,15 @@ import { signInUser, signInWithGoogle } from "@/component/authentication";
 import { useState } from "react";
 import { Header, Footer } from "@/component/HeaderFooter";
 import { motion } from "framer-motion";
+import { form } from "framer-motion/client";
+import { useRouter } from "next/navigation";
 
-const SignIn = (): React.JSX.Element => {
+const SignIn = () => {
+
+
     const [email, setEmail] = useState("");
     const [pass, setPass] = useState("");
+    const [message, setMsg] = useState("");
     const [error, setError] = useState("");
     const [btnMouse, setBtnMouse] = useState<{ x: number; y: number } | null>(null);
     const btnRef = React.useRef<HTMLButtonElement>(null);
@@ -19,28 +24,30 @@ const SignIn = (): React.JSX.Element => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
     }
-    const handleSignIn = async () => {
+    const handleSignIn = async (e: React.FormEvent) => {
+        e.preventDefault();
         setError("");
         if (!email || !pass) {
-            alert("Please enter both email and password.");
+            setError("Please enter both email and password.");
             return;
         }
         if (!validateEmail(email)) {
-            alert("Please enter a valid email address.");
+            setError("Please enter a valid email address.");
             return;
         }
         if (pass.length < 6) {
-            alert("Password must be at least 6 characters.");
+            setError("Password must be at least 6 characters.");
             return;
         }
         const result = await signInUser(email, pass);
         if (result.success) {
-            alert("Sign in successful!");
+            setMsg("Sign in successful!");
             // Redirect or update UI here
         } else {
-            alert(result.message || "Sign in failed.");
+            setError(result.message || "Sign in failed.");
         }
     };
+
 
     const handleGoogleSignIn = async () => {
         const result = await signInWithGoogle();
@@ -75,7 +82,8 @@ const SignIn = (): React.JSX.Element => {
                         </div>
                     </div>
                     <h2 className="SI-Title">Sign In</h2>
-                    <form className="SI-Form">
+                    <form className="SI-Form" onSubmit={handleSignIn}>
+
                         <label htmlFor="username" className="SI-Label">
                             Email/Username
                         </label>
@@ -84,6 +92,8 @@ const SignIn = (): React.JSX.Element => {
                             className="SI-Input"
                             type="text"
                             placeholder="Email/Username"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
                         />
 
                         <label htmlFor="password" className="SI-Label">
@@ -94,6 +104,8 @@ const SignIn = (): React.JSX.Element => {
                             className="SI-Input"
                             type="password"
                             placeholder="Password"
+                            value={pass}
+                            onChange={(e) => setPass(e.target.value)}
                         />
                         <div className="SI-Anchors">
                             <div className="SI-Forgot">
@@ -104,6 +116,7 @@ const SignIn = (): React.JSX.Element => {
                         </div>
                         <motion.button
                             ref={btnRef}
+                            onClick={handleSignIn}
                             type="submit"
                             className="SI-Btn"
                             onMouseMove={e => {
@@ -127,6 +140,9 @@ const SignIn = (): React.JSX.Element => {
                         >
                             Sign In
                         </motion.button>
+
+                        {message && <div className="success-message">{message}</div>}
+                        {error && <div className="error-message">{error}</div>}
                     </form>
                     <button className="SI-Google-Btn" onClick={handleGoogleSignIn}>
                         <Image
