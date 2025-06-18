@@ -120,28 +120,24 @@ const Dashboard = (): React.JSX.Element => {
             className={`nav-button ${activeNav === "button1" ? "active" : ""}`}
             onClick={() => handleNavClick("button1")}
           >
-            <span className="nav-button-icon"></span>
             Button1
           </button>
           <button
             className={`nav-button ${activeNav === "button2" ? "active" : ""}`}
             onClick={() => handleNavClick("button2")}
           >
-            <span className="nav-button-icon"></span>
             Button2
           </button>
           <button
             className={`nav-button ${activeNav === "button3" ? "active" : ""}`}
             onClick={() => handleNavClick("button3")}
           >
-            <span className="nav-button-icon"></span>
             Button3
           </button>
           <button
             className={`nav-button ${activeNav === "button4" ? "active" : ""}`}
             onClick={handleSignOut}
           >
-            <span className="nav-button-icon"></span>
             Sign Out
           </button>
         </div>
