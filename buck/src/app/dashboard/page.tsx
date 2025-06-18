@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { auth } from "@/utils/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
+import { signOutUser } from "@/component/authentication";
 import "./style.css";
 
 // Data interface for type safety
@@ -35,6 +36,7 @@ const Dashboard = (): React.JSX.Element => {
   const [user, setUser] = useState<User | null>(null);
   // Add all other useState hooks here, not inside any if/else
 
+  
   //Auth Guard Code Block
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -56,6 +58,15 @@ const Dashboard = (): React.JSX.Element => {
   if (!user) {
     return <div>Redirecting...</div>;
   }
+
+  const handleSignOut = async () => {
+  const result = await signOutUser();
+  if (result.success) {
+    router.push("/"); // Redirect to sign-in page
+  } else {
+    alert(result.message || "Sign out failed.");
+  }
+};
 
   //Audio Method
   const playQuack = () => {
@@ -128,10 +139,10 @@ const Dashboard = (): React.JSX.Element => {
           </button>
           <button
             className={`nav-button ${activeNav === "button4" ? "active" : ""}`}
-            onClick={() => handleNavClick("button4")}
+            onClick={handleSignOut}
           >
             <span className="nav-button-icon"></span>
-            Button4
+            Sign Out
           </button>
         </div>
       </div>
