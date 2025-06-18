@@ -29,6 +29,8 @@ export function SignInSignUp() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    //I don't  know  if this still works but don't touch it  maybe something breaks
+    //number of time  touched : 1 (increase if you do some shit here)
     if (form.username === "" || form.pass === "" || form.email === "") {
       alert("Please fill in all fields");
       return;
