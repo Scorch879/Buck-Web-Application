@@ -4,113 +4,182 @@ import React from "react";
 import "./style.css";
 import Image from "next/image";
 
+// Data interface for type safety
+interface WeeklyData {
+  day: string;
+  amount: number;
+  height: number;
+}
+
+interface SummaryData {
+  label: string;
+  value: string;
+  color: string;
+}
+
 const Dashboard = (): React.JSX.Element => {
+  const playQuack = () => {
+    const audio = new Audio("/quack.mp3");
+    audio.play();
+  };
+
+  // State for active navigation
+  const [activeNav, setActiveNav] = useState("button1");
+
+  // Empty data - ready for future implementation
+  const [weeklyData, setWeeklyData] = useState<WeeklyData[]>([]);
+
+  const [summaryData, setSummaryData] = useState<SummaryData[]>([]);
+
+  const [spendingAmount, setSpendingAmount] = useState("");
+
+  // Function to update weekly data (for future use)
+  const updateWeeklyData = (newData: WeeklyData[]) => {
+    setWeeklyData(newData);
+  };
+
+  // Function to update summary data (for future use)
+  const updateSummaryData = (newData: SummaryData[]) => {
+    setSummaryData(newData);
+  };
+
+  // Function to update spending amount (for future use)
+  const updateSpendingAmount = (newAmount: string) => {
+    setSpendingAmount(newAmount);
+  };
+
+  // Navigation button click handlers
+  const handleNavClick = (navItem: string) => {
+    setActiveNav(navItem);
+    // Add your navigation logic here
+    console.log(`Navigating to: ${navItem}`);
+  };
+
   return (
-    <div className="dashboard" data-model-id="94:4481">
-      <div className="overlap-wrapper">
-        <div className="overlap">
-          <div className="inner-rect" />
+    <div className="dashboard">
+      {/* Sticky Header */}
+      <div className="dashboard-header">
+        <div className="dashboard-header-left">
+          <div className="dashboard-mascot">
+            <Image
+              src="/BuckMascot.png"
+              alt="Buck Mascot"
+              width={50}
+              height={70}
+              className="dashboard-mascot-img"
+              priority
+              onClick={playQuack}
+            />
+          </div>
+          <h1 className="dashboard-title">Dashboard</h1>
+        </div>
 
-          <div className="outer-rect" />
+        <div className="dashboard-nav">
+          <button
+            className={`nav-button ${activeNav === "button1" ? "active" : ""}`}
+            onClick={() => handleNavClick("button1")}
+          >
+            <span className="nav-button-icon"></span>
+            Button1
+          </button>
+          <button
+            className={`nav-button ${activeNav === "button2" ? "active" : ""}`}
+            onClick={() => handleNavClick("button2")}
+          >
+            <span className="nav-button-icon"></span>
+            Button2
+          </button>
+          <button
+            className={`nav-button ${activeNav === "button3" ? "active" : ""}`}
+            onClick={() => handleNavClick("button3")}
+          >
+            <span className="nav-button-icon"></span>
+            Button3
+          </button>
+          <button
+            className={`nav-button ${activeNav === "button4" ? "active" : ""}`}
+            onClick={() => handleNavClick("button4")}
+          >
+            <span className="nav-button-icon"></span>
+            Button4
+          </button>
+        </div>
+      </div>
 
-          <div className="tabs" />
-
-          <div className="duck-image">
-            <div className="overlap-group">
-              <div className="ellipse" />
-
-              <Image
-                className="duck-rect-shape"
-                alt="Duck rect shape"
-                src="/BuckMascot.png"
-                width={24}
-                height={24}
-              />
+      <div className="dashboard-container">
+        {/* Main Content */}
+        <div className="dashboard-content">
+          {/* Spending Card */}
+          <div className="spending-card">
+            <h2 className="spending-title">Weekly Spending</h2>
+            <div className="spending-circle">
+              <div className="spending-amount">
+                {spendingAmount || "No Data"}
+              </div>
             </div>
+            <p className="spending-label">Total spent this week</p>
           </div>
 
-          <div className="spending-att-pie">
-            <div className="orange-rect">
-              <div className="circle-contents">
-                <div className="div">
-                  <div className="circle-inner" />
-
-                  <div className="text-wrapper">att</div>
+          {/* Graph Card */}
+          <div className="graph-card">
+            <h2 className="graph-title">Weekly Summary of Expenses</h2>
+            <div className="graph-container">
+              {weeklyData.length > 0 ? (
+                weeklyData.map((item, index) => (
+                  <div
+                    key={index}
+                    className="graph-bar"
+                    style={{ height: `${item.height}%` }}
+                    title={`${item.day}: $${item.amount}`}
+                  >
+                    <div className="graph-bar-label">{item.day}</div>
+                  </div>
+                ))
+              ) : (
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  height: '100%',
+                  color: '#666',
+                  fontSize: '1.1rem'
+                }}>
+                  No data available
                 </div>
-              </div>
-
-              <div className="text-wrapper-2">summary text right here</div>
+              )}
             </div>
           </div>
+        </div>
 
-          <div className="summary-of-shits" />
-
-          <div className="summary-graph">
-            <div className="weekly-summary">
-              <div className="graph">
-                <div className="y-axis">
-                  <div className="text-wrapper-3">0</div>
-
-                  <div className="text-wrapper-3">0</div>
-
-                  <div className="text-wrapper-3">0</div>
-
-                  <div className="text-wrapper-3">0</div>
-
-                  <div className="text-wrapper-3">0</div>
-
-                  <div className="text-wrapper-3">0</div>
-
-                  <div className="text-wrapper-3">0</div>
+        {/* Summary Card */}
+        <div className="summary-card">
+          <h2 className="summary-title">Financial Summary</h2>
+          <div className="summary-content">
+            {summaryData.length > 0 ? (
+              summaryData.map((item, index) => (
+                <div key={index} className="summary-item">
+                  <div 
+                    className="summary-item-value"
+                    style={{ color: item.color }}
+                  >
+                    {item.value}
+                  </div>
+                  <div className="summary-item-label">{item.label}</div>
                 </div>
-
-                <div className="bar-graph-frame">
-                  <div className="div-2">
-                    <div className="div-3" />
-
-                    <div className="text-wrapper-5">Sunday</div>
-                  </div>
-
-                  <div className="div-2">
-                    <div className="div-3" />
-
-                    <div className="text-wrapper-5">Monday</div>
-                  </div>
-
-                  <div className="div-2">
-                    <div className="div-3" />
-
-                    <div className="text-wrapper-5">Tuesday</div>
-                  </div>
-
-                  <div className="div-2">
-                    <div className="div-3" />
-
-                    <div className="text-wrapper-5">Wednesday</div>
-                  </div>
-
-                  <div className="div-2">
-                    <div className="div-3" />
-
-                    <div className="text-wrapper-5">Thursday</div>
-                  </div>
-
-                  <div className="div-2">
-                    <div className="div-3" />
-
-                    <div className="text-wrapper-5">Friday</div>
-                  </div>
-
-                  <div className="div-2">
-                    <div className="div-3" />
-
-                    <div className="text-wrapper-5">Saturday</div>
-                  </div>
-                </div>
+              ))
+            ) : (
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                height: '100%',
+                color: '#666',
+                fontSize: '1.1rem',
+                gridColumn: '1 / -1'
+              }}>
+                No summary data available
               </div>
-
-              <div className="header">Weekly Summary of Expenses</div>
-            </div>
+            )}
           </div>
         </div>
       </div>
