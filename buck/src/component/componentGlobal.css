@@ -1,11 +1,9 @@
 .header{
   width:100%;
-  height:7%;
+  height:11%;
   margin: 0px;
-  background:linear-gradient(to right , #F7BC3C 40%,#FF3131);
-
-  box-shadow: 5px 5px 5px 5px rgba(0, 0, 0, 0.250) ;
-  border: 2px solid black;
+  box-shadow: 0 6px 32px 0 rgba(0, 0, 0, 0.1);
+  background: #ffffff;
   position: relative;
   z-index: 20;
 }
@@ -24,15 +22,14 @@
   font-size: 2rem;
   color: #ffffff;
   background: linear-gradient(90deg, #F7BC3C 0%, #FF3131 100%);
-  -webkit-text-stroke: 1px black;
-  border: 2px solid #000;
-  border-radius: 999px;
-  font-weight: bold;
+  border-radius: 7px;
+  font-weight: 600;
+  box-shadow: 0 6px 32px 0 rgba(0, 0, 0, 0.25);
   padding: 0.8em 2em;
   position: relative;
   overflow: hidden;
 
-  transition: all 0.3s ease;
+  transition: all 0.1s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -44,13 +41,9 @@
 #btnGetstarted span {
   /* Ensure text is white and has a black outline */
   background: none; /* Remove any gradient background for the text */
-  -webkit-background-clip: unset; /* Ensure no clipping */
-  -webkit-text-fill-color: unset; /* Allow direct text color */
-  background-clip: unset;
   color: #ffffff; /* Explicitly set text color to white */
   display: inline-block;
-  -webkit-text-stroke: 1px black; /* Black outline */
-  transition: all 0.3s ease;
+  transition: all 0.1s ease;
   text-align: center;
   width: 100%;
   position: relative;
@@ -59,13 +52,12 @@
   font-size: 2.2rem;
   font-weight: 700;
   letter-spacing: 1.2px;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.10), 0 1px 1px rgba(0,0,0,0.10);
   text-transform: uppercase;
 }
 
 #btnGetstarted:hover {
   transform: translateY(-2px);
-  box-shadow: -8px 8px 5px 5px rgba(0, 0, 0, 0.250);
+
   background: linear-gradient(90deg, #FFD700 0%, #FF6B6B 100%);
   filter: brightness(1.1);
   letter-spacing: 0.8px;

@@ -13,7 +13,7 @@ export default function Home() {
   const [trailDots, setTrailDots] = useState<Array<{ id: number, x: number, y: number }>>([]);
   const nextDotId = useRef(0);
 
-  const text = "Need help in saving your money? Guess what, go BUCK yourself! Buck can help you manage your weekly spending with a press of a button!";
+  const text = "Need help in saving your money?\nGuess what, go BUCK yourself!\nBuck can help you manage your weekly spending with a few easy steps!";
   const words = text.split(" ");
 
   const containerVariants = {
@@ -118,8 +118,7 @@ export default function Home() {
           }
         </div>
         <GetStartedButton />
-      </div>
-      <Footer />
+      </div>  
     </>
   );
 }
