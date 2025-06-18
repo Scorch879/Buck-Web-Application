@@ -1,4 +1,4 @@
-.background, html, body {
+.background, html {
   min-height: 100dvh;
   min-width: 100vw;
   /* Add this line */
