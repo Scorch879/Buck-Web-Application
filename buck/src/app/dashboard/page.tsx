@@ -1,8 +1,10 @@
 "use client";
-import { useState } from "react";
-import React from "react";
-import "./style.css";
+import { useEffect, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { auth } from "@/utils/firebase";
+import { onAuthStateChanged, User } from "firebase/auth";
+import "./style.css";
 
 // Data interface for type safety
 interface WeeklyData {
@@ -18,11 +20,6 @@ interface SummaryData {
 }
 
 const Dashboard = (): React.JSX.Element => {
-  const playQuack = () => {
-    const audio = new Audio("/quack.mp3");
-    audio.play();
-  };
-
   // State for active navigation
   const [activeNav, setActiveNav] = useState("button1");
 
@@ -32,6 +29,39 @@ const Dashboard = (): React.JSX.Element => {
   const [summaryData, setSummaryData] = useState<SummaryData[]>([]);
 
   const [spendingAmount, setSpendingAmount] = useState("");
+
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  // Add all other useState hooks here, not inside any if/else
+
+  //Auth Guard Code Block
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (!firebaseUser) {
+        router.replace("/sign-in");
+      } else {
+        setUser(firebaseUser);
+        setLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  // Only render dashboard if user is authenticated
+  if (!user) {
+    return <div>Redirecting...</div>;
+  }
+
+  //Audio Method
+  const playQuack = () => {
+    const audio = new Audio("/quack.mp3");
+    audio.play();
+  };
 
   // Function to update weekly data (for future use)
   const updateWeeklyData = (newData: WeeklyData[]) => {
@@ -136,14 +166,16 @@ const Dashboard = (): React.JSX.Element => {
                   </div>
                 ))
               ) : (
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  height: '100%',
-                  color: '#666',
-                  fontSize: '1.1rem'
-                }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100%",
+                    color: "#666",
+                    fontSize: "1.1rem",
+                  }}
+                >
                   No data available
                 </div>
               )}
@@ -158,7 +190,7 @@ const Dashboard = (): React.JSX.Element => {
             {summaryData.length > 0 ? (
               summaryData.map((item, index) => (
                 <div key={index} className="summary-item">
-                  <div 
+                  <div
                     className="summary-item-value"
                     style={{ color: item.color }}
                   >
@@ -168,15 +200,17 @@ const Dashboard = (): React.JSX.Element => {
                 </div>
               ))
             ) : (
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                height: '100%',
-                color: '#666',
-                fontSize: '1.1rem',
-                gridColumn: '1 / -1'
-              }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: "100%",
+                  color: "#666",
+                  fontSize: "1.1rem",
+                  gridColumn: "1 / -1",
+                }}
+              >
                 No summary data available
               </div>
             )}
