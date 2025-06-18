@@ -1,4 +1,4 @@
-.ca-bg {
+.ca-bg, html, body {
   min-height: 100dvh;
   min-width: 100vw;
   /* Add this line */
