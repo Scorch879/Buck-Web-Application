@@ -1,14 +1,13 @@
 "use client";
 import Image from "next/image";
-import React from "react";
-import Link from "next/link";
-import "./style.css";
-import { signInUser, signInWithGoogle } from "@/component/authentication";
-import { useState } from "react";
-import { Header, Footer } from "@/component/HeaderFooter";
-import { motion } from "framer-motion";
-import { form } from "framer-motion/client";
 import { useRouter } from "next/navigation";
+import { useState, useEffect} from "react";
+import React from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/utils/firebase";
+import { signInUser, signInWithGoogle } from "@/component/authentication";
+import { motion } from "framer-motion";
+import "./style.css";
 
 const SignIn = () => {
   const router = useRouter();
@@ -21,6 +20,16 @@ const SignIn = () => {
     null
   );
   const btnRef = React.useRef<HTMLButtonElement>(null);
+
+   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        router.replace("/dashboard");
+      }
+    });
+    return () => unsubscribe();
+  }, [router]); 
+
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -62,6 +71,7 @@ const SignIn = () => {
     }
   };
 
+  
   const playQuack = () => {
     const audio = new Audio("/quack.mp3");
     audio.play();

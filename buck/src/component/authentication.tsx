@@ -1,4 +1,5 @@
 "use client";
+import { signOut } from "firebase/auth";
 import { useState } from "react";
 import { auth, db } from "@/utils/firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
@@ -124,4 +125,11 @@ export async function sendPasswordReset(email: string) {
   }
 }
 
-
+export async function signOutUser() {
+  try {
+    await signOut(auth);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, message: error.message };
+  }
+}
