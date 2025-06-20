@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState, useEffect} from "react";
+import { useState, useEffect } from "react";
 import React from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/utils/firebase";
@@ -21,14 +21,14 @@ const SignIn = () => {
   );
   const btnRef = React.useRef<HTMLButtonElement>(null);
 
-   useEffect(() => {
+  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         router.replace("/dashboard");
       }
     });
     return () => unsubscribe();
-  }, [router]); 
+  }, [router]);
 
 
   const validateEmail = (email: string) => {
@@ -70,8 +70,9 @@ const SignIn = () => {
       alert(result.message || "Google Sign-In failed.");
     }
   };
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  
   const playQuack = () => {
     const audio = new Audio("/quack.mp3");
     audio.play();
@@ -118,14 +119,32 @@ const SignIn = () => {
             <label htmlFor="password" className="SI-Label">
               Password
             </label>
-            <input
-              id="password"
-              className="SI-Input"
-              type="password"
-              placeholder="Password"
-              value={pass}
-              onChange={(e) => setPass(e.target.value)}
-            />
+            <div className="SI-InputWrapper">
+              <input
+                id="password"
+                className="SI-Input"
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                value={pass}
+                onChange={(e) => setPass(e.target.value)}
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                className="SI-Eye-Btn"
+                tabIndex={-1}
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                <Image
+                  src={showPassword ? "/duck-eye.png" : "/duck-eye-closed.png"}
+                  alt={showPassword ? "Hide password" : "Show password"}
+                  width={24}
+                  height={24}
+                />
+              </button>
+            </div>
+
             <div className="SI-Anchors">
               <div className="SI-Forgot">
                 <a href="/forgot-password" className="SI-Link">

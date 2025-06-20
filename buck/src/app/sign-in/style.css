@@ -38,6 +38,26 @@
   margin-bottom: 1.2rem;
   width: 100%;
 }
+.SI-InputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.SI-Eye-Btn {
+  background: none;
+  border: none;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0;
+  cursor: pointer;
+  height: 24px;
+  width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 .SI-Mascot-Circle {
   position: relative;
@@ -209,4 +229,8 @@
   margin-right: 0.3em;
   display: flex;
   align-items: center;
+}
+.SI-InputWrapper .SI-Input {
+  width: 100%;
+  padding-right: 2.5rem;
 }
