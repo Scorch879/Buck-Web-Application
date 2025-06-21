@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { auth } from "@/utils/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { signOutUser } from "@/component/authentication";
+import { processExpense, ExpenseInput, AIResponse } from "@/utils/aiApi";
 import "./style.css";
 
 // Data interface for type safety
@@ -35,6 +36,13 @@ const Dashboard = (): React.JSX.Element => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   // Add all other useState hooks here, not inside any if/else
+  // State for AI form inputs and results
+  const [aiText, setAiText] = useState("");
+  const [aiPastExpenses, setAiPastExpenses] = useState(""); // comma-separated string
+  const [aiAttitude, setAiAttitude] = useState<"Normal" | "Moderate" | "Aggressive">("Normal");
+  const [aiResult, setAiResult] = useState<AIResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   
   //Auth Guard Code Block
@@ -222,6 +230,87 @@ const Dashboard = (): React.JSX.Element => {
               </div>
             )}
           </div>
+        </div>
+
+        {/* AI Expense Analysis Form */}
+        <div className="ai-form-card" style={{ marginBottom: 32, padding: 24, background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px #eee' }}>
+          <h2>AI Expense Analysis</h2>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setAiError(null);
+              setAiResult(null);
+              setAiLoading(true);
+              try {
+                // Convert comma-separated string to number array
+                const pastExpensesArr = aiPastExpenses
+                  .split(",")
+                  .map((v) => v.trim())
+                  .filter((v) => v.length > 0)
+                  .map(Number)
+                  .filter((n) => !isNaN(n));
+                const input: ExpenseInput = {
+                  text: aiText,
+                  past_expenses: pastExpensesArr,
+                  saving_attitude: aiAttitude,
+                };
+                const result = await processExpense(input);
+                setAiResult(result);
+              } catch (err: any) {
+                setAiError(err.message || "Something went wrong");
+              } finally {
+                setAiLoading(false);
+              }
+            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 400 }}
+          >
+            <label>
+              Expense Description:
+              <input
+                type="text"
+                value={aiText}
+                onChange={(e) => setAiText(e.target.value)}
+                required
+                placeholder="e.g. Lunch at cafe"
+                style={{ width: '100%', padding: 6, marginTop: 4 }}
+              />
+            </label>
+            <label>
+              Past Expenses (comma-separated):
+              <input
+                type="text"
+                value={aiPastExpenses}
+                onChange={(e) => setAiPastExpenses(e.target.value)}
+                required
+                placeholder="e.g. 12.5, 8, 15, 20"
+                style={{ width: '100%', padding: 6, marginTop: 4 }}
+              />
+            </label>
+            <label>
+              Saving Attitude:
+              <select
+                value={aiAttitude}
+                onChange={(e) => setAiAttitude(e.target.value as any)}
+                style={{ width: '100%', padding: 6, marginTop: 4 }}
+              >
+                <option value="Normal">Normal</option>
+                <option value="Moderate">Moderate</option>
+                <option value="Aggressive">Aggressive</option>
+              </select>
+            </label>
+            <button type="submit" disabled={aiLoading} style={{ padding: 8, marginTop: 8 }}>
+              {aiLoading ? "Analyzing..." : "Analyze Expense"}
+            </button>
+          </form>
+          {/* Display AI results or errors */}
+          {aiError && <div style={{ color: 'red', marginTop: 12 }}>{aiError}</div>}
+          {aiResult && (
+            <div style={{ marginTop: 16, background: '#f6f6f6', padding: 16, borderRadius: 8 }}>
+              <div><strong>Category:</strong> {aiResult.category}</div>
+              <div><strong>Base Forecast:</strong> ${aiResult.base_forecast.toFixed(2)}</div>
+              <div><strong>Adjusted Forecast:</strong> ${aiResult.adjusted_forecast.toFixed(2)}</div>
+            </div>
+          )}
         </div>
       </div>
     </div>

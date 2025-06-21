@@ -6,13 +6,13 @@ import pandas as pd
 import os
 from dotenv import load_dotenv
 
-load_dotenv(dotenv_path="../buck.env")
+load_dotenv(dotenv_path=".env.local")
 # Set your OpenAI key here
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # --- OpenAI Embedding Model ---
 def get_expense_category(text):
-    embedding = openai.Embedding.create(
+    embedding = openai.embeddings.create(
         input=text,
         model="text-embedding-3-small"
     )
