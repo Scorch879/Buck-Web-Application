@@ -5,6 +5,8 @@ from xgboost import XGBClassifier
 import pandas as pd
 import os
 from dotenv import load_dotenv
+import requests
+import os
 
 load_dotenv(dotenv_path=".env.local")
 # Set your OpenAI key here
@@ -38,3 +40,32 @@ def predict_future_expense(past_expenses):
     future = model.make_future_dataframe(periods=1, freq='M')
     forecast = model.predict(future)
     return forecast['yhat'].iloc[-1]  # Predicted next month expense
+
+
+def categorize_expense(text):
+    api_url = "https://api-inference.huggingface.co/models/facebook/bart-large-mnli"
+    headers = {"Authorization": f"Bearer {os.getenv('HUGGINGFACE_API_KEY')}"}
+    payload = {
+        "inputs": text,
+        "parameters": {
+            "candidate_labels": ["Food", "Transport", "Shopping", "Bills", "Entertainment", "Other"]
+        }
+    }
+    response = requests.post(api_url, headers=headers, json=payload)
+    response.raise_for_status()
+    result = response.json()
+    # Get the category with the highest score
+    best_category = result["labels"][0]
+    return best_category
+
+def recommend_saving_tip(category): #test
+    tips = {
+        "Food": "Try meal prepping to save on food expenses.",
+        "Transport": "Consider public transport or carpooling.",
+        "Shopping": "Look for discounts and avoid impulse buys.",
+        "Bills": "Review your subscriptions and cut unused ones.",
+        "Entertainment": "Find free or low-cost activities.",
+        "Other": "Track your spending to find more ways to save."
+    }
+    return tips.get(category, "Track your expenses regularly for better savings.")
+
