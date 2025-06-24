@@ -24,7 +24,7 @@ const SignIn = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        router.replace("/dashboard");
+        router.replace("/dashboard/home");
       }
     });
     return () => unsubscribe();
@@ -53,7 +53,7 @@ const SignIn = () => {
     const result = await signInUser(email, pass);
     if (result.success) {
       setMsg("Sign in successful!");
-      router.push("/dashboard"); // Redirect to dashboard or home page
+      router.push("/dashboard/home"); // Redirect to dashboard or home page
     } else {
       setError(result.message || "Sign in failed.");
     }
@@ -63,7 +63,7 @@ const SignIn = () => {
     const result = await signInWithGoogle();
     if (result.success) {
       setMsg("Google Sign-In successful!");
-      router.push("/dashboard"); // Redirect to dashboard or home page
+      router.push("/dashboard/home"); // Redirect to dashboard or home page
     } else if (result.cancelled) {
       // Do nothing, user cancelled
     } else {
