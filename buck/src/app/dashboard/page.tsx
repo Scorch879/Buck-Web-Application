@@ -6,7 +6,7 @@ import { auth } from "@/utils/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { signOutUser } from "@/component/authentication";
 import "./style.css";
-
+import DashboardHeader from "@/component/dashboardheader";
 // Data interface for type safety
 interface WeeklyData {
   day: string;
@@ -37,7 +37,7 @@ const Dashboard = (): React.JSX.Element => {
   const [user, setUser] = useState<User | null>(null);
   // Add all other useState hooks here, not inside any if/else
 
-  
+
   //Auth Guard Code Block
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -74,13 +74,13 @@ const Dashboard = (): React.JSX.Element => {
   }
 
   const handleSignOut = async () => {
-  const result = await signOutUser();
-  if (result.success) {
-    router.push("/"); // Redirect to sign-in page
-  } else {
-    alert(result.message || "Sign out failed.");
-  }
-};
+    const result = await signOutUser();
+    if (result.success) {
+      router.push("/"); // Redirect to sign-in page
+    } else {
+      alert(result.message || "Sign out failed.");
+    }
+  };
 
   //Audio Method
   const playQuack = () => {
@@ -113,54 +113,7 @@ const Dashboard = (): React.JSX.Element => {
   return (
     <div className="dashboard">
       {/* Sticky Header */}
-      <div className="dashboard-header">
-        <div className="dashboard-header-left">
-          <div className="dashboard-mascot">
-            <Image
-              src="/BuckMascot.png"
-              alt="Buck Mascot"
-              width={50}
-              height={70}
-              className="dashboard-mascot-img"
-              priority
-              onClick={playQuack}
-            />
-          </div>
-          <h1 className="dashboard-title">Buck</h1>
-        </div>
-
-        {/* Centered nav and right-aligned sign out */}
-        <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-          <div className="dashboard-nav" style={{ justifyContent: 'center', width: '100%' }}>
-            <button
-              className={`nav-button ${activeNav === "home" ? "active" : ""}`}
-              onClick={() => handleNavClick("home")}
-            >
-              Home
-            </button>
-            <button
-              className={`nav-button ${activeNav === "statistics" ? "active" : ""}`}
-              onClick={() => handleNavClick("statistics")}
-            >
-              Statistics
-            </button>
-            <button
-              className={`nav-button ${activeNav === "goals" ? "active" : ""}`}
-              onClick={() => handleNavClick("goals")}
-            >
-              Goals
-            </button>
-          </div>
-          <div style={{ marginLeft: 'auto' }}>
-            <button
-              className="nav-button"
-              onClick={handleSignOut}
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </div>
+      <DashboardHeader />
 
       <div className="dashboard-container">
         {/* Main Content */}
