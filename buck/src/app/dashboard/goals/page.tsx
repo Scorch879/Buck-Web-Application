@@ -70,24 +70,34 @@ const GoalsPage = () => {
     return (
       <div className="dashboard">
         <DashboardHeader initialActiveNav="goals" />
-        <div className="dashboard-container goals-center">
-          <div className="goals-card">
-            <h2 className="goals-title">
-              Here are your goals!
-            </h2>
-            <div className="goals-list">
-              {goals.map(goal => (
-                <div className="goals-card" key={goal.id}>
-                  <h3>{goal.goalName}</h3>
-                  <p>Target Amount: {goal.targetAmount}</p>
-                  <p>
-                    Created:{" "}
-                    {goal.createdAt?.toDate
-                      ? goal.createdAt.toDate().toLocaleString()
-                      : String(goal.createdAt)}
-                  </p>
-                </div>
-              ))}
+        <div className="wholepage">
+          <div className="dashboard-container goals-center">
+            <div className="goals-container">
+              <div className="title-container">
+                <h2 className="goals-title">
+                  Here are your goals!
+                </h2>
+              </div>
+              <div className="goals-list">
+                {goals.map(goal => (
+                  <div className="goals-card" key={goal.id}>
+                    <h3>{goal.goalName}</h3>
+                    <p>Target Amount: {goal.targetAmount}</p>
+                    <p>
+                      Created:{" "}
+                      {goal.createdAt?.toDate
+                        ? goal.createdAt.toDate().toLocaleString()
+                        : String(goal.createdAt)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <button
+                className="nav-button goals-create-btn"
+                onClick={() => router.push("/dashboard/goals/create")}
+              >
+                Create Goal
+              </button>
             </div>
           </div>
         </div>
