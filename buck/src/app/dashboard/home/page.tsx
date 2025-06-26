@@ -33,15 +33,7 @@ const Dashboard = (): React.JSX.Element => {
   const [weeklyData, setWeeklyData] = useState<WeeklyData[]>([]);
   const [summaryData, setSummaryData] = useState<SummaryData[]>([]);
   const [spendingAmount, setSpendingAmount] = useState("");
-
-  //Auth Guard Code Block
   const { user, loading } = useAuthGuard();
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-  if (!user) {
-    return <div>Redirecting...</div>;
-  }
 
   // On mount, set sample data for demonstration
   useEffect(() => {
@@ -55,6 +47,15 @@ const Dashboard = (): React.JSX.Element => {
       { day: "Sun", amount: 12, height: 25, color: "#efb857" },
     ]);
   }, []);
+
+  if (loading || !user) {
+  return (
+    <div className="loading-spinner">
+      <div className="spinner"></div>
+      <div className="loading-text">Loading Buck...</div>
+    </div>
+  );
+}
 
   const handleSignOut = async () => {
     const result = await signOutUser();

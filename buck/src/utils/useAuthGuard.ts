@@ -24,4 +24,15 @@ export function useAuthGuard() {
   return { user, loading };
 }
 
-export default useAuthGuard;
+export function useRedirectIfAuthenticated(redirectTo = "/dashboard/home") {
+  const router = useRouter();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        router.replace(redirectTo);
+      }
+    });
+    return () => unsubscribe();
+  }, [router, redirectTo]);
+}
