@@ -1,27 +1,40 @@
 "use client";
-import React, { useState } from "react";
+import React, { use, useState } from "react";
 import DashboardHeader from "@/component/dashboardheader";
 import "../create/style.css";
 
 const CreateGoalPage = () => {
-  const [goalName, setGoalName] = useState("");
-  const [targetAmount, setTargetAmount] = useState("");
-  const [Attitude, setAttitude] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
-      setSubmitting(false);
-      setSuccess(true);
-      setGoalName("");
-      setTargetAmount("");
-      setAttitude("");
-    }, 1200);
+
+  const [form, setForm] = useState({
+    goalName: "",
+    targetAmount: "",
+    Attitude: "",
+  });
+
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm({ ...form, [e.target.id]: e.target.value });
   };
+
+
+  const handleGoalCreate = async (e: React.FormEvent) => {
+     e.preventDefault(); 
+    if (
+      !form.goalName.trim() ||
+      !form.Attitude.trim() ||
+      !form.targetAmount.trim()
+    ) {
+      console.log("Fill in all fields")//someone change this to setError like signin/signup
+      return;
+    }
+    console.log(form.goalName);
+    console.log(form.targetAmount);
+    console.log(form.Attitude);
+  }
 
   return (
     <div className="dashboard">
@@ -36,29 +49,32 @@ const CreateGoalPage = () => {
               Goal created successfully!
             </div>
           )}
-          <form onSubmit={handleSubmit} className="create-goal-form">
+          <form onSubmit={handleGoalCreate} className="create-goal-form">
             <input
+              id="goalName"
               type="text"
               placeholder="Goal Name"
-              value={goalName}
-              onChange={e => setGoalName(e.target.value)}
+              value={form.goalName}
+              onChange={handleChange}
               required
               className="create-goal-input"
             />
             <input
+              id="targetAmount"
               type="number"
               placeholder="Budget   "
-              value={targetAmount}
-              onChange={e => setTargetAmount(e.target.value)}
+              value={form.targetAmount}
+              onChange={handleChange}
               required
               min={1}
               className="create-goal-input"
             />
-            <input 
-              type="text" 
+            <input
+              id="Attitude"
+              type="text"
               placeholder="Spending Attitude    "
-              value={Attitude}
-              onChange={e => setAttitude(e.target.value)}
+              value={form.Attitude}
+              onChange={handleChange}
               required
               className="create-goal-input"
             />
