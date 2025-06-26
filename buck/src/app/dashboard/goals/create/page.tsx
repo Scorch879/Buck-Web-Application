@@ -2,7 +2,7 @@
 import React, { use, useState } from "react";
 import DashboardHeader from "@/component/dashboardheader";
 import "../create/style.css";
-
+import { createGoal } from "@/component/goals";
 const CreateGoalPage = () => {
 
   const [submitting, setSubmitting] = useState(false);
@@ -34,6 +34,11 @@ const CreateGoalPage = () => {
     console.log(form.goalName);
     console.log(form.targetAmount);
     console.log(form.Attitude);
+    const result = await createGoal(form.goalName,form.targetAmount,form.Attitude)
+    if(result.success)
+      console.log("Successfully added goal")
+    else
+      console.log("failed to add goal")
   }
 
   return (
