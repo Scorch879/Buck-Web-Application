@@ -55,7 +55,7 @@ const SignIn = () => {
       setMsg("Sign in successful!");
       router.push("/dashboard/home"); // Redirect to dashboard or home page
     } else {
-      setError(result.message || "Sign in failed.");
+      setError("Sign in failed.");
     }
   };
 
@@ -67,7 +67,7 @@ const SignIn = () => {
     } else if (result.cancelled) {
       // Do nothing, user cancelled
     } else {
-      alert(result.message || "Google Sign-In failed.");
+      setError("Google Sign-In failed.");
     }
   };
   const [showPassword, setShowPassword] = useState(false);
