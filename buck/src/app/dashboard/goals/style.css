@@ -41,3 +41,20 @@
   margin-right: auto;
 }
 
+.goals-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  justify-content: center;
+}
+.goals-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  padding: 1.5rem 2rem;
+  min-width: 220px;
+  max-width: 300px;
+  margin: 0.5rem;
+  text-align: left;
+  color: #2c3e50;
+}
