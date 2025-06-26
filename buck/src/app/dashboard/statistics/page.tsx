@@ -67,7 +67,7 @@ const Statistics = () => {
               marginLeft: "auto",
               marginRight: "auto",
             }}
-            onClick={() => router.push("/goals/create")}
+            onClick={() => router.push("/dashboard/goals/create")}
           >
             Create Goal
           </button>
