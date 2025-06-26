@@ -6,8 +6,8 @@ import { signOutUser } from "./authentication";
 import { useRouter } from "next/navigation";
 import "./dashboard.css"
 
-export default function DashboardHeader() {
-    const [activeNav, setActiveNav] = useState("home");
+export default function DashboardHeader({ initialActiveNav = "home" }: { initialActiveNav?: string } = {}) {
+    const [activeNav, setActiveNav] = useState(initialActiveNav);
     const router = useRouter();
 
     const playQuack = () => {
@@ -50,19 +50,28 @@ export default function DashboardHeader() {
                 <div className="dashboard-nav" style={{ justifyContent: 'center', width: '100%' }}>
                     <button
                         className={`nav-button ${activeNav === "home" ? "active" : ""}`}
-                        onClick={() => handleNavClick("home")}
+                        onClick={() => {
+                            setActiveNav("home");
+                            router.push("/dashboard");
+                        }}
                     >
                         Home
                     </button>
                     <button
                         className={`nav-button ${activeNav === "statistics" ? "active" : ""}`}
-                        onClick={() => handleNavClick("statistics")}
+                        onClick={() => {
+                            setActiveNav("statistics");
+                            router.push("/statistics");
+                        }}
                     >
                         Statistics
                     </button>
                     <button
                         className={`nav-button ${activeNav === "goals" ? "active" : ""}`}
-                        onClick={() => handleNavClick("goals")}
+                        onClick={() => {
+                            setActiveNav("goals");
+                            router.push("/goals");
+                        }}
                     >
                         Goals
                     </button>

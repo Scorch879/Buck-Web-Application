@@ -1,0 +1,10 @@
+@import url("../dashboard/style.css");
+
+/* Extra centering for the goals page if needed */
+.dashboard-container {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}

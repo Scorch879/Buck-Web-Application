@@ -1,0 +1,59 @@
+/* Overlay for the create goal page */
+.create-goal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 200;
+  pointer-events: auto;
+  background: linear-gradient(135deg, #f6c390 0%, #f3a35c 60%, #e98a3f 100%);
+}
+
+/* Blurred background except header */
+.create-goal-blur-bg {
+  position: fixed;/* height of header, adjust if needed */
+  left: 0;
+  width: 100vw;
+  height: calc(100vh - 70px);
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(8px);
+  z-index: 201;
+}
+
+/* White panel */
+.create-goal-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 6px 32px 0 rgba(239, 138, 87, 0.18);
+  border: 1.5px solid #ffd6b0;
+  padding: 2.5rem 2rem 2rem 2rem;
+  min-width: 340px;
+  max-width: 90vw;
+  min-height: 200px;
+  z-index: 202;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.back-button {
+  background: none;
+  border: none;
+  color: #ef8a57;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.back-button:hover {
+  background: #fff7f0;
+}
