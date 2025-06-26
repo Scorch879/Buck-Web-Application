@@ -3,9 +3,17 @@ import React from "react";
 import "./style.css";
 import { useRouter } from "next/navigation";
 import DashboardHeader from "@/component/dashboardheader";
+import { useAuthGuard } from "@/utils/useAuthGuard";
 
 const GoalsPage = () => {
   const router = useRouter();
+  
+  const { user, loading } = useAuthGuard();
+
+  if (loading) return <div>Loading...</div>;
+  if (!user) return <div>Redirecting...</div>;
+
+
   return (
     <div className="dashboard">
       {/* Sticky Header */}

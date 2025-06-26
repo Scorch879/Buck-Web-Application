@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { auth } from "@/utils/firebase";
@@ -7,6 +7,8 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { signOutUser } from "@/component/authentication";
 import "./style.css";
 import DashboardHeader from "@/component/dashboardheader";
+import { useAuthGuard } from "@/utils/useAuthGuard";
+
 // Data interface for type safety
 interface WeeklyData {
   day: string;
@@ -22,34 +24,24 @@ interface SummaryData {
 }
 
 const Dashboard = (): React.JSX.Element => {
+  const router = useRouter();
+
   // State for active navigation
   const [activeNav, setActiveNav] = useState("home");
 
   // Empty data - ready for future implementation
   const [weeklyData, setWeeklyData] = useState<WeeklyData[]>([]);
-
   const [summaryData, setSummaryData] = useState<SummaryData[]>([]);
-
   const [spendingAmount, setSpendingAmount] = useState("");
 
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<User | null>(null);
-  // Add all other useState hooks here, not inside any if/else
-
-
   //Auth Guard Code Block
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (!firebaseUser) {
-        router.replace("/sign-in");
-      } else {
-        setUser(firebaseUser);
-        setLoading(false);
-      }
-    });
-    return () => unsubscribe();
-  }, [router]);
+  const { user, loading } = useAuthGuard();
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+  if (!user) {
+    return <div>Redirecting...</div>;
+  }
 
   // On mount, set sample data for demonstration
   useEffect(() => {
@@ -63,15 +55,6 @@ const Dashboard = (): React.JSX.Element => {
       { day: "Sun", amount: 12, height: 25, color: "#efb857" },
     ]);
   }, []);
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
-  // Only render dashboard if user is authenticated
-  if (!user) {
-    return <div>Redirecting...</div>;
-  }
 
   const handleSignOut = async () => {
     const result = await signOutUser();
@@ -132,31 +115,59 @@ const Dashboard = (): React.JSX.Element => {
           {/* Graph Card */}
           <div className="graph-card">
             <h2 className="graph-title">Weekly Summary of Expenses</h2>
-            <div className="graph-container" style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end' }}>
+            <div
+              className="graph-container"
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "flex-end",
+              }}
+            >
               {/* Y-Axis */}
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                height: '300px',
-                marginRight: '1rem',
-                fontSize: '0.9rem',
-                color: '#6c757d',
-                alignItems: 'flex-end',
-                minWidth: '28px',
-              }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  height: "300px",
+                  marginRight: "1rem",
+                  fontSize: "0.9rem",
+                  color: "#6c757d",
+                  alignItems: "flex-end",
+                  minWidth: "28px",
+                }}
+              >
                 {[30, 25, 20, 15, 10, 5, 0].map((num) => (
-                  <div key={num} style={{ height: '1px', marginBottom: num !== 0 ? 'calc(300px / 7 - 1px)' : 0 }}>{num}</div>
+                  <div
+                    key={num}
+                    style={{
+                      height: "1px",
+                      marginBottom: num !== 0 ? "calc(300px / 7 - 1px)" : 0,
+                    }}
+                  >
+                    {num}
+                  </div>
                 ))}
               </div>
               {/* Bars */}
-              <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', height: '300px', gap: '1rem' }}>
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "flex-end",
+                  height: "300px",
+                  gap: "1rem",
+                }}
+              >
                 {weeklyData.length > 0 ? (
                   weeklyData.map((item, index) => (
                     <div
                       key={index}
                       className="graph-bar"
-                      style={{ height: `${item.height}%`, background: item.color }}
+                      style={{
+                        height: `${item.height}%`,
+                        background: item.color,
+                      }}
                       title={`${item.day}: $${item.amount}`}
                     >
                       <div className="graph-bar-label">{item.day}</div>
