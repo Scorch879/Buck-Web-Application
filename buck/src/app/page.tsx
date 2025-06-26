@@ -6,14 +6,19 @@ import { motion } from "framer-motion";
 import { Header, Footer } from "@/component/HeaderFooter";
 import GetStartedButton from "@/component/GetStartedButton";
 import "./globals.css";
+import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
 
 export default function Home() {
+  useRedirectIfAuthenticated(); // Redirects if user is signed in
   const router = useRouter();
   const welcomeMsgRef = useRef<HTMLDivElement>(null);
-  const [trailDots, setTrailDots] = useState<Array<{ id: number, x: number, y: number }>>([]);
+  const [trailDots, setTrailDots] = useState<
+    Array<{ id: number; x: number; y: number }>
+  >([]);
   const nextDotId = useRef(0);
 
-  const text = "Need help in saving your money? Guess what, go BUCK yourself! Buck can help you manage your weekly spending with a press of a button!";
+  const text =
+    "Need help in saving your money? Guess what, go BUCK yourself! Buck can help you manage your weekly spending with a press of a button!";
   const words = text.split(" ");
 
   const containerVariants = {
@@ -34,7 +39,7 @@ export default function Home() {
 
   //Prefetching for optimization
   useEffect(() => {
-    router.prefetch('/sign-in');
+    router.prefetch("/sign-in");
   }, [router]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -49,9 +54,10 @@ export default function Home() {
         y,
       };
 
-      setTrailDots(prevDots => {
+      setTrailDots((prevDots) => {
         const updatedDots = [...prevDots, newDot];
-        if (updatedDots.length > 50) { // Limit number of dots to prevent performance issues
+        if (updatedDots.length > 50) {
+          // Limit number of dots to prevent performance issues
           updatedDots.shift();
         }
         return updatedDots;
@@ -59,7 +65,9 @@ export default function Home() {
 
       // Remove dot after a short delay to create fading effect
       setTimeout(() => {
-        setTrailDots(prevDots => prevDots.filter(dot => dot.id !== newDot.id));
+        setTrailDots((prevDots) =>
+          prevDots.filter((dot) => dot.id !== newDot.id)
+        );
       }, 500); // Dot visible for 500ms
     }
   };
@@ -74,7 +82,7 @@ export default function Home() {
             <div className="smoothLine"></div>
             <p id="desc">The Budget Tracker</p>
           </div>
-          <div className="buckmascot" >
+          <div className="buckmascot">
             <Image
               src="/BuckMascot.png"
               alt="Buck Logo"
@@ -82,10 +90,8 @@ export default function Home() {
               className="buckmascotImg"
               priority
               style={{ objectFit: "contain" }}
-            >
-            </Image>
+            ></Image>
           </div>
-
         </div>
         <div
           className="welcomeMsg"
@@ -96,26 +102,32 @@ export default function Home() {
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            style={{ display: "flex", flexWrap: "wrap", justifyContent: "center" }}
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              justifyContent: "center",
+            }}
           >
             {words.map((word, index) => (
-              <motion.span key={index} variants={wordVariants} style={{ marginRight: "0.25em" }}>
+              <motion.span
+                key={index}
+                variants={wordVariants}
+                style={{ marginRight: "0.25em" }}
+              >
                 {word}
               </motion.span>
             ))}
           </motion.p>
-          {
-            trailDots.map(dot => (
-              <div
-                key={dot.id}
-                className="mouse-trail-dot"
-                style={{
-                  left: `${dot.x}px`,
-                  top: `${dot.y}px`,
-                }}
-              />
-            ))
-          }
+          {trailDots.map((dot) => (
+            <div
+              key={dot.id}
+              className="mouse-trail-dot"
+              style={{
+                left: `${dot.x}px`,
+                top: `${dot.y}px`,
+              }}
+            />
+          ))}
         </div>
         <GetStartedButton />
       </div>
