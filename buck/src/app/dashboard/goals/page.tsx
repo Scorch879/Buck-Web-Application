@@ -5,11 +5,15 @@ import { useRouter } from "next/navigation";
 import DashboardHeader from "@/component/dashboardheader";
 import { useAuthGuard } from "@/utils/useAuthGuard";
 import { isUserGoalsEmpty } from "@/component/goals";
+import { db } from "@/utils/firebase";
+import { collection, getDocs } from "firebase/firestore";
 
 const GoalsPage = () => {
   const router = useRouter();
   const { user, loading } = useAuthGuard();
   const [goalsEmpty, setGoalsEmpty] = useState<boolean | null>(null);
+  const [goals, setGoals] = useState<any[]>([]);
+  const [loadingGoals, setLoadingGoals] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -17,7 +21,20 @@ const GoalsPage = () => {
     }
   }, [user]);
 
-  if (loading || !user || goalsEmpty === null) {
+  useEffect(() => {
+    const fetchGoals = async () => {
+      if (user && goalsEmpty === false) {
+        setLoadingGoals(true);
+        const goalsRef = collection(db, "goals", user.uid, "userGoals");
+        const snapshot = await getDocs(goalsRef);
+        setGoals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setLoadingGoals(false);
+      }
+    };
+    fetchGoals();
+  }, [user, goalsEmpty]);
+
+  if (loading || !user || goalsEmpty === null || (goalsEmpty === false && loadingGoals)) {
     return (
       <div className="loading-spinner">
         <div className="spinner"></div>
@@ -53,12 +70,35 @@ const GoalsPage = () => {
     return (
       <div className="dashboard">
         <DashboardHeader initialActiveNav="goals" />
-        <div className="dashboard-container goals-center">
-          <div className="goals-card">
-            <h2 className="goals-title">
-              Here are your goals!
-            </h2>
-            {/* Render your goals list here */}
+        <div className="wholepage">
+          <div className="dashboard-container goals-center">
+            <div className="goals-container">
+              <div className="title-container">
+                <h2 className="goals-title">
+                  Here are your goals!
+                </h2>
+              </div>
+              <div className="goals-list">
+                {goals.map(goal => (
+                  <div className="goals-card" key={goal.id}>
+                    <h3>{goal.goalName}</h3>
+                    <p>Target Amount: {goal.targetAmount}</p>
+                    <p>
+                      Created:{" "}
+                      {goal.createdAt?.toDate
+                        ? goal.createdAt.toDate().toLocaleString()
+                        : String(goal.createdAt)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <button
+                className="nav-button goals-create-btn"
+                onClick={() => router.push("/dashboard/goals/create")}
+              >
+                Create Goal
+              </button>
+            </div>
           </div>
         </div>
       </div>

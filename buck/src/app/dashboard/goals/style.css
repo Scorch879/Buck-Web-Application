@@ -1,3 +1,10 @@
+.wholepage{
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  min-width: 100vw;
+  background: linear-gradient(135deg, #f6c390 0%, #f3a35c 60%, #e98a3f 100%);
+}
 .dashboard {
     min-height: 100dvh;
     min-width: 100vw;
@@ -24,7 +31,10 @@
   max-width: 500px;
   text-align: center;
 }
-
+.title-container{
+  width: 100%;
+  text-align: center;
+}
 .goals-title {
   font-size: 2rem;
   font-weight: 700;
@@ -41,3 +51,21 @@
   margin-right: auto;
 }
 
+.goals-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  justify-content: center;
+}
+
+.goals-container{
+  color:#2c3e50;
+  background-color: white;
+  width: 85%;
+  height: 80%;
+  border-radius: 25px;
+  display: flex;
+  flex-direction: column;
+  overflow-y:scroll;
+  
+}
