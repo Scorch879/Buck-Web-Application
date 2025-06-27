@@ -72,11 +72,28 @@
   text-align: center;
 }
 
-.nav-button {
+.create-goal-button {
   font-size: 1.1rem;
   padding: 0.8rem 2.5rem;
   margin-top: 1.5rem;
   display: block;
   margin-left: auto;
   margin-right: auto;
+  background: #fff7f0;
+  border: 2px solid #ef8a57;
+  border-radius: 8px;
+  color: #ef8a57;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.create-goal-button:hover {
+  background: #ef8a57;
+  color: #fff;
+  border-color: #ef8a57;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px 0 rgba(239, 138, 87, 0.2);
+  position-anchor: center;
 }

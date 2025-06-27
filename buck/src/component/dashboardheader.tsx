@@ -46,8 +46,8 @@ export default function DashboardHeader({ initialActiveNav = "home" }: { initial
             </div>
 
             {/* Centered nav and right-aligned sign out */}
-            <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                <div className="dashboard-nav" style={{ justifyContent: 'center', width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                <div className="dashboard-nav" style={{ justifyContent: 'center' }}>
                     <button
                         className={`nav-button ${activeNav === "home" ? "active" : ""}`}
                         onClick={() => {
