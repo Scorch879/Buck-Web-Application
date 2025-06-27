@@ -87,6 +87,9 @@ const Statistics = () => {
             padding: "2rem 1.5rem",
           }}
         >
+          <div style={{ fontWeight: 700, fontSize: "1.3rem", color: "#2c3e50", marginBottom: "1.2rem", textAlign: "center" }}>
+            Weekly Spending Report
+          </div>
           <Line
             data={{
               labels: [
