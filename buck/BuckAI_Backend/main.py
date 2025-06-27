@@ -1,8 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from ai_models import categorize_expense, get_multiplier, predict_future_expense, forecast_budget
+from ai_models import categorize_expense, get_multiplier, predict_future_expense
 from fastapi.middleware.cors import CORSMiddleware
-
 
 app = FastAPI()
 
@@ -19,15 +18,6 @@ class ExpenseInput(BaseModel):
     past_expenses: list
     saving_attitude: str  # "Normal", "Moderate", "Aggressive"
 
-class GoalInput(BaseModel):
-    goal_amount: float
-    end_date: str  # ISO format date
-    saving_attitude: str  # "Normal", "Moderate", "Aggressive"
-    max_budget: float
-    surprise_expenses: list  # List of {"date": "YYYY-MM-DD", "amount": float}
-    past_expenses: list  # Optional, for forecasting
-
-
 @app.post("/process_expense/")
 def process_expense(data: ExpenseInput):
     category = categorize_expense(data.text)
@@ -39,7 +29,3 @@ def process_expense(data: ExpenseInput):
         "base_forecast": base_forecast,
         "adjusted_forecast": adjusted_forecast
     }
-
-@app.post("/forecast_goal/")
-def forecast_goal(data: GoalInput):
-    return forecast_budget(data)
