@@ -7,6 +7,7 @@ import { useAuthGuard } from "@/utils/useAuthGuard";
 import { isUserGoalsEmpty } from "@/component/goals";
 import { db } from "@/utils/firebase";
 import { collection, getDocs } from "firebase/firestore";
+import CreateGoalModal from "./CreateGoalModal";
 
 const GoalsPage = () => {
   const router = useRouter();
@@ -14,6 +15,9 @@ const GoalsPage = () => {
   const [goalsEmpty, setGoalsEmpty] = useState<boolean | null>(null);
   const [goals, setGoals] = useState<any[]>([]);
   const [loadingGoals, setLoadingGoals] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedGoal, setSelectedGoal] = useState<any | null>(null);
+
 
   useEffect(() => {
     if (user) {
@@ -70,37 +74,59 @@ const GoalsPage = () => {
     return (
       <div className="dashboard">
         <DashboardHeader initialActiveNav="goals" />
-        <div className="wholepage">
-          <div className="dashboard-container goals-center">
-            <div className="goals-container">
-              <div className="title-container">
-                <h2 className="goals-title">
-                  Here are your goals!
-                </h2>
-              </div>
-              <div className="goals-list">
-                {goals.map(goal => (
-                  <div className="goals-card" key={goal.id}>
-                    <h3>{goal.goalName}</h3>
-                    <p>Target Amount: {goal.targetAmount}</p>
-                    <p>
-                      Created:{" "}
-                      {goal.createdAt?.toDate
-                        ? goal.createdAt.toDate().toLocaleString()
-                        : String(goal.createdAt)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <button
-                className="nav-button goals-create-btn"
-                onClick={() => router.push("/dashboard/goals/create")}
-              >
-                Create Goal
-              </button>
+        <div className="GoalsPage">
+          <div className="GoalsCard">
+            <div className="goals-header">
+              <h2>Here are your Goals!</h2>
+            </div>
+            <button
+              className="nav-button goals-create-btn"
+              onClick={() => setShowModal(true)}
+            >
+              Create Goal
+            </button>
+            <div className="goals-list">
+              {goals.map(goal => (
+                <div
+                  className="goals-card"
+                  key={goal.id}
+                  onClick={() => setSelectedGoal(goal)}
+                  style={{ cursor: "pointer" }}
+                >
+                  <h3>{goal.goalName}</h3>
+                  <p>Target Amount: {goal.targetAmount}</p>
+                  <p>
+                    Created:{" "}
+                    {goal.createdAt?.toDate
+                      ? goal.createdAt.toDate().toLocaleString()
+                      : String(goal.createdAt)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="GoalsContainer">
+            <div className="GoalsContainer">
+              {selectedGoal ? (
+                <div className="goal-details">
+                  <h2>Goal Details</h2>
+                  <p><strong>Name:</strong> {selectedGoal.goalName}</p>
+                  <p><strong>Target Amount:</strong> {selectedGoal.targetAmount}</p>
+                  <p><strong>Target Date:</strong> {selectedGoal.targetDate}</p>
+                  <p><strong>Created:</strong> {selectedGoal.createdAt}</p>
+                  {/* Add more fields as needed */}
+                </div>
+              ) : (
+                <div className="goal-details-placeholder">
+                  <p>Select a goal to see its details.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
+        {showModal && (
+          <CreateGoalModal onClose={() => setShowModal(false)} />
+        )}
       </div>
     );
   }

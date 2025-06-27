@@ -1,10 +1,98 @@
-.wholepage{
+.dashboard {
+    min-height: 100dvh;
+    min-width: 100vw;
+    background: linear-gradient(135deg, #f6c390 0%, #f3a35c 60%, #e98a3f 100%);
+    display: flex;
+    flex-direction: column;
+    font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+.GoalsPage{
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  justify-content: center;
   min-height: 100dvh;
   min-width: 100vw;
+  gap:5%;
   background: linear-gradient(135deg, #f6c390 0%, #f3a35c 60%, #e98a3f 100%);
+  color: black;
+  margin-top: 2.5%;
 }
+.GoalsCard {
+  background-color: #61564b;
+  width: 25%;
+  border-top-right-radius: 25px;
+  border-bottom-right-radius: 25px;
+  height: 95%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.goals-list {
+  display: flex;
+  flex-direction: column;      /* Stack cards vertically */
+  gap: 1.5rem;
+  justify-content: flex-start;
+  width: 100%;           /* Set a max height for scrolling */
+  overflow-y: auto;            /* Only this div scrolls */
+  padding-right: 8px;          /* Optional: space for scrollbar */
+}
+.goals-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  padding: 1.5rem 2rem;
+  min-width: 220px;
+  max-width: 300px;
+  margin: 0.5rem;
+  text-align: left;
+}
+.goals-header{
+  text-align: center;
+  color: rgba(40, 40, 114, 0.801);
+}
+.GoalsContainer{
+ background-color:white;
+ height: 95%;
+ width: 70%;
+ margin-right: 2.5%;
+ border-radius: 25px;
+}
+
+/*the modal css */
+.modal-backdrop {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal-content {
+  background: #fff;
+  border-radius: 12px;
+  padding: 2rem;
+  min-width: 320px;
+  max-width: 90vw;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.2);
+  position: relative;
+  justify-content: center;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: transparent;
+  border: none;
+  font-size: 2rem;
+  cursor: pointer;
+}
+
+/* Create Goal css */
 .dashboard {
     min-height: 100dvh;
     min-width: 100vw;
@@ -14,58 +102,62 @@
     font-family: "Segoe UI", Helvetica, Arial, sans-serif;
   }
 
-.goals-center {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-
-.goals-card {
-  background: #fff;
-  border-radius: 18px;
-  box-shadow: 0 6px 32px 0 rgba(239, 138, 87, 0.08);
-  border: 1.5px solid #ffd6b0;
-  padding: 3rem 2rem;
-  max-width: 500px;
-  text-align: center;
-}
-.title-container{
-  width: 100%;
-  text-align: center;
-}
-.goals-title {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #2c3e50;
-  margin-bottom: 2rem;
-}
-
-.goals-create-btn {
-  font-size: 1.1rem;
-  padding: 0.8rem 2.5rem;
-  margin-top: 1.5rem;
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.goals-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-  justify-content: center;
-}
-
-.goals-container{
-  color:#2c3e50;
-  background-color: white;
-  width: 85%;
-  height: 80%;
-  border-radius: 25px;
-  display: flex;
-  flex-direction: column;
-  overflow-y:scroll;
+.create-goal-container {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 6px 32px 0 rgba(239, 138, 87, 0.08);
+    border: 1.5px solid #ffd6b0;
+    padding: 3rem 2rem;
+    max-width: 500px;
+    width: 100%;
+    text-align: center;
+  }
   
-}
+  .create-goal-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 2rem;
+  }
+  
+  .create-goal-success {
+    color: #27ae60;
+    margin-bottom: 1rem;
+    font-weight: 600;
+  }
+  
+  .create-goal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  
+  .create-goal-input {
+    padding: 0.9rem 1.2rem;
+    border-radius: 8px;
+    border: 1.5px solid #ffd6b0;
+    font-size: 1.1rem;
+    outline: none;
+  }
+  
+  .create-goal-button {
+    font-size: 1.1rem;
+    padding: 0.8rem 2.5rem;
+    margin-top: 0.5rem;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  .create-goal-center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .create-goal-button-disabled {
+    background: #ffd6b0 !important;
+    cursor: not-allowed !important;
+  }
