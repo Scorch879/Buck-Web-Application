@@ -16,6 +16,7 @@ const GoalsPage = () => {
   const [loadingGoals, setLoadingGoals] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<any | null>(null);
+  const [aiRecommendation, setAIRecommendation] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchGoals = async () => {
@@ -29,6 +30,21 @@ const GoalsPage = () => {
     };
     fetchGoals();
   }, [user]);
+
+  async function fetchAIRecommendation(goal: any) {
+    const response = await fetch("https://buck-web-application-1.onrender.com", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        goal_name: goal.goalName,
+        target_amount: parseFloat(goal.targetAmount),
+        attitude: goal.attitude || "Normal",
+        target_date: goal.targetDate,
+      }),
+    });
+    const data = await response.json();
+    return data.recommendation;
+  }
 
   if (loading || !user || loadingGoals) {
     return (
@@ -118,6 +134,9 @@ const GoalsPage = () => {
                 <p><strong>Attitude:</strong> {selectedGoal.attitude}</p>
                 <p>
                   <strong>Status:</strong> {selectedGoal.isActive ? "Active" : "Inactive"}
+                </p>
+                <p style={{marginTop: "1em", color: "#2a7"}}><strong>AI Recommendation:</strong><br />
+                  {aiRecommendation}
                 </p>
               </div>
             ) : (

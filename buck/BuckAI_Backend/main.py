@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from ai_models import categorize_expense, get_multiplier, predict_future_expense
 from fastapi.middleware.cors import CORSMiddleware
+from datetime import datetime
 
 app = FastAPI()
 
@@ -13,19 +14,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class ExpenseInput(BaseModel):
-    text: str
-    past_expenses: list
-    saving_attitude: str  # "Normal", "Moderate", "Aggressive"
+class GoalInput(BaseModel):
+    goal_name: str
+    target_amount: float
+    attitude: str
+    target_date: str  # Expecting 'YYYY-MM-DD'
 
-@app.post("/process_expense/")
-def process_expense(data: ExpenseInput):
-    category = categorize_expense(data.text)
-    multiplier = get_multiplier({"saving_attitude": data.saving_attitude})
-    base_forecast = predict_future_expense(data.past_expenses)
-    adjusted_forecast = base_forecast * multiplier
+@app.post("/ai/goal_recommendation/")
+def ai_goal_recommendation(goal: GoalInput):
+    # Calculate months left
+    today = datetime.today()
+    target_date = datetime.strptime(goal.target_date, "%Y-%m-%d")
+    months_left = (target_date.year - today.year) * 12 + (target_date.month - today.month)
+    if months_left <= 0:
+        return {"recommendation": "The target date has already passed. Please set a future date."}
+    if goal.target_amount <= 0:
+        return {"recommendation": "Please set a valid target amount for your goal."}
+
+    multiplier = get_multiplier({"saving_attitude": goal.attitude})
+    monthly_target = goal.target_amount / months_left
+    adjusted_monthly_target = monthly_target * multiplier
+
     return {
-        "category": category,
-        "base_forecast": base_forecast,
-        "adjusted_forecast": adjusted_forecast
+        "recommendation": f"To reach your goal, you should aim to save ₱{monthly_target:.2f} per month. With your \"{goal.attitude}\" attitude, try to keep your spending below ₱{adjusted_monthly_target:.2f} per month.",
+        "months_left": months_left,
+        "monthly_target": monthly_target,
+        "adjusted_monthly_target": adjusted_monthly_target
     }
