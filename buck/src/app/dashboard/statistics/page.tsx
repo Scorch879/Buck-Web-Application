@@ -40,6 +40,33 @@ const Statistics = () => {
     );
   }
 
+    //Test Variables
+  let mon, tue, wed, thu, fri, sat, sun;
+
+  mon = 1000; // Example value for Monday
+  tue = 800; // Example value for Tuesday
+  wed = 600; // Example value for Wednesday
+  thu = 1200; // Example value for Thursday
+  fri = 900; // Example value for Friday
+  sat = 1100; // Example value for Saturday
+  ///
+
+
+  let maxBudgetPerDay = 1000;
+  
+  let totalExpenses = [mon, tue, wed, thu, fri, sat, sun]; // Example expenses for each day of the week
+
+  const saved = [0, 0, 0, 0, 0, 0, 0];
+
+  for (let i = 0; i < saved.length; i++) {
+    const expense = totalExpenses[i];
+    if (expense == undefined) {
+      saved[i] = maxBudgetPerDay; // If no expense, assume full budget saved
+      continue;
+    }
+    saved[i] = maxBudgetPerDay - expense;
+  }
+
   return (
     <div className="dashboard">
       {/* Sticky Header */}
@@ -104,7 +131,7 @@ const Statistics = () => {
               datasets: [
                 {
                   label: "Progress",
-                  data: [2, -3, 7, 4, 6, -1, 2],
+                  data: saved,
                   borderColor: function(context) {
                     const chart = context.chart;
                     const {ctx, chartArea} = chart;
