@@ -115,6 +115,10 @@ const GoalsPage = () => {
                 <p><strong>Target Amount:</strong> {selectedGoal.targetAmount}</p>
                 <p><strong>Target Date:</strong> {selectedGoal.targetDate}</p>
                 <p><strong>Created:</strong> {selectedGoal.createdAt}</p>
+                <p><strong>Attitude:</strong> {selectedGoal.attitude}</p>
+                <p>
+                  <strong>Status:</strong> {selectedGoal.isActive ? "Active" : "Inactive"}
+                </p>
               </div>
             ) : (
               <div className="goal-details-placeholder">
