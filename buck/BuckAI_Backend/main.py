@@ -1,8 +1,17 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from ai_models import get_expense_category, get_multiplier, predict_future_expense
+from ai_models import categorize_expense, get_multiplier, predict_future_expense
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Or specify ["http://localhost:3000"] for more security
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class ExpenseInput(BaseModel):
     text: str
@@ -11,7 +20,7 @@ class ExpenseInput(BaseModel):
 
 @app.post("/process_expense/")
 def process_expense(data: ExpenseInput):
-    category = get_expense_category(data.text)
+    category = categorize_expense(data.text)
     multiplier = get_multiplier({"saving_attitude": data.saving_attitude})
     base_forecast = predict_future_expense(data.past_expenses)
     adjusted_forecast = base_forecast * multiplier
