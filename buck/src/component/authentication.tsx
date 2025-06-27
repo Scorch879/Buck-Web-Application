@@ -88,6 +88,7 @@ export async function signUpUser(email: string, password: string, username: stri
 export async function signInUser(email: string, password: string) {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const user= userCredential.user
     return { success: true, user: userCredential.user };
   } catch (error: any) {
     return { success: false, message: error.message };
