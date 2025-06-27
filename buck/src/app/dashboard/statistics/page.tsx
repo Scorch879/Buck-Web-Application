@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import "./style.css";
 import { useRouter } from "next/navigation";
 import DashboardHeader from "@/component/dashboardheader";
@@ -29,6 +29,7 @@ ChartJS.register(
 const Statistics = () => {
   const router = useRouter();
   const { user, loading } = useAuthGuard();
+  const [yMax, setYMax] = useState(10);
 
   if (loading || !user) {
     return (
@@ -53,6 +54,27 @@ const Statistics = () => {
           alignItems: "center",
         }}
       >
+        {/* Y-Axis Max Control */}
+        <div style={{ marginBottom: "1rem", textAlign: "right", width: 500 }}>
+          <label style={{ fontWeight: 500, marginRight: 8 }}>
+            Y-Axis Max:
+            <input
+              type="number"
+              value={yMax}
+              min={1}
+              step={1}
+              onChange={e => setYMax(Math.max(1, Number(e.target.value)))}
+              style={{
+                marginLeft: 8,
+                width: 60,
+                padding: "0.2rem 0.5rem",
+                borderRadius: 6,
+                border: "1px solid #ccc",
+                fontSize: "1rem",
+              }}
+            />
+          </label>
+        </div>
         {/* Line Graph */}
         <div
           style={{
@@ -119,7 +141,9 @@ const Statistics = () => {
                 },
                 y: {
                   grid: { color: "#888" },
-                  beginAtZero: true,
+                  beginAtZero: false,
+                  max: yMax,
+                  min: -yMax,
                 },
               },
             }}
