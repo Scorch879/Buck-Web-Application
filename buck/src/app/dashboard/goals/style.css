@@ -58,7 +58,9 @@
  margin-right: 2.5%;
  border-radius: 25px;
 }
-
+.goals-title{
+  color: #2c3e50;
+}
 /*the modal css */
 .modal-backdrop {
   position: fixed;
@@ -71,6 +73,7 @@
 }
 .modal-content {
   background: #fff;
+  color: #2c3e50;
   border-radius: 12px;
   padding: 2rem;
   min-width: 320px;
@@ -93,14 +96,6 @@
 }
 
 /* Create Goal css */
-.dashboard {
-    min-height: 100dvh;
-    min-width: 100vw;
-    background: linear-gradient(135deg, #f6c390 0%, #f3a35c 60%, #e98a3f 100%);
-    display: flex;
-    flex-direction: column;
-    font-family: "Segoe UI", Helvetica, Arial, sans-serif;
-  }
 
 .create-goal-container {
     background: #fff;

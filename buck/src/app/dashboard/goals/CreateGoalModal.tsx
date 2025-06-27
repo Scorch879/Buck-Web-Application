@@ -2,7 +2,12 @@ import React, { useState } from "react";
 import { createGoal } from "@/component/goals";
 import "./style.css";
 
-const CreateGoalModal = ({ onClose }: { onClose: () => void }) => {
+type CreateGoalModalProps = {
+  onClose: () => void;
+  onGoalCreated: (goal: any) => void;
+};
+
+const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreated }) => {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -19,14 +24,6 @@ const CreateGoalModal = ({ onClose }: { onClose: () => void }) => {
 
   const handleGoalCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (
-      !form.goalName.trim() ||
-      !form.Attitude.trim() ||
-      !form.targetAmount.trim()
-    ) {
-      console.log("Fill in all fields"); // Replace with setError if needed
-      return;
-    }
     setSubmitting(true);
     const result = await createGoal(
       form.goalName,
@@ -39,10 +36,8 @@ const CreateGoalModal = ({ onClose }: { onClose: () => void }) => {
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
-        onClose();
+        onGoalCreated(result.goal); // Pass the new goal object up!
       }, 1000);
-    } else {
-      console.log("failed to add goal");
     }
   };
 
