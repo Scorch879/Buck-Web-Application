@@ -79,9 +79,9 @@ const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreate
             className="create-goal-input"
           >
             <option value="" disabled>Select Attitude</option>
-            <option value="Frugal">Normal</option>
+            <option value="Normal">Normal</option>
             <option value="Moderate">Moderate</option>
-            <option value="Generous">Aggressive</option>
+            <option value="Aggressive">Aggressive</option>
           </select>
           <input
             id="targetDate"
