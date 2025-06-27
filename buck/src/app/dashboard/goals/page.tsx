@@ -31,8 +31,19 @@ const GoalsPage = () => {
     fetchGoals();
   }, [user]);
 
+  useEffect(() => {
+    if (selectedGoal) {
+      setAIRecommendation("Loading AI recommendation...");
+      fetchAIRecommendation(selectedGoal)
+        .then(setAIRecommendation)
+        .catch(() => setAIRecommendation("Failed to fetch AI recommendation."));
+    } else {
+      setAIRecommendation(null);
+    }
+  }, [selectedGoal]);
+
   async function fetchAIRecommendation(goal: any) {
-    const response = await fetch("https://buck-web-application-1.onrender.com", {
+    const response = await fetch("https://buck-web-application-1.onrender.com/ai/goal_recommendation/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

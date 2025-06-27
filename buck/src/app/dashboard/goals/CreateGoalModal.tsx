@@ -14,7 +14,7 @@ const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreate
   const [form, setForm] = useState({
     goalName: "",
     targetAmount: "",
-    Attitude: "",
+    attitude: "",
     targetDate: ""
   });
 
@@ -28,7 +28,7 @@ const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreate
     const result = await createGoal(
       form.goalName,
       form.targetAmount,
-      form.Attitude,
+      form.attitude,
       form.targetDate
     );
     setSubmitting(false);
@@ -72,8 +72,8 @@ const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreate
             className="create-goal-input"
           />
           <select
-            id="Attitude"
-            value={form.Attitude}
+            id="attitude"
+            value={form.attitude}
             onChange={handleChange}
             required
             className="create-goal-input"
