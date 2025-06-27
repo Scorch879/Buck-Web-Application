@@ -30,24 +30,23 @@ export default function DashboardHeader({ initialActiveNav = "home" }: { initial
     };
     return (
         <div className="dashboard-header">
-            <div className="dashboard-header-left">
-                <div className="dashboard-mascot">
-                    <Image
-                        src="/BuckMascot.png"
-                        alt="Buck Mascot"
-                        width={50}
-                        height={70}
-                        className="dashboard-mascot-img"
-                        priority
-                        onClick={playQuack}
-                    />
-                </div>
-                <h1 className="dashboard-title">Buck</h1>
-            </div>
-
             {/* Centered nav and right-aligned sign out */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                <div className="dashboard-nav" style={{ justifyContent: 'center' }}>
+            <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="dashboard-header-left" style={{ position: 'absolute', left: 0, top: 0, bottom: 0, display: 'flex', alignItems: 'center', height: '100%' }}>
+                    <div className="dashboard-mascot">
+                        <Image
+                            src="/BuckMascot.png"
+                            alt="Buck Mascot"
+                            width={50}
+                            height={70}
+                            className="dashboard-mascot-img"
+                            priority
+                            onClick={playQuack}
+                        />
+                    </div>
+                    <h1 className="dashboard-title">Buck</h1>
+                </div>
+                <div className="dashboard-nav" style={{ justifyContent: 'center', margin: '0 auto' }}>
                     <button
                         className={`nav-button ${activeNav === "home" ? "active" : ""}`}
                         onClick={() => {
@@ -76,7 +75,7 @@ export default function DashboardHeader({ initialActiveNav = "home" }: { initial
                         Goals
                     </button>
                 </div>
-                <div style={{ marginLeft: 'auto' }}>
+                <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, display: 'flex', alignItems: 'center', height: '100%' }}>
                     <button
                         className="nav-button"
                         onClick={handleSignOut}
