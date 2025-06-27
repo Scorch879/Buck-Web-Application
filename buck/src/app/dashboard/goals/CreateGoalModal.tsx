@@ -18,7 +18,7 @@ const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreate
     targetDate: ""
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm({ ...form, [e.target.id]: e.target.value });
   };
 
@@ -71,15 +71,18 @@ const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreate
             min={1}
             className="create-goal-input"
           />
-          <input
+          <select
             id="Attitude"
-            type="text"
-            placeholder="Spending Attitude"
             value={form.Attitude}
             onChange={handleChange}
             required
             className="create-goal-input"
-          />
+          >
+            <option value="" disabled>Select Attitude</option>
+            <option value="Frugal">Normal</option>
+            <option value="Moderate">Moderate</option>
+            <option value="Generous">Aggressive</option>
+          </select>
           <input
             id="targetDate"
             type="date"

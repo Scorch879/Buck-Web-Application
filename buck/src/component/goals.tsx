@@ -9,17 +9,18 @@ export async function createGoal(goalName: string,targetAmount: string,attitude:
     const docRef = await addDoc(collection(db, "goals", user.uid, "userGoals"), {
       goalName,
       targetAmount,
+      attitude,
       createdAt: new Date().toISOString().slice(0, 10),
       targetDate,
       isActive: false
     });
-    await setDoc(doc(db, "goals", user.uid), { attitude }, { merge: true });
     return {
       success: true,
       goal: {
         id: docRef.id,
         goalName,
         targetAmount,
+        attitude,
         createdAt: new Date().toISOString().slice(0, 10),
         targetDate,
         isActive: false
