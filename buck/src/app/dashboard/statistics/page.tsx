@@ -4,6 +4,27 @@ import "./style.css";
 import { useRouter } from "next/navigation";
 import DashboardHeader from "@/component/dashboardheader";
 import { useAuthGuard } from "@/utils/useAuthGuard";
+import { Line } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend,
+} from "chart.js";
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend
+);
 
 const Statistics = () => {
   const router = useRouter();
@@ -32,6 +53,78 @@ const Statistics = () => {
           alignItems: "center",
         }}
       >
+        {/* Line Graph */}
+        <div
+          style={{
+            width: 500,
+            marginBottom: "2rem",
+            background: "#fff",
+            borderRadius: "18px",
+            boxShadow: "0 6px 32px 0 rgba(239, 138, 87, 0.08)",
+            border: "1.5px solid #ffd6b0",
+            padding: "2rem 1.5rem",
+          }}
+        >
+          <Line
+            data={{
+              labels: [
+                "Mon",
+                "Tue",
+                "Wed",
+                "Thu",
+                "Fri",
+                "Sat",
+                "Sun",
+              ],
+              datasets: [
+                {
+                  label: "Progress",
+                  data: [2, -3, 7, 4, 6, -1, 2],
+                  borderColor: function(context) {
+                    const chart = context.chart;
+                    const {ctx, chartArea} = chart;
+                    if (!chartArea) return;
+                    const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                    gradient.addColorStop(0, "#2ecc40");
+                    gradient.addColorStop(1, "#ff4136");
+                    return gradient;
+                  },
+                  backgroundColor: function(context) {
+                    const chart = context.chart;
+                    const {ctx, chartArea} = chart;
+                    if (!chartArea) return;
+                    const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                    gradient.addColorStop(0.5, "rgba(46,204,64,0.3)");
+                    gradient.addColorStop(0.5, "rgba(255,65,54,0.3)");
+                    return gradient;
+                  },
+                  fill: true,
+                  tension: 0.4,
+                  pointBackgroundColor: "#2ecc40",
+                  pointBorderColor: "#2ecc40",
+                  pointRadius: 5,
+                  pointHoverRadius: 7,
+                  borderWidth: 3,
+                },
+              ],
+            }}
+            options={{
+              responsive: true,
+              plugins: {
+                legend: { display: false },
+              },
+              scales: {
+                x: {
+                  grid: { display: false },
+                },
+                y: {
+                  grid: { color: "#888" },
+                  beginAtZero: true,
+                },
+              },
+            }}
+          />
+        </div>
         <div
           style={{
             background: "#fff",
