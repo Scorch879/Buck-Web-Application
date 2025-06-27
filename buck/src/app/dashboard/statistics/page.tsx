@@ -103,18 +103,8 @@ const Statistics = () => {
           </label>
         </div>
         {/* Line Graph */}
-        <div
-          style={{
-            width: 500,
-            marginBottom: "2rem",
-            background: "#fff",
-            borderRadius: "18px",
-            boxShadow: "0 6px 32px 0 rgba(239, 138, 87, 0.08)",
-            border: "1.5px solid #ffd6b0",
-            padding: "2rem 1.5rem",
-          }}
-        >
-          <div style={{ fontWeight: 700, fontSize: "1.3rem", color: "#2c3e50", marginBottom: "1.2rem", textAlign: "center" }}>
+        <div className="graph-panel">
+          <div className="graph-panel-header">
             Weekly Spending Report
           </div>
           <Line
@@ -178,18 +168,19 @@ const Statistics = () => {
               },
             }}
           />
+          {/* Custom Legend (now inside the panel) */}
+          <div className="graph-legend">
+            <div className="graph-legend-item">
+              <span className="graph-legend-color-saved"></span>
+              <span className="graph-legend-label">Saved</span>
+            </div>
+            <div className="graph-legend-item">
+              <span className="graph-legend-color-excess"></span>
+              <span className="graph-legend-label">Excess</span>
+            </div>
+          </div>
         </div>
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: "18px",
-            boxShadow: "0 6px 32px 0 rgba(239, 138, 87, 0.08)",
-            border: "1.5px solid #ffd6b0",
-            padding: "3rem 2rem",
-            maxWidth: 500,
-            textAlign: "center",
-          }}
-        >
+        <div className="empty-goals-popup">
           <h2
             style={{
               fontSize: "2rem",
@@ -206,14 +197,6 @@ const Statistics = () => {
           </h2>
           <button
             className="nav-button"
-            style={{
-              fontSize: "1.1rem",
-              padding: "0.8rem 2.5rem",
-              marginTop: "1.5rem",
-              display: "block",
-              marginLeft: "auto",
-              marginRight: "auto",
-            }}
             onClick={() => router.push("/dashboard/goals/create")}
           >
             Create Goal
