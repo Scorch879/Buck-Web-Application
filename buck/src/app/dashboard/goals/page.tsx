@@ -106,15 +106,8 @@ const GoalsPage = () => {
   useEffect(() => {
     if (selectedGoal) {
       setAIRecommendation("Loading AI recommendation...");
-      fetch(
-        `https://buck-web-application-1.onrender.com/demo/goal/${selectedGoal.id}`
-      )
-        .then((res) => res.json())
-        .then((data) => {
-          setAIRecommendation(
-            data.ai_recommendation || "No recommendation found."
-          );
-        })
+      getSavingTip(selectedGoal.goalName, `Attitude: ${selectedGoal.attitude || "Normal"}, Target Amount: ${selectedGoal.targetAmount}`)
+        .then((tip) => setAIRecommendation(tip))
         .catch(() => setAIRecommendation("Failed to fetch AI recommendation."));
     } else {
       setAIRecommendation(null);
@@ -187,8 +180,9 @@ const GoalsPage = () => {
           <div className="goals-list">
             {goals.filter(Boolean).map((goal) => (
               <div
-                className={`goals-card ${selectedGoal?.id === goal.id ? "selected" : ""
-                  }`}
+                className={`goals-card ${
+                  selectedGoal?.id === goal.id ? "selected" : ""
+                }`}
                 key={goal.id}
                 onClick={() => setSelectedGoal(goal)}
                 style={{ cursor: "pointer" }}
@@ -212,11 +206,6 @@ const GoalsPage = () => {
         <div className="GoalsContainer">
           {selectedGoal ? (
             <div className="goal-details">
-              <div className="goal-details-header">
-                <button className="setActiveButton" onClick={handleSetActive}>
-                  {selectedGoal.isActive ? "Set as Inactive" : "Set as Active"}
-                </button>
-              </div>
               <h2>Goal Details</h2>
               <div className="goal-details-grid">
                 <p>
