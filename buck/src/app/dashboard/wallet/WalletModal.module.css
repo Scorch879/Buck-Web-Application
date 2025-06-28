@@ -98,6 +98,7 @@
   color: #2c3e50;
   font-size: 1rem;
   transition: box-shadow 0.15s, border 0.15s;
+  line-height: 1.5;
 }
 .listItem.active {
   background: #fff7f0;
@@ -110,6 +111,7 @@
   gap: 0.3em;
   color: #2c3e50;
   font-weight: 500;
+  line-height: 1.5;
 }
 .name {
   color: #2c3e50;
@@ -124,10 +126,15 @@
   font-weight: 700;
   margin-left: 0.5em;
   font-size: 0.98em;
+  white-space: nowrap;
+  display: inline-block;
 }
 .actions {
   display: flex;
+  align-items: center;
   gap: 0.3em;
+  margin: 0;
+  padding: 0;
 }
 .setActiveBtn,
 .editBtn,
@@ -143,6 +150,10 @@
   padding: 2px 8px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
+  vertical-align: middle;
+  line-height: 1.5;
+  margin: 0;
+  align-self: center;
 }
 .setActiveBtn[disabled] {
   color: #aaa;
@@ -161,6 +172,8 @@
 .saveBtn {
   background: #ef8a57;
   color: #fff;
+  font-size: 1.08em;
+  padding: 0.5em 1.3em;
 }
 .saveBtn:hover {
   background: #fd523b;
@@ -168,6 +181,8 @@
 .cancelBtn {
   background: #eee;
   color: #2c3e50;
+  font-size: 1.08em;
+  padding: 0.5em 1.3em;
 }
 .cancelBtn:hover {
   background: #ddd;
