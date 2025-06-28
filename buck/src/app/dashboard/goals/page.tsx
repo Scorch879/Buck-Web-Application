@@ -104,19 +104,38 @@ const GoalsPage = () => {
   }, [user]);
 
   useEffect(() => {
+    let didCancel = false;
+    let timeoutId: NodeJS.Timeout;
     if (selectedGoal) {
       setAIRecommendation("Loading AI recommendation...");
-      getSavingTip(
-        selectedGoal.goalName,
-        `Attitude: ${selectedGoal.attitude || "Normal"}, Target Amount: ${
-          selectedGoal.targetAmount
-        }`
-      )
-        .then((tip) => setAIRecommendation(tip))
-        .catch(() => setAIRecommendation("Failed to fetch AI recommendation."));
+      // Timeout promise
+      const timeoutPromise = new Promise<string>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error("timeout")), 15000); // 15 seconds
+      });
+      // Race the fetch and the timeout
+      Promise.race([
+        getSavingTip(
+          selectedGoal.goalName,
+          `Attitude: ${selectedGoal.attitude || "Normal"}, Target Amount: ${selectedGoal.targetAmount}`
+        ),
+        timeoutPromise
+      ])
+        .then((tip) => {
+          if (!didCancel) setAIRecommendation(typeof tip === 'string' ? tip : "");
+        })
+        .catch((err) => {
+          if (!didCancel) setAIRecommendation("Failed to fetch AI recommendation.");
+        })
+        .finally(() => {
+          clearTimeout(timeoutId);
+        });
     } else {
       setAIRecommendation(null);
     }
+    return () => {
+      didCancel = true;
+      clearTimeout(timeoutId);
+    };
   }, [selectedGoal]);
 
   if (loading || !user || loadingGoals) {
