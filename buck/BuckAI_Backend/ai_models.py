@@ -61,7 +61,7 @@ def generate_ai_tip(category, user_context=""):
         "Content-Type": "application/json"
     }
     prompt = (
-        f"You are a financial assistant. In exactly 2 sentences, give a direct, actionable money-saving tip for someone who spends a lot of money on {category}. "
+        f"You are a financial assistant. The currency is in Philippine Peso. In exactly 2 sentences, give a direct, actionable money-saving tip for someone who spends a lot of money on {category}. "
         f"Based on this context: {user_context}, tell them exactly how much they should save per month and one practical way to achieve it. "
         "Do NOT show your thought process, do NOT use <think>, and do NOT include any commentary or explanation. Only output the final tip and the amount."
     )
