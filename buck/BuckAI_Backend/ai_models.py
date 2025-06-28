@@ -43,16 +43,12 @@ def predict_future_expense(past_expenses):
 
 
 def clean_llama_output(text):
-    # Remove <think> and everything before it
     if '<think>' in text:
         text = text.split('<think>', 1)[-1]
-    # Remove leading/trailing whitespace
     text = text.strip()
-    # Take only the first 2 sentences (split on period, question, or exclamation)
     import re
     sentences = re.split(r'(?<=[.!?])\s+', text)
     cleaned = ' '.join(sentences[:2]).strip()
-    # Remove any remaining <think> or similar tags
     cleaned = cleaned.replace('<think>', '').strip()
     return cleaned
 
@@ -68,7 +64,7 @@ def generate_ai_tip(category, user_context=""):
         "Do NOT show your thought process, do NOT use <think>, and do NOT include any commentary or explanation. Only output the final tip and the amount."
     )
     payload = {
-        "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",  # You can change this to any supported model
+        "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free", 
         "messages": [
             {"role": "user", "content": prompt}
         ],
