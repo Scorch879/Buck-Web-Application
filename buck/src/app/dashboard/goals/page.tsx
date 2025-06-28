@@ -8,6 +8,7 @@ import { db } from "@/utils/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import CreateGoalModal from "./CreateGoalModal";
 import { deleteGoal } from "@/component/goals";
+import { getSavingTip } from "@/utils/aiApi";
 
 const GoalsPage = () => {
   const router = useRouter();
@@ -60,18 +61,15 @@ const GoalsPage = () => {
   }, [selectedGoal]);
 
   async function fetchAIRecommendation(goal: any) {
-    const response = await fetch("https://buck-web-application-1.onrender.com/ai/goal_recommendation/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        goal_name: goal.goalName,
-        target_amount: parseFloat(goal.targetAmount),
-        attitude: goal.attitude || "Normal",
-        target_date: goal.targetDate,
-      }),
-    });
-    const data = await response.json();
-    return data.recommendation;
+    // Compose user context for the AI
+    const userContext = `Attitude: ${goal.attitude || "Normal"}, Target Amount: ${goal.targetAmount}`;
+    // Use goalName as a proxy for category
+    try {
+      const tip = await getSavingTip(goal.goalName, userContext);
+      return tip;
+    } catch (e) {
+      return "Failed to fetch AI recommendation.";
+    }
   }
 
   if (loading || !user || loadingGoals) {

@@ -1,6 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
-from ai_models import categorize_expense, get_multiplier, predict_future_expense
+from ai_models import categorize_expense, get_multiplier, predict_future_expense, generate_ai_tip
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 
@@ -19,6 +19,13 @@ class GoalInput(BaseModel):
     target_amount: float
     attitude: str
     target_date: str  # Expecting 'YYYY-MM-DD'
+
+class TextInput(BaseModel):
+    text: str
+
+class TipInput(BaseModel):
+    category: str
+    user_context: str = ""
 
 @app.post("/ai/goal_recommendation/")
 def ai_goal_recommendation(goal: GoalInput):
@@ -41,3 +48,19 @@ def ai_goal_recommendation(goal: GoalInput):
         "monthly_target": monthly_target,
         "adjusted_monthly_target": adjusted_monthly_target
     }
+
+@app.post("/ai/test_huggingface/")
+def test_huggingface(input: TextInput):
+    try:
+        category = categorize_expense(input.text)
+        return {"category": category}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.post("/ai/saving_tip/")
+def saving_tip(input: TipInput):
+    try:
+        tip = generate_ai_tip(input.category, input.user_context)
+        return {"tip": tip}
+    except Exception as e:
+        return {"error": str(e)}

@@ -58,14 +58,19 @@ def categorize_expense(text):
     best_category = result["labels"][0]
     return best_category
 
-def recommend_saving_tip(category): #test
-    tips = {
-        "Food": "Try meal prepping to save on food expenses.",
-        "Transport": "Consider public transport or carpooling.",
-        "Shopping": "Look for discounts and avoid impulse buys.",
-        "Bills": "Review your subscriptions and cut unused ones.",
-        "Entertainment": "Find free or low-cost activities.",
-        "Other": "Track your spending to find more ways to save."
-    }
-    return tips.get(category, "Track your expenses regularly for better savings.")
+def generate_ai_tip(category, user_context=""):
+    api_url = "https://api-inference.huggingface.co/models/google/flan-t5-base"
+    headers = {"Authorization": f"Bearer {os.getenv('HUGGINGFACE_API_KEY')}"}
+    prompt = f"Give a personalized money-saving tip for someone who spends a lot on {category}. {user_context}"
+    payload = {"inputs": prompt}
+    response = requests.post(api_url, headers=headers, json=payload)
+    response.raise_for_status()
+    result = response.json()
+    # HuggingFace returns a list of dicts with 'generated_text'
+    if isinstance(result, list) and isinstance(result[0], dict) and 'generated_text' in result[0]:
+        return result[0]['generated_text']
+    elif isinstance(result, dict) and 'generated_text' in result:
+        return result['generated_text']
+    else:
+        return str(result)
 

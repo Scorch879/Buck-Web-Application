@@ -14,7 +14,10 @@ export type AIResponse = {
 };
 
 // Change this URL if your backend runs elsewhere
-const BACKEND_URL = 'http://localhost:8000/process_expense/';
+const BACKEND_URL = 'https://buck-web-application-1.onrender.com/process_expense/';
+
+// Add this for AI-powered saving tips
+const SAVING_TIP_URL = 'https://buck-web-application-1.onrender.com/ai/saving_tip/';
 
 export async function processExpense(input: ExpenseInput): Promise<AIResponse> {
   // Send a POST request to the backend
@@ -28,4 +31,18 @@ export async function processExpense(input: ExpenseInput): Promise<AIResponse> {
   }
   // Parse and return the JSON response
   return response.json();
+}
+
+export async function getSavingTip(category: string, userContext: string = ""): Promise<string> {
+  const response = await fetch(SAVING_TIP_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ category, user_context: userContext }),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to get AI saving tip');
+  }
+  const data = await response.json();
+  if (data.tip) return data.tip;
+  throw new Error(data.error || 'Unknown error from AI');
 } 
