@@ -78,6 +78,40 @@ export async function deleteGoal(goalId: string) {
   }
 }
 
+export async function updateGoalStatus(goalId: string, isActive: boolean) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+  try {
+    await updateDoc(doc(db, "goals", user.uid, "userGoals", goalId), {
+      isActive,
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: "Failed to update goal status." };
+  }
+}
+export async function setOnlyGoalActive(goalId: string) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+  try {
+    const goalsRef = collection(db, "goals", user.uid, "userGoals");
+    const snapshot = await getDocs(goalsRef);
+
+    // Deactivate all goals
+    const updates = snapshot.docs.map((docSnap) => {
+      const isActive = docSnap.id === goalId;
+      return updateDoc(doc(db, "goals", user.uid, "userGoals", docSnap.id), {
+        isActive,
+      });
+    });
+    await Promise.all(updates);
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: "Failed to update goals." };
+  }
+}
+
 export async function updateGoal(
   goalId: string,
   goalName: string,
@@ -121,39 +155,5 @@ export async function updateGoal(
     return { success: true };
   } catch (error) {
     return { success: false };
-  }
-}
-
-export async function updateGoalStatus(goalId: string, isActive: boolean) {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
-  try {
-    await updateDoc(doc(db, "goals", user.uid, "userGoals", goalId), {
-      isActive,
-    });
-    return { success: true };
-  } catch (error) {
-    return { success: false, message: "Failed to update goal status." };
-  }
-}
-export async function setOnlyGoalActive(goalId: string) {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
-  try {
-    const goalsRef = collection(db, "goals", user.uid, "userGoals");
-    const snapshot = await getDocs(goalsRef);
-
-    // Deactivate all goals
-    const updates = snapshot.docs.map((docSnap) => {
-      const isActive = docSnap.id === goalId;
-      return updateDoc(doc(db, "goals", user.uid, "userGoals", docSnap.id), {
-        isActive,
-      });
-    });
-    await Promise.all(updates);
-
-    return { success: true };
-  } catch (error) {
-    return { success: false, message: "Failed to update goals." };
   }
 }
