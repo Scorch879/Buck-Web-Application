@@ -29,21 +29,11 @@
   flex-direction: column;
   align-items: center;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  padding: 2rem 1rem;
+  padding: 1.5rem 1rem;
   position: relative;
   overflow: hidden;
   margin-left: 0;
   height: 100%
-}
-
-.GoalsCard::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #ffd6b0, #f3a35c, #e98a3f);
 }
 
 .goals-header {
@@ -192,7 +182,7 @@
   flex: 1;
   border-radius: 20px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  padding: 2rem;
+  padding: 1.5rem;
   position: relative;
   overflow: hidden;
   margin-right: 2rem;
