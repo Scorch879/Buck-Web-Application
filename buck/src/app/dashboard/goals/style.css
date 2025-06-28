@@ -36,6 +36,14 @@
   height: 100%
 }
 
+.emptyContainer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .goals-header {
   text-align: center;
   color: #ffffff;

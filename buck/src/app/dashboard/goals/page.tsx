@@ -135,7 +135,7 @@ const GoalsPage = () => {
     return (
       <div className="dashboard">
         <DashboardHeader initialActiveNav="goals" />
-        <div className="dashboard-container goals-center">
+        <div className="emptyContainer">
           <div className="goals-card">
             <h2 className="goals-title">
               There are no goals yet
