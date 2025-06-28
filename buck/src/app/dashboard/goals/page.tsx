@@ -209,30 +209,26 @@ const GoalsPage = () => {
         <div className="GoalsContainer">
           {selectedGoal ? (
             <div className="goal-details">
-              <div className="goal-details-header">
-                <button className="setActiveButton" onClick={handleSetActive}>
-                  {selectedGoal.isActive ? "Set as Inactive" : "Set as Active"}
-                </button>
-              </div>
               <h2>Goal Details</h2>
-              <p><strong>Name:</strong> {selectedGoal.goalName}</p>
-              <p><strong>Target Amount:</strong> ${selectedGoal.targetAmount}</p>
-              {selectedGoal.targetDate && (
-                <p><strong>Target Date:</strong> {selectedGoal.targetDate}</p>
-              )}
-              <p><strong>Created:</strong> {selectedGoal.createdAt}</p>
-              <p><strong>Attitude:</strong> {selectedGoal.attitude || "Normal"}</p>
-              <p>
-                <strong>Status:</strong>
-                <span style={{
-                  color: selectedGoal.isActive ? "#27ae60" : "#e74c3c",
-                  fontWeight: "600",
-                  marginLeft: "0.5rem"
-                }}>
-                  {selectedGoal.isActive ? "Active" : "Inactive"}
-                </span>
-              </p>
-
+              <div className="goal-details-grid">
+                <p><strong>Name:</strong> {selectedGoal.goalName}</p>
+                <p><strong>Target Amount:</strong> ${selectedGoal.targetAmount}</p>
+                {selectedGoal.targetDate && (
+                  <p><strong>Target Date:</strong> {selectedGoal.targetDate}</p>
+                )}
+                <p><strong>Created:</strong> {selectedGoal.createdAt}</p>
+                <p><strong>Attitude:</strong> {selectedGoal.attitude || "Normal"}</p>
+                <p>
+                  <strong>Status:</strong>
+                  <span style={{
+                    color: selectedGoal.isActive ? "#27ae60" : "#e74c3c",
+                    fontWeight: "600",
+                    marginLeft: "0.5rem"
+                  }}>
+                    {selectedGoal.isActive ? "Active" : "Inactive"}
+                  </span>
+                </p>
+              </div>
               {aiRecommendation && (
                 <div className="ai-recommendation">
                   <strong>AI Recommendation</strong>
