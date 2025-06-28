@@ -5,9 +5,11 @@ import { useEffect, useState } from "react";
 import { signOutUser } from "./authentication";
 import { useRouter } from "next/navigation";
 import "./dashboard.css"
+import WalletModal from "@/app/dashboard/wallet/WalletModal";
 
 export default function DashboardHeader({ initialActiveNav = "home" }: { initialActiveNav?: string } = {}) {
     const [activeNav, setActiveNav] = useState(initialActiveNav);
+    const [walletOpen, setWalletOpen] = useState(false);
     const router = useRouter();
 
     const playQuack = () => {
@@ -75,14 +77,13 @@ export default function DashboardHeader({ initialActiveNav = "home" }: { initial
                         Goals
                     </button>
                 </div>
-                <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, display: 'flex', alignItems: 'center', height: '100%' }}>
-                    <button
-                        className="nav-button"
-                        onClick={handleSignOut}
-                    >
-                        Sign Out
+                <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, display: 'flex', alignItems: 'center', height: '100%', gap: 8 }}>
+                    <button className="nav-button" onClick={() => setWalletOpen(true)} title="Wallets" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span role="img" aria-label="wallet" style={{ fontSize: 18 }}>💰</span>
                     </button>
+                    <button className="nav-button" onClick={handleSignOut}>Sign Out</button>
                 </div>
+                <WalletModal open={walletOpen} onClose={() => setWalletOpen(false)} />
             </div>
         </div>
 
