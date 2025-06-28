@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
-from ai_models import categorize_expense, get_multiplier, predict_future_expense, generate_ai_tip
+from ai_models import get_multiplier, predict_future_expense, generate_ai_tip
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 
@@ -13,9 +13,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# In-memory storage for demo/testing (resets on server restart)
-goal_store = {}
 
 class GoalInput(BaseModel):
     goal_name: str
@@ -59,14 +56,6 @@ def ai_goal_recommendation(goal: GoalInput):
         "adjusted_monthly_target": adjusted_monthly_target
     }
 
-@app.post("/ai/test_huggingface/")
-def test_huggingface(input: TextInput):
-    try:
-        category = categorize_expense(input.text)
-        return {"category": category}
-    except Exception as e:
-        return {"error": str(e)}
-
 @app.post("/ai/saving_tip/")
 def saving_tip(input: TipInput):
     try:
@@ -74,25 +63,3 @@ def saving_tip(input: TipInput):
         return {"tip": tip}
     except Exception as e:
         return {"error": str(e)}
-
-@app.post("/demo/goal/")
-def create_or_update_goal(goal: GoalData):
-    # Generate AI recommendation
-    user_context = f"Attitude: {goal.attitude}, Target Amount: {goal.target_amount}"
-    ai_recommendation = generate_ai_tip(goal.goal_name, user_context)
-    # Store in memory
-    goal_store[goal.goal_id] = {
-        "goal_name": goal.goal_name,
-        "target_amount": goal.target_amount,
-        "attitude": goal.attitude,
-        "target_date": goal.target_date,
-        "ai_recommendation": ai_recommendation
-    }
-    return {"success": True, "ai_recommendation": ai_recommendation}
-
-@app.get("/demo/goal/{goal_id}")
-def get_goal(goal_id: str):
-    goal = goal_store.get(goal_id)
-    if not goal:
-        return {"error": "Goal not found"}
-    return goal
