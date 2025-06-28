@@ -64,7 +64,11 @@ def generate_ai_tip(category, user_context=""):
         "Authorization": f"Bearer {os.getenv('TOGETHER_API_KEY')}",
         "Content-Type": "application/json"
     }
-    prompt = f"Give a personalized money-saving tip for someone who spends a lot on {category}. {user_context}"
+    prompt = (
+        f"You are a financial assistant. In exactly 2 sentences, give a direct, actionable money-saving tip for someone who spends a lot of money on {category}. "
+        f"Based on this context: {user_context}, tell them exactly how much they should save per month and one practical way to achieve it. "
+        "Do NOT show your thought process, do NOT use <think>, and do NOT include any commentary or explanation. Only output the final tip and the amount."
+    )
     payload = {
         "model": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free",  # You can change this to any supported model
         "messages": [
