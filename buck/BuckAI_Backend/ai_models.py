@@ -52,6 +52,10 @@ def clean_llama_output(text):
     # Take only the first 2 sentences (split on period, question, or exclamation)
     sentences = re.split(r'(?<=[.!?])\s+', text)
     cleaned = ' '.join(sentences[:2]).strip()
+    # If the result is still too long (model ignored punctuation), cut at 250 chars or first newline
+    if len(cleaned) > 250:
+        cleaned = cleaned[:250].rsplit(' ', 1)[0] + '...'
+    cleaned = cleaned.split('\n')[0].strip()
     return cleaned
 
 def generate_ai_tip(category, user_context=""):
