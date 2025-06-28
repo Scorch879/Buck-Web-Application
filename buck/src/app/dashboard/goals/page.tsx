@@ -7,6 +7,7 @@ import { useAuthGuard } from "@/utils/useAuthGuard";
 import { db } from "@/utils/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import CreateGoalModal from "./CreateGoalModal";
+import { deleteGoal } from "@/component/goals";
 
 const GoalsPage = () => {
   const router = useRouter();
@@ -16,6 +17,23 @@ const GoalsPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<any | null>(null);
   const [aiRecommendation, setAIRecommendation] = useState<string | null>(null);
+
+
+  const handleDeleteGoal = async () => {
+    if (!selectedGoal) return;
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete the goal "${selectedGoal.goalName}"?`
+    );
+    if (!confirmDelete) return;
+
+    const result = await deleteGoal(selectedGoal.id);
+    if (result.success) {
+      setGoals(goals.filter(goal => goal.id !== selectedGoal.id));
+      setSelectedGoal(null);
+    } else {
+      alert(result.message || "Failed to delete goal.");
+    }
+  };
 
   useEffect(() => {
     const fetchGoals = async () => {
@@ -108,12 +126,20 @@ const GoalsPage = () => {
           <div className="goals-header">
             <h2>Your Goals</h2>
           </div>
-          <button
-            className="goals-create-btn"
-            onClick={() => setShowModal(true)}
-          >
-            + Create New Goal
-          </button>
+          <div className="goal-buttons-container">
+            <button
+              className="goals-create-btn"
+              onClick={() => setShowModal(true)}
+            >
+              + Create New Goal
+            </button>
+            <button
+              className="goals-create-btn"
+              onClick={handleDeleteGoal}
+            >
+              - Delete Goal
+            </button>
+          </div>
           <div className="goals-list">
             {goals.filter(Boolean).map(goal => (
               <div
@@ -144,8 +170,8 @@ const GoalsPage = () => {
               <p><strong>Created:</strong> {selectedGoal.createdAt}</p>
               <p><strong>Attitude:</strong> {selectedGoal.attitude || "Normal"}</p>
               <p>
-                <strong>Status:</strong> 
-                <span style={{ 
+                <strong>Status:</strong>
+                <span style={{
                   color: selectedGoal.isActive ? "#27ae60" : "#e74c3c",
                   fontWeight: "600",
                   marginLeft: "0.5rem"
@@ -153,7 +179,7 @@ const GoalsPage = () => {
                   {selectedGoal.isActive ? "Active" : "Inactive"}
                 </span>
               </p>
-              
+
               {aiRecommendation && (
                 <div className="ai-recommendation">
                   <strong>AI Recommendation</strong>
