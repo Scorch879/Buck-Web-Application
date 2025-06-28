@@ -106,8 +106,15 @@ const GoalsPage = () => {
   useEffect(() => {
     if (selectedGoal) {
       setAIRecommendation("Loading AI recommendation...");
-      getSavingTip(selectedGoal.goalName, `Attitude: ${selectedGoal.attitude || "Normal"}, Target Amount: ${selectedGoal.targetAmount}`)
-        .then((tip) => setAIRecommendation(tip))
+      fetch(
+        `https://buck-web-application-1.onrender.com/demo/goal/${selectedGoal.id}`
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          setAIRecommendation(
+            data.ai_recommendation || "No recommendation found."
+          );
+        })
         .catch(() => setAIRecommendation("Failed to fetch AI recommendation."));
     } else {
       setAIRecommendation(null);
