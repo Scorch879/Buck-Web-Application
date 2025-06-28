@@ -1,7 +1,7 @@
 
 .dashboard-header {
   background: #fff;
-  padding: 0.5rem 1rem;
+  padding: 1rem 1rem;
   border-radius: 0;
   box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.1);
   display: flex;
@@ -63,7 +63,7 @@
 .dashboard-nav {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 1rem;
   flex-wrap: wrap;
   justify-content: flex-end;
   flex: 1;
@@ -71,18 +71,22 @@
 }
 
 .nav-button {
-  padding: 0.5rem 0.8rem;
-  background: #fff7f0;
-  border: 2px solid #ef8a57;
-  border-radius: 8px;
-  color: #ef8a57;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-decoration: none;
+  min-width: 120px;    /* Set your desired width */
+  height: 48px;        /* Set your desired height */
   display: flex;
   align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1rem;
+  border-radius: 8px;
+  border: 2px solid #ef8a57;
+  background: #fff7f0;
+  color: #ef8a57;
+  transition: all 0.2s;
+  cursor: pointer;
+  box-sizing: border-box;
+  padding: 0.5rem 0.8rem;
+  text-decoration: none;
   gap: 0.3rem;
   white-space: nowrap;
   flex-shrink: 0;

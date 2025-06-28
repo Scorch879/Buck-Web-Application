@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { auth } from "@/utils/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { signOutUser } from "@/component/authentication";
+import { processExpense, ExpenseInput, AIResponse } from "@/utils/aiApi";
 import "./style.css";
 import DashboardHeader from "@/component/dashboardheader";
 import { useAuthGuard } from "@/utils/useAuthGuard";
@@ -35,6 +36,9 @@ const Dashboard = (): React.JSX.Element => {
   const [spendingAmount, setSpendingAmount] = useState("");
   const { user, loading } = useAuthGuard();
 
+  // Add all other useState hooks here, not inside any if/else
+
+  //Auth Guard Code Block
   // On mount, set sample data for demonstration
   useEffect(() => {
     setWeeklyData([
@@ -49,13 +53,13 @@ const Dashboard = (): React.JSX.Element => {
   }, []);
 
   if (loading || !user) {
-  return (
-    <div className="loading-spinner">
-      <div className="spinner"></div>
-      <div className="loading-text">Loading Buck...</div>
-    </div>
-  );
-}
+    return (
+      <div className="loading-spinner">
+        <div className="spinner"></div>
+        <div className="loading-text">Loading Buck...</div>
+      </div>
+    );
+  }
 
   const handleSignOut = async () => {
     const result = await signOutUser();

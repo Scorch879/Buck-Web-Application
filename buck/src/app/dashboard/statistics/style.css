@@ -6,3 +6,94 @@
     flex-direction: column;
     font-family: "Segoe UI", Helvetica, Arial, sans-serif;
   }
+
+
+.graph-panel {
+  width: 800px;
+  margin-bottom: 2rem;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 6px 32px 0 rgba(239, 138, 87, 0.08);
+  border: 1.5px solid #ffd6b0;
+  padding: 2rem 1.5rem;
+}
+
+.graph-panel-header {
+  font-weight: 700;
+  font-size: 1.3rem;
+  color: #2c3e50;
+  margin-bottom: 1.2rem;
+  text-align: center;
+}
+
+.graph-legend {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin: 1.5rem 0 0 0;
+}
+
+.graph-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.graph-legend-color-saved {
+  display: inline-block;
+  width: 18px;
+  height: 12px;
+  background: #2ecc40;
+  border-radius: 3px;
+  border: 1px solid #1e9c30;
+}
+
+.graph-legend-color-excess {
+  display: inline-block;
+  width: 18px;
+  height: 12px;
+  background: #ff4136;
+  border-radius: 3px;
+  border: 1px solid #b92a1d;
+}
+
+.graph-legend-label {
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+.empty-goals-popup {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 6px 32px 0 rgba(239, 138, 87, 0.08);
+  border: 1.5px solid #ffd6b0;
+  padding: 3rem 2rem;
+  max-width: 500px;
+  text-align: center;
+}
+
+.create-goal-button {
+  font-size: 1.1rem;
+  padding: 0.8rem 2.5rem;
+  margin-top: 1.5rem;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  background: #fff7f0;
+  border: 2px solid #ef8a57;
+  border-radius: 8px;
+  color: #ef8a57;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.create-goal-button:hover {
+  background: #ef8a57;
+  color: #fff;
+  border-color: #ef8a57;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px 0 rgba(239, 138, 87, 0.2);
+}
