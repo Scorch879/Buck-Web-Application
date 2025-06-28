@@ -66,7 +66,7 @@ def generate_ai_tip(category, user_context=""):
     }
     prompt = f"Give a personalized money-saving tip for someone who spends a lot on {category}. {user_context}"
     payload = {
-        "model": "meta-llama/Llama-3-8B-Instruct",  # You can change this to any supported model
+        "model": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free",  # You can change this to any supported model
         "messages": [
             {"role": "user", "content": prompt}
         ],
