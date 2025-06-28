@@ -42,22 +42,6 @@ def predict_future_expense(past_expenses):
     return forecast['yhat'].iloc[-1]  # Predicted next month expense
 
 
-def categorize_expense(text):
-    api_url = "https://api-inference.huggingface.co/models/facebook/bart-large-mnli"
-    headers = {"Authorization": f"Bearer {os.getenv('HUGGINGFACE_API_KEY')}"}
-    payload = {
-        "inputs": text,
-        "parameters": {
-            "candidate_labels": ["Food", "Transport", "Shopping", "Bills", "Entertainment", "Other"]
-        }
-    }
-    response = requests.post(api_url, headers=headers, json=payload)
-    response.raise_for_status()
-    result = response.json()
-    # Get the category with the highest score
-    best_category = result["labels"][0]
-    return best_category
-
 def clean_llama_output(text):
     import re
     # Remove everything up to and including the first <think> tag
