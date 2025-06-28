@@ -14,6 +14,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# In-memory storage for demo/testing (resets on server restart)
+goal_store = {}
+
 class GoalInput(BaseModel):
     goal_name: str
     target_amount: float
@@ -26,6 +29,13 @@ class TextInput(BaseModel):
 class TipInput(BaseModel):
     category: str
     user_context: str = ""
+
+class GoalData(BaseModel):
+    goal_id: str
+    goal_name: str
+    target_amount: float
+    attitude: str
+    target_date: str
 
 @app.post("/ai/goal_recommendation/")
 def ai_goal_recommendation(goal: GoalInput):
@@ -64,3 +74,25 @@ def saving_tip(input: TipInput):
         return {"tip": tip}
     except Exception as e:
         return {"error": str(e)}
+
+@app.post("/demo/goal/")
+def create_or_update_goal(goal: GoalData):
+    # Generate AI recommendation
+    user_context = f"Attitude: {goal.attitude}, Target Amount: {goal.target_amount}"
+    ai_recommendation = generate_ai_tip(goal.goal_name, user_context)
+    # Store in memory
+    goal_store[goal.goal_id] = {
+        "goal_name": goal.goal_name,
+        "target_amount": goal.target_amount,
+        "attitude": goal.attitude,
+        "target_date": goal.target_date,
+        "ai_recommendation": ai_recommendation
+    }
+    return {"success": True, "ai_recommendation": ai_recommendation}
+
+@app.get("/demo/goal/{goal_id}")
+def get_goal(goal_id: str):
+    goal = goal_store.get(goal_id)
+    if not goal:
+        return {"error": "Goal not found"}
+    return goal

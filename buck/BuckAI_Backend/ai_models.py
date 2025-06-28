@@ -59,18 +59,22 @@ def categorize_expense(text):
     return best_category
 
 def generate_ai_tip(category, user_context=""):
-    api_url = "https://api-inference.huggingface.co/models/google/flan-t5-base"
-    headers = {"Authorization": f"Bearer {os.getenv('HUGGINGFACE_API_KEY')}"}
+    api_url = "https://api.together.xyz/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {os.getenv('TOGETHER_API_KEY')}",
+        "Content-Type": "application/json"
+    }
     prompt = f"Give a personalized money-saving tip for someone who spends a lot on {category}. {user_context}"
-    payload = {"inputs": prompt}
+    payload = {
+        "model": "meta-llama/Llama-3-8B-Instruct",  # You can change this to any supported model
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
+        "max_tokens": 128,
+        "temperature": 0.7
+    }
     response = requests.post(api_url, headers=headers, json=payload)
     response.raise_for_status()
     result = response.json()
-    # HuggingFace returns a list of dicts with 'generated_text'
-    if isinstance(result, list) and isinstance(result[0], dict) and 'generated_text' in result[0]:
-        return result[0]['generated_text']
-    elif isinstance(result, dict) and 'generated_text' in result:
-        return result['generated_text']
-    else:
-        return str(result)
+    return result["choices"][0]["message"]["content"]
 

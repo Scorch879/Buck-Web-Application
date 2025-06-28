@@ -8,7 +8,6 @@ import { db } from "@/utils/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import CreateGoalModal from "./CreateGoalModal";
 import { deleteGoal } from "@/component/goals";
-import { getSavingTip } from "@/utils/aiApi";
 
 const GoalsPage = () => {
   const router = useRouter();
@@ -18,7 +17,6 @@ const GoalsPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<any | null>(null);
   const [aiRecommendation, setAIRecommendation] = useState<string | null>(null);
-
 
   const handleDeleteGoal = async () => {
     if (!selectedGoal) return;
@@ -52,25 +50,16 @@ const GoalsPage = () => {
   useEffect(() => {
     if (selectedGoal) {
       setAIRecommendation("Loading AI recommendation...");
-      fetchAIRecommendation(selectedGoal)
-        .then(setAIRecommendation)
+      fetch(`https://buck-web-application-1.onrender.com/demo/goal/${selectedGoal.id}`)
+        .then(res => res.json())
+        .then(data => {
+          setAIRecommendation(data.ai_recommendation || "No recommendation found.");
+        })
         .catch(() => setAIRecommendation("Failed to fetch AI recommendation."));
     } else {
       setAIRecommendation(null);
     }
   }, [selectedGoal]);
-
-  async function fetchAIRecommendation(goal: any) {
-    // Compose user context for the AI
-    const userContext = `Attitude: ${goal.attitude || "Normal"}, Target Amount: ${goal.targetAmount}`;
-    // Use goalName as a proxy for category
-    try {
-      const tip = await getSavingTip(goal.goalName, userContext);
-      return tip;
-    } catch (e) {
-      return "Failed to fetch AI recommendation.";
-    }
-  }
 
   if (loading || !user || loadingGoals) {
     return (
