@@ -8,6 +8,8 @@ import { db } from "@/utils/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import CreateGoalModal from "./CreateGoalModal";
 import { deleteGoal } from "@/component/goals";
+import { getSavingTip } from "@/utils/aiApi";
+import { updateGoalStatus, setOnlyGoalActive } from "@/component/goals";
 
 const GoalsPage = () => {
   const router = useRouter();
@@ -27,12 +29,66 @@ const GoalsPage = () => {
 
     const result = await deleteGoal(selectedGoal.id);
     if (result.success) {
-      setGoals(goals.filter(goal => goal.id !== selectedGoal.id));
+      setGoals(goals.filter((goal) => goal.id !== selectedGoal.id));
       setSelectedGoal(null);
     } else {
       alert(result.message || "Failed to delete goal.");
     }
   };
+
+  const handleSetActive = async () => {
+    if (!selectedGoal) return;
+    if (selectedGoal.isActive) {
+      // Deactivate the goal
+      const result = await updateGoalStatus(selectedGoal.id, false);
+      if (result.success) {
+        setGoals(
+          goals.map((goal) =>
+            goal.id === selectedGoal.id ? { ...goal, isActive: false } : goal
+          )
+        );
+        setSelectedGoal({ ...selectedGoal, isActive: false });
+      } else {
+        alert(result.message || "Failed to update goal status.");
+      }
+    } else {
+      // Activate only this goal, deactivate others
+      const result = await setOnlyGoalActive(selectedGoal.id);
+      if (result.success) {
+        setGoals(
+          goals.map((goal) =>
+            goal.id === selectedGoal.id
+              ? { ...goal, isActive: true }
+              : { ...goal, isActive: false }
+          )
+        );
+        setSelectedGoal({ ...selectedGoal, isActive: true });
+      } else {
+        alert(result.message || "Failed to update goal status.");
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (goals.length === 0) {
+      setSelectedGoal(null);
+      return;
+    }
+    // Try to find an active goal
+    const activeGoal = goals.find((goal) => goal.isActive);
+    if (activeGoal) {
+      setSelectedGoal(activeGoal);
+      return;
+    }
+    // Fallback: use localStorage or first goal
+    const storedGoalId = localStorage.getItem("selectedGoalId");
+    if (storedGoalId) {
+      const foundGoal = goals.find((goal) => goal.id === storedGoalId);
+      setSelectedGoal(foundGoal || goals[0]);
+    } else {
+      setSelectedGoal(goals[0]);
+    }
+  }, [goals]);
 
   useEffect(() => {
     const fetchGoals = async () => {
@@ -40,7 +96,7 @@ const GoalsPage = () => {
         setLoadingGoals(true);
         const goalsRef = collection(db, "goals", user.uid, "userGoals");
         const snapshot = await getDocs(goalsRef);
-        setGoals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setGoals(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
         setLoadingGoals(false);
       }
     };
@@ -50,10 +106,14 @@ const GoalsPage = () => {
   useEffect(() => {
     if (selectedGoal) {
       setAIRecommendation("Loading AI recommendation...");
-      fetch(`https://buck-web-application-1.onrender.com/demo/goal/${selectedGoal.id}`)
-        .then(res => res.json())
-        .then(data => {
-          setAIRecommendation(data.ai_recommendation || "No recommendation found.");
+      fetch(
+        `https://buck-web-application-1.onrender.com/demo/goal/${selectedGoal.id}`
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          setAIRecommendation(
+            data.ai_recommendation || "No recommendation found."
+          );
         })
         .catch(() => setAIRecommendation("Failed to fetch AI recommendation."));
     } else {
@@ -93,9 +153,9 @@ const GoalsPage = () => {
         {showModal && (
           <CreateGoalModal
             onClose={() => setShowModal(false)}
-            onGoalCreated={newGoal => {
+            onGoalCreated={(newGoal) => {
               setShowModal(false);
-              setGoals(prev => [...prev, newGoal]);
+              setGoals((prev) => [...prev, newGoal]);
               setSelectedGoal(newGoal);
             }}
           />
@@ -120,26 +180,31 @@ const GoalsPage = () => {
             >
               + Create New Goal
             </button>
-            <button
-              className="goals-create-btn"
-              onClick={handleDeleteGoal}
-            >
+            <button className="goals-create-btn" onClick={handleDeleteGoal}>
               - Delete Goal
             </button>
           </div>
           <div className="goals-list">
-            {goals.filter(Boolean).map(goal => (
+            {goals.filter(Boolean).map((goal) => (
               <div
-                className={`goals-card ${selectedGoal?.id === goal.id ? 'selected' : ''}`}
+                className={`goals-card ${
+                  selectedGoal?.id === goal.id ? "selected" : ""
+                }`}
                 key={goal.id}
                 onClick={() => setSelectedGoal(goal)}
                 style={{ cursor: "pointer" }}
               >
                 <h3>{goal.goalName}</h3>
-                <p><strong>Target:</strong> ${goal.targetAmount}</p>
-                <p><strong>Created:</strong> {goal.createdAt}</p>
+                <p>
+                  <strong>Target:</strong> ${goal.targetAmount}
+                </p>
+                <p>
+                  <strong>Created:</strong> {goal.createdAt}
+                </p>
                 {goal.targetDate && (
-                  <p><strong>Due:</strong> {goal.targetDate}</p>
+                  <p>
+                    <strong>Due:</strong> {goal.targetDate}
+                  </p>
                 )}
               </div>
             ))}
@@ -149,24 +214,37 @@ const GoalsPage = () => {
           {selectedGoal ? (
             <div className="goal-details">
               <h2>Goal Details</h2>
-              <p><strong>Name:</strong> {selectedGoal.goalName}</p>
-              <p><strong>Target Amount:</strong> ${selectedGoal.targetAmount}</p>
-              {selectedGoal.targetDate && (
-                <p><strong>Target Date:</strong> {selectedGoal.targetDate}</p>
-              )}
-              <p><strong>Created:</strong> {selectedGoal.createdAt}</p>
-              <p><strong>Attitude:</strong> {selectedGoal.attitude || "Normal"}</p>
-              <p>
-                <strong>Status:</strong>
-                <span style={{
-                  color: selectedGoal.isActive ? "#27ae60" : "#e74c3c",
-                  fontWeight: "600",
-                  marginLeft: "0.5rem"
-                }}>
-                  {selectedGoal.isActive ? "Active" : "Inactive"}
-                </span>
-              </p>
-
+              <div className="goal-details-grid">
+                <p>
+                  <strong>Name:</strong> {selectedGoal.goalName}
+                </p>
+                <p>
+                  <strong>Target Amount:</strong> ${selectedGoal.targetAmount}
+                </p>
+                {selectedGoal.targetDate && (
+                  <p>
+                    <strong>Target Date:</strong> {selectedGoal.targetDate}
+                  </p>
+                )}
+                <p>
+                  <strong>Created:</strong> {selectedGoal.createdAt}
+                </p>
+                <p>
+                  <strong>Attitude:</strong> {selectedGoal.attitude || "Normal"}
+                </p>
+                <p>
+                  <strong>Status:</strong>
+                  <span
+                    style={{
+                      color: selectedGoal.isActive ? "#27ae60" : "#e74c3c",
+                      fontWeight: "600",
+                      marginLeft: "0.5rem",
+                    }}
+                  >
+                    {selectedGoal.isActive ? "Active" : "Inactive"}
+                  </span>
+                </p>
+              </div>
               {aiRecommendation && (
                 <div className="ai-recommendation">
                   <strong>AI Recommendation</strong>
@@ -178,7 +256,10 @@ const GoalsPage = () => {
             </div>
           ) : (
             <div className="goal-details-placeholder">
-              <p>Select a goal from the list to see its details and AI recommendations</p>
+              <p>
+                Select a goal from the list to see its details and AI
+                recommendations
+              </p>
             </div>
           )}
         </div>
@@ -186,9 +267,9 @@ const GoalsPage = () => {
       {showModal && (
         <CreateGoalModal
           onClose={() => setShowModal(false)}
-          onGoalCreated={newGoal => {
+          onGoalCreated={(newGoal) => {
             setShowModal(false);
-            setGoals(prev => [...prev, newGoal]);
+            setGoals((prev) => [...prev, newGoal]);
             setSelectedGoal(newGoal);
           }}
         />
