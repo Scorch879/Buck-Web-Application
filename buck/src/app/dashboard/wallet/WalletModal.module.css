@@ -37,7 +37,7 @@
   color: #ef8a57;
 }
 .form {
-  display: flex;
+  display: flex;  
   flex-direction: column;
   gap: 0.7rem;
   margin-bottom: 1.2rem;
@@ -135,6 +135,10 @@
   gap: 0.3em;
   margin: 0;
   padding: 0;
+  margin-left: 1.2em;
+}
+.actionsMargin {
+  margin-left: 1.2em;
 }
 .setActiveBtn,
 .editBtn,
@@ -214,5 +218,67 @@
   .modal {
     min-width: 90vw;
     padding: 1.2rem 0.7rem 1.2rem 0.7rem;
+  }
+}
+.confirmBackdrop {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+.confirmModal {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 32px 0 rgba(0,0,0,0.18);
+  min-width: 320px;
+  max-width: 90vw;
+  padding: 2rem 1.5rem 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+.confirmText {
+  font-size: 1.08rem;
+  color: #2c3e50;
+  margin-bottom: 1.2rem;
+  text-align: center;
+}
+.confirmActions {
+  display: flex;
+  gap: 1.2em;
+  justify-content: center;
+}
+.deleteBtn,
+.cancelBtn {
+  min-width: 100px;
+  padding: 0.5em 0;
+  text-align: center;
+  font-size: 1em;
+  font-weight: 600;
+}
+.editBtn,
+.deleteBtn {
+  min-width: 100px;
+  padding: 0.5em 0;
+  text-align: center;
+  font-size: 1em;
+  font-weight: 600;
+}
+.justActivated {
+  animation: highlightActive 0.9s ease;
+}
+@keyframes highlightActive {
+  0% {
+    background: #fffbe6;
+  }
+  60% {
+    background: #fff7c2;
+  }
+  100% {
+    background: #fff7f0;
   }
 } 

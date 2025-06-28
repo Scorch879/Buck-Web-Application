@@ -37,6 +37,8 @@ export default function WalletModal({
   const [activeWalletId, setActiveWalletId] = useState<string | null>(null);
   const [addBtnMouse, setAddBtnMouse] = useState<{ x: number; y: number } | null>(null);
   const addBtnRef = React.useRef<HTMLButtonElement>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [justActivatedId, setJustActivatedId] = useState<string | null>(null);
 
   const user = auth.currentUser;
 
@@ -46,10 +48,17 @@ export default function WalletModal({
     const snap = await getDocs(
       collection(db, "wallets", user.uid, "userWallets")
     );
-    setWallets(
-      snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Wallet))
-    );
+    const walletsArr = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Wallet));
+    setWallets(walletsArr);
     setLoading(false);
+    if (walletsArr.length === 1) {
+      await setDoc(
+        doc(db, "users", user.uid),
+        { activeWallet: walletsArr[0].id },
+        { merge: true }
+      );
+      setActiveWalletId(walletsArr[0].id);
+    }
   };
 
   const fetchActiveWallet = async () => {
@@ -71,8 +80,8 @@ export default function WalletModal({
   const handleAddWallet = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!name.trim() || !budget.trim() || isNaN(Number(budget))) {
-      setError("Please enter a valid name and budget.");
+    if (!name.trim() || !budget.trim() || isNaN(Number(budget)) || Number(budget) <= 0) {
+      setError("Please enter a valid name and a budget greater than 0.");
       return;
     }
     if (!user) return;
@@ -109,8 +118,8 @@ export default function WalletModal({
 
   const handleEditSave = async (id: string) => {
     if (!user) return;
-    if (!editName.trim() || !editBudget.trim() || isNaN(Number(editBudget))) {
-      setError("Please enter a valid name and budget.");
+    if (!editName.trim() || !editBudget.trim() || isNaN(Number(editBudget)) || Number(editBudget) <= 0) {
+      setError("Please enter a valid name and a budget greater than 0.");
       return;
     }
     await updateDoc(doc(db, "wallets", user.uid, "userWallets", id), {
@@ -139,6 +148,8 @@ export default function WalletModal({
       { merge: true }
     );
     setActiveWalletId(id);
+    setJustActivatedId(id);
+    setTimeout(() => setJustActivatedId(null), 900);
   };
 
   const totalBudget = wallets.reduce(
@@ -210,7 +221,7 @@ export default function WalletModal({
                   key={w.id}
                   className={
                     w.id === activeWalletId
-                      ? `${styles.listItem} ${styles.active}`
+                      ? `${styles.listItem} ${styles.active} ${justActivatedId === w.id ? styles.justActivated : ''}`
                       : styles.listItem
                   }
                 >
@@ -252,7 +263,7 @@ export default function WalletModal({
                           <span className={styles.activeLabel}>(Active)</span>
                         )}
                       </span>
-                      <div className={styles.actions}>
+                      <div className={`${styles.actions} ${styles.actionsMargin}`}>
                         <button
                           onClick={() => handleSetActive(w.id)}
                           className={styles.setActiveBtn}
@@ -267,7 +278,7 @@ export default function WalletModal({
                           Edit
                         </button>
                         <button
-                          onClick={() => handleDelete(w.id)}
+                          onClick={() => setConfirmDeleteId(w.id)}
                           className={styles.deleteBtn}
                         >
                           Delete
@@ -283,6 +294,32 @@ export default function WalletModal({
         <button onClick={onClose} className={styles.closeBtn}>
           Close
         </button>
+        {confirmDeleteId && (
+          <div className={styles.confirmBackdrop}>
+            <div className={styles.confirmModal}>
+              <div className={styles.confirmText}>
+                Are you sure you want to delete this wallet? This action cannot be undone.
+              </div>
+              <div className={styles.confirmActions}>
+                <button
+                  className={styles.deleteBtn}
+                  onClick={async () => {
+                    await handleDelete(confirmDeleteId);
+                    setConfirmDeleteId(null);
+                  }}
+                >
+                  Delete
+                </button>
+                <button
+                  className={styles.cancelBtn}
+                  onClick={() => setConfirmDeleteId(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
