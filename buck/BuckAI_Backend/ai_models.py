@@ -58,6 +58,23 @@ def categorize_expense(text):
     best_category = result["labels"][0]
     return best_category
 
+def clean_llama_output(text):
+    import re
+    # Remove everything up to and including the first <think> tag
+    text = re.sub(r'^.*?<think>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    # Remove any other tags like <...>
+    text = re.sub(r'<.*?>', '', text)
+    # Remove leading/trailing whitespace
+    text = text.strip()
+    # Take only the first 2 sentences (split on period, question, or exclamation)
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    cleaned = ' '.join(sentences[:2]).strip()
+    # If the result is still too long (model ignored punctuation), cut at 250 chars or first newline
+    if len(cleaned) > 250:
+        cleaned = cleaned[:250].rsplit(' ', 1)[0] + '...'
+    cleaned = cleaned.split('\n')[0].strip()
+    return cleaned
+
 def generate_ai_tip(category, user_context=""):
     api_url = "https://api.together.xyz/v1/chat/completions"
     headers = {
@@ -80,5 +97,5 @@ def generate_ai_tip(category, user_context=""):
     response = requests.post(api_url, headers=headers, json=payload)
     response.raise_for_status()
     result = response.json()
-    return result["choices"][0]["message"]["content"]
+    return clean_llama_output(result["choices"][0]["message"]["content"])
 
