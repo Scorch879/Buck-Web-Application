@@ -8,7 +8,6 @@ import { db } from "@/utils/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import CreateGoalModal from "./CreateGoalModal";
 
-
 const GoalsPage = () => {
   const router = useRouter();
   const { user, loading } = useAuthGuard();
@@ -107,55 +106,68 @@ const GoalsPage = () => {
       <div className="GoalsPage">
         <div className="GoalsCard">
           <div className="goals-header">
-            <h2>Here are your Goals!</h2>
+            <h2>Your Goals</h2>
           </div>
           <button
-            className="nav-button goals-create-btn"
+            className="goals-create-btn"
             onClick={() => setShowModal(true)}
           >
-            Create Goal
+            + Create New Goal
           </button>
           <div className="goals-list">
             {goals.filter(Boolean).map(goal => (
               <div
-                className="goals-card"
+                className={`goals-card ${selectedGoal?.id === goal.id ? 'selected' : ''}`}
                 key={goal.id}
                 onClick={() => setSelectedGoal(goal)}
                 style={{ cursor: "pointer" }}
               >
                 <h3>{goal.goalName}</h3>
-                <p>Target Amount: {goal.targetAmount}</p>
-                <p>
-                  Created:{" "}
-                  {goal.createdAt}
-                </p>
+                <p><strong>Target:</strong> ${goal.targetAmount}</p>
+                <p><strong>Created:</strong> {goal.createdAt}</p>
+                {goal.targetDate && (
+                  <p><strong>Due:</strong> {goal.targetDate}</p>
+                )}
               </div>
             ))}
           </div>
         </div>
         <div className="GoalsContainer">
-          <div className="GoalsContainer">
-            {selectedGoal ? (
-              <div className="goal-details">
-                <h2>Goal Details</h2>
-                <p><strong>Name:</strong> {selectedGoal.goalName}</p>
-                <p><strong>Target Amount:</strong> {selectedGoal.targetAmount}</p>
+          {selectedGoal ? (
+            <div className="goal-details">
+              <h2>Goal Details</h2>
+              <p><strong>Name:</strong> {selectedGoal.goalName}</p>
+              <p><strong>Target Amount:</strong> ${selectedGoal.targetAmount}</p>
+              {selectedGoal.targetDate && (
                 <p><strong>Target Date:</strong> {selectedGoal.targetDate}</p>
-                <p><strong>Created:</strong> {selectedGoal.createdAt}</p>
-                <p><strong>Attitude:</strong> {selectedGoal.attitude}</p>
-                <p>
-                  <strong>Status:</strong> {selectedGoal.isActive ? "Active" : "Inactive"}
-                </p>
-                <p style={{marginTop: "1em", color: "#2a7"}}><strong>AI Recommendation:</strong><br />
-                  {aiRecommendation}
-                </p>
-              </div>
-            ) : (
-              <div className="goal-details-placeholder">
-                <p>Select a goal to see its details.</p>
-              </div>
-            )}
-          </div>
+              )}
+              <p><strong>Created:</strong> {selectedGoal.createdAt}</p>
+              <p><strong>Attitude:</strong> {selectedGoal.attitude || "Normal"}</p>
+              <p>
+                <strong>Status:</strong> 
+                <span style={{ 
+                  color: selectedGoal.isActive ? "#27ae60" : "#e74c3c",
+                  fontWeight: "600",
+                  marginLeft: "0.5rem"
+                }}>
+                  {selectedGoal.isActive ? "Active" : "Inactive"}
+                </span>
+              </p>
+              
+              {aiRecommendation && (
+                <div className="ai-recommendation">
+                  <strong>AI Recommendation</strong>
+                  <div className="ai-recommendation-content">
+                    {aiRecommendation}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="goal-details-placeholder">
+              <p>Select a goal from the list to see its details and AI recommendations</p>
+            </div>
+          )}
         </div>
       </div>
       {showModal && (
