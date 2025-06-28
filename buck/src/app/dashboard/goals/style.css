@@ -211,6 +211,37 @@
   background: linear-gradient(90deg, #ffd6b0, #f3a35c, #e98a3f);
 }
 
+.goal-details-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 1rem;
+  /* optional spacing */
+}
+
+.setActiveButton {
+  background: linear-gradient(135deg, #ffd6b0 0%, #f3a35c 100%);
+  color: #2c3e50;
+  border: none;
+  padding: 0.7rem 1.4rem;
+  border-radius: 25px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(243, 163, 92, 0.25);
+  margin-bottom: 0;
+  width: auto;
+  text-align: center;
+  display: inline-block;
+}
+
+.setActiveButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(243, 163, 92, 0.4);
+  background: linear-gradient(135deg, #ffe0c2 0%, #f3a35c 100%);
+}
+
 .goal-details {
   background: #ffffff;
   border-radius: 16px;

@@ -7,8 +7,8 @@ import { useAuthGuard } from "@/utils/useAuthGuard";
 import { db } from "@/utils/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import CreateGoalModal from "./CreateGoalModal";
-import { deleteGoal } from "@/component/goals";
 import { getSavingTip } from "@/utils/aiApi";
+import { updateGoalStatus, setOnlyGoalActive, deleteGoal } from "@/component/goals";
 
 const GoalsPage = () => {
   const router = useRouter();
@@ -35,6 +35,56 @@ const GoalsPage = () => {
       alert(result.message || "Failed to delete goal.");
     }
   };
+
+  const handleSetActive = async () => {
+    if (!selectedGoal) return;
+    if (selectedGoal.isActive) {
+      // Deactivate the goal
+      const result = await updateGoalStatus(selectedGoal.id, false);
+      if (result.success) {
+        setGoals(goals.map(goal =>
+          goal.id === selectedGoal.id ? { ...goal, isActive: false } : goal
+        ));
+        setSelectedGoal({ ...selectedGoal, isActive: false });
+      } else {
+        alert(result.message || "Failed to update goal status.");
+      }
+    } else {
+      // Activate only this goal, deactivate others
+      const result = await setOnlyGoalActive(selectedGoal.id);
+      if (result.success) {
+        setGoals(goals.map(goal =>
+          goal.id === selectedGoal.id
+            ? { ...goal, isActive: true }
+            : { ...goal, isActive: false }
+        ));
+        setSelectedGoal({ ...selectedGoal, isActive: true });
+      } else {
+        alert(result.message || "Failed to update goal status.");
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (goals.length === 0) {
+      setSelectedGoal(null);
+      return;
+    }
+    // Try to find an active goal
+    const activeGoal = goals.find(goal => goal.isActive);
+    if (activeGoal) {
+      setSelectedGoal(activeGoal);
+      return;
+    }
+    // Fallback: use localStorage or first goal
+    const storedGoalId = localStorage.getItem("selectedGoalId");
+    if (storedGoalId) {
+      const foundGoal = goals.find(goal => goal.id === storedGoalId);
+      setSelectedGoal(foundGoal || goals[0]);
+    } else {
+      setSelectedGoal(goals[0]);
+    }
+  }, [goals]);
 
   useEffect(() => {
     const fetchGoals = async () => {
@@ -159,6 +209,11 @@ const GoalsPage = () => {
         <div className="GoalsContainer">
           {selectedGoal ? (
             <div className="goal-details">
+              <div className="goal-details-header">
+                <button className="setActiveButton" onClick={handleSetActive}>
+                  {selectedGoal.isActive ? "Set as Inactive" : "Set as Active"}
+                </button>
+              </div>
               <h2>Goal Details</h2>
               <p><strong>Name:</strong> {selectedGoal.goalName}</p>
               <p><strong>Target Amount:</strong> ${selectedGoal.targetAmount}</p>
