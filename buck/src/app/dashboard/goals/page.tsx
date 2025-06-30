@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import "./style.css";
+import "./progress-bar.css";
 import { useRouter } from "next/navigation";
 import DashboardHeader from "@/component/dashboardheader";
 import { useAuthGuard } from "@/utils/useAuthGuard";
@@ -10,6 +11,8 @@ import CreateGoalModal from "./CreateGoalModal";
 import { deleteGoal } from "@/component/goals";
 import { getSavingTip } from "@/utils/aiApi";
 import { updateGoalStatus, setOnlyGoalActive } from "@/component/goals";
+import ProgressBarCard from "./ProgressBarCard";
+
 
 const GoalsPage = () => {
   const router = useRouter();
@@ -104,21 +107,38 @@ const GoalsPage = () => {
   }, [user]);
 
   useEffect(() => {
+    let didCancel = false;
+    let timeoutId: NodeJS.Timeout;
     if (selectedGoal) {
       setAIRecommendation("Loading AI recommendation...");
-      fetch(
-        `https://buck-web-application-1.onrender.com/demo/goal/${selectedGoal.id}`
-      )
-        .then((res) => res.json())
-        .then((data) => {
-          setAIRecommendation(
-            data.ai_recommendation || "No recommendation found."
-          );
+      // Timeout promise
+      const timeoutPromise = new Promise<string>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error("timeout")), 15000); // 15 seconds
+      });
+      // Race the fetch and the timeout
+      Promise.race([
+        getSavingTip(
+          selectedGoal.goalName,
+          `Attitude: ${selectedGoal.attitude || "Normal"}, Target Amount: ${selectedGoal.targetAmount}`
+        ),
+        timeoutPromise
+      ])
+        .then((tip) => {
+          if (!didCancel) setAIRecommendation(typeof tip === 'string' ? tip : "");
         })
-        .catch(() => setAIRecommendation("Failed to fetch AI recommendation."));
+        .catch((err) => {
+          if (!didCancel) setAIRecommendation("Failed to fetch AI recommendation.");
+        })
+        .finally(() => {
+          clearTimeout(timeoutId);
+        });
     } else {
       setAIRecommendation(null);
     }
+    return () => {
+      didCancel = true;
+      clearTimeout(timeoutId);
+    };
   }, [selectedGoal]);
 
   if (loading || !user || loadingGoals) {
@@ -187,8 +207,9 @@ const GoalsPage = () => {
           <div className="goals-list">
             {goals.filter(Boolean).map((goal) => (
               <div
-                className={`goals-card ${selectedGoal?.id === goal.id ? "selected" : ""
-                  }`}
+                className={`goals-card ${
+                  selectedGoal?.id === goal.id ? "selected" : ""
+                }`}
                 key={goal.id}
                 onClick={() => setSelectedGoal(goal)}
                 style={{ cursor: "pointer" }}
@@ -211,53 +232,61 @@ const GoalsPage = () => {
         </div>
         <div className="GoalsContainer">
           {selectedGoal ? (
-            <div className="goal-details">
-              <div className="goal-details-header">
-                <button className="setActiveButton" onClick={handleSetActive}>
-                  {selectedGoal.isActive ? "Set as Inactive" : "Set as Active"}
-                </button>
-              </div>
-              <h2>Goal Details</h2>
-              <div className="goal-details-grid">
-                <p>
-                  <strong>Name:</strong> {selectedGoal.goalName}
-                </p>
-                <p>
-                  <strong>Target Amount:</strong> ${selectedGoal.targetAmount}
-                </p>
-                {selectedGoal.targetDate && (
-                  <p>
-                    <strong>Target Date:</strong> {selectedGoal.targetDate}
-                  </p>
-                )}
-                <p>
-                  <strong>Created:</strong> {selectedGoal.createdAt}
-                </p>
-                <p>
-                  <strong>Attitude:</strong> {selectedGoal.attitude || "Normal"}
-                </p>
-                <p>
-                  <strong>Status:</strong>
-                  <span
-                    style={{
-                      color: selectedGoal.isActive ? "#27ae60" : "#e74c3c",
-                      fontWeight: "600",
-                      marginLeft: "0.5rem",
-                    }}
-                  >
-                    {selectedGoal.isActive ? "Active" : "Inactive"}
-                  </span>
-                </p>
-              </div>
-              {aiRecommendation && (
-                <div className="ai-recommendation">
-                  <strong>AI Recommendation</strong>
-                  <div className="ai-recommendation-content">
-                    {aiRecommendation}
-                  </div>
+            <>
+              <div className="goal-details">
+                <div className="goal-details-header">
+                  <button className="setActiveButton" onClick={handleSetActive}>
+                    {selectedGoal.isActive ? "Set as Inactive" : "Set as Active"}
+                  </button>
                 </div>
-              )}
-            </div>
+                <h2>Goal Details</h2>
+                <div className="goal-details-grid">
+                  <p>
+                    <strong>Name:</strong> {selectedGoal.goalName}
+                  </p>
+                  <p>
+                    <strong>Target Amount:</strong> ${selectedGoal.targetAmount}
+                  </p>
+                  {selectedGoal.targetDate && (
+                    <p>
+                      <strong>Target Date:</strong> {selectedGoal.targetDate}
+                    </p>
+                  )}
+                  <p>
+                    <strong>Created:</strong> {selectedGoal.createdAt}
+                  </p>
+                  <p>
+                    <strong>Attitude:</strong> {selectedGoal.attitude || "Normal"}
+                  </p>
+                  <p>
+                    <strong>Status:</strong>
+                    <span
+                      style={{
+                        color: selectedGoal.isActive ? "#27ae60" : "#e74c3c",
+                        fontWeight: "600",
+                        marginLeft: "0.5rem",
+                      }}
+                    >
+                      {selectedGoal.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </p>
+                </div>
+                {selectedGoal && <ProgressBarCard goal={selectedGoal} />}
+                {aiRecommendation && (
+                  <div className="ai-recommendation">
+                    <strong>AI Recommendation</strong>
+                    <div className="ai-recommendation-content">
+                      {aiRecommendation}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {/* Bottom Button Group outside the card */}
+              <div className="goals-bottom-buttons">
+                <button className="goals-action-btn">See Forecast</button>
+                <button className="goals-action-btn">See Statistics</button>
+              </div>
+            </>
           ) : (
             <div className="goal-details-placeholder">
               <p>
