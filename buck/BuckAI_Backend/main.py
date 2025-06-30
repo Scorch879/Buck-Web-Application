@@ -55,7 +55,6 @@ def ai_goal_recommendation(goal: GoalInput):
         "monthly_target": monthly_target,
         "adjusted_monthly_target": adjusted_monthly_target
     }
-
 @app.post("/ai/saving_tip/")
 def saving_tip(input: TipInput):
     try:
@@ -63,3 +62,4 @@ def saving_tip(input: TipInput):
         return {"tip": tip}
     except Exception as e:
         return {"error": str(e)}
+

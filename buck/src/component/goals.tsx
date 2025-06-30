@@ -96,7 +96,6 @@ export async function setOnlyGoalActive(goalId: string) {
   try {
     const goalsRef = collection(db, "goals", user.uid, "userGoals");
     const snapshot = await getDocs(goalsRef);
-
     // Deactivate all goals
     const updates = snapshot.docs.map((docSnap) => {
       const isActive = docSnap.id === goalId;

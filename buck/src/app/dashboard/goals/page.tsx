@@ -13,6 +13,7 @@ import { getSavingTip } from "@/utils/aiApi";
 import { updateGoalStatus, setOnlyGoalActive } from "@/component/goals";
 import ProgressBarCard from "./ProgressBarCard";
 
+
 const GoalsPage = () => {
   const router = useRouter();
   const { user, loading } = useAuthGuard();

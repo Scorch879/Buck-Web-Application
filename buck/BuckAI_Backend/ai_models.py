@@ -42,6 +42,7 @@ def predict_future_expense(past_expenses):
     return forecast['yhat'].iloc[-1]  # Predicted next month expense
 
 
+
 def clean_llama_output(text):
     # Remove <think> and everything before it
     if '<think>' in text:
@@ -62,13 +63,12 @@ def generate_ai_tip(category, user_context=""):
         "Authorization": f"Bearer {os.getenv('TOGETHER_API_KEY')}",
         "Content-Type": "application/json"
     }
-    prompt = (
-        f"You are a financial assistant. The currency is in Philippine Peso. In exactly 2 sentences, give a direct, actionable money-saving tip for someone who spends a lot of money on {category}. "
         f"Based on this context: {user_context}, tell them exactly how much they should save per month and one practical way to achieve it. "
         "Do NOT show your thought process, do NOT use <think>, and do NOT include any commentary or explanation. Only output the final tip and the amount."
     )
     payload = {
         "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",  # You can change this to any supported model
+
         "messages": [
             {"role": "user", "content": prompt}
         ],
