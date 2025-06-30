@@ -115,11 +115,17 @@ const GoalsPage = () => {
       const timeoutPromise = new Promise<string>((_, reject) => {
         timeoutId = setTimeout(() => reject(new Error("timeout")), 15000); // 15 seconds
       });
+      // Add multiplier to user_context
+      const attitude = selectedGoal.attitude || "Normal";
+      let multiplier = 1.0;
+      if (attitude === "Moderate") multiplier = 0.8;
+      if (attitude === "Aggressive") multiplier = 0.6;
+      const userContext = `Attitude: ${attitude} (multiplier: ${multiplier}), Target Amount: ${selectedGoal.targetAmount}`;
       // Race the fetch and the timeout
       Promise.race([
         getSavingTip(
           selectedGoal.goalName,
-          `Attitude: ${selectedGoal.attitude || "Normal"}, Target Amount: ${selectedGoal.targetAmount}`,
+          userContext,
           selectedGoal.targetDate,
           selectedGoal.createdAt
         ),

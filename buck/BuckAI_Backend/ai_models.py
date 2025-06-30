@@ -74,9 +74,15 @@ def generate_ai_tip(category, user_context="", target_date=None, created_at=None
                 time_context = f"You have {months_left} months left to reach your goal."
         except Exception:
             pass
+    # Add attitude explanation
+    attitude_guide = (
+        "Saving attitude multipliers: Normal = 1.0, Moderate = 0.8, Aggressive = 0.6. "
+        "The user's attitude and multiplier are provided. Use the multiplier to adjust the recommended saving amount. "
+        "For example, if the base amount is 1000 and the multiplier is 0.8, recommend 800. "
+    )
     prompt = (
         f"You are a financial assistant. The currency is in Philippine Peso. In exactly 2 sentences, give a direct, actionable money-saving tip for someone who spends a lot of money on {category}. "
-        f"Based on this context: {user_context}. {time_context} Tell them exactly how much they should save per period (month or week, depending on the time left) and one practical way to achieve it. "
+        f"{attitude_guide} Based on this context: {user_context}. {time_context} Tell them exactly how much they should save per period (month or week, depending on the time left) and one practical way to achieve it. "
         "Do NOT show your thought process, do NOT use <think>, and do NOT include any commentary or explanation. Only output the final tip and the amount."
     )
     payload = {
