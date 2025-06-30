@@ -53,15 +53,30 @@ def clean_llama_output(text):
     cleaned = cleaned.replace('<think>', '').strip()
     return cleaned
 
-def generate_ai_tip(category, user_context=""):
+def generate_ai_tip(category, user_context="", target_date=None, created_at=None):
     api_url = "https://api.together.xyz/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {os.getenv('TOGETHER_API_KEY')}",
         "Content-Type": "application/json"
     }
+    import datetime
+    # Calculate months or weeks left if dates are provided
+    time_context = ""
+    if target_date and created_at:
+        try:
+            d1 = datetime.datetime.strptime(created_at, "%Y-%m-%d")
+            d2 = datetime.datetime.strptime(target_date, "%Y-%m-%d")
+            days_left = (d2 - d1).days
+            if days_left < 30:
+                time_context = f"You have only {days_left} days left to reach your goal."
+            else:
+                months_left = round(days_left / 30)
+                time_context = f"You have {months_left} months left to reach your goal."
+        except Exception:
+            pass
     prompt = (
-        f"You are a financial assistant. The currency is in Philippine Peso. In exactly 2 sentences, give a direct, actionable money-saving tip for someone who spends a lot of money on {category}."
-        f"Based on this context: {user_context}, tell them exactly how much they should save per month and one practical way to achieve it. "
+        f"You are a financial assistant. The currency is in Philippine Peso. In exactly 2 sentences, give a direct, actionable money-saving tip for someone who spends a lot of money on {category}. "
+        f"Based on this context: {user_context}. {time_context} Tell them exactly how much they should save per period (month or week, depending on the time left) and one practical way to achieve it. "
         "Do NOT show your thought process, do NOT use <think>, and do NOT include any commentary or explanation. Only output the final tip and the amount."
     )
     payload = {

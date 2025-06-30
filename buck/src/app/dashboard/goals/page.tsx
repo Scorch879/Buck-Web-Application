@@ -119,7 +119,9 @@ const GoalsPage = () => {
       Promise.race([
         getSavingTip(
           selectedGoal.goalName,
-          `Attitude: ${selectedGoal.attitude || "Normal"}, Target Amount: ${selectedGoal.targetAmount}`
+          `Attitude: ${selectedGoal.attitude || "Normal"}, Target Amount: ${selectedGoal.targetAmount}`,
+          selectedGoal.targetDate,
+          selectedGoal.createdAt
         ),
         timeoutPromise
       ])
