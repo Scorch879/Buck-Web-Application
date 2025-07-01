@@ -6,23 +6,40 @@ import { useRouter } from "next/navigation";
 import DashboardHeader from "@/component/dashboardheader";
 import { useAuthGuard } from "@/utils/useAuthGuard";
 import { db } from "@/utils/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import CreateGoalModal from "./CreateGoalModal";
-import { deleteGoal } from "@/component/goals";
-import { getSavingTip } from "@/utils/aiApi";
-import { updateGoalStatus, setOnlyGoalActive } from "@/component/goals";
+import { deleteGoal, updateGoalStatus, setOnlyGoalActive } from "@/component/goals";
 import ProgressBarCard from "./ProgressBarCard";
+import { getSavingTip } from "@/utils/aiApi";
 
+// --- Goal interface for type safety ---
+interface Goal {
+  id: string;
+  goalName: string;
+  targetAmount: number;
+  currentAmount?: number;
+  targetDate?: string;
+  createdAt: string;
+  attitude?: string;
+  isActive?: boolean;
+}
 
 const GoalsPage = () => {
   const router = useRouter();
   const { user, loading } = useAuthGuard();
-  const [goals, setGoals] = useState<any[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [loadingGoals, setLoadingGoals] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [selectedGoal, setSelectedGoal] = useState<any | null>(null);
+  const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [aiRecommendation, setAIRecommendation] = useState<string | null>(null);
 
+  // Progress modal state
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [progressGoal, setProgressGoal] = useState<Goal | null>(null);
+  const [progressInput, setProgressInput] = useState("");
+  const [progressLoading, setProgressLoading] = useState(false);
+
+  // --- CRUD Handlers ---
   const handleDeleteGoal = async () => {
     if (!selectedGoal) return;
     const confirmDelete = window.confirm(
@@ -72,6 +89,46 @@ const GoalsPage = () => {
     }
   };
 
+  // --- Progress Modal Handlers ---
+  const handleOpenProgressModal = (goal: Goal) => {
+    setProgressGoal(goal);
+    setProgressInput("");
+    setShowProgressModal(true);
+  };
+
+  const handleAddProgress = async () => {
+    if (!progressGoal || !user) return;
+    const amountToAdd = parseFloat(progressInput);
+    if (isNaN(amountToAdd) || amountToAdd <= 0) {
+      alert("Please enter a valid amount.");
+      return;
+    }
+    setProgressLoading(true);
+    const newAmount = (progressGoal.currentAmount || 0) + amountToAdd;
+    try {
+      const goalRef = doc(db, "goals", user.uid, "userGoals", progressGoal.id);
+      await updateDoc(goalRef, { currentAmount: newAmount });
+      // Update local state
+      setGoals(goals =>
+        goals.map(goal =>
+          goal.id === progressGoal.id
+            ? { ...goal, currentAmount: newAmount }
+            : goal
+        )
+      );
+      // If the selected goal is the one updated, update it too
+      if (selectedGoal && selectedGoal.id === progressGoal.id) {
+        setSelectedGoal({ ...selectedGoal, currentAmount: newAmount });
+      }
+      setShowProgressModal(false);
+    } catch (err) {
+      alert("Failed to update progress.");
+    } finally {
+      setProgressLoading(false);
+    }
+  };
+
+  // --- Effects ---
   useEffect(() => {
     if (goals.length === 0) {
       setSelectedGoal(null);
@@ -99,7 +156,7 @@ const GoalsPage = () => {
         setLoadingGoals(true);
         const goalsRef = collection(db, "goals", user.uid, "userGoals");
         const snapshot = await getDocs(goalsRef);
-        setGoals(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+        setGoals(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Goal)));
         setLoadingGoals(false);
       }
     };
@@ -134,7 +191,7 @@ const GoalsPage = () => {
         .then((tip) => {
           if (!didCancel) setAIRecommendation(typeof tip === 'string' ? tip : "");
         })
-        .catch((err) => {
+        .catch(() => {
           if (!didCancel) setAIRecommendation("Failed to fetch AI recommendation.");
         })
         .finally(() => {
@@ -215,9 +272,7 @@ const GoalsPage = () => {
           <div className="goals-list">
             {goals.filter(Boolean).map((goal) => (
               <div
-                className={`goals-card ${
-                  selectedGoal?.id === goal.id ? "selected" : ""
-                }`}
+                className={`goals-card ${selectedGoal?.id === goal.id ? "selected" : ""}`}
                 key={goal.id}
                 onClick={() => setSelectedGoal(goal)}
                 style={{ cursor: "pointer" }}
@@ -279,7 +334,10 @@ const GoalsPage = () => {
                     </span>
                   </p>
                 </div>
-                {selectedGoal && <ProgressBarCard goal={selectedGoal} />}
+                <ProgressBarCard
+                  goal={selectedGoal}
+                  onAddProgress={() => handleOpenProgressModal(selectedGoal)}
+                />
                 {aiRecommendation && (
                   <div className="ai-recommendation">
                     <strong>AI Recommendation</strong>
@@ -314,6 +372,38 @@ const GoalsPage = () => {
             setSelectedGoal(newGoal);
           }}
         />
+      )}
+      {showProgressModal && progressGoal && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h3>Add Progress to {progressGoal.goalName}</h3>
+            <input
+              type="number"
+              min="1"
+              placeholder="Amount"
+              value={progressInput}
+              onChange={e => setProgressInput(e.target.value)}
+              disabled={progressLoading}
+              style={{ marginBottom: "1rem", width: "100%" }}
+            />
+            <div className="ProgressModal-btns">
+              <button
+                className="addProgress-btn"
+                onClick={handleAddProgress}
+                disabled={progressLoading}
+              >
+                {progressLoading ? "Saving..." : "Save"}
+              </button>
+              <button
+                style={{ marginLeft: 8 }}
+                onClick={() => setShowProgressModal(false)}
+                disabled={progressLoading}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

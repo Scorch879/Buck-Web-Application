@@ -56,6 +56,13 @@
   flex-shrink: 0;
 }
 
+.dashboard-welcome h1 {
+  color: #2c3e50;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  margin-left: -5%;
+  margin-bottom: -2%;
+}
+
 .dashboard-mascot-img {
   position: relative;
   width: 50px;

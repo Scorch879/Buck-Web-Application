@@ -1,5 +1,5 @@
-import React from 'react';
-import './progress-bar.css';
+import React from "react";
+import "./progress-bar.css";
 
 interface Goal {
   id: string;
@@ -14,9 +14,10 @@ interface Goal {
 
 interface ProgressBarCardProps {
   goal: Goal;
+  onAddProgress: (goal: Goal) => void;
 }
 
-const ProgressBarCard: React.FC<ProgressBarCardProps> = ({ goal }) => {
+const ProgressBarCard: React.FC<ProgressBarCardProps> = ({ goal, onAddProgress }) => {
   const currentAmount = goal.currentAmount || 0;
   const progressPercentage = Math.min((currentAmount / goal.targetAmount) * 100, 100);
   const remainingAmount = Math.max(goal.targetAmount - currentAmount, 0);
@@ -30,7 +31,7 @@ const ProgressBarCard: React.FC<ProgressBarCardProps> = ({ goal }) => {
         </span>
       </div>
       <div className="progress-bar-container">
-        <div 
+        <div
           className="progress-bar-fill"
           style={{ width: `${progressPercentage}%` }}
         ></div>
@@ -39,6 +40,13 @@ const ProgressBarCard: React.FC<ProgressBarCardProps> = ({ goal }) => {
         <span className="progress-amount">
           Saved: ${currentAmount.toLocaleString()}
         </span>
+        <button
+          className="addProgress-btns"
+          style={{ margin: "0 1rem" }}
+          onClick={() => onAddProgress(goal)}
+        >
+          Add Progress
+        </button>
         <span className="progress-remaining">
           Remaining: ${remainingAmount.toLocaleString()}
         </span>
@@ -47,4 +55,4 @@ const ProgressBarCard: React.FC<ProgressBarCardProps> = ({ goal }) => {
   );
 };
 
-export default ProgressBarCard; 
+export default ProgressBarCard;

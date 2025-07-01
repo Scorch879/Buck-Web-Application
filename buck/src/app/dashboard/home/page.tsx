@@ -102,8 +102,10 @@ const Dashboard = (): React.JSX.Element => {
     <div className="dashboard">
       {/* Sticky Header */}
       <DashboardHeader />
-
       <div className="dashboard-container">
+        <div className="dashboard-welcome">
+          <h1>Welcome, {auth.currentUser?.displayName}!  </h1>
+        </div>
         {/* Main Content */}
         <div className="dashboard-content">
           {/* Spending Card */}
