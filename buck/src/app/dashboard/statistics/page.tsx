@@ -4,7 +4,8 @@ import "./style.css";
 import { useRouter } from "next/navigation";
 import DashboardHeader from "@/component/dashboardheader";
 import { useAuthGuard } from "@/utils/useAuthGuard";
-import WeeklySpendingChart from "@/component/line-graph";
+import WeeklySpendingChart from "./weekly-spending";
+import ExpensesPieCard from "./expenses";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -122,6 +123,7 @@ const Statistics = () => {
               </div>
             </div>
           </div>
+          <ExpensesPieCard />
           <div className="empty-goals-popup">
             <h2
               style={{
