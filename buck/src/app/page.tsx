@@ -74,63 +74,68 @@ export default function Home() {
     <>
       <div className="landing-page">
         <div className="lp-header"></div>
-        <div className="welcomeSign">
-          <div className="buckmsg">
-            <p id="name">Buck</p>
-            <div className="smoothLine"></div>
-            <p id="desc">The Budget Tracker</p>
+        <div className="section1">
+          <div className="welcomeSign">
+            <div className="buckmsg">
+              <p id="name">Buck</p>
+              <div className="smoothLine"></div>
+              <p id="desc">The Budget Tracker</p>
+            </div>
+            <div className="buckmascot">
+              <Image
+                src="/BuckMascot.png"
+                alt="Buck Logo"
+                fill
+                className="buckmascotImg"
+                priority
+                style={{ objectFit: "contain" }}
+              ></Image>
+            </div>
           </div>
-          <div className="buckmascot">
-            <Image
-              src="/BuckMascot.png"
-              alt="Buck Logo"
-              fill
-              className="buckmascotImg"
-              priority
-              style={{ objectFit: "contain" }}
-            ></Image>
-          </div>
-        </div>
-        <div
-          className="welcomeMsg"
-          onMouseMove={handleMouseMove}
-          ref={welcomeMsgRef}
-        >
-          <motion.p
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              justifyContent: "center",
-            }}
+          <div
+            className="welcomeMsg"
+            onMouseMove={handleMouseMove}
+            ref={welcomeMsgRef}
           >
-            {words.map((word, index) => (
-              <motion.span
-                key={index}
-                variants={wordVariants}
-                style={{ marginRight: "0.25em" }}
-              >
-                {word}
-              </motion.span>
-            ))}
-          </motion.p>
-          {trailDots.map((dot) => (
-            <div
-              key={dot.id}
-              className="mouse-trail-dot"
+            <motion.p
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
               style={{
-                left: `${dot.x}px`,
-                top: `${dot.y}px`,
+                display: "flex",
+                flexWrap: "wrap",
+                justifyContent: "center",
               }}
-            />
-          ))}
-          <button onClick={() => router.push("/sign-in")} className="getStartedButton">
-            Get Started
-          </button>
+            >
+              {words.map((word, index) => (
+                <motion.span
+                  key={index}
+                  variants={wordVariants}
+                  style={{ marginRight: "0.25em" }}
+                >
+                  {word}
+                </motion.span>
+              ))}
+            </motion.p>
+            {trailDots.map((dot) => (
+              <div
+                key={dot.id}
+                className="mouse-trail-dot"
+                style={{
+                  left: `${dot.x}px`,
+                  top: `${dot.y}px`,
+                }}
+              />
+            ))}
+            <button onClick={() => router.push("/sign-in")} className="getStartedButton">
+              Get Started
+            </button>
+          </div>
         </div>
-        
+        <div className="section2">
+        </div>
+        <div className="section3">
+        </div>
       </div>
     </>
   );
