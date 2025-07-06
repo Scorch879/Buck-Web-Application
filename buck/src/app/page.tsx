@@ -5,6 +5,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import "./globals.css";
 import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
+import React from "react";
 
 export default function Home() {
   useRedirectIfAuthenticated(); // Redirects if user is signed in
@@ -14,6 +15,10 @@ export default function Home() {
     Array<{ id: number; x: number; y: number }>
   >([]);
   const nextDotId = useRef(0);
+  const [btnMouse, setBtnMouse] = useState<{ x: number; y: number } | null>(
+      null
+    );
+  const btnRef = React.useRef<HTMLButtonElement>(null);
 
   const text =
     "Need help in saving your money? Guess what, go BUCK yourself! Buck can help you manage your weekly spending with a press of a button!";
@@ -73,8 +78,31 @@ export default function Home() {
   return (
     <>
       <div className="landing-page">
-        <div className="lp-header"></div>
-        <div className="section1">
+        <div className="lp-header">
+          <div className="lp-header-container">
+            <div className="header-btns">
+              <button className="header-button" onClick={() => document.getElementById('Home')?.scrollIntoView({ behavior: 'smooth' })}>
+                Home
+              </button>
+              <button className="header-button" onClick={() => document.getElementById('About')?.scrollIntoView({ behavior: 'smooth' })}>
+                About Us
+              </button>
+              <button className="header-button" onClick={() => router.push("/sign-in")}>
+                Sign In/Sign Up
+              </button>
+            </div>
+            <div className="header-img">
+              <Image
+                src="/BuckMascot.png"
+                alt="Buck Logo"
+                width={60}
+                height={75}
+                className="buckLogo"
+              />
+            </div>
+          </div>
+        </div>
+        <div className="section1" id="Home">
           <div className="welcomeSign">
             <div className="buckmsg">
               <p id="name">Buck</p>
@@ -127,12 +155,35 @@ export default function Home() {
                 }}
               />
             ))}
-            <button onClick={() => router.push("/sign-in")} className="getStartedButton">
+            <motion.button
+              ref={btnRef}
+              onClick={() => router.push("/sign-in")}
+              type="submit"
+              className="getstarted-btn"
+              onMouseMove={(e) => {
+                const rect = btnRef.current?.getBoundingClientRect();
+                if (rect) {
+                  const x = e.clientX - rect.left;
+                  const y = e.clientY - rect.top;
+                  setBtnMouse({ x, y });
+                }
+              }}
+              onMouseLeave={() => setBtnMouse(null)}
+              style={{
+                background: btnMouse
+                  ? `radial-gradient(circle at ${btnMouse.x}px ${btnMouse.y}px, #fd523b 0%, #ef8a57 100%)`
+                  : "linear-gradient(90deg, #ef8a57 60%, #fd523b 100%)",
+                transition: btnMouse ? "background 0.1s" : "background 0.3s",
+              }}
+              whileHover={{
+                scale: 1.03,
+              }}
+            >
               Get Started
-            </button>
+            </motion.button>
           </div>
         </div>
-        <div className="section2">
+        <div className="section2" id="About">
         </div>
         <div className="section3">
         </div>
