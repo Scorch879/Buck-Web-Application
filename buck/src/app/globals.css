@@ -1,40 +1,42 @@
-html {
-  height: 100vh;
-  width: 100vw;
-}
-
 body {
   max-width: 100vw;
-  height: 100vh;
+  min-height: 100dvh;
+  height: auto;
   overflow-x: hidden;
-  background-color: #d9d9d9;
   display: flex;
   flex-direction: column;
   align-items: center;
   margin: 0px;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  color: white;
-  -webkit-text-stroke: #000;
+  color: #2c3e50;
 }
-.mainStrip {
-  width: 70%;
-  background-color: #d5cac3;
-  box-shadow: 0px 0px 10px 1px rgba(0, 0, 0, 0.308);
+.landing-page {
+  min-height: 100dvh;
+  height:auto;
+  max-width: 100dvw;
+  background: linear-gradient(120deg, #f6c390 0%, #f3a35c 60%, #e98a3f 100%);
+  position: relative;
   display: flex;
-  justify-content: center;
-  flex-direction: column;
   align-items: center;
-  overflow: auto;
-  flex-grow: 1;
-  gap: 5%;
-  z-index: 1;
-  padding-top: 2.5rem;
+  flex-direction: column;
+}
+.lp-header {
+  width: 80%;
+  height: 120px;
+  background-color:#fff;
+  box-shadow: 5px 5px 5px 5px rgba(0, 0, 0, 0.25);
+  border-radius: 150px;
+  top: 2%;
+  position: sticky;
+  z-index: 10;
 }
 .welcomeSign {
+  
   width: clamp(350px, 50vw, 700px);
   padding: clamp(1rem, 4vw, 2.5rem) 0;
-  margin-top: 0;
-  background: linear-gradient(60deg, #f7bc3c 50%, #ff3131);
+  margin-top: 3%;
+  margin-bottom: 2%;
+  background:linear-gradient(#f6c390 0%, #f3a35c 60%, #e98a3f);
   border: 2px solid black;
   border-radius: 25px;
   box-shadow: -5px 5px 5px 5px rgba(0, 0, 0, 0.25);
@@ -87,15 +89,20 @@ body {
   text-align: center;
 }
 .buckmascot {
-  height: 150%;
-  width: 40%;
+  width: clamp(80px, 18vw, 200px);
+  aspect-ratio: 1 / 1;
   transform: rotate(5deg);
-  padding: 0px;
-  margin-left: -5%;
+  padding: 0;
+  margin-left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
+
 .welcomeMsg {
-  background-color: #ef8a57;
+  background-color: #fff;
   height: 40%;
   width: 80%;
   border-radius: 25px;
@@ -108,6 +115,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
+  flex-direction: column;
   padding: 1.5rem 2rem;
   box-sizing: border-box;
   position: relative;
@@ -115,7 +123,7 @@ body {
 }
 
 .welcomeMsg p {
-  color: #ffffff;
+  color: #2c3e50;
   font-family: "Inter", "Segoe UI", "Montserrat", system-ui, -apple-system,
     sans-serif;
   font-size: clamp(1rem, 2.5vw, 2.2rem);
@@ -123,10 +131,7 @@ body {
   line-height: 1.4;
   /* Removed the black outline */
   -webkit-text-stroke: none;
-  text-shadow: 3px 3px 0px rgba(0, 0, 0, 0.2),
-    /* Main dark shadow for depth */ 6px 6px 0px rgba(0, 0, 0, 0.1); /* Lighter shadow for more depth */
   margin: 0;
-  z-index: 1;
   position: relative;
 }
 
@@ -231,4 +236,10 @@ success-message,
 .SI-InputWrapper .SI-Input {
   width: 100%;
   padding-right: 2.5rem;
+}
+
+@media (max-width: 600px) {
+  .buckmascot {
+    width: clamp(55px, 28vw, 110px);
+  }
 }

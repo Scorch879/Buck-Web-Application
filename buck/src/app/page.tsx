@@ -3,8 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { Header, Footer } from "@/component/HeaderFooter";
-import GetStartedButton from "@/component/GetStartedButton";
 import "./globals.css";
 import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
 
@@ -74,8 +72,8 @@ export default function Home() {
 
   return (
     <>
-      <Header />
-      <div className="mainStrip">
+      <div className="landing-page">
+        <div className="lp-header"></div>
         <div className="welcomeSign">
           <div className="buckmsg">
             <p id="name">Buck</p>
@@ -128,10 +126,12 @@ export default function Home() {
               }}
             />
           ))}
+          <button onClick={() => router.push("/sign-in")} className="getStartedButton">
+            Get Started
+          </button>
         </div>
-        <GetStartedButton />
+        
       </div>
-      <Footer />
     </>
   );
 }
