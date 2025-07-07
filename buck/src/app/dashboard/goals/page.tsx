@@ -141,7 +141,7 @@ const GoalsPage = () => {
     setForecastResult(null);
     setForecastModalOpen(true);
     try {
-      const res = await fetch("https://buck-web-application-1.onrender.com/ai/forecast/", {
+      const res = await fetch("https://buck-web-application.onrender.com/ai/forecast/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
