@@ -21,7 +21,19 @@ interface SummaryData {
   label: string;
   value: string;
   color: string;
+  description: string;
 }
+
+// Emoji and custom description mapping for categories
+const categoryDetails: Record<string, { emoji: string; description: string }> = {
+  Food: { emoji: "🍔", description: "Meals, snacks, and groceries." },
+  Fare: { emoji: "🚌", description: "Public transport and commuting costs." },
+  "Gas Money": { emoji: "⛽", description: "Fuel for your vehicle." },
+  "Video Games": { emoji: "🎮", description: "Game purchases and in-game spending." },
+  Shopping: { emoji: "🛍️", description: "Clothes, gadgets, and other shopping." },
+  Bills: { emoji: "🧾", description: "Utilities, rent, and recurring payments." },
+  Other: { emoji: "💡", description: "Miscellaneous expenses." },
+};
 
 const Dashboard = (): React.JSX.Element => {
   const router = useRouter();
@@ -35,7 +47,26 @@ const Dashboard = (): React.JSX.Element => {
   const [spendingAmount, setSpendingAmount] = useState("");
   const { user, loading } = useAuthGuard();
 
-  // Add all other useState hooks here, not inside any if/else
+  // Add these test data arrays (same as spending-bar.tsx)
+  const testCategories = [
+    "Food",
+    "Fare",
+    "Gas Money",
+    "Video Games",
+    "Shopping",
+    "Bills",
+    "Other",
+  ];
+  const testAmounts = [120, 60, 40, 90, 70, 110, 30];
+  const barColors = [
+    "#ff4136", // Food - red
+    "#2ecc40", // Fare - green
+    "#0074d9", // Gas Money - blue
+    "#b10dc9", // Video Games - purple
+    "#ffb347", // Shopping - orange
+    "#ef8a57", // Bills - coral
+    "#ffd700", // Other - gold
+  ];
 
   //Auth Guard Code Block
   // On mount, set sample data for demonstration
@@ -49,6 +80,17 @@ const Dashboard = (): React.JSX.Element => {
       { day: "Sat", amount: 0, color: "#ffd6b0" },
       { day: "Sun", amount: 0, color: "#efb857" },
     ]);
+  }, []);
+
+  // Populate summaryData with category spending on mount
+  useEffect(() => {
+    const summary = testCategories.map((category, idx) => ({
+      label: category,
+      value: `$${testAmounts[idx]}`,
+      color: barColors[idx],
+      description: `${categoryDetails[category]?.emoji || ''} ${categoryDetails[category]?.description || ''}`,
+    }));
+    setSummaryData(summary);
   }, []);
 
   if (loading || !user) {
@@ -220,6 +262,7 @@ const Dashboard = (): React.JSX.Element => {
                     {item.value}
                   </div>
                   <div className="summary-item-label">{item.label}</div>
+                  <div className="summary-item-description" style={{ fontSize: '0.85rem', color: '#888', marginTop: '0.3rem' }}>{item.description}</div>
                 </div>
               ))
             ) : (

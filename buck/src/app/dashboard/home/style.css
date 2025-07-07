@@ -287,9 +287,29 @@
 }
 
 .summary-item-label {
-  font-size: 0.9rem;
-  color: #6c757d;
+  font-size: 1.05rem;
+  color: #2c3e50;
   margin: 0;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin-top: 0.2rem;
+}
+
+.summary-item-description {
+  font-size: 0.92rem;
+  color: #6c757d;
+  margin-top: 0.4rem;
+  font-style: italic;
+  background: #f9f6f2;
+  border-radius: 6px;
+  padding: 0.3rem 0.7rem;
+  display: inline-block;
+  box-shadow: 0 1px 4px 0 rgba(239, 138, 87, 0.06);
+  transition: background 0.2s;
+}
+
+.summary-item-description:hover {
+  background: #ffe5c2;
 }
 
 @media (max-width: 768px) {
