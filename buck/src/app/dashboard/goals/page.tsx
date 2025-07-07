@@ -354,7 +354,13 @@ const GoalsPage = () => {
                   </p>
                 </div>
                 {selectedGoalWithSavings ? (
-                  <ProgressBarCard goal={selectedGoalWithSavings} />
+                  <ProgressBarCard
+                    goal={selectedGoalWithSavings}
+                    onAddProgress={() => {
+                      // Placeholder for add progress functionality
+                      alert("Add progress functionality not implemented yet.");
+                    }}
+                  />
                 ) : null}
                 {aiRecommendation && (
                   <div className="ai-recommendation">
@@ -404,38 +410,7 @@ const GoalsPage = () => {
           }}
         />
       )}
-      {showProgressModal && progressGoal && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <h3>Add Progress to {progressGoal.goalName}</h3>
-            <input
-              type="number"
-              min="1"
-              placeholder="Amount"
-              value={progressInput}
-              onChange={e => setProgressInput(e.target.value)}
-              disabled={progressLoading}
-              style={{ marginBottom: "1rem", width: "100%" }}
-            />
-            <div className="ProgressModal-btns">
-              <button
-                className="addProgress-btn"
-                onClick={handleAddProgress}
-                disabled={progressLoading}
-              >
-                {progressLoading ? "Saving..." : "Save"}
-              </button>
-              <button
-                style={{ marginLeft: 8 }}
-                onClick={() => setShowProgressModal(false)}
-                disabled={progressLoading}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+    
     </div>
   );
 };

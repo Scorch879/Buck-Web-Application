@@ -41,13 +41,6 @@ const ProgressBarCard: React.FC<ProgressBarCardProps> = ({ goal }) => {
         <span className="progress-amount">
           Saved: ${currentAmount.toLocaleString()}
         </span>
-        <button
-          className="addProgress-btns"
-          style={{ margin: "0 1rem" }}
-          onClick={() => onAddProgress(goal)}
-        >
-          Add Progress
-        </button>
         <span className="progress-remaining">
           Remaining: ${remainingAmount.toLocaleString()}
         </span>
