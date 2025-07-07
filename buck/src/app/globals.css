@@ -36,39 +36,42 @@ body {
   display: flex;
   justify-content: center;
 }
-.lp-header-container{
+
+.lp-header-container {
   width: 95%;
   height: 95%;
   display: flex;
-  justify-content:space-around;
+  justify-content: space-around;
   align-items: center;
   flex-direction: row;
-  gap:200px;
+  gap: 200px;
 }
-.header-btns{
+
+.header-btns {
   display: flex;
   justify-content: space-between;
   gap: 80px;
   align-items: center;
 }
-.header-button{
+
+.header-button {
   background: transparent;
   color: inherit;
-  font:inherit;
-  border:transparent;
+  font: inherit;
+  border: transparent;
   font-size: large;
   height: 60px;
 }
 
-.header-button:hover{
-  background: rgba(0,0,0,0.05);
+.header-button:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
-.header-img {
-}
+
+.header-img {}
 
 .section1 {
   width: 100%;
-  height: 1000px;
+  height: 1050px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -92,7 +95,7 @@ body {
   margin-right: auto;
   transition: all 0.3s ease-out;
   height: 250px;
-  margin-top: -3%;
+  margin-top: 2%;
 }
 
 .welcomeSign:hover {
@@ -226,6 +229,7 @@ body {
 
   /* Shrink almost completely */
 }
+
 .getstarted-btn {
   margin-top: 1.1rem;
   padding: 0.8rem 2rem;
@@ -321,7 +325,7 @@ success-message,
 
 .section2 {
   width: 100%;
-  height: 1000px;
+  height: 1050px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -334,7 +338,7 @@ success-message,
 /* section 3*/
 .section3 {
   width: 100%;
-  height: 1000px;
+  height: 1050px;
   display: flex;
   flex-direction: column;
   align-items: center;
