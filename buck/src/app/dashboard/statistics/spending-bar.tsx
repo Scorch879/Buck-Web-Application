@@ -9,29 +9,9 @@ import {
   Legend,
 } from "chart.js";
 import styles from "./spending-bar.module.css";
+import { testCategories, testAmounts, barColors } from "./testData";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
-
-const testCategories = [
-  "Food",
-  "Fare",
-  "Gas Money",
-  "Video Games",
-  "Shopping",
-  "Bills",
-  "Other",
-];
-const testAmounts = [120, 60, 40, 90, 70, 110, 30];
-
-const barColors = [
-  "#ff4136", // Food - red
-  "#2ecc40", // Fare - green
-  "#0074d9", // Gas Money - blue
-  "#b10dc9", // Video Games - purple
-  "#ffb347", // Shopping - orange
-  "#ef8a57", // Bills - coral
-  "#ffd700", // Other - gold
-];
 
 const data = {
   labels: testCategories,

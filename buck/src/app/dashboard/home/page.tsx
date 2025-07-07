@@ -9,6 +9,7 @@ import { processExpense, ExpenseInput, AIResponse } from "@/utils/aiApi";
 import "./style.css";
 import DashboardHeader from "@/component/dashboardheader";
 import { useAuthGuard } from "@/utils/useAuthGuard";
+import { testCategories, testAmounts, barColors } from "@/app/dashboard/statistics/testData";
 
 // Data interface for type safety
 interface WeeklyData {
@@ -46,27 +47,6 @@ const Dashboard = (): React.JSX.Element => {
   const [summaryData, setSummaryData] = useState<SummaryData[]>([]);
   const [spendingAmount, setSpendingAmount] = useState("");
   const { user, loading } = useAuthGuard();
-
-  // Add these test data arrays (same as spending-bar.tsx)
-  const testCategories = [
-    "Food",
-    "Fare",
-    "Gas Money",
-    "Video Games",
-    "Shopping",
-    "Bills",
-    "Other",
-  ];
-  const testAmounts = [120, 60, 40, 90, 70, 110, 30];
-  const barColors = [
-    "#ff4136", // Food - red
-    "#2ecc40", // Fare - green
-    "#0074d9", // Gas Money - blue
-    "#b10dc9", // Video Games - purple
-    "#ffb347", // Shopping - orange
-    "#ef8a57", // Bills - coral
-    "#ffd700", // Other - gold
-  ];
 
   //Auth Guard Code Block
   // On mount, set sample data for demonstration
