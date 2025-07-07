@@ -223,6 +223,11 @@ const GoalsPage = () => {
       if (!res.ok) throw new Error("Failed to fetch forecast");
       const data = await res.json();
       setForecastData(data);
+      // Save AI recommended budget to Firestore if present
+      if (data.ai_recommended_budget && selectedGoal && user) {
+        const goalRef = doc(db, "goals", user.uid, "userGoals", selectedGoal.id);
+        await updateDoc(goalRef, { aiRecommendedBudget: data.ai_recommended_budget });
+      }
     } catch (err: any) {
       setForecastError(err.message || "Unknown error");
     } finally {
@@ -358,6 +363,11 @@ const GoalsPage = () => {
         if (!res.ok) throw new Error('Failed to fetch forecast');
         const data = await res.json();
         setForecastData(data);
+        // Save AI recommended budget to Firestore if present
+        if (data.ai_recommended_budget && selectedGoal && user) {
+          const goalRef = doc(db, "goals", user.uid, "userGoals", selectedGoal.id);
+          await updateDoc(goalRef, { aiRecommendedBudget: data.ai_recommended_budget });
+        }
       } catch (err: any) {
         setForecastError(err.message || 'Unknown error');
       } finally {
