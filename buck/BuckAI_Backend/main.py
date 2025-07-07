@@ -28,9 +28,9 @@ class TextInput(BaseModel):
 
 class TipInput(BaseModel):
     category: str
-    user_context: Optional[str] = ""
-    target_date: Optional[str] = None
-    created_at: Optional[str] = None
+    user_context: str = ""
+    target_date: str = None
+    created_at: str = None
 
 class GoalData(BaseModel):
     goal_id: str
@@ -68,7 +68,7 @@ def ai_goal_recommendation(goal: GoalInput):
 @app.post("/ai/saving_tip/")
 def saving_tip(input: TipInput):
     try:
-        tip = generate_ai_tip(input.category, input.user_context or "", input.target_date, input.created_at)
+        tip = generate_ai_tip(input.category, input.user_context, input.target_date, input.created_at)
         return {"tip": tip}
     except Exception as e:
         return {"error": str(e)}

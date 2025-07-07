@@ -155,6 +155,14 @@ const Statistics = () => {
 
 
 
+  let totalSpending = 0;
+  let totalSavings = 0;
+  for (let i = 0; i < saved.length; i++) {
+    const expense = totalExpenses[i] ?? 0;
+    totalSpending += expense;
+    totalSavings += saved[i] ?? 0;
+  }
+
   return (
     <div className="dashboard">
       {/* Sticky Header */}
