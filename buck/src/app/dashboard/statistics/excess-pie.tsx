@@ -15,7 +15,7 @@ interface ExcessPieProps { mode?: 'week' | 'month' | 'overall'; weekIndex?: numb
 const ExcessPie: React.FC<ExcessPieProps> = ({ mode = 'week', weekIndex, monthIndex }) => {
   let spending = 0;
   let savings = 0;
-  const maxBudgetPerDay = 1000;
+  const maxBudgetPerDay = statisticsTestData.maxBudgetPerDay;
   if (mode === 'week') {
     const idx = typeof weekIndex === 'number' ? weekIndex : statisticsTestData.weeklyCategorySpending.length - 1;
     spending = statisticsTestData.weeklyCategorySpending[idx].reduce((a, b) => a + b, 0);

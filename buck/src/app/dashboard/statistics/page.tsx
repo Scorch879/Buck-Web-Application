@@ -20,6 +20,7 @@ import SpendingBar from "./spending-bar";
 import { db } from "@/utils/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import { statisticsTestData } from './testData';
+import { useFinancial } from "@/context/FinancialContext";
 
 
 ChartJS.register(
@@ -52,6 +53,7 @@ const Statistics = () => {
   const [selectedMode, setSelectedMode] = useState<'week' | 'month' | 'overall'>('week');
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [selectedMonth, setSelectedMonth] = useState(0);
+  const { setTotalSaved } = useFinancial();
 
   // Dynamically generate week date ranges from goals (real calendar mapping)
   let weekDateRanges: { start: string; end: string }[] = [];
@@ -110,6 +112,36 @@ const Statistics = () => {
     };
     fetchGoals();
   }, [user]);
+
+  // Calculate totalSaved for the user (use your real calculation here)
+  let totalSaved = 0;
+  // For demo: sum all savings for the selected mode
+  if (selectedMode === 'week' && weekDateRanges.length > 0) {
+    const idx = selectedWeek;
+    const weekData = statisticsTestData.weeklyCategorySpending[idx] || Array(statisticsTestData.categories.length).fill(0);
+    totalSaved = weekData.reduce((sum, amt) => sum + (statisticsTestData.maxBudgetPerDay - amt), 0);
+  } else if (selectedMode === 'month' && monthDateRanges.length > 0) {
+    const idx = selectedMonth;
+    let days = Array(7).fill(0);
+    for (let w = idx * 4; w < (idx + 1) * 4 && w < statisticsTestData.weeklyCategorySpending.length; w++) {
+      for (let d = 0; d < 7; d++) {
+        days[d] += statisticsTestData.weeklyCategorySpending[w][d];
+      }
+    }
+    totalSaved = days.reduce((sum, amt) => sum + (statisticsTestData.maxBudgetPerDay - amt), 0);
+  } else if (selectedMode === 'overall') {
+    let days = Array(7).fill(0);
+    for (let w = 0; w < statisticsTestData.weeklyCategorySpending.length; w++) {
+      for (let d = 0; d < 7; d++) {
+        days[d] += statisticsTestData.weeklyCategorySpending[w][d];
+      }
+    }
+    totalSaved = days.reduce((sum, amt) => sum + (statisticsTestData.maxBudgetPerDay - amt), 0);
+  }
+
+  useEffect(() => {
+    setTotalSaved(totalSaved);
+  }, [totalSaved, setTotalSaved]);
 
   if (loading || !user || loadingGoals) {
     return (

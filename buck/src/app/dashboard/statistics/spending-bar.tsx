@@ -53,6 +53,8 @@ const SpendingBar: React.FC<SpendingBarProps> = ({ mode = 'week', weekIndex, mon
     ],
   };
 
+  const yMax = Math.max(200, ...amounts);
+
   const options = {
     responsive: true,
     plugins: {
@@ -72,7 +74,7 @@ const SpendingBar: React.FC<SpendingBarProps> = ({ mode = 'week', weekIndex, mon
       },
       y: {
         beginAtZero: true,
-        max: 200,
+        max: yMax,
         grid: { color: "#eee" },
         ticks: { color: "#2c3e50" },
       },

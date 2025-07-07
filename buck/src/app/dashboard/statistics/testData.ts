@@ -9,15 +9,18 @@ export const statisticsTestData = {
     "Bills",
     "Other",
   ],
-  categoryTotals: [220, 60, 40, 90, 70, 110, 30],
+  maxBudgetPerDay: 1000,
+  //categoryTotals: [220, 60, 40, 90, 70, 110, 30],
   weeklyCategorySpending: [
-    [40, 10, 5, 20, 10, 30, 5],   // Week 1
-    [30, 8, 7, 15, 12, 25, 3],    // Week 2
-    [35, 12, 6, 18, 8, 20, 4],    // Week 3
-    [45, 15, 8, 22, 15, 35, 7],   // Week 4
+    [200, 100, 500, 200, 1000, 300, 500], // Week 1
+    [30, 8, 7, 15, 12, 25, 3], // Week 2
+    [35, 12, 6, 18, 8, 20, 4], // Week 3
+    [45, 15, 8, 22, 15, 35, 7], // Week 4
   ],
   get weeklyTotals() {
-    return this.weeklyCategorySpending.map(week => week.reduce((a, b) => a + b, 0));
+    return this.weeklyCategorySpending.map((week) =>
+      week.reduce((a, b) => a + b, 0)
+    );
   },
   barColors: [
     "#ff4136", // Food - red
