@@ -9,7 +9,7 @@ import { processExpense, ExpenseInput, AIResponse } from "@/utils/aiApi";
 import "./style.css";
 import DashboardHeader from "@/component/dashboardheader";
 import { useAuthGuard } from "@/utils/useAuthGuard";
-import { testCategories, testAmounts, barColors } from "@/app/dashboard/statistics/testData";
+import { statisticsTestData } from "@/app/dashboard/statistics/testData";
 
 // Data interface for type safety
 interface WeeklyData {
@@ -64,10 +64,10 @@ const Dashboard = (): React.JSX.Element => {
 
   // Populate summaryData with category spending on mount
   useEffect(() => {
-    const summary = testCategories.map((category, idx) => ({
+    const summary = statisticsTestData.categories.map((category, idx) => ({
       label: category,
-      value: `$${testAmounts[idx]}`,
-      color: barColors[idx],
+      value: `$${statisticsTestData.categoryTotals[idx]}`,
+      color: statisticsTestData.barColors[idx],
       description: `${categoryDetails[category]?.emoji || ''} ${categoryDetails[category]?.description || ''}`,
     }));
     setSummaryData(summary);
