@@ -5,11 +5,12 @@
     display: flex;
     flex-direction: column;
     font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+    overflow-y: scroll;
   }
 
 
 .graph-panel {
-  width: 800px;
+  width: 922px;
   margin-bottom: 2rem;
   background: #fff;
   border-radius: 18px;
@@ -96,4 +97,23 @@
   border-color: #ef8a57;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px 0 rgba(239, 138, 87, 0.2);
+}
+
+.statistics-panels-container {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+@media (max-width: 1200px) {
+  .statistics-panels-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+  }
 }

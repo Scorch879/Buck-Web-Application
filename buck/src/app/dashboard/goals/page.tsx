@@ -6,11 +6,12 @@ import { useRouter } from "next/navigation";
 import DashboardHeader from "@/component/dashboardheader";
 import { useAuthGuard } from "@/utils/useAuthGuard";
 import { db } from "@/utils/firebase";
-import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, getDoc } from "firebase/firestore";
 import CreateGoalModal from "./CreateGoalModal";
 import { deleteGoal, updateGoalStatus, setOnlyGoalActive } from "@/component/goals";
 import ProgressBarCard from "./ProgressBarCard";
 import { getSavingTip } from "@/utils/aiApi";
+import { useFinancial } from "@/context/FinancialContext";
 // --- Goal interface for type safety ---
 interface Goal {
   id: string;
@@ -31,12 +32,15 @@ const GoalsPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [aiRecommendation, setAIRecommendation] = useState<string | null>(null);
+  const [walletBudget, setWalletBudget] = useState<number | null>(null);
 
-  // Progress modal state
-  const [showProgressModal, setShowProgressModal] = useState(false);
-  const [progressGoal, setProgressGoal] = useState<Goal | null>(null);
-  const [progressInput, setProgressInput] = useState("");
-  const [progressLoading, setProgressLoading] = useState(false);
+  const [forecastResult, setForecastResult] = useState<string | null>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
+  const [forecastError, setForecastError] = useState<string | null>(null);
+
+  const [forecastModalOpen, setForecastModalOpen] = useState(false);
+
+  const { totalSaved } = useFinancial();
 
   // --- CRUD Handlers ---
   const handleDeleteGoal = async () => {
@@ -89,41 +93,28 @@ const GoalsPage = () => {
   };
 
   // --- Progress Modal Handlers ---
-  const handleOpenProgressModal = (goal: Goal) => {
-    setProgressGoal(goal);
-    setProgressInput("");
-    setShowProgressModal(true);
-  };
-
-  const handleAddProgress = async () => {
-    if (!progressGoal || !user) return;
-    const amountToAdd = parseFloat(progressInput);
-    if (isNaN(amountToAdd) || amountToAdd <= 0) {
-      alert("Please enter a valid amount.");
-      return;
-    }
-    setProgressLoading(true);
-    const newAmount = (progressGoal.currentAmount || 0) + amountToAdd;
+  const handleSeeForecast = async () => {
+    if (!selectedGoal || walletBudget == null) return;
+    setForecastLoading(true);
+    setForecastError(null);
+    setForecastResult(null);
+    setForecastModalOpen(true);
     try {
-      const goalRef = doc(db, "goals", user.uid, "userGoals", progressGoal.id);
-      await updateDoc(goalRef, { currentAmount: newAmount });
-      // Update local state
-      setGoals(goals =>
-        goals.map(goal =>
-          goal.id === progressGoal.id
-            ? { ...goal, currentAmount: newAmount }
-            : goal
-        )
-      );
-      // If the selected goal is the one updated, update it too
-      if (selectedGoal && selectedGoal.id === progressGoal.id) {
-        setSelectedGoal({ ...selectedGoal, currentAmount: newAmount });
-      }
-      setShowProgressModal(false);
-    } catch (err) {
-      alert("Failed to update progress.");
+      const res = await fetch("https://buck-web-application-1.onrender.com/ai/forecast/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          goal: selectedGoal,
+          budget: walletBudget,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to fetch forecast");
+      const data = await res.json();
+      setForecastResult(data.forecast || data.recommendation || "No forecast available.");
+    } catch (err: any) {
+      setForecastError(err.message || "Unknown error");
     } finally {
-      setProgressLoading(false);
+      setForecastLoading(false);
     }
   };
 
@@ -205,6 +196,35 @@ const GoalsPage = () => {
     };
   }, [selectedGoal]);
 
+  useEffect(() => {
+    const fetchWalletBudget = async () => {
+      if (!user) return;
+      // Fetch active wallet ID from user doc
+      const userDocRef = doc(db, "users", user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (!userDocSnap.exists()) return;
+      const activeWalletId = userDocSnap.data().activeWallet;
+      if (!activeWalletId) return;
+      // Fetch wallet doc
+      const walletDocRef = doc(db, "wallets", user.uid, "userWallets", activeWalletId);
+      const walletDocSnap = await getDoc(walletDocRef);
+      if (!walletDocSnap.exists()) return;
+      setWalletBudget(walletDocSnap.data().budget || null);
+    };
+    fetchWalletBudget();
+  }, [user]);
+
+  // After fetching goals, update currentAmount for active goal
+  const displayGoals = goals.map(goal =>
+    goal.isActive
+      ? { ...goal, currentAmount: 0 }
+      : { ...goal, currentAmount: 0 }
+  );
+
+  const selectedGoalWithSavings = selectedGoal && selectedGoal.isActive
+    ? { ...selectedGoal, currentAmount: totalSaved }
+    : selectedGoal;
+
   if (loading || !user || loadingGoals) {
     return (
       <div className="loading-spinner">
@@ -269,7 +289,7 @@ const GoalsPage = () => {
             </button>
           </div>
           <div className="goals-list">
-            {goals.filter(Boolean).map((goal) => (
+            {displayGoals.filter(Boolean).map((goal) => (
               <div
                 className={`goals-card ${selectedGoal?.id === goal.id ? "selected" : ""}`}
                 key={goal.id}
@@ -333,10 +353,15 @@ const GoalsPage = () => {
                     </span>
                   </p>
                 </div>
-                <ProgressBarCard
-                  goal={selectedGoal}
-                  onAddProgress={() => handleOpenProgressModal(selectedGoal)}
-                />
+                {selectedGoalWithSavings ? (
+                  <ProgressBarCard
+                    goal={selectedGoalWithSavings}
+                    onAddProgress={() => {
+                      // Placeholder for add progress functionality
+                      alert("Add progress functionality not implemented yet.");
+                    }}
+                  />
+                ) : null}
                 {aiRecommendation && (
                   <div className="ai-recommendation">
                     <strong>AI Recommendation</strong>
@@ -348,7 +373,20 @@ const GoalsPage = () => {
               </div>
               {/* Bottom Button Group outside the card */}
               <div className="goals-bottom-buttons">
-                <button className="goals-action-btn">See Forecast</button>
+                <button className="goals-action-btn" onClick={handleSeeForecast} disabled={forecastLoading || walletBudget == null || !selectedGoal}>
+                  See Forecast
+                </button>
+                {forecastModalOpen && (
+                  <div className="modal-backdrop" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div className="modal" style={{ background: '#fff', borderRadius: 8, padding: 24, minWidth: 320, maxWidth: 400, boxShadow: '0 2px 16px rgba(0,0,0,0.2)', position: 'relative' }}>
+                      <button onClick={() => setForecastModalOpen(false)} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>&times;</button>
+                      <h3 style={{ marginTop: 0 }}>Forecast</h3>
+                      {forecastLoading && <div>Loading...</div>}
+                      {forecastError && <div style={{ color: 'red' }}>{forecastError}</div>}
+                      {forecastResult && <div style={{ marginTop: 12 }}>{forecastResult}</div>}
+                    </div>
+                  </div>
+                )}
                 <button className="goals-action-btn">See Statistics</button>
               </div>
             </>
@@ -372,38 +410,7 @@ const GoalsPage = () => {
           }}
         />
       )}
-      {showProgressModal && progressGoal && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <h3>Add Progress to {progressGoal.goalName}</h3>
-            <input
-              type="number"
-              min="1"
-              placeholder="Amount"
-              value={progressInput}
-              onChange={e => setProgressInput(e.target.value)}
-              disabled={progressLoading}
-              style={{ marginBottom: "1rem", width: "100%" }}
-            />
-            <div className="ProgressModal-btns">
-              <button
-                className="addProgress-btn"
-                onClick={handleAddProgress}
-                disabled={progressLoading}
-              >
-                {progressLoading ? "Saving..." : "Save"}
-              </button>
-              <button
-                style={{ marginLeft: 8 }}
-                onClick={() => setShowProgressModal(false)}
-                disabled={progressLoading}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+    
     </div>
   );
 };

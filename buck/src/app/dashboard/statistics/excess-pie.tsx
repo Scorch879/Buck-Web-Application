@@ -7,15 +7,39 @@ import {
   Legend,
 } from "chart.js";
 import styles from "./excess-pie.module.css";
+import { statisticsTestData } from "./testData";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-interface ExcessPieProps {
-  spending: number;
-  savings: number;
-}
-
-const ExcessPie: React.FC<ExcessPieProps> = ({ spending, savings }) => {
+interface ExcessPieProps { mode?: 'week' | 'month' | 'overall'; weekIndex?: number; monthIndex?: number; }
+const ExcessPie: React.FC<ExcessPieProps> = ({ mode = 'week', weekIndex, monthIndex }) => {
+  let spending = 0;
+  let savings = 0;
+  const maxBudgetPerDay = statisticsTestData.maxBudgetPerDay;
+  if (mode === 'week') {
+    const idx = typeof weekIndex === 'number' ? weekIndex : statisticsTestData.weeklyCategorySpending.length - 1;
+    spending = statisticsTestData.weeklyCategorySpending[idx].reduce((a, b) => a + b, 0);
+    savings = statisticsTestData.weeklyCategorySpending[idx].reduce((sum, amt) => sum + (maxBudgetPerDay - amt), 0);
+  } else if (mode === 'month') {
+    const idx = typeof monthIndex === 'number' ? monthIndex : 0;
+    let days: number[] = Array(7).fill(0);
+    for (let w = idx * 4; w < (idx + 1) * 4 && w < statisticsTestData.weeklyCategorySpending.length; w++) {
+      for (let d = 0; d < 7; d++) {
+        days[d] += statisticsTestData.weeklyCategorySpending[w][d];
+      }
+    }
+    spending = days.reduce((a, b) => a + b, 0);
+    savings = days.reduce((sum, amt) => sum + (maxBudgetPerDay - amt), 0);
+  } else if (mode === 'overall') {
+    let days: number[] = Array(7).fill(0);
+    for (let w = 0; w < statisticsTestData.weeklyCategorySpending.length; w++) {
+      for (let d = 0; d < 7; d++) {
+        days[d] += statisticsTestData.weeklyCategorySpending[w][d];
+      }
+    }
+    spending = days.reduce((a, b) => a + b, 0);
+    savings = days.reduce((sum, amt) => sum + (maxBudgetPerDay - amt), 0);
+  }
   const total = spending + savings;
   const spendingPercent = total === 0 ? 0 : (spending / total) * 100;
   const savingsPercent = total === 0 ? 0 : (savings / total) * 100;

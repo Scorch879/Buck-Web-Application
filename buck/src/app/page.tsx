@@ -3,10 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { Header, Footer } from "@/component/HeaderFooter";
-import GetStartedButton from "@/component/GetStartedButton";
 import "./globals.css";
 import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
+import React from "react";
 
 export default function Home() {
   useRedirectIfAuthenticated(); // Redirects if user is signed in
@@ -16,6 +15,10 @@ export default function Home() {
     Array<{ id: number; x: number; y: number }>
   >([]);
   const nextDotId = useRef(0);
+  const [btnMouse, setBtnMouse] = useState<{ x: number; y: number } | null>(
+    null
+  );
+  const btnRef = React.useRef<HTMLButtonElement>(null);
 
   const text =
     "Need help in saving your money? Guess what, go BUCK yourself! Buck can help you manage your weekly spending with a press of a button!";
@@ -74,64 +77,185 @@ export default function Home() {
 
   return (
     <>
-      <Header />
-      <div className="mainStrip">
-        <div className="welcomeSign">
-          <div className="buckmsg">
-            <p id="name">Buck</p>
-            <div className="smoothLine"></div>
-            <p id="desc">The Budget Tracker</p>
-          </div>
-          <div className="buckmascot">
-            <Image
-              src="/BuckMascot.png"
-              alt="Buck Logo"
-              fill
-              className="buckmascotImg"
-              priority
-              style={{ objectFit: "contain" }}
-            ></Image>
+      <div className="landing-page">
+        <div className="lp-header">
+          <div className="lp-header-container">
+            <div className="header-btns">
+              <button className="header-button" onClick={() => document.getElementById('Home')?.scrollIntoView({ behavior: 'smooth' })}>
+                Home
+              </button>
+              <button className="header-button" onClick={() => document.getElementById('About')?.scrollIntoView({ behavior: 'smooth' })}>
+                About Us
+              </button>
+              <button className="header-button" onClick={() => router.push("/sign-in")}>
+                Sign In/Sign Up
+              </button>
+            </div>
+            <div className="header-leftside">
+              <h1>Buck The Budget Tracker</h1>
+              <div className="header-img">
+                <Image
+                  src="/BuckMascot.png"
+                  alt="Buck Logo"
+                  width={60}
+                  height={75}
+                  className="buckLogo"
+                />
+              </div>
+            </div>
           </div>
         </div>
-        <div
-          className="welcomeMsg"
-          onMouseMove={handleMouseMove}
-          ref={welcomeMsgRef}
-        >
-          <motion.p
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              justifyContent: "center",
-            }}
+        <div className="section1" id="Home">
+          <div className="welcomeSign">
+            <div className="buckmsg">
+              <p id="name">Buck</p>
+              <div className="smoothLine"></div>
+              <p id="desc">The Budget Tracker</p>
+            </div>
+            <div className="buckmascot">
+              <Image
+                src="/BuckMascot.png"
+                alt="Buck Logo"
+                fill
+                className="buckmascotImg"
+                priority
+                style={{ objectFit: "contain" }}
+              ></Image>
+            </div>
+          </div>
+          <div
+            className="welcomeMsg"
+            onMouseMove={handleMouseMove}
+            ref={welcomeMsgRef}
           >
-            {words.map((word, index) => (
-              <motion.span
-                key={index}
-                variants={wordVariants}
-                style={{ marginRight: "0.25em" }}
-              >
-                {word}
-              </motion.span>
-            ))}
-          </motion.p>
-          {trailDots.map((dot) => (
-            <div
-              key={dot.id}
-              className="mouse-trail-dot"
+            <motion.p
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
               style={{
-                left: `${dot.x}px`,
-                top: `${dot.y}px`,
+                display: "flex",
+                flexWrap: "wrap",
+                justifyContent: "center",
               }}
-            />
-          ))}
+            >
+              {words.map((word, index) => (
+                <motion.span
+                  key={index}
+                  variants={wordVariants}
+                  style={{ marginRight: "0.25em" }}
+                >
+                  {word}
+                </motion.span>
+              ))}
+            </motion.p>
+            {trailDots.map((dot) => (
+              <div
+                key={dot.id}
+                className="mouse-trail-dot"
+                style={{
+                  left: `${dot.x}px`,
+                  top: `${dot.y}px`,
+                }}
+              />
+            ))}
+            <motion.button
+              ref={btnRef}
+              onClick={() => router.push("/sign-in")}
+              type="submit"
+              className="getstarted-btn"
+              onMouseMove={(e) => {
+                const rect = btnRef.current?.getBoundingClientRect();
+                if (rect) {
+                  const x = e.clientX - rect.left;
+                  const y = e.clientY - rect.top;
+                  setBtnMouse({ x, y });
+                }
+              }}
+              onMouseLeave={() => setBtnMouse(null)}
+              style={{
+                background: btnMouse
+                  ? `radial-gradient(circle at ${btnMouse.x}px ${btnMouse.y}px, #fd523b 0%, #ef8a57 100%)`
+                  : "linear-gradient(90deg, #ef8a57 60%, #fd523b 100%)",
+                transition: btnMouse ? "background 0.1s" : "background 0.3s",
+              }}
+              whileHover={{
+                scale: 1.03,
+              }}
+            >
+              Get Started
+            </motion.button>
+          </div>
         </div>
-        <GetStartedButton />
+        <div className="section2" id="About">
+          <div className="s2-container">
+            <div className="about-us">
+              <h1>About Us</h1>
+              <h2>Buck is a budget tracking application designed to help users in managing and tracking their finances</h2>
+              it does this by
+            </div>
+            <div className="card-container">
+              <div className="s2-cards">
+                <div style={{ position: "relative", width: "100%", aspectRatio: "2/3", maxWidth: 120 }}>
+                  <Image
+                    src="/goaltracking.svg"
+                    alt="goal tracking"
+                    fill
+                    style={{ objectFit: "contain" }}
+                    sizes="(max-width: 600px) 100vw, 120px"
+                    priority
+                  />
+                </div>
+                <h1> Goal Tracking</h1>
+                <div className="cardtext-container">
+                  <h3>
+                    Stay motivated by setting and achieving your
+                    financial goals. Whether it’s saving for a vacation, paying off debt, or building an emergency fund,
+                    Buck helps you create specific, trackable goals and monitor your progress every step of the way.
+                  </h3>
+                </div>
+              </div>
+              <div className="s2-cards">
+                <div style={{ position: "relative", width: "100%", aspectRatio: "2/3", maxWidth: 120 }}>
+                  <Image
+                    src="/expensetracking.svg"
+                    alt="expense tracking"
+                    fill
+                    style={{ objectFit: "contain" }}
+                    sizes="(max-width: 600px) 100vw, 120px"
+                    priority
+                  />
+                </div>
+                <h1>Expense Tracking</h1>
+                <div className="cardtext-container">
+                  <h3>
+                    Take control of your money by keeping an eye on where it goes. Easily log and categorize your daily
+                    expenses to see exactly how much you’re spending and on what. Buck makes it simple to stick to your
+                    budget and cut unnecessary costs.
+                  </h3>
+                </div>
+              </div>
+              <div className="s2-cards">
+                <div style={{ position: "relative", width: "100%", aspectRatio: "2/3", maxWidth: 120 }}>
+                  <Image
+                    src="/forecasting.svg"
+                    alt="forecasting"
+                    fill
+                    style={{ objectFit: "contain" }}
+                    sizes="(max-width: 600px) 100vw, 120px"
+                    priority
+
+                  />
+                </div>
+                <h1> Forecasting</h1>
+                <div className="cardtext-container">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="footer">
+        </div>
       </div>
-      <Footer />
     </>
   );
 }

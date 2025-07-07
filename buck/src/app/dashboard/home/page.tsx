@@ -9,6 +9,7 @@ import { processExpense, ExpenseInput, AIResponse } from "@/utils/aiApi";
 import "./style.css";
 import DashboardHeader from "@/component/dashboardheader";
 import { useAuthGuard } from "@/utils/useAuthGuard";
+import { statisticsTestData } from "@/app/dashboard/statistics/testData";
 
 // Data interface for type safety
 interface WeeklyData {
@@ -21,7 +22,19 @@ interface SummaryData {
   label: string;
   value: string;
   color: string;
+  description: string;
 }
+
+// Emoji and custom description mapping for categories
+const categoryDetails: Record<string, { emoji: string; description: string }> = {
+  Food: { emoji: "🍔", description: "Meals, snacks, and groceries." },
+  Fare: { emoji: "🚌", description: "Public transport and commuting costs." },
+  "Gas Money": { emoji: "⛽", description: "Fuel for your vehicle." },
+  "Video Games": { emoji: "🎮", description: "Game purchases and in-game spending." },
+  Shopping: { emoji: "🛍️", description: "Clothes, gadgets, and other shopping." },
+  Bills: { emoji: "🧾", description: "Utilities, rent, and recurring payments." },
+  Other: { emoji: "💡", description: "Miscellaneous expenses." },
+};
 
 const Dashboard = (): React.JSX.Element => {
   const router = useRouter();
@@ -35,8 +48,6 @@ const Dashboard = (): React.JSX.Element => {
   const [spendingAmount, setSpendingAmount] = useState("");
   const { user, loading } = useAuthGuard();
 
-  // Add all other useState hooks here, not inside any if/else
-
   //Auth Guard Code Block
   // On mount, set sample data for demonstration
   useEffect(() => {
@@ -49,6 +60,17 @@ const Dashboard = (): React.JSX.Element => {
       { day: "Sat", amount: 0, color: "#ffd6b0" },
       { day: "Sun", amount: 0, color: "#efb857" },
     ]);
+  }, []);
+
+  // Populate summaryData with category spending on mount
+  useEffect(() => {
+    const summary = statisticsTestData.categories.map((category, idx) => ({
+      label: category,
+      value: `$${statisticsTestData.categoryTotals[idx]}`,
+      color: statisticsTestData.barColors[idx],
+      description: `${categoryDetails[category]?.emoji || ''} ${categoryDetails[category]?.description || ''}`,
+    }));
+    setSummaryData(summary);
   }, []);
 
   if (loading || !user) {
@@ -102,8 +124,15 @@ const Dashboard = (): React.JSX.Element => {
       {/* Sticky Header */}
       <DashboardHeader />
       <div className="dashboard-container">
-        <div className="dashboard-welcome">
-          <h1>Welcome, {auth.currentUser?.displayName}!  </h1>
+        <div className="dashboard-welcome-card">
+          <div className="dashboard-welcome-row">
+            <img src="/BuckMascot.png" alt="Buck Mascot" className="dashboard-welcome-avatar" />
+            <div>
+              <div className="dashboard-welcome-greeting">
+                Welcome, <span className="dashboard-welcome-name">{auth.currentUser?.displayName}!</span>
+              </div>
+            </div>
+          </div>
         </div>
         {/* Main Content */}
         <div className="dashboard-content">
@@ -220,6 +249,7 @@ const Dashboard = (): React.JSX.Element => {
                     {item.value}
                   </div>
                   <div className="summary-item-label">{item.label}</div>
+                  <div className="summary-item-description" style={{ fontSize: '0.85rem', color: '#888', marginTop: '0.3rem' }}>{item.description}</div>
                 </div>
               ))
             ) : (
