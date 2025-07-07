@@ -1,0 +1,24 @@
+/* Card for spending bar graph */
+.spendingBarCard {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 2px 12px rgba(44,62,80,0.07);
+  padding: 2rem 2.5rem 1.5rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 320px;
+}
+
+.spendingBarTitle {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #2c3e50;
+}
+
+.spendingBarChartContainer {
+  width: 520px;
+  height: 400px;
+  position: relative;
+} 

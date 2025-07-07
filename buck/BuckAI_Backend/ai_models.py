@@ -44,31 +44,49 @@ def predict_future_expense(past_expenses):
 
 
 def clean_llama_output(text):
-    # Remove <think> and everything before it
     if '<think>' in text:
         text = text.split('<think>', 1)[-1]
-    # Remove leading/trailing whitespace
     text = text.strip()
-    # Take only the first 2 sentences (split on period, question, or exclamation)
     import re
     sentences = re.split(r'(?<=[.!?])\s+', text)
     cleaned = ' '.join(sentences[:2]).strip()
-    # Remove any remaining <think> or similar tags
     cleaned = cleaned.replace('<think>', '').strip()
     return cleaned
 
-def generate_ai_tip(category, user_context=""):
+def generate_ai_tip(category, user_context="", target_date=None, created_at=None):
     api_url = "https://api.together.xyz/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {os.getenv('TOGETHER_API_KEY')}",
         "Content-Type": "application/json"
     }
-        f"Based on this context: {user_context}, tell them exactly how much they should save per month and one practical way to achieve it. "
+    import datetime
+    # Calculate months or weeks left if dates are provided
+    time_context = ""
+    if target_date and created_at:
+        try:
+            d1 = datetime.datetime.strptime(created_at, "%Y-%m-%d")
+            d2 = datetime.datetime.strptime(target_date, "%Y-%m-%d")
+            days_left = (d2 - d1).days
+            if days_left < 30:
+                time_context = f"You have only {days_left} days left to reach your goal."
+            else:
+                months_left = round(days_left / 30)
+                time_context = f"You have {months_left} months left to reach your goal."
+        except Exception:
+            pass
+    # Add attitude explanation
+    attitude_guide = (
+        "Saving attitude multipliers: Normal = 1.0, Moderate = 0.8, Aggressive = 0.6. "
+        "The user's attitude and multiplier are provided. Use the multiplier to adjust the recommended saving amount. "
+        "For example, if the base amount is 1000 and the multiplier is 0.8, recommend 800. "
+    )
+    prompt = (
+        f"You are a financial assistant. The currency is in Philippine Peso. In exactly 2 sentences, give a direct, actionable money-saving tip for someone who spends a lot of money on {category}. "
+        f"{attitude_guide} Based on this context: {user_context}. {time_context} Tell them exactly how much they should save per period (month or week, depending on the time left) and one practical way to achieve it. "
         "Do NOT show your thought process, do NOT use <think>, and do NOT include any commentary or explanation. Only output the final tip and the amount."
     )
     payload = {
-        "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",  # You can change this to any supported model
-
+        "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free", 
         "messages": [
             {"role": "user", "content": prompt}
         ],

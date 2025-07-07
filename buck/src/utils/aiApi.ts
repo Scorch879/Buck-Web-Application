@@ -33,11 +33,14 @@ export async function processExpense(input: ExpenseInput): Promise<AIResponse> {
   return response.json();
 }
 
-export async function getSavingTip(category: string, userContext: string = ""): Promise<string> {
+export async function getSavingTip(category: string, userContext: string = "", targetDate?: string, createdAt?: string): Promise<string> {
+  const body: any = { category, user_context: userContext };
+  if (targetDate) body.target_date = targetDate;
+  if (createdAt) body.created_at = createdAt;
   const response = await fetch(SAVING_TIP_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ category, user_context: userContext }),
+    body: JSON.stringify(body),
   });
   if (!response.ok) {
     throw new Error('Failed to get AI saving tip');

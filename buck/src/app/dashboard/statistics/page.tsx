@@ -4,7 +4,7 @@ import "./style.css";
 import { useRouter } from "next/navigation";
 import DashboardHeader from "@/component/dashboardheader";
 import { useAuthGuard } from "@/utils/useAuthGuard";
-import WeeklySpendingChart from "@/component/line-graph";
+import WeeklySpendingChart from "./weekly-spending";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -15,6 +15,8 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import ExcessPie from "./excess-pie";
+import SpendingBar from "./spending-bar";
 
 
 ChartJS.register(
@@ -66,6 +68,14 @@ const Statistics = () => {
       continue;
     }
     saved[i] = maxBudgetPerDay - expense;
+  }
+
+  let totalSpending = 0;
+  let totalSavings = 0;
+  for (let i = 0; i < saved.length; i++) {
+    const expense = totalExpenses[i] ?? 0;
+    totalSpending += expense;
+    totalSavings += saved[i] ?? 0;
   }
 
   return (
@@ -122,6 +132,15 @@ const Statistics = () => {
               </div>
             </div>
           </div>
+
+          {/* Excess Spending Pie Chart */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <ExcessPie spending={totalSpending} savings={totalSavings} />
+          </div>
+
+          {/* Spending by Category Bar Graph */}
+          <SpendingBar />
+
           <div className="empty-goals-popup">
             <h2
               style={{

@@ -14,7 +14,6 @@ import { useAuthGuard } from "@/utils/useAuthGuard";
 interface WeeklyData {
   day: string;
   amount: number;
-  height: number;
   color: string;
 }
 
@@ -42,13 +41,13 @@ const Dashboard = (): React.JSX.Element => {
   // On mount, set sample data for demonstration
   useEffect(() => {
     setWeeklyData([
-      { day: "Mon", amount: 10, height: 20, color: "#ef8a57" },
-      { day: "Tue", amount: 25, height: 50, color: "#fd523b" },
-      { day: "Wed", amount: 15, height: 30, color: "#f6c390" },
-      { day: "Thu", amount: 30, height: 60, color: "#2c3e50" },
-      { day: "Fri", amount: 20, height: 40, color: "#6c757d" },
-      { day: "Sat", amount: 35, height: 70, color: "#ffd6b0" },
-      { day: "Sun", amount: 12, height: 25, color: "#efb857" },
+      { day: "Mon", amount: 0, color: "#ef8a57" },
+      { day: "Tue", amount: 0, color: "#fd523b" },
+      { day: "Wed", amount: 0, color: "#f6c390" },
+      { day: "Thu", amount: 0, color: "#2c3e50" },
+      { day: "Fri", amount: 0, color: "#6c757d" },
+      { day: "Sat", amount: 0, color: "#ffd6b0" },
+      { day: "Sun", amount: 0, color: "#efb857" },
     ]);
   }, []);
 
@@ -102,8 +101,10 @@ const Dashboard = (): React.JSX.Element => {
     <div className="dashboard">
       {/* Sticky Header */}
       <DashboardHeader />
-
       <div className="dashboard-container">
+        <div className="dashboard-welcome">
+          <h1>Welcome, {auth.currentUser?.displayName}!  </h1>
+        </div>
         {/* Main Content */}
         <div className="dashboard-content">
           {/* Spending Card */}
@@ -120,80 +121,88 @@ const Dashboard = (): React.JSX.Element => {
           {/* Graph Card */}
           <div className="graph-card">
             <h2 className="graph-title">Weekly Summary of Expenses</h2>
-            <div
-              className="graph-container"
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                alignItems: "flex-end",
-              }}
-            >
-              {/* Y-Axis */}
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  height: "300px",
-                  marginRight: "1rem",
-                  fontSize: "0.9rem",
-                  color: "#6c757d",
-                  alignItems: "flex-end",
-                  minWidth: "28px",
-                }}
-              >
-                {[30, 25, 20, 15, 10, 5, 0].map((num) => (
-                  <div
-                    key={num}
-                    style={{
-                      height: "1px",
-                      marginBottom: num !== 0 ? "calc(300px / 7 - 1px)" : 0,
-                    }}
-                  >
-                    {num}
-                  </div>
-                ))}
-              </div>
-              {/* Bars */}
-              <div
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  alignItems: "flex-end",
-                  height: "300px",
-                  gap: "1rem",
-                }}
-              >
-                {weeklyData.length > 0 ? (
-                  weeklyData.map((item, index) => (
-                    <div
-                      key={index}
-                      className="graph-bar"
-                      style={{
-                        height: `${item.height}%`,
-                        background: item.color,
-                      }}
-                      title={`${item.day}: $${item.amount}`}
-                    >
-                      <div className="graph-bar-label">{item.day}</div>
-                    </div>
-                  ))
-                ) : (
+            {/* Dynamic max Y value */}
+            {(() => {
+              const maxAmount = Math.max(30, ...weeklyData.map(item => item.amount));
+              // Generate Y-axis labels (5 steps)
+              const steps = 6;
+              const yLabels = Array.from({ length: steps + 1 }, (_, i) => Math.round(maxAmount - (maxAmount / steps) * i));
+              return (
+                <div
+                  className="graph-container"
+                  style={{
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "flex-end",
+                  }}
+                >
+                  {/* Y-Axis */}
                   <div
                     style={{
                       display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      height: "100%",
-                      color: "#666",
-                      fontSize: "1.1rem",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      height: "300px",
+                      marginRight: "1rem",
+                      fontSize: "0.9rem",
+                      color: "#6c757d",
+                      alignItems: "flex-end",
+                      minWidth: "28px",
                     }}
                   >
-                    No data available
+                    {yLabels.map((num, idx) => (
+                      <div
+                        key={num}
+                        style={{
+                          height: idx !== yLabels.length - 1 ? "calc(300px / 6 - 1px)" : 0,
+                        }}
+                      >
+                        {num}
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
-            </div>
+                  {/* Bars */}
+                  <div
+                    style={{
+                      flex: 1,
+                      display: "flex",
+                      alignItems: "flex-end",
+                      height: "300px",
+                      gap: "1rem",
+                    }}
+                  >
+                    {weeklyData.length > 0 ? (
+                      weeklyData.map((item, index) => (
+                        <div
+                          key={index}
+                          className="graph-bar"
+                          style={{
+                            height: `${maxAmount === 0 ? 0 : (item.amount / maxAmount) * 100}%`,
+                            background: item.color,
+                          }}
+                          title={`${item.day}: $${item.amount}`}
+                        >
+                          <div className="graph-bar-label">{item.day}</div>
+                        </div>
+                      ))
+                    ) : (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          height: "100%",
+                          color: "#666",
+                          fontSize: "1.1rem",
+                        }}
+                      >
+                        No data available
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
