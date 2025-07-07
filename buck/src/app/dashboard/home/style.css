@@ -313,6 +313,47 @@
   background: #ffe5c2;
 }
 
+.dashboard-welcome-card {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 4px 24px 0 rgba(239, 138, 87, 0.10);
+  padding: 2rem 2.5rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 2.5rem;
+}
+
+.dashboard-welcome-row {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.dashboard-welcome-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #ffe5c2;
+  box-shadow: 0 2px 8px 0 rgba(239, 138, 87, 0.10);
+  object-fit: contain;
+}
+
+.dashboard-welcome-greeting {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 0.3rem;
+}
+
+.dashboard-welcome-name {
+  color: #ef8a57;
+}
+
 @media (max-width: 768px) {
   .dashboard-container {
     padding: 1rem;

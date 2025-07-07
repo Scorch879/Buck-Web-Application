@@ -124,8 +124,15 @@ const Dashboard = (): React.JSX.Element => {
       {/* Sticky Header */}
       <DashboardHeader />
       <div className="dashboard-container">
-        <div className="dashboard-welcome">
-          <h1>Welcome, {auth.currentUser?.displayName}!  </h1>
+        <div className="dashboard-welcome-card">
+          <div className="dashboard-welcome-row">
+            <img src="/BuckMascot.png" alt="Buck Mascot" className="dashboard-welcome-avatar" />
+            <div>
+              <div className="dashboard-welcome-greeting">
+                Welcome, <span className="dashboard-welcome-name">{auth.currentUser?.displayName}!</span>
+              </div>
+            </div>
+          </div>
         </div>
         {/* Main Content */}
         <div className="dashboard-content">
