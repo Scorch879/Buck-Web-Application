@@ -93,75 +93,76 @@ const Statistics = () => {
         }}
       >
         {/* Panels Container */}
-        <div style={{ display: "flex", gap: "2rem", alignItems: "flex-start" }}>
-          {/* Line Graph */}
-          <div className="graph-panel">
-            <div className="graph-panel-header">
-              Weekly Spending Report
+        <div className="statistics-panels-container">
+          {/* First row: Pie chart and Bar graph */}
+          <div style={{ display: "flex", gap: "2rem", alignItems: "flex-start" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <ExcessPie spending={totalSpending} savings={totalSavings} />
             </div>
-            {/* Y-Axis Max Control */}
-            <div style={{ marginBottom: "1rem", textAlign: "right" }}>
-              <label style={{ fontWeight: 500, marginRight: 8 }}>
-                <input
-                  type="number"
-                  value={yMax}
-                  min={1}
-                  step={1}
-                  onChange={e => setYMax(Math.max(1, Number(e.target.value)))}
-                  style={{
-                    marginLeft: 8,
-                    width: 60,
-                    padding: "0.2rem 0.5rem",
-                    borderRadius: 6,
-                    border: "1px solid #ccc",
-                    fontSize: "1rem",
-                  }}
-                />
-              </label>
-            </div>
-            <WeeklySpendingChart data={saved} yMax={yMax} />
-            {/* Custom Legend (now inside the panel) */}
-            <div className="graph-legend">
-              <div className="graph-legend-item">
-                <span className="graph-legend-color-saved"></span>
-                <span className="graph-legend-label">Saved</span>
-              </div>
-              <div className="graph-legend-item">
-                <span className="graph-legend-color-excess"></span>
-                <span className="graph-legend-label">Excess</span>
-              </div>
-            </div>
+            <SpendingBar />
           </div>
 
-          {/* Excess Spending Pie Chart */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <ExcessPie spending={totalSpending} savings={totalSavings} />
-          </div>
-
-          {/* Spending by Category Bar Graph */}
-          <SpendingBar />
-
-          <div className="empty-goals-popup">
-            <h2
-              style={{
-                fontSize: "2rem",
-                fontWeight: 700,
-                color: "#2c3e50",
-                marginBottom: "2rem",
-              }}
-            >
-              What the Buck?!
-              <br />
-              You dont have any goals yet.
-              <br />
-              Would you like to create one?
-            </h2>
-            <button
-              className="create-goal-button"
-              onClick={() => router.push("/dashboard/goals/create")}
-            >
-              Create Goal
-            </button>
+          {/* Second row: Line graph and Empty goals popup */}
+          <div style={{ display: "flex", gap: "2rem", alignItems: "flex-start", marginTop: "2rem" }}>
+            <div className="graph-panel">
+              <div className="graph-panel-header">
+                Weekly Spending Report
+              </div>
+              {/* Y-Axis Max Control */}
+              <div style={{ marginBottom: "1rem", textAlign: "right" }}>
+                <label style={{ fontWeight: 500, marginRight: 8 }}>
+                  <input
+                    type="number"
+                    value={yMax}
+                    min={1}
+                    step={1}
+                    onChange={e => setYMax(Math.max(1, Number(e.target.value)))}
+                    style={{
+                      marginLeft: 8,
+                      width: 60,
+                      padding: "0.2rem 0.5rem",
+                      borderRadius: 6,
+                      border: "1px solid #ccc",
+                      fontSize: "1rem",
+                    }}
+                  />
+                </label>
+              </div>
+              <WeeklySpendingChart data={saved} yMax={yMax} />
+              {/* Custom Legend (now inside the panel) */}
+              <div className="graph-legend">
+                <div className="graph-legend-item">
+                  <span className="graph-legend-color-saved"></span>
+                  <span className="graph-legend-label">Saved</span>
+                </div>
+                <div className="graph-legend-item">
+                  <span className="graph-legend-color-excess"></span>
+                  <span className="graph-legend-label">Excess</span>
+                </div>
+              </div>
+            </div>
+            <div className="empty-goals-popup">
+              <h2
+                style={{
+                  fontSize: "2rem",
+                  fontWeight: 700,
+                  color: "#2c3e50",
+                  marginBottom: "2rem",
+                }}
+              >
+                What the Buck?!
+                <br />
+                You dont have any goals yet.
+                <br />
+                Would you like to create one?
+              </h2>
+              <button
+                className="create-goal-button"
+                onClick={() => router.push("/dashboard/goals/create")}
+              >
+                Create Goal
+              </button>
+            </div>
           </div>
         </div>
       </div>
