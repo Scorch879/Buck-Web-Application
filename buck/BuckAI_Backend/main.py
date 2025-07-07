@@ -77,6 +77,7 @@ def saving_tip(input: TipInput):
 def ai_forecast(input: ForecastInput = Body(...)):
     goal = input.goal
     budget = input.budget
+    history = getattr(input, 'history', None) or goal.get('history')
     try:
         target_amount = goal.get("targetAmount") or goal.get("target_amount")
         target_date = goal.get("targetDate") or goal.get("target_date")
@@ -92,13 +93,26 @@ def ai_forecast(input: ForecastInput = Body(...)):
         monthly_target = target_amount / months_left
         multiplier = get_multiplier({"saving_attitude": attitude})
         adjusted_monthly_target = monthly_target * multiplier
-        # --- TogetherAI prompt ---
+        # --- Math-based recommendation ---
+        recommendation = (
+            f"To reach your goal, you should aim to save ₱{monthly_target:.2f} per month. "
+            f"With your '{attitude}' attitude, try to keep your spending below ₱{adjusted_monthly_target:.2f} per month."
+        )
+        # --- TogetherAI prompt for forecast ---
         prompt = (
-            f"You are a financial assistant. The currency is in Philippine Peso. "
-            f"The user has a goal to save ₱{target_amount:.2f} by {target_date} with a '{attitude}' saving attitude (multiplier: {multiplier}). "
+            "You are a financial forecasting assistant. "
+            f"A user has set a budget goal to save ₱{target_amount:.2f} by {target_date} with a '{attitude}' saving attitude (multiplier: {multiplier}). "
             f"There are {months_left} months left. Their current wallet budget is ₱{budget:.2f}. "
-            f"The recommended monthly savings target is ₱{monthly_target:.2f}, adjusted for attitude: ₱{adjusted_monthly_target:.2f}. "
-            f"In 2-3 sentences, give a direct, encouraging, and actionable forecast for the user. Mention if their current budget is enough, and give a practical tip to help them reach their goal."
+            "Budgeting is about setting a plan for future spending and saving. Forecasting is about predicting if the plan will succeed, using past data and current trends. "
+        )
+        if history:
+            prompt += f" The user's past savings/spending data: {history}. "
+        prompt += (
+            "Given this, provide a budget forecast: "
+            "1. Predict if the user is likely to achieve their goal based on their current budget and savings plan. "
+            "2. If you have access to past savings or spending data, use it to inform your prediction. "
+            "3. If the forecast shows the goal is not on track, suggest specific adjustments or actions. "
+            "4. Summarize in 2-3 sentences, using clear, actionable language."
         )
         api_url = "https://api.together.xyz/v1/chat/completions"
         headers = {
@@ -110,7 +124,7 @@ def ai_forecast(input: ForecastInput = Body(...)):
             "messages": [
                 {"role": "user", "content": prompt}
             ],
-            "max_tokens": 180,
+            "max_tokens": 220,
             "temperature": 0.2
         }
         response = requests.post(api_url, headers=headers, json=payload)
@@ -119,6 +133,7 @@ def ai_forecast(input: ForecastInput = Body(...)):
         ai_forecast = result["choices"][0]["message"]["content"].strip()
         return {
             "forecast": ai_forecast,
+            "recommendation": recommendation,
             "months_left": months_left,
             "monthly_target": monthly_target,
             "adjusted_monthly_target": adjusted_monthly_target

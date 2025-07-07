@@ -22,12 +22,9 @@ ChartJS.register(
   Legend
 );
 
-import { statisticsTestData } from "./testData";
-
 interface WeeklySpendingChartProps {
-  mode?: 'week' | 'month' | 'overall';
-  weekIndex?: number;
-  monthIndex?: number;
+  data: number[];
+  yMax: number;
 }
 
 const WeeklySpendingChart: React.FC<WeeklySpendingChartProps> = ({ mode = 'week', weekIndex, monthIndex }) => {
