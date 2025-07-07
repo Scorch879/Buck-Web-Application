@@ -41,6 +41,6 @@ export const statisticsTestData = {
   },
 };
 
-export const testCategories = statisticsTestData.categories;
+export const testCategories = ["Food", "Transport", "Entertainment", "Savings"];
 export const testAmounts = statisticsTestData.weeklyCategorySpending[0];
 export const barColors = statisticsTestData.barColors;

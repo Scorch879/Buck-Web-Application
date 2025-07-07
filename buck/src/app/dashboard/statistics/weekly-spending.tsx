@@ -11,6 +11,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import { statisticsTestData } from "./testData";
 
 ChartJS.register(
   CategoryScale,
@@ -21,8 +22,6 @@ ChartJS.register(
   Tooltip,
   Legend
 );
-
-import { statisticsTestData } from "./testData";
 
 interface WeeklySpendingChartProps {
   mode?: 'week' | 'month' | 'overall';
