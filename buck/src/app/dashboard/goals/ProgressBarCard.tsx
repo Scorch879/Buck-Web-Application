@@ -1,5 +1,5 @@
-import React from "react";
-import "./progress-bar.css";
+import React from 'react';
+import './progress-bar.css';
 
 interface Goal {
   id: string;
@@ -18,6 +18,7 @@ interface ProgressBarCardProps {
 }
 
 const ProgressBarCard: React.FC<ProgressBarCardProps> = ({ goal, onAddProgress }) => {
+
   const currentAmount = goal.currentAmount || 0;
   const progressPercentage = Math.min((currentAmount / goal.targetAmount) * 100, 100);
   const remainingAmount = Math.max(goal.targetAmount - currentAmount, 0);

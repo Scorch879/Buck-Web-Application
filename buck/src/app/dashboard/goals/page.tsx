@@ -11,7 +11,6 @@ import CreateGoalModal from "./CreateGoalModal";
 import { deleteGoal, updateGoalStatus, setOnlyGoalActive } from "@/component/goals";
 import ProgressBarCard from "./ProgressBarCard";
 import { getSavingTip } from "@/utils/aiApi";
-
 // --- Goal interface for type safety ---
 interface Goal {
   id: string;
