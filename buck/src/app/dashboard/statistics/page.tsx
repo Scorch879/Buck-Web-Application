@@ -21,6 +21,7 @@ import { db } from "@/utils/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import { statisticsTestData } from './testData';
 import { useFinancial } from "@/context/FinancialContext";
+import { Line } from 'react-chartjs-2';
 
 
 ChartJS.register(
@@ -54,6 +55,15 @@ const Statistics = () => {
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [selectedMonth, setSelectedMonth] = useState(0);
   const { setTotalSaved } = useFinancial();
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [expenseDate, setExpenseDate] = useState('');
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseDesc, setExpenseDesc] = useState('');
+  const [expenseLoading, setExpenseLoading] = useState(false);
+  const [expenseError, setExpenseError] = useState('');
+  const [forecastData, setForecastData] = useState<any>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
+  const [forecastError, setForecastError] = useState('');
 
   // Dynamically generate week date ranges from goals (real calendar mapping)
   let weekDateRanges: { start: string; end: string }[] = [];
@@ -142,6 +152,110 @@ const Statistics = () => {
   useEffect(() => {
     setTotalSaved(totalSaved);
   }, [totalSaved, setTotalSaved]);
+
+  // Assume the first goal is selected for demo (replace with real selection logic)
+  const selectedGoal = goals[0];
+
+  // Fetch forecast/actual data
+  useEffect(() => {
+    const fetchForecast = async () => {
+      if (!user || !selectedGoal) return;
+      setForecastLoading(true);
+      setForecastError('');
+      try {
+        const res = await fetch('https://buck-web-application.onrender.com/ai/forecast/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            goal: { ...selectedGoal, userId: user.uid },
+            budget: 0 // Optionally fetch wallet budget if needed
+          })
+        });
+        if (!res.ok) throw new Error('Failed to fetch forecast');
+        const data = await res.json();
+        setForecastData(data);
+      } catch (err: any) {
+        setForecastError(err.message || 'Unknown error');
+      } finally {
+        setForecastLoading(false);
+      }
+    };
+    fetchForecast();
+  }, [user, selectedGoal]);
+
+  // Add expense handler
+  const handleAddExpense = async () => {
+    if (!user || !selectedGoal) return;
+    setExpenseLoading(true);
+    setExpenseError('');
+    try {
+      const res = await fetch('https://buck-web-application.onrender.com/expenses/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: user.uid,
+          goal_id: selectedGoal.id,
+          date: expenseDate,
+          amount: parseFloat(expenseAmount),
+          description: expenseDesc
+        })
+      });
+      if (!res.ok) throw new Error('Failed to add expense');
+      setShowExpenseModal(false);
+      setExpenseDate('');
+      setExpenseAmount('');
+      setExpenseDesc('');
+      // Refresh forecast/actual data
+      const fetchForecast = async () => {
+        const res = await fetch('https://buck-web-application.onrender.com/ai/forecast/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            goal: { ...selectedGoal, userId: user.uid },
+            budget: 0
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setForecastData(data);
+        }
+      };
+      fetchForecast();
+    } catch (err: any) {
+      setExpenseError(err.message || 'Unknown error');
+    } finally {
+      setExpenseLoading(false);
+    }
+  };
+
+  // Prepare data for Chart.js
+  let chartData = null;
+  if (forecastData && forecastData.forecast_per_day) {
+    const labels = Object.keys(forecastData.forecast_per_day);
+    const forecastVals = labels.map(d => forecastData.forecast_per_day[d]);
+    const actualVals = labels.map(d => (forecastData.actual_per_day && forecastData.actual_per_day[d]) || 0);
+    chartData = {
+      labels,
+      datasets: [
+        {
+          label: 'Forecasted Daily Expense',
+          data: forecastVals,
+          borderColor: 'rgba(239,138,87,1)',
+          backgroundColor: 'rgba(239,138,87,0.2)',
+          fill: true,
+          tension: 0.3
+        },
+        {
+          label: 'Actual Daily Expense',
+          data: actualVals,
+          borderColor: 'rgba(52, 152, 219, 1)',
+          backgroundColor: 'rgba(52, 152, 219, 0.2)',
+          fill: true,
+          tension: 0.3
+        }
+      ]
+    };
+  }
 
   if (loading || !user || loadingGoals) {
     return (
@@ -404,6 +518,34 @@ const Statistics = () => {
               </div>
             </>
           )}
+        </div>
+        {/* Add Expense Button and Modal */}
+        <div style={{ width: '100%', maxWidth: 600, margin: '2rem auto' }}>
+          <button onClick={() => setShowExpenseModal(true)} style={{ background: '#ef8a57', color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem 1.5rem', fontWeight: 600, fontSize: 16, cursor: 'pointer', marginBottom: 16 }}>
+            + Add Expense
+          </button>
+          {showExpenseModal && (
+            <div className="modal-backdrop" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="modal" style={{ background: '#fff', borderRadius: 8, padding: 24, minWidth: 320, maxWidth: 400, boxShadow: '0 2px 16px rgba(0,0,0,0.2)', position: 'relative' }}>
+                <button onClick={() => setShowExpenseModal(false)} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>&times;</button>
+                <h3 style={{ marginTop: 0 }}>Add Expense</h3>
+                <input type="date" value={expenseDate} onChange={e => setExpenseDate(e.target.value)} style={{ width: '100%', marginBottom: 12, padding: 8, borderRadius: 4, border: '1px solid #ccc' }} />
+                <input type="number" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} placeholder="Amount" style={{ width: '100%', marginBottom: 12, padding: 8, borderRadius: 4, border: '1px solid #ccc' }} />
+                <input type="text" value={expenseDesc} onChange={e => setExpenseDesc(e.target.value)} placeholder="Description" style={{ width: '100%', marginBottom: 12, padding: 8, borderRadius: 4, border: '1px solid #ccc' }} />
+                {expenseError && <div style={{ color: 'red', marginBottom: 8 }}>{expenseError}</div>}
+                <button onClick={handleAddExpense} disabled={expenseLoading} style={{ background: '#ef8a57', color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem 1.5rem', fontWeight: 600, fontSize: 16, cursor: 'pointer', width: '100%' }}>
+                  {expenseLoading ? 'Adding...' : 'Add Expense'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+        {/* Forecast/Actual Graph */}
+        <div style={{ width: '100%', maxWidth: 800, margin: '2rem auto' }}>
+          {forecastLoading && <div>Loading forecast...</div>}
+          {forecastError && <div style={{ color: 'red' }}>{forecastError}</div>}
+          {chartData && <Line data={chartData} options={{ responsive: true, plugins: { legend: { position: 'top' } } }} />}
+          {forecastData && forecastData.forecast && <div style={{ marginTop: 16, fontWeight: 500, color: '#2c3e50' }}>{forecastData.forecast}</div>}
         </div>
       </div>
     </div>
