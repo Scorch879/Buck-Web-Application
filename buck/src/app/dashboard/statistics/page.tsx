@@ -19,6 +19,8 @@ import ExcessPie from "./excess-pie";
 import SpendingBar from "./spending-bar";
 import { db } from "@/utils/firebase";
 import { collection, getDocs } from "firebase/firestore";
+import { statisticsTestData } from './testData';
+import { useFinancial } from "@/context/FinancialContext";
 
 
 ChartJS.register(
@@ -49,6 +51,57 @@ const Statistics = () => {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loadingGoals, setLoadingGoals] = useState(false);
 
+  const [selectedMode, setSelectedMode] = useState<'week' | 'month' | 'overall'>('week');
+  const [selectedWeek, setSelectedWeek] = useState(0);
+  const [selectedMonth, setSelectedMonth] = useState(0);
+  const { setTotalSaved } = useFinancial();
+
+  // Dynamically generate week date ranges from goals (real calendar mapping)
+  let weekDateRanges: { start: string; end: string }[] = [];
+  let monthDateRanges: { start: string; end: string; label: string }[] = [];
+  if (goals.length > 0) {
+    // Find the earliest Monday on or before the earliest goal start
+    const minStartRaw = new Date(Math.min(...goals.map(g => new Date(g.createdAt).getTime())));
+    const minStart = new Date(minStartRaw);
+    minStart.setDate(minStart.getDate() - ((minStart.getDay() + 6) % 7)); // Monday
+    const maxEnd = new Date(Math.max(...goals.map(g => new Date(g.targetDate || g.createdAt).getTime())));
+    // Weeks (Monday to Sunday)
+    let current = new Date(minStart);
+    while (current <= maxEnd) {
+      const weekStart = new Date(current);
+      const weekEnd = new Date(current);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      weekDateRanges.push({
+        start: weekStart.toISOString().slice(0, 10),
+        end: weekEnd.toISOString().slice(0, 10),
+      });
+      current.setDate(current.getDate() + 7);
+    }
+    // Months (calendar months)
+    let monthCursor = new Date(minStart.getFullYear(), minStart.getMonth(), 1);
+    while (monthCursor <= maxEnd) {
+      const monthStart = new Date(monthCursor);
+      const monthEnd = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0);
+      monthDateRanges.push({
+        start: monthStart.toISOString().slice(0, 10),
+        end: monthEnd.toISOString().slice(0, 10),
+        label: monthStart.toLocaleString('default', { month: 'long', year: 'numeric' })
+      });
+      monthCursor.setMonth(monthCursor.getMonth() + 1);
+    }
+  }
+  // Find current week index
+  let currentWeekIdx = -1;
+  if (weekDateRanges.length > 0) {
+    const today = new Date();
+    currentWeekIdx = weekDateRanges.findIndex(range => {
+      const start = new Date(range.start);
+      const end = new Date(range.end);
+      return today >= start && today <= end;
+    });
+  }
+
+
   useEffect(() => {
     const fetchGoals = async () => {
       if (user) {
@@ -61,6 +114,36 @@ const Statistics = () => {
     };
     fetchGoals();
   }, [user]);
+
+  // Calculate totalSaved for the user (use your real calculation here)
+  let totalSaved = 0;
+  // For demo: sum all savings for the selected mode
+  if (selectedMode === 'week' && weekDateRanges.length > 0) {
+    const idx = selectedWeek;
+    const weekData = statisticsTestData.weeklyCategorySpending[idx] || Array(statisticsTestData.categories.length).fill(0);
+    totalSaved = weekData.reduce((sum, amt) => sum + (statisticsTestData.maxBudgetPerDay - amt), 0);
+  } else if (selectedMode === 'month' && monthDateRanges.length > 0) {
+    const idx = selectedMonth;
+    let days = Array(7).fill(0);
+    for (let w = idx * 4; w < (idx + 1) * 4 && w < statisticsTestData.weeklyCategorySpending.length; w++) {
+      for (let d = 0; d < 7; d++) {
+        days[d] += statisticsTestData.weeklyCategorySpending[w][d];
+      }
+    }
+    totalSaved = days.reduce((sum, amt) => sum + (statisticsTestData.maxBudgetPerDay - amt), 0);
+  } else if (selectedMode === 'overall') {
+    let days = Array(7).fill(0);
+    for (let w = 0; w < statisticsTestData.weeklyCategorySpending.length; w++) {
+      for (let d = 0; d < 7; d++) {
+        days[d] += statisticsTestData.weeklyCategorySpending[w][d];
+      }
+    }
+    totalSaved = days.reduce((sum, amt) => sum + (statisticsTestData.maxBudgetPerDay - amt), 0);
+  }
+
+  useEffect(() => {
+    setTotalSaved(totalSaved);
+  }, [totalSaved, setTotalSaved]);
 
   if (loading || !user || loadingGoals) {
     return (
