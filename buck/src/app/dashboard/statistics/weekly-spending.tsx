@@ -22,39 +22,12 @@ ChartJS.register(
   Legend
 );
 
-import { statisticsTestData } from "./testData";
-
 interface WeeklySpendingChartProps {
-  mode?: 'week' | 'month' | 'overall';
-  weekIndex?: number;
-  monthIndex?: number;
+  data: number[];
+  yMax: number;
 }
 
-const WeeklySpendingChart: React.FC<WeeklySpendingChartProps> = ({ mode = 'week', weekIndex, monthIndex }) => {
-  let data: number[] = [];
-  if (mode === 'week') {
-    const idx = typeof weekIndex === 'number' ? weekIndex : statisticsTestData.weeklyCategorySpending.length - 1;
-    data = statisticsTestData.weeklyCategorySpending[idx];
-  } else if (mode === 'month') {
-    // For demo: sum all weeks in the selected month (assuming 4 weeks per month)
-    // In real use, you would map weeks to months by date
-    const idx = typeof monthIndex === 'number' ? monthIndex : 0;
-    // For now, just sum all weeks for the month
-    data = Array(7).fill(0);
-    for (let w = idx * 4; w < (idx + 1) * 4 && w < statisticsTestData.weeklyCategorySpending.length; w++) {
-      for (let d = 0; d < 7; d++) {
-        data[d] += statisticsTestData.weeklyCategorySpending[w][d];
-      }
-    }
-  } else if (mode === 'overall') {
-    data = Array(7).fill(0);
-    for (let w = 0; w < statisticsTestData.weeklyCategorySpending.length; w++) {
-      for (let d = 0; d < 7; d++) {
-        data[d] += statisticsTestData.weeklyCategorySpending[w][d];
-      }
-    }
-  }
-  const yMax = Math.max(...data, 200);
+const WeeklySpendingChart: React.FC<WeeklySpendingChartProps> = ({ data, yMax }) => {
   return (
     <Line
       data={{
