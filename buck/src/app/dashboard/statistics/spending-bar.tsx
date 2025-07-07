@@ -9,9 +9,25 @@ import {
   Legend,
 } from "chart.js";
 import styles from "./spending-bar.module.css";
-import { testCategories, testAmounts, barColors } from "./testData";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+
+// Temporary test data for amounts
+const testAmounts = [120, 80, 50, 200];
+
+// Example testCategories for the chart
+const testCategories = ["Food", "Transport", "Entertainment", "Savings"];
+
+// Example bar colors for the chart
+const barColors = [
+  "#FF6384",
+  "#36A2EB",
+  "#FFCE56",
+  "#4BC0C0",
+  "#9966FF",
+  "#FF9F40",
+  "#2ecc40",
+];
 
 const data = {
   labels: testCategories,
@@ -28,36 +44,28 @@ const data = {
   ],
 };
 
-  const yMax = Math.max(200, ...amounts);
+const yMax = Math.max(200, ...testAmounts);
 
-  const options = {
-    responsive: true,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        callbacks: {
-          label: function (context: any) {
-            return `$${context.raw}`;
-          },
+const options = {
+  responsive: true,
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      callbacks: {
+        label: function (context: any) {
+          return `$${context.raw}`;
         },
       },
     },
-    scales: {
-      x: {
-        grid: { display: false },
-        ticks: { color: "#2c3e50", font: { weight: 600 } },
-      },
-      y: {
-        beginAtZero: true,
-        max: yMax,
-        grid: { color: "#eee" },
-        ticks: { color: "#2c3e50" },
-      },
-
+  },
+  scales: {
+    x: {
+      grid: { display: false },
+      ticks: { color: "#2c3e50", font: { weight: 600 } },
     },
     y: {
       beginAtZero: true,
-      max: 200,
+      max: yMax,
       grid: { color: "#eee" },
       ticks: { color: "#2c3e50" },
     },
@@ -75,4 +83,4 @@ const SpendingBar: React.FC = () => {
   );
 };
 
-export default SpendingBar; 
+export default SpendingBar;

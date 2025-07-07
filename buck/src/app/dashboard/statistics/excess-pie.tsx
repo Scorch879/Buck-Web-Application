@@ -1,44 +1,76 @@
 import React from "react";
 import { Doughnut } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
-} from "chart.js";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import styles from "./excess-pie.module.css";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
+// Temporary test data for statistics
+const statisticsTestData = {
+  maxBudgetPerDay: 100,
+  weeklyCategorySpending: [
+    [20, 30, 25, 15, 10, 5, 15],
+    [25, 20, 30, 10, 15, 10, 20],
+    [30, 25, 20, 15, 10, 10, 20],
+    [15, 20, 25, 30, 10, 10, 20],
+  ],
+};
 
-interface ExcessPieProps { mode?: 'week' | 'month' | 'overall'; weekIndex?: number; monthIndex?: number; }
-const ExcessPie: React.FC<ExcessPieProps> = ({ mode = 'week', weekIndex, monthIndex }) => {
+interface ExcessPieProps {
+  mode?: "week" | "month" | "overall";
+  weekIndex?: number;
+  monthIndex?: number;
+}
+const ExcessPie: React.FC<ExcessPieProps> = ({
+  mode = "week",
+  weekIndex,
+  monthIndex,
+}) => {
   let spending = 0;
   let savings = 0;
   const maxBudgetPerDay = statisticsTestData.maxBudgetPerDay;
-  if (mode === 'week') {
-    const idx = typeof weekIndex === 'number' ? weekIndex : statisticsTestData.weeklyCategorySpending.length - 1;
-    spending = statisticsTestData.weeklyCategorySpending[idx].reduce((a, b) => a + b, 0);
-    savings = statisticsTestData.weeklyCategorySpending[idx].reduce((sum, amt) => sum + (maxBudgetPerDay - amt), 0);
-  } else if (mode === 'month') {
-    const idx = typeof monthIndex === 'number' ? monthIndex : 0;
+  if (mode === "week") {
+    const idx =
+      typeof weekIndex === "number"
+        ? weekIndex
+        : statisticsTestData.weeklyCategorySpending.length - 1;
+    spending = statisticsTestData.weeklyCategorySpending[idx].reduce(
+      (a: number, b: number) => a + b,
+      0
+    );
+    savings = statisticsTestData.weeklyCategorySpending[idx].reduce(
+      (sum: number, amt: number) => sum + (maxBudgetPerDay - amt),
+      0
+    );
+  } else if (mode === "month") {
+    const idx = typeof monthIndex === "number" ? monthIndex : 0;
     let days: number[] = Array(7).fill(0);
-    for (let w = idx * 4; w < (idx + 1) * 4 && w < statisticsTestData.weeklyCategorySpending.length; w++) {
+    for (
+      let w = idx * 4;
+      w < (idx + 1) * 4 && w < statisticsTestData.weeklyCategorySpending.length;
+      w++
+    ) {
       for (let d = 0; d < 7; d++) {
         days[d] += statisticsTestData.weeklyCategorySpending[w][d];
       }
     }
-    spending = days.reduce((a, b) => a + b, 0);
-    savings = days.reduce((sum, amt) => sum + (maxBudgetPerDay - amt), 0);
-  } else if (mode === 'overall') {
+    spending = days.reduce((a: number, b: number) => a + b, 0);
+    savings = days.reduce(
+      (sum: number, amt: number) => sum + (maxBudgetPerDay - amt),
+      0
+    );
+  } else if (mode === "overall") {
     let days: number[] = Array(7).fill(0);
     for (let w = 0; w < statisticsTestData.weeklyCategorySpending.length; w++) {
       for (let d = 0; d < 7; d++) {
         days[d] += statisticsTestData.weeklyCategorySpending[w][d];
       }
     }
-    spending = days.reduce((a, b) => a + b, 0);
-    savings = days.reduce((sum, amt) => sum + (maxBudgetPerDay - amt), 0);
+    spending = days.reduce((a: number, b: number) => a + b, 0);
+    savings = days.reduce(
+      (sum: number, amt: number) => sum + (maxBudgetPerDay - amt),
+      0
+    );
   }
 
   const total = spending + savings;
@@ -69,7 +101,8 @@ const ExcessPie: React.FC<ExcessPieProps> = ({ mode = 'week', weekIndex, monthIn
           label: function (context: any) {
             const label = context.label || "";
             const value = context.raw;
-            const percent = total === 0 ? 0 : ((value / total) * 100).toFixed(1);
+            const percent =
+              total === 0 ? 0 : ((value / total) * 100).toFixed(1);
             return `${label}: ${value} (${percent}%)`;
           },
         },
@@ -97,7 +130,9 @@ const ExcessPie: React.FC<ExcessPieProps> = ({ mode = 'week', weekIndex, monthIn
             pointerEvents: "none",
           }}
         >
-          <span style={{ fontSize: "2.2rem", fontWeight: 700, color: "#2c3e50" }}>
+          <span
+            style={{ fontSize: "2.2rem", fontWeight: 700, color: "#2c3e50" }}
+          >
             {mainPercent.toFixed(0)}%
           </span>
           <span style={{ fontSize: "1.1rem", color: "#888" }}>{mainLabel}</span>
@@ -117,4 +152,4 @@ const ExcessPie: React.FC<ExcessPieProps> = ({ mode = 'week', weekIndex, monthIn
   );
 };
 
-export default ExcessPie; 
+export default ExcessPie;

@@ -11,6 +11,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import { statisticsTestData } from "./testData";
 
 ChartJS.register(
   CategoryScale,
@@ -23,8 +24,9 @@ ChartJS.register(
 );
 
 interface WeeklySpendingChartProps {
-  data: number[];
-  yMax: number;
+  mode?: 'week' | 'month' | 'overall';
+  weekIndex?: number;
+  monthIndex?: number;
 }
 
 const WeeklySpendingChart: React.FC<WeeklySpendingChartProps> = ({ mode = 'week', weekIndex, monthIndex }) => {

@@ -9,6 +9,7 @@ import { processExpense, ExpenseInput, AIResponse } from "@/utils/aiApi";
 import "./style.css";
 import DashboardHeader from "@/component/dashboardheader";
 import { useAuthGuard } from "@/utils/useAuthGuard";
+import { testCategories, testAmounts, barColors } from "../statistics/testData";
 // Data interface for type safety
 interface WeeklyData {
   day: string;

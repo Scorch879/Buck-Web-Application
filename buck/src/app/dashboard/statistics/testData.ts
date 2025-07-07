@@ -10,6 +10,7 @@ export const statisticsTestData = {
     "Other",
   ],
   maxBudgetPerDay: 1000,
+  categoryTotals: [200, 100, 500, 200, 1000, 300, 500],
   //categoryTotals: [220, 60, 40, 90, 70, 110, 30],
   weeklyCategorySpending: [
     [200, 100, 500, 200, 1000, 300, 500], // Week 1
@@ -18,8 +19,8 @@ export const statisticsTestData = {
     [45, 15, 8, 22, 15, 35, 7], // Week 4
   ],
   get weeklyTotals() {
-    return this.weeklyCategorySpending.map((week) =>
-      week.reduce((a, b) => a + b, 0)
+    return this.weeklyCategorySpending.map((week: number[]) =>
+      week.reduce((a: number, b: number) => a + b, 0)
     );
   },
   barColors: [
@@ -32,10 +33,14 @@ export const statisticsTestData = {
     "#ffd700", // Other - gold
   ],
   get totalSpending() {
-    return this.categoryTotals.reduce((a, b) => a + b, 0);
+    return this.categoryTotals.reduce((a: number, b: number) => a + b, 0);
   },
   totalSavings: 150, // Example static value
   get excessSpending() {
     return this.totalSpending - this.totalSavings;
   },
 };
+
+export const testCategories = ["Food", "Transport", "Entertainment", "Savings"];
+export const testAmounts = statisticsTestData.weeklyCategorySpending[0];
+export const barColors = statisticsTestData.barColors;

@@ -19,9 +19,8 @@ import ExcessPie from "./excess-pie";
 import SpendingBar from "./spending-bar";
 import { db } from "@/utils/firebase";
 import { collection, getDocs } from "firebase/firestore";
-import { statisticsTestData } from './testData';
+import { statisticsTestData, testCategories } from "./testData";
 import { useFinancial } from "@/context/FinancialContext";
-
 
 ChartJS.register(
   CategoryScale,
@@ -44,6 +43,11 @@ interface Goal {
   isActive?: boolean;
 }
 
+// Ensure props match ExcessPieProps
+type ExcessPieProps = {
+  data: Array<{ category: string; amount: number }>;
+};
+
 const Statistics = () => {
   const router = useRouter();
   const { user, loading } = useAuthGuard();
@@ -51,7 +55,9 @@ const Statistics = () => {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loadingGoals, setLoadingGoals] = useState(false);
 
-  const [selectedMode, setSelectedMode] = useState<'week' | 'month' | 'overall'>('week');
+  const [selectedMode, setSelectedMode] = useState<
+    "week" | "month" | "overall"
+  >("week");
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [selectedMonth, setSelectedMonth] = useState(0);
   const { setTotalSaved } = useFinancial();
@@ -61,10 +67,16 @@ const Statistics = () => {
   let monthDateRanges: { start: string; end: string; label: string }[] = [];
   if (goals.length > 0) {
     // Find the earliest Monday on or before the earliest goal start
-    const minStartRaw = new Date(Math.min(...goals.map(g => new Date(g.createdAt).getTime())));
+    const minStartRaw = new Date(
+      Math.min(...goals.map((g) => new Date(g.createdAt).getTime()))
+    );
     const minStart = new Date(minStartRaw);
     minStart.setDate(minStart.getDate() - ((minStart.getDay() + 6) % 7)); // Monday
-    const maxEnd = new Date(Math.max(...goals.map(g => new Date(g.targetDate || g.createdAt).getTime())));
+    const maxEnd = new Date(
+      Math.max(
+        ...goals.map((g) => new Date(g.targetDate || g.createdAt).getTime())
+      )
+    );
     // Weeks (Monday to Sunday)
     let current = new Date(minStart);
     while (current <= maxEnd) {
@@ -81,11 +93,18 @@ const Statistics = () => {
     let monthCursor = new Date(minStart.getFullYear(), minStart.getMonth(), 1);
     while (monthCursor <= maxEnd) {
       const monthStart = new Date(monthCursor);
-      const monthEnd = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0);
+      const monthEnd = new Date(
+        monthCursor.getFullYear(),
+        monthCursor.getMonth() + 1,
+        0
+      );
       monthDateRanges.push({
         start: monthStart.toISOString().slice(0, 10),
         end: monthEnd.toISOString().slice(0, 10),
-        label: monthStart.toLocaleString('default', { month: 'long', year: 'numeric' })
+        label: monthStart.toLocaleString("default", {
+          month: "long",
+          year: "numeric",
+        }),
       });
       monthCursor.setMonth(monthCursor.getMonth() + 1);
     }
@@ -94,13 +113,12 @@ const Statistics = () => {
   let currentWeekIdx = -1;
   if (weekDateRanges.length > 0) {
     const today = new Date();
-    currentWeekIdx = weekDateRanges.findIndex(range => {
+    currentWeekIdx = weekDateRanges.findIndex((range) => {
       const start = new Date(range.start);
       const end = new Date(range.end);
       return today >= start && today <= end;
     });
   }
-
 
   useEffect(() => {
     const fetchGoals = async () => {
@@ -108,7 +126,9 @@ const Statistics = () => {
         setLoadingGoals(true);
         const goalsRef = collection(db, "goals", user.uid, "userGoals");
         const snapshot = await getDocs(goalsRef);
-        setGoals(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Goal)));
+        setGoals(
+          snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Goal))
+        );
         setLoadingGoals(false);
       }
     };
@@ -118,27 +138,42 @@ const Statistics = () => {
   // Calculate totalSaved for the user (use your real calculation here)
   let totalSaved = 0;
   // For demo: sum all savings for the selected mode
-  if (selectedMode === 'week' && weekDateRanges.length > 0) {
+  if (selectedMode === "week" && weekDateRanges.length > 0) {
     const idx = selectedWeek;
-    const weekData = statisticsTestData.weeklyCategorySpending[idx] || Array(statisticsTestData.categories.length).fill(0);
-    totalSaved = weekData.reduce((sum, amt) => sum + (statisticsTestData.maxBudgetPerDay - amt), 0);
-  } else if (selectedMode === 'month' && monthDateRanges.length > 0) {
+    const weekData =
+      statisticsTestData.weeklyCategorySpending[idx] ||
+      Array(statisticsTestData.categories.length).fill(0);
+    totalSaved = weekData.reduce(
+      (sum, amt) => sum + (statisticsTestData.maxBudgetPerDay - amt),
+      0
+    );
+  } else if (selectedMode === "month" && monthDateRanges.length > 0) {
     const idx = selectedMonth;
     let days = Array(7).fill(0);
-    for (let w = idx * 4; w < (idx + 1) * 4 && w < statisticsTestData.weeklyCategorySpending.length; w++) {
+    for (
+      let w = idx * 4;
+      w < (idx + 1) * 4 && w < statisticsTestData.weeklyCategorySpending.length;
+      w++
+    ) {
       for (let d = 0; d < 7; d++) {
         days[d] += statisticsTestData.weeklyCategorySpending[w][d];
       }
     }
-    totalSaved = days.reduce((sum, amt) => sum + (statisticsTestData.maxBudgetPerDay - amt), 0);
-  } else if (selectedMode === 'overall') {
+    totalSaved = days.reduce(
+      (sum, amt) => sum + (statisticsTestData.maxBudgetPerDay - amt),
+      0
+    );
+  } else if (selectedMode === "overall") {
     let days = Array(7).fill(0);
     for (let w = 0; w < statisticsTestData.weeklyCategorySpending.length; w++) {
       for (let d = 0; d < 7; d++) {
         days[d] += statisticsTestData.weeklyCategorySpending[w][d];
       }
     }
-    totalSaved = days.reduce((sum, amt) => sum + (statisticsTestData.maxBudgetPerDay - amt), 0);
+    totalSaved = days.reduce(
+      (sum, amt) => sum + (statisticsTestData.maxBudgetPerDay - amt),
+      0
+    );
   }
 
   useEffect(() => {
@@ -154,7 +189,7 @@ const Statistics = () => {
     );
   }
 
-    //Test Variables
+  //Test Variables
   let mon, tue, wed, thu, fri, sat, sun;
 
   mon = 1000; // Example value for Monday
@@ -165,9 +200,8 @@ const Statistics = () => {
   sat = 1100; // Example value for Saturday
   ///
 
-
   let maxBudgetPerDay = 1000;
-  
+
   let totalExpenses = [mon, tue, wed, thu, fri, sat, sun]; // Example expenses for each day of the week
 
   const saved = [0, 0, 0, 0, 0, 0, 0];
@@ -231,14 +265,33 @@ const Statistics = () => {
           ) : (
             <>
               {/* First row: Pie chart and Bar graph */}
-              <div style={{ display: "flex", gap: "2rem", alignItems: "flex-start" }}>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  <ExcessPie spending={totalSpending} savings={totalSavings} />
+              <div
+                style={{
+                  display: "flex",
+                  gap: "2rem",
+                  alignItems: "flex-start",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                  }}
+                >
+                  <ExcessPie />
                 </div>
                 <SpendingBar />
               </div>
               {/* Second row: Line graph */}
-              <div style={{ display: "flex", gap: "2rem", alignItems: "flex-start", marginTop: "2rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "2rem",
+                  alignItems: "flex-start",
+                  marginTop: "2rem",
+                }}
+              >
                 <div className="graph-panel">
                   <div className="graph-panel-header">
                     Weekly Spending Report
@@ -251,7 +304,9 @@ const Statistics = () => {
                         value={yMax}
                         min={1}
                         step={1}
-                        onChange={e => setYMax(Math.max(1, Number(e.target.value)))}
+                        onChange={(e) =>
+                          setYMax(Math.max(1, Number(e.target.value)))
+                        }
                         style={{
                           marginLeft: 8,
                           width: 60,
