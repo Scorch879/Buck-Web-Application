@@ -83,6 +83,19 @@ export default function Home() {
       <div className="landing-page">
         <div className="lp-header">
           <div className="lp-header-container">
+            <div className="header-leftside">
+              <div className="header-img">
+                <Image
+                  src="/BuckMascot.png"
+                  alt="Buck Logo"
+                  width={60}
+                  height={75}
+                  className="buckLogo"
+                  onClick={playQuack}
+                />
+              </div>
+              <h1>Buck</h1>
+            </div>
             <div className="header-btns">
               <button className="header-button" onClick={() => document.getElementById('Home')?.scrollIntoView({ behavior: 'smooth' })}>
                 Home
@@ -94,44 +107,15 @@ export default function Home() {
                 Sign In/Sign Up
               </button>
             </div>
-            <div className="header-leftside">
-              <h1>Buck The Budget Tracker</h1>
-              <div className="header-img">
-                <Image
-                  src="/BuckMascot.png"
-                  alt="Buck Logo"
-                  width={60}
-                  height={75}
-                  className="buckLogo"
-                  onClick={playQuack}
-                />
-              </div>
-            </div>
           </div>
         </div>
-        <div className="section1" id="Home">
-          <div className="welcomeSign">
-            <div className="buckmsg">
-              <p id="name">Buck</p>
-              <div className="smoothLine"></div>
-              <p id="desc">The Budget Tracker</p>
-            </div>
-            <div className="buckmascot">
-              <Image
-                src="/BuckMascot.png"
-                alt="Buck Logo"
-                fill
-                className="buckmascotImg"
-                priority
-                style={{ objectFit: "contain" }}
-              ></Image>
-            </div>
-          </div>
-          <div
-            className="welcomeMsg"
-            onMouseMove={handleMouseMove}
-            ref={welcomeMsgRef}
-          >
+        <div
+          className="section1"
+          id="Home"
+          onMouseMove={handleMouseMove}
+          ref={welcomeMsgRef}
+        >
+          <div className="section1-msg">
             <motion.p
               variants={containerVariants}
               initial="hidden"
@@ -162,33 +146,33 @@ export default function Home() {
                 }}
               />
             ))}
-            <motion.button
-              ref={btnRef}
-              onClick={() => router.push("/sign-in")}
-              type="submit"
-              className="getstarted-btn"
-              onMouseMove={(e) => {
-                const rect = btnRef.current?.getBoundingClientRect();
-                if (rect) {
-                  const x = e.clientX - rect.left;
-                  const y = e.clientY - rect.top;
-                  setBtnMouse({ x, y });
-                }
-              }}
-              onMouseLeave={() => setBtnMouse(null)}
-              style={{
-                background: btnMouse
-                  ? `radial-gradient(circle at ${btnMouse.x}px ${btnMouse.y}px, #fd523b 0%, #ef8a57 100%)`
-                  : "linear-gradient(90deg, #ef8a57 60%, #fd523b 100%)",
-                transition: btnMouse ? "background 0.1s" : "background 0.3s",
-              }}
-              whileHover={{
-                scale: 1.03,
-              }}
-            >
-              Get Started
-            </motion.button>
           </div>
+          <motion.button
+            ref={btnRef}
+            onClick={() => router.push("/sign-in")}
+            type="submit"
+            className="getstarted-btn"
+            onMouseMove={(e) => {
+              const rect = btnRef.current?.getBoundingClientRect();
+              if (rect) {
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                setBtnMouse({ x, y });
+              }
+            }}
+            onMouseLeave={() => setBtnMouse(null)}
+            style={{
+              background: btnMouse
+                ? `radial-gradient(circle at ${btnMouse.x}px ${btnMouse.y}px, #fd523b 0%, #ef8a57 100%)`
+                : "linear-gradient(90deg, #ef8a57 60%, #fd523b 100%)",
+              transition: btnMouse ? "background 0.1s" : "background 0.3s",
+            }}
+            whileHover={{
+              scale: 1.03,
+            }}
+          >
+            Get Started
+          </motion.button>
         </div>
         <div className="section2" id="About">
           <div className="s2-container">
@@ -199,7 +183,7 @@ export default function Home() {
             </div>
             <div className="card-container">
               <div className="s2-cards">
-                <div style={{ position: "relative", width: "100%", aspectRatio: "2/3", maxWidth: 120 }}>
+                <div className="card-svg-container" style={{ position: "relative", width: "100%", aspectRatio: "2/3", maxWidth: 120 }}>
                   <Image
                     src="/goaltracking.svg"
                     alt="goal tracking"
@@ -212,14 +196,13 @@ export default function Home() {
                 <h1> Goal Tracking</h1>
                 <div className="cardtext-container">
                   <h3>
-                    Stay motivated by setting and achieving your
-                    financial goals. Whether it’s saving for a vacation, paying off debt, or building an emergency fund,
-                    Buck helps you create specific, trackable goals and monitor your progress every step of the way.
+                    Set clear financial goals and watch your progress in real time. Buck keeps you
+                    motivated and on track toward what matters most.
                   </h3>
                 </div>
               </div>
               <div className="s2-cards">
-                <div style={{ position: "relative", width: "100%", aspectRatio: "2/3", maxWidth: 120 }}>
+                <div className="card-svg-container" style={{ position: "relative", width: "100%", aspectRatio: "2/3", maxWidth: 120 }}>
                   <Image
                     src="/expensetracking.svg"
                     alt="expense tracking"
@@ -232,14 +215,13 @@ export default function Home() {
                 <h1>Expense Tracking</h1>
                 <div className="cardtext-container">
                   <h3>
-                    Take control of your money by keeping an eye on where it goes. Easily log and categorize your daily
-                    expenses to see exactly how much you’re spending and on what. Buck makes it simple to stick to your
-                    budget and cut unnecessary costs.
+                    Easily log and categorize your expenses to see where your money goes. Stay on
+                    budget and cut unnecessary costs effortlessly.
                   </h3>
                 </div>
               </div>
               <div className="s2-cards">
-                <div style={{ position: "relative", width: "100%", aspectRatio: "2/3", maxWidth: 120 }}>
+                <div className="card-svg-container" style={{ position: "relative", width: "100%", aspectRatio: "2/3", maxWidth: 120 }}>
                   <Image
                     src="/forecasting.svg"
                     alt="forecasting"
@@ -252,9 +234,8 @@ export default function Home() {
                 <h1> Forecasting</h1>
                 <div className="cardtext-container">
                   <h3>
-                    Plan ahead with confidence. Buck analyzes your spending patterns and projects your future cash flow,
-                    helping you anticipate upcoming expenses and identify potential savings opportunities. Make smarter decisions
-                    today for a better tomorrow.
+                    Plan ahead with smart projections based on your spending
+                    habits. See what’s coming so you can make better financial decisions today.
                   </h3>
                 </div>
               </div>
@@ -280,7 +261,7 @@ export default function Home() {
           <div className="copyright-section">
             <div className="copyright-line"></div>
             <div className="copyright">
-              <p>© 2025 Buck: The budget Tracker. All rights reserved</p>
+              <p>© 2025 Buck. All rights reserved</p>
             </div>
           </div>
         </div>
