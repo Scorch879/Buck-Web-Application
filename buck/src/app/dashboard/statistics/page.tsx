@@ -163,11 +163,18 @@ const Statistics = () => {
       setForecastLoading(true);
       setForecastError('');
       try {
-        const res = await fetch('https://buck-web-application.onrender.com/ai/forecast/', {
+        const goalPayload = {
+          id: selectedGoal.id,
+          userId: user.uid,
+          targetAmount: selectedGoal.targetAmount,
+          targetDate: selectedGoal.targetDate,
+          attitude: selectedGoal.attitude || "Normal"
+        };
+        const res = await fetch('https://buck-web-application-1.onrender.com/ai/forecast/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            goal: { ...selectedGoal, userId: user.uid },
+            goal: goalPayload,
             budget: 0 // Optionally fetch wallet budget if needed
           })
         });
@@ -189,7 +196,14 @@ const Statistics = () => {
     setExpenseLoading(true);
     setExpenseError('');
     try {
-      const res = await fetch('https://buck-web-application.onrender.com/expenses/', {
+      const goalPayload = {
+        id: selectedGoal.id,
+        userId: user.uid,
+        targetAmount: selectedGoal.targetAmount,
+        targetDate: selectedGoal.targetDate,
+        attitude: selectedGoal.attitude || "Normal"
+      };
+      const res = await fetch('https://buck-web-application-1.onrender.com/expenses/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -207,11 +221,11 @@ const Statistics = () => {
       setExpenseDesc('');
       // Refresh forecast/actual data
       const fetchForecast = async () => {
-        const res = await fetch('https://buck-web-application.onrender.com/ai/forecast/', {
+        const res = await fetch('https://buck-web-application-1.onrender.com/ai/forecast/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            goal: { ...selectedGoal, userId: user.uid },
+            goal: goalPayload,
             budget: 0
           })
         });

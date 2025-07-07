@@ -11,6 +11,28 @@ import CreateGoalModal from "./CreateGoalModal";
 import { deleteGoal, updateGoalStatus, setOnlyGoalActive } from "@/component/goals";
 import ProgressBarCard from "./ProgressBarCard";
 import { getSavingTip } from "@/utils/aiApi";
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend,
+} from "chart.js";
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend
+);
+
 // --- Goal interface for type safety ---
 interface Goal {
   id: string;
@@ -39,11 +61,53 @@ const GoalsPage = () => {
   const [progressInput, setProgressInput] = useState("");
   const [progressLoading, setProgressLoading] = useState(false);
 
-  const [forecastResult, setForecastResult] = useState<string | null>(null);
+  const [forecastData, setForecastData] = useState<any>(null);
   const [forecastLoading, setForecastLoading] = useState(false);
   const [forecastError, setForecastError] = useState<string | null>(null);
 
   const [forecastModalOpen, setForecastModalOpen] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [expenseDate, setExpenseDate] = useState('');
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseDesc, setExpenseDesc] = useState('');
+  const [expenseLoading, setExpenseLoading] = useState(false);
+  const [expenseError, setExpenseError] = useState('');
+
+  const [selectedMode, setSelectedMode] = useState<'week' | 'month' | 'overall'>('week');
+  const [selectedWeek, setSelectedWeek] = useState(0);
+  const [selectedMonth, setSelectedMonth] = useState(0);
+
+  // Generate week/month ranges for the selected goal
+  let weekDateRanges: { start: string; end: string }[] = [];
+  let monthDateRanges: { start: string; end: string; label: string }[] = [];
+  if (selectedGoal) {
+    const minStartRaw = new Date(selectedGoal.createdAt);
+    const minStart = new Date(minStartRaw);
+    minStart.setDate(minStart.getDate() - ((minStart.getDay() + 6) % 7)); // Monday
+    const maxEnd = new Date(selectedGoal.targetDate || selectedGoal.createdAt);
+    let current = new Date(minStart);
+    while (current <= maxEnd) {
+      const weekStart = new Date(current);
+      const weekEnd = new Date(current);
+      weekEnd.setDate(current.getDate() + 6);
+      weekDateRanges.push({
+        start: weekStart.toISOString().slice(0, 10),
+        end: weekEnd.toISOString().slice(0, 10),
+      });
+      current.setDate(current.getDate() + 7);
+    }
+    let monthCursor = new Date(minStart.getFullYear(), minStart.getMonth(), 1);
+    while (monthCursor <= maxEnd) {
+      const monthStart = new Date(monthCursor);
+      const monthEnd = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0);
+      monthDateRanges.push({
+        start: monthStart.toISOString().slice(0, 10),
+        end: monthEnd.toISOString().slice(0, 10),
+        label: monthStart.toLocaleString('default', { month: 'long', year: 'numeric' })
+      });
+      monthCursor.setMonth(monthCursor.getMonth() + 1);
+    }
+  }
 
   // --- CRUD Handlers ---
   const handleDeleteGoal = async () => {
@@ -135,23 +199,30 @@ const GoalsPage = () => {
   };
 
   const handleSeeForecast = async () => {
-    if (!selectedGoal || walletBudget == null) return;
+    if (!selectedGoal || walletBudget == null || !user) return;
     setForecastLoading(true);
     setForecastError(null);
-    setForecastResult(null);
+    setForecastData(null);
     setForecastModalOpen(true);
     try {
-      const res = await fetch("https://buck-web-application.onrender.com/ai/forecast/", {
+      const goalPayload = {
+        id: selectedGoal.id,
+        userId: user.uid,
+        targetAmount: selectedGoal.targetAmount,
+        targetDate: selectedGoal.targetDate,
+        attitude: selectedGoal.attitude || "Normal"
+      };
+      const res = await fetch("https://buck-web-application-1.onrender.com/ai/forecast/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          goal: selectedGoal,
+          goal: goalPayload,
           budget: walletBudget,
         }),
       });
       if (!res.ok) throw new Error("Failed to fetch forecast");
       const data = await res.json();
-      setForecastResult(data.forecast || data.recommendation || "No forecast available.");
+      setForecastData(data);
     } catch (err: any) {
       setForecastError(err.message || "Unknown error");
     } finally {
@@ -254,6 +325,138 @@ const GoalsPage = () => {
     };
     fetchWalletBudget();
   }, [user]);
+
+  useEffect(() => {
+    if (!forecastModalOpen || !selectedGoal || !user) return;
+    const fetchForecast = async () => {
+      setForecastLoading(true);
+      setForecastError(null);
+      try {
+        const goalPayload = {
+          id: selectedGoal.id,
+          userId: user.uid,
+          targetAmount: selectedGoal.targetAmount,
+          targetDate: selectedGoal.targetDate,
+          attitude: selectedGoal.attitude || "Normal"
+        };
+        let range = {};
+        if (selectedMode === 'week' && weekDateRanges[selectedWeek]) {
+          range = { start: weekDateRanges[selectedWeek].start, end: weekDateRanges[selectedWeek].end };
+        } else if (selectedMode === 'month' && monthDateRanges[selectedMonth]) {
+          range = { start: monthDateRanges[selectedMonth].start, end: monthDateRanges[selectedMonth].end };
+        }
+        const res = await fetch('https://buck-web-application-1.onrender.com/ai/forecast/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            goal: goalPayload,
+            budget: walletBudget || 0,
+            mode: selectedMode,
+            ...range
+          })
+        });
+        if (!res.ok) throw new Error('Failed to fetch forecast');
+        const data = await res.json();
+        setForecastData(data);
+      } catch (err: any) {
+        setForecastError(err.message || 'Unknown error');
+      } finally {
+        setForecastLoading(false);
+      }
+    };
+    fetchForecast();
+  }, [forecastModalOpen, selectedGoal, user, walletBudget, selectedMode, selectedWeek, selectedMonth]);
+
+  // Add expense handler for modal
+  const handleAddExpense = async () => {
+    if (!user || !selectedGoal) return;
+    setExpenseLoading(true);
+    setExpenseError('');
+    try {
+      const res = await fetch('https://buck-web-application-1.onrender.com/expenses/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: user.uid,
+          goal_id: selectedGoal.id,
+          date: expenseDate,
+          amount: parseFloat(expenseAmount),
+          description: expenseDesc
+        })
+      });
+      if (!res.ok) throw new Error('Failed to add expense');
+      setShowExpenseModal(false);
+      setExpenseDate('');
+      setExpenseAmount('');
+      setExpenseDesc('');
+      // Refresh forecast/actual data
+      const goalPayload = {
+        id: selectedGoal.id,
+        userId: user.uid,
+        targetAmount: selectedGoal.targetAmount,
+        targetDate: selectedGoal.targetDate,
+        attitude: selectedGoal.attitude || "Normal"
+      };
+      const fetchForecast = async () => {
+        const res = await fetch('https://buck-web-application-1.onrender.com/ai/forecast/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            goal: goalPayload,
+            budget: walletBudget || 0
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setForecastData(data);
+        }
+      };
+      fetchForecast();
+    } catch (err: any) {
+      setExpenseError(err.message || 'Unknown error');
+    } finally {
+      setExpenseLoading(false);
+    }
+  };
+
+  // Prepare data for Chart.js (Spending Report style)
+  let chartData = null;
+  if (forecastData && forecastData.forecast_per_day) {
+    const labels = Object.keys(forecastData.forecast_per_day);
+    const forecastVals = labels.map(d => forecastData.forecast_per_day[d]);
+    const actualVals = labels.map(d => (forecastData.actual_per_day && forecastData.actual_per_day[d]) || 0);
+    chartData = {
+      labels,
+      datasets: [
+        {
+          label: 'Forecasted Daily Expense',
+          data: forecastVals,
+          borderColor: '#ef8a57',
+          backgroundColor: 'rgba(239,138,87,0.15)',
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#ef8a57',
+          pointBorderColor: '#ef8a57',
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          borderWidth: 3,
+        },
+        {
+          label: 'Actual Daily Expense',
+          data: actualVals,
+          borderColor: '#3498db',
+          backgroundColor: 'rgba(52,152,219,0.15)',
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#3498db',
+          pointBorderColor: '#3498db',
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          borderWidth: 3,
+        }
+      ]
+    };
+  }
 
   if (loading || !user || loadingGoals) {
     return (
@@ -403,12 +606,94 @@ const GoalsPage = () => {
                 </button>
                 {forecastModalOpen && (
                   <div className="modal-backdrop" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="modal" style={{ background: '#fff', borderRadius: 8, padding: 24, minWidth: 320, maxWidth: 400, boxShadow: '0 2px 16px rgba(0,0,0,0.2)', position: 'relative' }}>
+                    <div className="modal" style={{ background: '#fff', borderRadius: 8, padding: 24, minWidth: 400, maxWidth: 600, boxShadow: '0 2px 16px rgba(0,0,0,0.2)', position: 'relative' }}>
                       <button onClick={() => setForecastModalOpen(false)} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>&times;</button>
-                      <h3 style={{ marginTop: 0 }}>Forecast</h3>
-                      {forecastLoading && <div>Loading...</div>}
+                      <h3 style={{ marginTop: 0, color: '#ef8a57', textAlign: 'center' }}>Forecast</h3>
+                      {/* Mode Selector */}
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 16 }}>
+                        <button onClick={() => setSelectedMode('week')} style={{ background: selectedMode === 'week' ? '#ef8a57' : '#eee', color: selectedMode === 'week' ? '#fff' : '#333', border: 'none', borderRadius: 6, padding: '0.5rem 1.2rem', fontWeight: 600, cursor: 'pointer' }}>Week</button>
+                        <button onClick={() => setSelectedMode('month')} style={{ background: selectedMode === 'month' ? '#ef8a57' : '#eee', color: selectedMode === 'month' ? '#fff' : '#333', border: 'none', borderRadius: 6, padding: '0.5rem 1.2rem', fontWeight: 600, cursor: 'pointer' }}>Month</button>
+                        <button onClick={() => setSelectedMode('overall')} style={{ background: selectedMode === 'overall' ? '#ef8a57' : '#eee', color: selectedMode === 'overall' ? '#fff' : '#333', border: 'none', borderRadius: 6, padding: '0.5rem 1.2rem', fontWeight: 600, cursor: 'pointer' }}>Overall</button>
+                      </div>
+                      {/* Range Selector */}
+                      {selectedMode === 'week' && weekDateRanges.length > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
+                          <select value={selectedWeek} onChange={e => setSelectedWeek(Number(e.target.value))} style={{ padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #ccc' }}>
+                            {weekDateRanges.map((range, idx) => (
+                              <option key={idx} value={idx}>Week {idx + 1}: {range.start} to {range.end}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      {selectedMode === 'month' && monthDateRanges.length > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
+                          <select value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))} style={{ padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #ccc' }}>
+                            {monthDateRanges.map((range, idx) => (
+                              <option key={idx} value={idx}>{range.label}: {range.start} to {range.end}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      {/* Progress Bar for Goal */}
+                      {selectedGoal && (
+                        <div style={{ marginBottom: 16 }}>
+                          <div style={{ fontWeight: 600, marginBottom: 4 }}>Goal Progress</div>
+                          <div style={{ background: '#eee', borderRadius: 8, height: 18, width: '100%', marginBottom: 4 }}>
+                            <div style={{ background: '#ef8a57', height: '100%', borderRadius: 8, width: `${Math.min(100, ((selectedGoal.currentAmount || 0) / selectedGoal.targetAmount) * 100)}%`, transition: 'width 0.5s' }}></div>
+                          </div>
+                          <div style={{ fontSize: 14, color: '#555' }}>Saved: ₱{selectedGoal.currentAmount || 0} / ₱{selectedGoal.targetAmount}</div>
+                        </div>
+                      )}
+                      {/* AI Forecast Text */}
+                      {forecastLoading && <div>Loading forecast...</div>}
                       {forecastError && <div style={{ color: 'red' }}>{forecastError}</div>}
-                      {forecastResult && <div style={{ marginTop: 12 }}>{forecastResult}</div>}
+                      {forecastData && forecastData.forecast && <div style={{ margin: '12px 0', fontWeight: 500, color: '#2c3e50', textAlign: 'center' }}>{forecastData.forecast}</div>}
+                      {/* Forecast/Actual Graph */}
+                      <div style={{ width: '100%', maxWidth: 500, margin: '1rem auto' }}>
+                        {chartData && <Line data={chartData} options={{
+                          responsive: true,
+                          plugins: {
+                            legend: { display: true, position: 'top' },
+                            tooltip: {
+                              callbacks: {
+                                label: function(context) {
+                                  const value = Number(context.raw);
+                                  return `${context.dataset.label}: ${value}`;
+                                }
+                              }
+                            }
+                          },
+                          scales: {
+                            x: { grid: { display: false }, ticks: { color: '#2c3e50', font: { weight: 600 } } },
+                            y: {
+                              grid: { color: '#eee' },
+                              beginAtZero: true,
+                              ticks: { color: '#2c3e50' },
+                            },
+                          },
+                        }} />}
+                      </div>
+                      {/* Add Expense Button and Modal */}
+                      <div style={{ width: '100%', maxWidth: 400, margin: '1rem auto' }}>
+                        <button onClick={() => setShowExpenseModal(true)} style={{ background: '#ef8a57', color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem 1.5rem', fontWeight: 600, fontSize: 16, cursor: 'pointer', marginBottom: 16, width: '100%' }}>
+                          + Add Expense
+                        </button>
+                        {showExpenseModal && (
+                          <div className="modal-backdrop" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.4)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div className="modal" style={{ background: '#fff', borderRadius: 8, padding: 24, minWidth: 320, maxWidth: 400, boxShadow: '0 2px 16px rgba(0,0,0,0.2)', position: 'relative' }}>
+                              <button onClick={() => setShowExpenseModal(false)} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>&times;</button>
+                              <h3 style={{ marginTop: 0 }}>Add Expense</h3>
+                              <input type="date" value={expenseDate} onChange={e => setExpenseDate(e.target.value)} style={{ width: '100%', marginBottom: 12, padding: 8, borderRadius: 4, border: '1px solid #ccc' }} />
+                              <input type="number" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} placeholder="Amount" style={{ width: '100%', marginBottom: 12, padding: 8, borderRadius: 4, border: '1px solid #ccc' }} />
+                              <input type="text" value={expenseDesc} onChange={e => setExpenseDesc(e.target.value)} placeholder="Description" style={{ width: '100%', marginBottom: 12, padding: 8, borderRadius: 4, border: '1px solid #ccc' }} />
+                              {expenseError && <div style={{ color: 'red', marginBottom: 8 }}>{expenseError}</div>}
+                              <button onClick={handleAddExpense} disabled={expenseLoading} style={{ background: '#ef8a57', color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem 1.5rem', fontWeight: 600, fontSize: 16, cursor: 'pointer', width: '100%' }}>
+                                {expenseLoading ? 'Adding...' : 'Add Expense'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
