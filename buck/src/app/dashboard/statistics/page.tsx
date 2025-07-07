@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./style.css";
 import { useRouter } from "next/navigation";
 import DashboardHeader from "@/component/dashboardheader";
@@ -17,6 +17,8 @@ import {
 } from "chart.js";
 import ExcessPie from "./excess-pie";
 import SpendingBar from "./spending-bar";
+import { db } from "@/utils/firebase";
+import { collection, getDocs } from "firebase/firestore";
 
 
 ChartJS.register(
@@ -29,12 +31,38 @@ ChartJS.register(
   Legend
 );
 
+interface Goal {
+  id: string;
+  goalName: string;
+  targetAmount: number;
+  currentAmount?: number;
+  targetDate?: string;
+  createdAt: string;
+  attitude?: string;
+  isActive?: boolean;
+}
+
 const Statistics = () => {
   const router = useRouter();
   const { user, loading } = useAuthGuard();
   const [yMax, setYMax] = useState(1000);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [loadingGoals, setLoadingGoals] = useState(false);
 
-  if (loading || !user) {
+  useEffect(() => {
+    const fetchGoals = async () => {
+      if (user) {
+        setLoadingGoals(true);
+        const goalsRef = collection(db, "goals", user.uid, "userGoals");
+        const snapshot = await getDocs(goalsRef);
+        setGoals(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Goal)));
+        setLoadingGoals(false);
+      }
+    };
+    fetchGoals();
+  }, [user]);
+
+  if (loading || !user || loadingGoals) {
     return (
       <div className="loading-spinner">
         <div className="spinner"></div>
@@ -141,28 +169,30 @@ const Statistics = () => {
                 </div>
               </div>
             </div>
-            <div className="empty-goals-popup">
-              <h2
-                style={{
-                  fontSize: "2rem",
-                  fontWeight: 700,
-                  color: "#2c3e50",
-                  marginBottom: "2rem",
-                }}
-              >
-                What the Buck?!
-                <br />
-                You dont have any goals yet.
-                <br />
-                Would you like to create one?
-              </h2>
-              <button
-                className="create-goal-button"
-                onClick={() => router.push("/dashboard/goals/create")}
-              >
-                Create Goal
-              </button>
-            </div>
+            {goals.length === 0 && (
+              <div className="empty-goals-popup">
+                <h2
+                  style={{
+                    fontSize: "2rem",
+                    fontWeight: 700,
+                    color: "#2c3e50",
+                    marginBottom: "2rem",
+                  }}
+                >
+                  What the Buck?!
+                  <br />
+                  You dont have any goals yet.
+                  <br />
+                  Would you like to create one?
+                </h2>
+                <button
+                  className="create-goal-button"
+                  onClick={() => router.push("/dashboard/goals/create")}
+                >
+                  Create Goal
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
