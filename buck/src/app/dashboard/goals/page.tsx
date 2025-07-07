@@ -11,6 +11,8 @@ import CreateGoalModal from "./CreateGoalModal";
 import { deleteGoal, updateGoalStatus, setOnlyGoalActive } from "@/component/goals";
 import ProgressBarCard from "./ProgressBarCard";
 import { getSavingTip } from "@/utils/aiApi";
+import WeeklySpendingChart from "../statistics/weekly-spending";
+import LineGraph from "@/component/line-graph";
 // --- Goal interface for type safety ---
 interface Goal {
   id: string;
@@ -21,6 +23,12 @@ interface Goal {
   createdAt: string;
   attitude?: string;
   isActive?: boolean;
+}
+
+interface ForecastResult {
+  forecast: string;
+  recommendation: string;
+  [key: string]: any;
 }
 
 const GoalsPage = () => {
@@ -39,11 +47,13 @@ const GoalsPage = () => {
   const [progressInput, setProgressInput] = useState("");
   const [progressLoading, setProgressLoading] = useState(false);
 
-  const [forecastResult, setForecastResult] = useState<string | null>(null);
+  const [forecastResult, setForecastResult] = useState<ForecastResult | null>(null);
   const [forecastLoading, setForecastLoading] = useState(false);
   const [forecastError, setForecastError] = useState<string | null>(null);
 
   const [forecastModalOpen, setForecastModalOpen] = useState(false);
+
+  const [userWeeklyData, setUserWeeklyData] = useState<number[]>([0,0,0,0,0,0,0]);
 
   // --- CRUD Handlers ---
   const handleDeleteGoal = async () => {
@@ -135,23 +145,39 @@ const GoalsPage = () => {
   };
 
   const handleSeeForecast = async () => {
-    if (!selectedGoal || walletBudget == null) return;
+    if (!selectedGoal || walletBudget == null || !user) return;
     setForecastLoading(true);
     setForecastError(null);
     setForecastResult(null);
     setForecastModalOpen(true);
+    // Fetch actual user weekly data (example: from 'weeklyData' collection)
+    let weeklyData: number[] = [0,0,0,0,0,0,0];
     try {
+      const weeklyRef = collection(db, "users", user.uid, "weeklyData");
+      const snapshot = await getDocs(weeklyRef);
+      if (!snapshot.empty) {
+        // Assume each doc has a 'week' field (0-6) and 'amount' field
+        snapshot.forEach(doc => {
+          const d = doc.data();
+          if (typeof d.week === 'number' && typeof d.amount === 'number') {
+            weeklyData[d.week] = d.amount;
+          }
+        });
+      }
+      setUserWeeklyData(weeklyData);
+      // Pass weekly data as history to backend
       const res = await fetch("https://buck-web-application-1.onrender.com/ai/forecast/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           goal: selectedGoal,
           budget: walletBudget,
+          history: weeklyData,
         }),
       });
       if (!res.ok) throw new Error("Failed to fetch forecast");
       const data = await res.json();
-      setForecastResult(data.forecast || data.recommendation || "No forecast available.");
+      setForecastResult(data as ForecastResult);
     } catch (err: any) {
       setForecastError(err.message || "Unknown error");
     } finally {
@@ -403,12 +429,23 @@ const GoalsPage = () => {
                 </button>
                 {forecastModalOpen && (
                   <div className="modal-backdrop" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="modal" style={{ background: '#fff', borderRadius: 8, padding: 24, minWidth: 320, maxWidth: 400, boxShadow: '0 2px 16px rgba(0,0,0,0.2)', position: 'relative' }}>
+                    <div className="modal" style={{ background: '#fff', borderRadius: 8, padding: 24, minWidth: 320, maxWidth: 500, boxShadow: '0 2px 16px rgba(0,0,0,0.2)', position: 'relative' }}>
                       <button onClick={() => setForecastModalOpen(false)} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>&times;</button>
                       <h3 style={{ marginTop: 0 }}>Forecast</h3>
+                      <div style={{ marginBottom: 16 }}>
+                        <ProgressBarCard goal={selectedGoal!} onAddProgress={handleOpenProgressModal} />
+                      </div>
+                      <div style={{ marginBottom: 16 }}>
+                        <LineGraph data={userWeeklyData} yMax={Math.max(...userWeeklyData, 200)} />
+                      </div>
                       {forecastLoading && <div>Loading...</div>}
                       {forecastError && <div style={{ color: 'red' }}>{forecastError}</div>}
-                      {forecastResult && <div style={{ marginTop: 12 }}>{forecastResult}</div>}
+                      {forecastResult && (
+                        <>
+                          <div style={{ marginTop: 12, marginBottom: 8 }}><strong>AI Forecast:</strong><br />{forecastResult.forecast}</div>
+                          <div style={{ marginTop: 8, color: '#555' }}><strong>Recommendation:</strong><br />{forecastResult.recommendation}</div>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
