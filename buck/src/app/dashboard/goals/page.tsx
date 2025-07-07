@@ -72,6 +72,8 @@ const GoalsPage = () => {
   const [expenseDesc, setExpenseDesc] = useState('');
   const [expenseLoading, setExpenseLoading] = useState(false);
   const [expenseError, setExpenseError] = useState('');
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState("");
 
   const [selectedMode, setSelectedMode] = useState<'week' | 'month' | 'overall'>('week');
   const [selectedWeek, setSelectedWeek] = useState(0);
@@ -127,7 +129,7 @@ const GoalsPage = () => {
   };
 
   const handleSetActive = async () => {
-    if (!selectedGoal) return;
+    if (!selectedGoal || !user) return;
     if (selectedGoal.isActive) {
       // Deactivate the goal
       const result = await updateGoalStatus(selectedGoal.id, false);
@@ -145,14 +147,39 @@ const GoalsPage = () => {
       // Activate only this goal, deactivate others
       const result = await setOnlyGoalActive(selectedGoal.id);
       if (result.success) {
-        setGoals(
-          goals.map((goal) =>
-            goal.id === selectedGoal.id
-              ? { ...goal, isActive: true }
-              : { ...goal, isActive: false }
-          )
-        );
-        setSelectedGoal({ ...selectedGoal, isActive: true });
+        // Allocate wallet budget to this goal
+        try {
+          // Fetch active wallet ID from user doc
+          const userDocRef = doc(db, "users", user.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (!userDocSnap.exists()) throw new Error("User doc not found");
+          const activeWalletId = userDocSnap.data().activeWallet;
+          if (!activeWalletId) throw new Error("No active wallet");
+          const walletDocRef = doc(db, "wallets", user.uid, "userWallets", activeWalletId);
+          const walletDocSnap = await getDoc(walletDocRef);
+          if (!walletDocSnap.exists()) throw new Error("Wallet doc not found");
+          const walletAmount = walletDocSnap.data().budget || 0;
+          // Update goal's currentAmount
+          const goalRef = doc(db, "goals", user.uid, "userGoals", selectedGoal.id);
+          await updateDoc(goalRef, { currentAmount: walletAmount });
+          // Set wallet budget to zero
+          await updateDoc(walletDocRef, { budget: 0 });
+          setWalletBudget(0);
+          setGoals(
+            goals.map((goal) =>
+              goal.id === selectedGoal.id
+                ? { ...goal, isActive: true, currentAmount: walletAmount }
+                : { ...goal, isActive: false }
+            )
+          );
+          setSelectedGoal({ ...selectedGoal, isActive: true, currentAmount: walletAmount });
+        } catch (err) {
+          if (err instanceof Error) {
+            alert("Failed to allocate wallet to goal: " + err.message);
+          } else {
+            alert("Failed to allocate wallet to goal: Unknown error");
+          }
+        }
       } else {
         alert(result.message || "Failed to update goal status.");
       }
@@ -224,7 +251,7 @@ const GoalsPage = () => {
       const data = await res.json();
       setForecastData(data);
       // Save AI recommended budget to Firestore if present
-      if (data.ai_recommended_budget && selectedGoal && user) {
+      if (data. ai_recommended_budget && selectedGoal && user) {
         const goalRef = doc(db, "goals", user.uid, "userGoals", selectedGoal.id);
         await updateDoc(goalRef, { aiRecommendedBudget: data.ai_recommended_budget });
       }
@@ -380,6 +407,22 @@ const GoalsPage = () => {
   // Add expense handler for modal
   const handleAddExpense = async () => {
     if (!user || !selectedGoal) return;
+    const expenseValue = parseFloat(expenseAmount);
+    if (isNaN(expenseValue) || expenseValue <= 0) {
+      setErrorModalMessage('Please enter a valid expense amount.');
+      setShowErrorModal(true);
+      return;
+    }
+    if (walletBudget === null || walletBudget <= 0) {
+      setErrorModalMessage('You have no money in your wallet. Please add funds before adding expenses.');
+      setShowErrorModal(true);
+      return;
+    }
+    if (expenseValue > walletBudget) {
+      setErrorModalMessage('Expense exceeds your wallet balance. Please enter a smaller amount.');
+      setShowErrorModal(true);
+      return;
+    }
     setExpenseLoading(true);
     setExpenseError('');
     try {
@@ -390,11 +433,25 @@ const GoalsPage = () => {
           user_id: user.uid,
           goal_id: selectedGoal.id,
           date: expenseDate,
-          amount: parseFloat(expenseAmount),
+          amount: expenseValue,
           description: expenseDesc
         })
       });
       if (!res.ok) throw new Error('Failed to add expense');
+      // Subtract from wallet in Firestore
+      // Fetch active wallet ID from user doc
+      const userDocRef = doc(db, "users", user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (!userDocSnap.exists()) throw new Error("User doc not found");
+      const activeWalletId = userDocSnap.data().activeWallet;
+      if (!activeWalletId) throw new Error("No active wallet");
+      const walletDocRef = doc(db, "wallets", user.uid, "userWallets", activeWalletId);
+      const walletDocSnap = await getDoc(walletDocRef);
+      if (!walletDocSnap.exists()) throw new Error("Wallet doc not found");
+      const walletAmount = walletDocSnap.data().budget || 0;
+      const newWalletAmount = walletAmount - expenseValue;
+      await updateDoc(walletDocRef, { budget: newWalletAmount });
+      setWalletBudget(newWalletAmount);
       setShowExpenseModal(false);
       setExpenseDate('');
       setExpenseAmount('');
@@ -413,7 +470,7 @@ const GoalsPage = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             goal: goalPayload,
-            budget: walletBudget || 0
+            budget: newWalletAmount || 0
           })
         });
         if (res.ok) {
@@ -422,8 +479,12 @@ const GoalsPage = () => {
         }
       };
       fetchForecast();
-    } catch (err: any) {
-      setExpenseError(err.message || 'Unknown error');
+    } catch (err) {
+      if (err instanceof Error) {
+        setExpenseError(err.message);
+      } else {
+        setExpenseError('Unknown error');
+      }
     } finally {
       setExpenseLoading(false);
     }
@@ -659,36 +720,29 @@ const GoalsPage = () => {
                       {forecastError && <div style={{ color: 'red' }}>{forecastError}</div>}
                       {forecastData && forecastData.forecast && <div style={{ margin: '12px 0', fontWeight: 500, color: '#2c3e50', textAlign: 'center' }}>{forecastData.forecast}</div>}
                       {/* Forecast/Actual Graph */}
-                      <div style={{ width: '100%', maxWidth: 500, margin: '1rem auto', position: 'relative', minHeight: 220 }}>
-                        {forecastLoading && !chartData ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', position: 'absolute', top: 0, left: 0 }}>
-                            <div className="spinner"></div>
-                            <div style={{ fontSize: '1.1rem', color: '#ef8a57', fontWeight: 600, marginTop: 12, textAlign: 'center' }}>Loading graph...</div>
-                          </div>
-                        ) : (
-                          chartData && <Line data={chartData} options={{
-                            responsive: true,
-                            plugins: {
-                              legend: { display: true, position: 'top' },
-                              tooltip: {
-                                callbacks: {
-                                  label: function(context) {
-                                    const value = Number(context.raw);
-                                    return `${context.dataset.label}: ${value}`;
-                                  }
+                      <div style={{ width: '100%', maxWidth: 500, margin: '1rem auto' }}>
+                        {chartData && <Line data={chartData} options={{
+                          responsive: true,
+                          plugins: {
+                            legend: { display: true, position: 'top' },
+                            tooltip: {
+                              callbacks: {
+                                label: function(context) {
+                                  const value = Number(context.raw);
+                                  return `${context.dataset.label}: ${value}`;
                                 }
                               }
+                            }
+                          },
+                          scales: {
+                            x: { grid: { display: false }, ticks: { color: '#2c3e50', font: { weight: 600 } } },
+                            y: {
+                              grid: { color: '#eee' },
+                              beginAtZero: true,
+                              ticks: { color: '#2c3e50' },
                             },
-                            scales: {
-                              x: { grid: { display: false }, ticks: { color: '#2c3e50', font: { weight: 600 } } },
-                              y: {
-                                grid: { color: '#eee' },
-                                beginAtZero: true,
-                                ticks: { color: '#2c3e50' },
-                              },
-                            },
-                          }} />
-                        )}
+                          },
+                        }} />}
                       </div>
                       {/* Add Expense Button and Modal */}
                       <div style={{ width: '100%', maxWidth: 400, margin: '1rem auto' }}>
@@ -766,6 +820,18 @@ const GoalsPage = () => {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {showErrorModal && (
+        <div className="modal-backdrop" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.4)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="modal" style={{ background: '#fff', borderRadius: 8, padding: 24, minWidth: 320, maxWidth: 400, boxShadow: '0 2px 16px rgba(0,0,0,0.2)', position: 'relative', textAlign: 'center' }}>
+            <button onClick={() => setShowErrorModal(false)} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>&times;</button>
+            <h3 style={{ marginTop: 0, color: '#e74c3c' }}>Action Not Allowed</h3>
+            <div style={{ margin: '18px 0', fontWeight: 500, color: '#2c3e50', fontSize: 17 }}>{errorModalMessage}</div>
+            <button onClick={() => setShowErrorModal(false)} style={{ background: '#ef8a57', color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem 1.5rem', fontWeight: 600, fontSize: 16, cursor: 'pointer', width: '100%' }}>
+              Close
+            </button>
           </div>
         </div>
       )}
