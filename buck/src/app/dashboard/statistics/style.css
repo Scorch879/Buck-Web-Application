@@ -117,3 +117,11 @@
     gap: 1.5rem;
   }
 }
+
+.fade-transition {
+  opacity: 1;
+  transition: opacity 0.4s;
+}
+.fade-transition.fade-exit {
+  opacity: 0;
+}
