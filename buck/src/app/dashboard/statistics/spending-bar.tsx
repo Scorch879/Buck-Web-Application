@@ -28,22 +28,32 @@ const data = {
   ],
 };
 
-const options = {
-  responsive: true,
-  plugins: {
-    legend: { display: false },
-    tooltip: {
-      callbacks: {
-        label: function (context: any) {
-          return `$${context.raw}`;
+  const yMax = Math.max(200, ...amounts);
+
+  const options = {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: function (context: any) {
+            return `$${context.raw}`;
+          },
         },
       },
     },
-  },
-  scales: {
-    x: {
-      grid: { display: false },
-      ticks: { color: "#2c3e50", font: { weight: 600 } },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { color: "#2c3e50", font: { weight: 600 } },
+      },
+      y: {
+        beginAtZero: true,
+        max: yMax,
+        grid: { color: "#eee" },
+        ticks: { color: "#2c3e50" },
+      },
+
     },
     y: {
       beginAtZero: true,
