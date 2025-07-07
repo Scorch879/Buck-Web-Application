@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "./style.css";
 import { useRouter } from "next/navigation";
 import DashboardHeader from "@/component/dashboardheader";
@@ -64,6 +64,9 @@ const Statistics = () => {
   const [forecastData, setForecastData] = useState<any>(null);
   const [forecastLoading, setForecastLoading] = useState(false);
   const [forecastError, setForecastError] = useState('');
+  const [showWeeklyGraph, setShowWeeklyGraph] = useState(selectedMode === 'week');
+  const [fadeWeeklyGraph, setFadeWeeklyGraph] = useState(false);
+  const prevMode = useRef(selectedMode);
 
   // Dynamically generate week date ranges from goals (real calendar mapping)
   let weekDateRanges: { start: string; end: string }[] = [];
@@ -270,6 +273,20 @@ const Statistics = () => {
       ]
     };
   }
+
+  useEffect(() => {
+    if (selectedMode === 'week') {
+      setShowWeeklyGraph(true);
+      setFadeWeeklyGraph(false);
+    } else if (prevMode.current === 'week') {
+      setFadeWeeklyGraph(true);
+      setTimeout(() => {
+        setShowWeeklyGraph(false);
+        setFadeWeeklyGraph(false);
+      }, 400); // match CSS transition
+    }
+    prevMode.current = selectedMode;
+  }, [selectedMode]);
 
   if (loading || !user || loadingGoals) {
     return (
@@ -490,44 +507,82 @@ const Statistics = () => {
                 </div>
                 <SpendingBar mode={selectedMode} weekIndex={selectedWeek} monthIndex={selectedMonth} />
               </div>
-              {/* Second row: Line graph */}
-              <div style={{ display: "flex", gap: "2rem", alignItems: "flex-start", marginTop: "2rem" }}>
-                <div className="graph-panel">
-                  <div className="graph-panel-header">
-                    Spending Report
-                  </div>
-                  {/* Y-Axis Max Control */}
-                  <div style={{ marginBottom: "1rem", textAlign: "right" }}>
-                    <label style={{ fontWeight: 500, marginRight: 8 }}>
-                      <input
-                        type="number"
-                        value={yMax}
-                        min={1}
-                        step={1}
-                        onChange={e => setYMax(Math.max(1, Number(e.target.value)))}
-                        style={{
-                          marginLeft: 8,
-                          width: 60,
-                          padding: "0.2rem 0.5rem",
-                          borderRadius: 6,
-                          border: "1px solid #ccc",
-                          fontSize: "1rem",
-                        }}
-                      />
-                    </label>
-                  </div>
-                  <WeeklySpendingChart mode={selectedMode} weekIndex={selectedWeek} monthIndex={selectedMonth} />
-                  {/* Custom Legend (now inside the panel) */}
-                  <div className="graph-legend">
-                    <div className="graph-legend-item">
-                      <span className="graph-legend-color-saved"></span>
-                      <span className="graph-legend-label">Saved</span>
+              {/* Second row: Line graph (Weekly Spending Report) */}
+              {showWeeklyGraph && (
+                <div className="graph-row">
+                  <div className="graph-panel weekly-graph-panel">
+                    <div className="graph-panel-header">
+                      Weekly Spending Report
                     </div>
-                    <div className="graph-legend-item">
-                      <span className="graph-legend-color-excess"></span>
-                      <span className="graph-legend-label">Excess</span>
+                    {/* Y-Axis Max Control */}
+                    <div style={{ marginBottom: "1rem", textAlign: "right" }}>
+                      <label style={{ fontWeight: 500, marginRight: 8 }}>
+                        <input
+                          type="number"
+                          value={yMax}
+                          min={1}
+                          step={1}
+                          onChange={e => setYMax(Math.max(1, Number(e.target.value)))}
+                          style={{
+                            marginLeft: 8,
+                            width: 60,
+                            padding: "0.2rem 0.5rem",
+                            borderRadius: 6,
+                            border: "1px solid #ccc",
+                            fontSize: "1rem",
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <WeeklySpendingChart mode={selectedMode} weekIndex={selectedWeek} monthIndex={selectedMonth} />
+                    {/* Custom Legend (now inside the panel) */}
+                    <div className="graph-legend">
+                      <div className="graph-legend-item">
+                        <span className="graph-legend-color-saved"></span>
+                        <span className="graph-legend-label">Saved</span>
+                      </div>
+                      <div className="graph-legend-item">
+                        <span className="graph-legend-color-excess"></span>
+                        <span className="graph-legend-label">Excess</span>
+                      </div>
                     </div>
                   </div>
+                </div>
+              )}
+              {/* Forecast/Actual Graph (AI) - use same container and width as weekly graph */}
+              <div className="graph-row">
+                <div className="graph-panel weekly-graph-panel">
+                  <div className="graph-panel-header" style={{ color: '#ef8a57', fontWeight: 700, fontSize: '1.2rem', marginBottom: 8 }}>
+                    Forecast vs Actual (AI)
+                  </div>
+                  {forecastLoading && (
+                    <div className="loading-spinner-overlay">
+                      <div className="spinner"></div>
+                    </div>
+                  )}
+                  {forecastError && <div style={{ color: 'red' }}>{forecastError}</div>}
+                  {chartData && <Line data={chartData} options={{
+                    responsive: true,
+                    plugins: {
+                      legend: { display: true, position: 'top' },
+                      tooltip: {
+                        callbacks: {
+                          label: function(context) {
+                            const value = Number(context.raw);
+                            return `${context.dataset.label}: ${value}`;
+                          }
+                        }
+                      }
+                    },
+                    scales: {
+                      x: { grid: { display: false }, ticks: { color: '#2c3e50', font: { weight: 600 } } },
+                      y: {
+                        grid: { color: '#eee' },
+                        beginAtZero: true,
+                        ticks: { color: '#2c3e50' },
+                      },
+                    },
+                  }} />}
                 </div>
               </div>
             </>
@@ -553,13 +608,6 @@ const Statistics = () => {
               </div>
             </div>
           )}
-        </div>
-        {/* Forecast/Actual Graph */}
-        <div style={{ width: '100%', maxWidth: 800, margin: '2rem auto' }}>
-          {forecastLoading && <div>Loading forecast...</div>}
-          {forecastError && <div style={{ color: 'red' }}>{forecastError}</div>}
-          {chartData && <Line data={chartData} options={{ responsive: true, plugins: { legend: { position: 'top' } } }} />}
-          {forecastData && forecastData.forecast && <div style={{ marginTop: 16, fontWeight: 500, color: '#2c3e50' }}>{forecastData.forecast}</div>}
         </div>
       </div>
     </div>
