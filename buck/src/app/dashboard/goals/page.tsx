@@ -159,20 +159,23 @@ const GoalsPage = () => {
           const walletDocSnap = await getDoc(walletDocRef);
           if (!walletDocSnap.exists()) throw new Error("Wallet doc not found");
           const walletAmount = walletDocSnap.data().budget || 0;
-          // Update goal's currentAmount
+          // Update goal's currentAmount, but cap at targetAmount
+          const goalTarget = selectedGoal.targetAmount;
+          const amountToAllocate = Math.min(walletAmount, goalTarget);
           const goalRef = doc(db, "goals", user.uid, "userGoals", selectedGoal.id);
-          await updateDoc(goalRef, { currentAmount: walletAmount });
-          // Set wallet budget to zero
-          await updateDoc(walletDocRef, { budget: 0 });
-          setWalletBudget(0);
+          await updateDoc(goalRef, { currentAmount: amountToAllocate });
+          // Subtract only the allocated amount from wallet
+          const newWalletAmount = walletAmount - amountToAllocate;
+          await updateDoc(walletDocRef, { budget: newWalletAmount });
+          setWalletBudget(newWalletAmount);
           setGoals(
             goals.map((goal) =>
               goal.id === selectedGoal.id
-                ? { ...goal, isActive: true, currentAmount: walletAmount }
+                ? { ...goal, isActive: true, currentAmount: amountToAllocate }
                 : { ...goal, isActive: false }
             )
           );
-          setSelectedGoal({ ...selectedGoal, isActive: true, currentAmount: walletAmount });
+          setSelectedGoal({ ...selectedGoal, isActive: true, currentAmount: amountToAllocate });
         } catch (err) {
           if (err instanceof Error) {
             alert("Failed to allocate wallet to goal: " + err.message);
