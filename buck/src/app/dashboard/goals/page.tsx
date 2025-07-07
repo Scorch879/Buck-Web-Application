@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import DashboardHeader from "@/component/dashboardheader";
 import { useAuthGuard } from "@/utils/useAuthGuard";
 import { db } from "@/utils/firebase";
-import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, getDoc } from "firebase/firestore";
 import CreateGoalModal from "./CreateGoalModal";
 import { deleteGoal, updateGoalStatus, setOnlyGoalActive } from "@/component/goals";
 import ProgressBarCard from "./ProgressBarCard";
@@ -31,12 +31,19 @@ const GoalsPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [aiRecommendation, setAIRecommendation] = useState<string | null>(null);
+  const [walletBudget, setWalletBudget] = useState<number | null>(null);
 
   // Progress modal state
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [progressGoal, setProgressGoal] = useState<Goal | null>(null);
   const [progressInput, setProgressInput] = useState("");
   const [progressLoading, setProgressLoading] = useState(false);
+
+  const [forecastResult, setForecastResult] = useState<string | null>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
+  const [forecastError, setForecastError] = useState<string | null>(null);
+
+  const [forecastModalOpen, setForecastModalOpen] = useState(false);
 
   // --- CRUD Handlers ---
   const handleDeleteGoal = async () => {
@@ -127,6 +134,31 @@ const GoalsPage = () => {
     }
   };
 
+  const handleSeeForecast = async () => {
+    if (!selectedGoal || walletBudget == null) return;
+    setForecastLoading(true);
+    setForecastError(null);
+    setForecastResult(null);
+    setForecastModalOpen(true);
+    try {
+      const res = await fetch("https://buck-web-application-1.onrender.com/ai/forecast/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          goal: selectedGoal,
+          budget: walletBudget,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to fetch forecast");
+      const data = await res.json();
+      setForecastResult(data.forecast || data.recommendation || "No forecast available.");
+    } catch (err: any) {
+      setForecastError(err.message || "Unknown error");
+    } finally {
+      setForecastLoading(false);
+    }
+  };
+
   // --- Effects ---
   useEffect(() => {
     if (goals.length === 0) {
@@ -204,6 +236,24 @@ const GoalsPage = () => {
       clearTimeout(timeoutId);
     };
   }, [selectedGoal]);
+
+  useEffect(() => {
+    const fetchWalletBudget = async () => {
+      if (!user) return;
+      // Fetch active wallet ID from user doc
+      const userDocRef = doc(db, "users", user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (!userDocSnap.exists()) return;
+      const activeWalletId = userDocSnap.data().activeWallet;
+      if (!activeWalletId) return;
+      // Fetch wallet doc
+      const walletDocRef = doc(db, "wallets", user.uid, "userWallets", activeWalletId);
+      const walletDocSnap = await getDoc(walletDocRef);
+      if (!walletDocSnap.exists()) return;
+      setWalletBudget(walletDocSnap.data().budget || null);
+    };
+    fetchWalletBudget();
+  }, [user]);
 
   if (loading || !user || loadingGoals) {
     return (
@@ -348,7 +398,20 @@ const GoalsPage = () => {
               </div>
               {/* Bottom Button Group outside the card */}
               <div className="goals-bottom-buttons">
-                <button className="goals-action-btn">See Forecast</button>
+                <button className="goals-action-btn" onClick={handleSeeForecast} disabled={forecastLoading || walletBudget == null || !selectedGoal}>
+                  See Forecast
+                </button>
+                {forecastModalOpen && (
+                  <div className="modal-backdrop" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div className="modal" style={{ background: '#fff', borderRadius: 8, padding: 24, minWidth: 320, maxWidth: 400, boxShadow: '0 2px 16px rgba(0,0,0,0.2)', position: 'relative' }}>
+                      <button onClick={() => setForecastModalOpen(false)} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>&times;</button>
+                      <h3 style={{ marginTop: 0 }}>Forecast</h3>
+                      {forecastLoading && <div>Loading...</div>}
+                      {forecastError && <div style={{ color: 'red' }}>{forecastError}</div>}
+                      {forecastResult && <div style={{ marginTop: 12 }}>{forecastResult}</div>}
+                    </div>
+                  </div>
+                )}
                 <button className="goals-action-btn">See Statistics</button>
               </div>
             </>
