@@ -14,10 +14,9 @@ interface Goal {
 
 interface ProgressBarCardProps {
   goal: Goal;
-  onAddProgress: (goal: Goal) => void;
 }
 
-const ProgressBarCard: React.FC<ProgressBarCardProps> = ({ goal, onAddProgress }) => {
+const ProgressBarCard: React.FC<ProgressBarCardProps> = ({ goal }) => {
 
   const currentAmount = goal.currentAmount || 0;
   const progressPercentage = Math.min((currentAmount / goal.targetAmount) * 100, 100);
@@ -41,13 +40,6 @@ const ProgressBarCard: React.FC<ProgressBarCardProps> = ({ goal, onAddProgress }
         <span className="progress-amount">
           Saved: ${currentAmount.toLocaleString()}
         </span>
-        <button
-          className="addProgress-btns"
-          style={{ margin: "0 1rem" }}
-          onClick={() => onAddProgress(goal)}
-        >
-          Add Progress
-        </button>
         <span className="progress-remaining">
           Remaining: ${remainingAmount.toLocaleString()}
         </span>
