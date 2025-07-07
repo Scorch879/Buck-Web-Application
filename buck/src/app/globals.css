@@ -273,6 +273,7 @@ body {
   color: #ef8a57;
   font-weight: 600;
   letter-spacing: 0.05em;
+  overflow: hidden;
 }
 
 success-message,

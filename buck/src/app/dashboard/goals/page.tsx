@@ -659,29 +659,36 @@ const GoalsPage = () => {
                       {forecastError && <div style={{ color: 'red' }}>{forecastError}</div>}
                       {forecastData && forecastData.forecast && <div style={{ margin: '12px 0', fontWeight: 500, color: '#2c3e50', textAlign: 'center' }}>{forecastData.forecast}</div>}
                       {/* Forecast/Actual Graph */}
-                      <div style={{ width: '100%', maxWidth: 500, margin: '1rem auto' }}>
-                        {chartData && <Line data={chartData} options={{
-                          responsive: true,
-                          plugins: {
-                            legend: { display: true, position: 'top' },
-                            tooltip: {
-                              callbacks: {
-                                label: function(context) {
-                                  const value = Number(context.raw);
-                                  return `${context.dataset.label}: ${value}`;
+                      <div style={{ width: '100%', maxWidth: 500, margin: '1rem auto', position: 'relative', minHeight: 220 }}>
+                        {forecastLoading && !chartData ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', position: 'absolute', top: 0, left: 0 }}>
+                            <div className="spinner"></div>
+                            <div style={{ fontSize: '1.1rem', color: '#ef8a57', fontWeight: 600, marginTop: 12, textAlign: 'center' }}>Loading graph...</div>
+                          </div>
+                        ) : (
+                          chartData && <Line data={chartData} options={{
+                            responsive: true,
+                            plugins: {
+                              legend: { display: true, position: 'top' },
+                              tooltip: {
+                                callbacks: {
+                                  label: function(context) {
+                                    const value = Number(context.raw);
+                                    return `${context.dataset.label}: ${value}`;
+                                  }
                                 }
                               }
-                            }
-                          },
-                          scales: {
-                            x: { grid: { display: false }, ticks: { color: '#2c3e50', font: { weight: 600 } } },
-                            y: {
-                              grid: { color: '#eee' },
-                              beginAtZero: true,
-                              ticks: { color: '#2c3e50' },
                             },
-                          },
-                        }} />}
+                            scales: {
+                              x: { grid: { display: false }, ticks: { color: '#2c3e50', font: { weight: 600 } } },
+                              y: {
+                                grid: { color: '#eee' },
+                                beginAtZero: true,
+                                ticks: { color: '#2c3e50' },
+                              },
+                            },
+                          }} />
+                        )}
                       </div>
                       {/* Add Expense Button and Modal */}
                       <div style={{ width: '100%', maxWidth: 400, margin: '1rem auto' }}>

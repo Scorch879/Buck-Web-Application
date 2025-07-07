@@ -161,10 +161,15 @@ const Statistics = () => {
 
   // Fetch forecast/actual data
   useEffect(() => {
+    if (!user) return;
+    if (!goals || goals.length === 0) return;
+
+    setForecastLoading(true);
+    setForecastError('');
+    setForecastData(null); // Clear previous data to force spinner
+    console.log('Fetching forecast', goals);
+
     const fetchForecast = async () => {
-      if (!user || !selectedGoal) return;
-      setForecastLoading(true);
-      setForecastError('');
       try {
         const goalPayload = {
           id: selectedGoal.id,
@@ -178,20 +183,22 @@ const Statistics = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             goal: goalPayload,
-            budget: 0 // Optionally fetch wallet budget if needed
+            budget: 0
           })
         });
         if (!res.ok) throw new Error('Failed to fetch forecast');
         const data = await res.json();
         setForecastData(data);
-      } catch (err: any) {
-        setForecastError(err.message || 'Unknown error');
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+        setForecastError(errorMsg);
       } finally {
         setForecastLoading(false);
       }
     };
+
     fetchForecast();
-  }, [user, selectedGoal]);
+  }, [user, goals]);
 
   // Add expense handler
   const handleAddExpense = async () => {
@@ -551,38 +558,42 @@ const Statistics = () => {
               )}
               {/* Forecast/Actual Graph (AI) - use same container and width as weekly graph */}
               <div className="graph-row">
-                <div className="graph-panel weekly-graph-panel">
-                  <div className="graph-panel-header" style={{ color: '#ef8a57', fontWeight: 700, fontSize: '1.2rem', marginBottom: 8 }}>
-                    Forecast vs Actual (AI)
-                  </div>
-                  {forecastLoading && (
-                    <div className="loading-spinner-overlay">
+                <div className="graph-panel weekly-graph-panel" style={{ position: 'relative', minHeight: 300 }}>
+                  {forecastLoading && !chartData ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', position: 'absolute', top: 0, left: 0 }}>
                       <div className="spinner"></div>
+                      <div style={{ fontSize: '1.1rem', color: '#ef8a57', fontWeight: 600, marginTop: 12, textAlign: 'center' }}>Loading graph...</div>
                     </div>
-                  )}
-                  {forecastError && <div style={{ color: 'red' }}>{forecastError}</div>}
-                  {chartData && <Line data={chartData} options={{
-                    responsive: true,
-                    plugins: {
-                      legend: { display: true, position: 'top' },
-                      tooltip: {
-                        callbacks: {
-                          label: function(context) {
-                            const value = Number(context.raw);
-                            return `${context.dataset.label}: ${value}`;
+                  ) : (
+                    <>
+                      <div className="graph-panel-header" style={{ color: '#ef8a57', fontWeight: 700, fontSize: '1.2rem', marginBottom: 8, textAlign: 'center' }}>
+                        Forecast vs Actual (AI)
+                      </div>
+                      {forecastError && <div style={{ color: 'red' }}>{forecastError}</div>}
+                      {chartData && <Line data={chartData} options={{
+                        responsive: true,
+                        plugins: {
+                          legend: { display: true, position: 'top' },
+                          tooltip: {
+                            callbacks: {
+                              label: function(context) {
+                                const value = Number(context.raw);
+                                return `${context.dataset.label}: ${value}`;
+                              }
+                            }
                           }
-                        }
-                      }
-                    },
-                    scales: {
-                      x: { grid: { display: false }, ticks: { color: '#2c3e50', font: { weight: 600 } } },
-                      y: {
-                        grid: { color: '#eee' },
-                        beginAtZero: true,
-                        ticks: { color: '#2c3e50' },
-                      },
-                    },
-                  }} />}
+                        },
+                        scales: {
+                          x: { grid: { display: false }, ticks: { color: '#2c3e50', font: { weight: 600 } } },
+                          y: {
+                            grid: { color: '#eee' },
+                            beginAtZero: true,
+                            ticks: { color: '#2c3e50' },
+                          },
+                        },
+                      }} />}
+                    </>
+                  )}
                 </div>
               </div>
             </>
