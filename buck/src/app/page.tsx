@@ -16,8 +16,8 @@ export default function Home() {
   >([]);
   const nextDotId = useRef(0);
   const [btnMouse, setBtnMouse] = useState<{ x: number; y: number } | null>(
-      null
-    );
+    null
+  );
   const btnRef = React.useRef<HTMLButtonElement>(null);
 
   const text =
@@ -91,14 +91,17 @@ export default function Home() {
                 Sign In/Sign Up
               </button>
             </div>
-            <div className="header-img">
-              <Image
-                src="/BuckMascot.png"
-                alt="Buck Logo"
-                width={60}
-                height={75}
-                className="buckLogo"
-              />
+            <div className="header-leftside">
+              <h1>Buck The Budget Tracker</h1>
+              <div className="header-img">
+                <Image
+                  src="/BuckMascot.png"
+                  alt="Buck Logo"
+                  width={60}
+                  height={75}
+                  className="buckLogo"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -184,8 +187,73 @@ export default function Home() {
           </div>
         </div>
         <div className="section2" id="About">
+          <div className="s2-container">
+            <div className="about-us">
+              <h1>About Us</h1>
+              <h2>Buck is a budget tracking application designed to help users in managing and tracking their finances</h2>
+              it does this by
+            </div>
+            <div className="card-container">
+              <div className="s2-cards">
+                <div style={{ position: "relative", width: "100%", aspectRatio: "2/3", maxWidth: 120 }}>
+                  <Image
+                    src="/goaltracking.svg"
+                    alt="goal tracking"
+                    fill
+                    style={{ objectFit: "contain" }}
+                    sizes="(max-width: 600px) 100vw, 120px"
+                    priority
+                  />
+                </div>
+                <h1> Goal Tracking</h1>
+                <div className="cardtext-container">
+                  <h3>
+                    Stay motivated by setting and achieving your
+                    financial goals. Whether it’s saving for a vacation, paying off debt, or building an emergency fund,
+                    Buck helps you create specific, trackable goals and monitor your progress every step of the way.
+                  </h3>
+                </div>
+              </div>
+              <div className="s2-cards">
+                <div style={{ position: "relative", width: "100%", aspectRatio: "2/3", maxWidth: 120 }}>
+                  <Image
+                    src="/expensetracking.svg"
+                    alt="expense tracking"
+                    fill
+                    style={{ objectFit: "contain" }}
+                    sizes="(max-width: 600px) 100vw, 120px"
+                    priority
+                  />
+                </div>
+                <h1>Expense Tracking</h1>
+                <div className="cardtext-container">
+                  <h3>
+                    Take control of your money by keeping an eye on where it goes. Easily log and categorize your daily
+                    expenses to see exactly how much you’re spending and on what. Buck makes it simple to stick to your
+                    budget and cut unnecessary costs.
+                  </h3>
+                </div>
+              </div>
+              <div className="s2-cards">
+                <div style={{ position: "relative", width: "100%", aspectRatio: "2/3", maxWidth: 120 }}>
+                  <Image
+                    src="/forecasting.svg"
+                    alt="forecasting"
+                    fill
+                    style={{ objectFit: "contain" }}
+                    sizes="(max-width: 600px) 100vw, 120px"
+                    priority
+
+                  />
+                </div>
+                <h1> Forecasting</h1>
+                <div className="cardtext-container">
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="section3">
+        <div className="footer">
         </div>
       </div>
     </>
