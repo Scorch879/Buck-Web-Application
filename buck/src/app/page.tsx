@@ -19,7 +19,10 @@ export default function Home() {
     null
   );
   const btnRef = React.useRef<HTMLButtonElement>(null);
-
+  const playQuack = () => {
+    const audio = new Audio("/quack.mp3");
+    audio.play();
+  };
   const text =
     "Need help in saving your money? Guess what, go BUCK yourself! Buck can help you manage your weekly spending with a press of a button!";
   const words = text.split(" ");
@@ -33,7 +36,7 @@ export default function Home() {
       },
     },
   };
-
+  const aboutustext = "With Buck, we help you take control of your money with simple tools to track expenses, set goals, and plan ahead. Our mission is to make budgeting easy and empowering, so you can spend smarter, save more, and reach your financial goals with confidence. With Buck, we believe that everyone deserves to feel confident and in control of their finances. Our mission is simple: to help you make the most of your money by giving you clear, easy-to-use tools to track your expenses, set meaningful financial goals, and plan for the future.";
   const wordVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0 },
@@ -100,6 +103,7 @@ export default function Home() {
                   width={60}
                   height={75}
                   className="buckLogo"
+                  onClick={playQuack}
                 />
               </div>
             </div>
@@ -190,7 +194,7 @@ export default function Home() {
           <div className="s2-container">
             <div className="about-us">
               <h1>About Us</h1>
-              <h2>Buck is a budget tracking application designed to help users in managing and tracking their finances</h2>
+              <h3>{aboutustext}</h3>
               it does this by
             </div>
             <div className="card-container">
@@ -243,17 +247,42 @@ export default function Home() {
                     style={{ objectFit: "contain" }}
                     sizes="(max-width: 600px) 100vw, 120px"
                     priority
-
                   />
                 </div>
                 <h1> Forecasting</h1>
                 <div className="cardtext-container">
+                  <h3>
+                    Plan ahead with confidence. Buck analyzes your spending patterns and projects your future cash flow,
+                    helping you anticipate upcoming expenses and identify potential savings opportunities. Make smarter decisions
+                    today for a better tomorrow.
+                  </h3>
                 </div>
               </div>
             </div>
           </div>
         </div>
         <div className="footer">
+          <div className="footersection">
+            <div className="quicklinks">
+              <h2>Quick Links</h2>
+              <button className="footer-btn" onClick={() => document.getElementById('Home')?.scrollIntoView({ behavior: 'smooth' })}>
+                Home
+              </button>
+              <button className="footer-btn" onClick={() => document.getElementById('About')?.scrollIntoView({ behavior: 'smooth' })}>
+                About
+              </button>
+            </div>
+            <div className="contact-us">
+              <h2>Contact Us</h2>
+              <p>BuckTheBudgetTracker@gmail.com</p>
+            </div>
+          </div>
+          <div className="copyright-section">
+            <div className="copyright-line"></div>
+            <div className="copyright">
+              <p>© 2025 Buck: The budget Tracker. All rights reserved</p>
+            </div>
+          </div>
         </div>
       </div>
     </>
