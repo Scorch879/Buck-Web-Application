@@ -21,7 +21,7 @@ export async function createGoal(
   try {
     // Call backend to get AI recommendation
     const aiResponse = await fetch(
-      "https://buck-web-application-1.onrender.com/ai/saving_tip/",
+      "https://buck-web-application.onrender.com/ai/saving_tip/",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -123,7 +123,7 @@ export async function updateGoal(
   try {
     // Call backend to get updated AI recommendation
     const aiResponse = await fetch(
-      "https://buck-web-application-1.onrender.com/ai/saving_tip/",
+      "https://buck-web-application.onrender.com/ai/saving_tip/",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
