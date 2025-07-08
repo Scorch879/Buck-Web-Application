@@ -35,6 +35,7 @@ body {
   z-index: 10;
   display: flex;
   justify-content: center;
+  flex-direction: row;
 }
 
 .lp-header-container {
@@ -52,6 +53,12 @@ body {
   align-items: center;
   gap: 1rem;
   margin-left: -3%;
+}
+.header-leftside h1:hover{
+  transition:all 0.3s ease;
+}
+.header-leftside h1:hover{
+  transform: translateY(-5px);
 }
 
 .header-btns {
@@ -74,7 +81,12 @@ body {
   background: rgba(0, 0, 0, 0.05);
 }
 
-.header-img {}
+.header-img {
+  transition: transform 0.3s ease;
+}
+.header-img:hover{
+  transform: translateY(-5px);
+}
 
 .section1 {
   width: 100%;
@@ -503,17 +515,21 @@ success-message,
     padding: 1rem 0;
   }
 
-  .header-leftside {
-    display: none;
-  }
-
   .lp-header-container {
-    flex-direction: column;
+    flex-direction: row;
     gap: 40px;
   }
 
   .header-btns {
-    gap: 30px;
+    display: none !important;
+  }
+
+  .mobile-menu-btn {
+    display: block;
+  }
+
+  .lp-header-container {
+    position: relative;
   }
 
   .section1,
@@ -574,12 +590,8 @@ success-message,
     padding: 0.5rem 0;
   }
 
-  .header-leftside {
-    display: none;
-  }
-
   .lp-header-container {
-    flex-direction: column;
+    flex-direction: row;
     gap: 10px;
   }
 
@@ -661,10 +673,6 @@ success-message,
 
   .copyright-line {
     width: 95%;
-  }
-
-  .header-img {
-    display: none;
   }
 
 }
@@ -790,5 +798,49 @@ success-message,
   .card-svg-container {
     max-width: 48px;
     min-width: 24px;
+  }
+}
+
+/* Mobile menu button - hidden by default */
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  padding: 0.5rem;
+  margin-left: 1rem;
+  z-index: 1002;
+}
+
+/* Mobile dropdown menu */
+.mobile-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 1rem;
+  background: #fff3e7;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  padding: 0.5rem 0.5rem;
+  z-index: 1001;
+  animation: fadeInMenu 0.2s;
+}
+@keyframes fadeInMenu {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 900px) {
+  .header-btns {
+    display: none !important;
+  }
+  .mobile-menu-btn {
+    display: block;
+  }
+  .lp-header-container {
+    position: relative;
   }
 }
