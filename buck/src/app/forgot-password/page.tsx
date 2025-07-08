@@ -4,7 +4,6 @@ import Link from "next/link";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/utils/firebase";
 import { motion } from "framer-motion";
-import { Header, Footer } from "@/component/HeaderFooter";
 import "./style.css";
 import Image from "next/image";
 
