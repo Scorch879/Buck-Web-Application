@@ -9,14 +9,14 @@
   }
 
 
-.graph-panel {
-  width: 922px;
-  margin-bottom: 2rem;
+  .graph-panel {
+  width: 1100px;
+  margin-bottom: 2.5rem;
   background: #fff;
-  border-radius: 18px;
-  box-shadow: 0 6px 32px 0 rgba(239, 138, 87, 0.08);
-  border: 1.5px solid #ffd6b0;
-  padding: 2rem 1.5rem;
+  border-radius: 22px;
+  box-shadow: 0 8px 40px 0 rgba(239, 138, 87, 0.10);
+  border: 2px solid #ffd6b0;
+  padding: 2.5rem 2.5rem;
 }
 
 .graph-panel-header {

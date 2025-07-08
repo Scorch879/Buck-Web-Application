@@ -793,7 +793,16 @@ const GoalsPage = () => {
                     </div>
                   </div>
                 )}
-                <button className="goals-action-btn">See Statistics</button>
+                <button
+                  className="goals-action-btn"
+                  onClick={() => {
+                    // Use shallow routing to avoid full reload if already on dashboard
+                    router.push('/dashboard/statistics');
+                  }}
+                  aria-label="Go to Statistics"
+                >
+                  See Statistics
+                </button>
               </div>
             </>
           ) : (
