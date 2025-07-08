@@ -66,7 +66,10 @@ export default function DashboardHeader({
               onClick={playQuack}
             />
           </div>
-          <h1 className="dashboard-title">Buck</h1>
+          <h1 className="dashboard-title" onClick={() => {
+            setActiveNav("statistics");
+            router.push("/dashboard/home");
+          }}>Buck</h1>
         </div>
         <div
           className="dashboard-nav"
@@ -82,9 +85,8 @@ export default function DashboardHeader({
             Home
           </button>
           <button
-            className={`nav-button ${
-              activeNav === "statistics" ? "active" : ""
-            }`}
+            className={`nav-button ${activeNav === "statistics" ? "active" : ""
+              }`}
             onClick={() => {
               setActiveNav("statistics");
               router.push("/dashboard/statistics");
