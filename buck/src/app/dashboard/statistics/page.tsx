@@ -425,7 +425,7 @@ const Statistics = () => {
     if (!vals.length) return null;
     const total = vals.reduce((a, b) => Number(a) + Number(b), 0);
     const avg = total / vals.length;
-    return `To reach your goal, you should save at least $${avg.toFixed(
+    return `To reach your goal, you should save at least ₱${avg.toFixed(
       2
     )} per day and keep your daily spending below this amount.`;
   })();
@@ -1545,6 +1545,7 @@ const Statistics = () => {
                     color: "#ef8a57",
                     fontWeight: 600,
                     textAlign: "center",
+                    marginLeft:"-4%",
                     fontSize: "1.1rem",
                     marginBottom: 0,
                   }}
