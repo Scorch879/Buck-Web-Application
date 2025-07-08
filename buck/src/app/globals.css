@@ -64,7 +64,6 @@ body {
 
 .header-btns {
   display: flex;
-  flex-wrap: wrap;
   /* Allow buttons to wrap */
   gap: 1.2rem;
   align-items: center;
