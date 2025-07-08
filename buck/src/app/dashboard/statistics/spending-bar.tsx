@@ -13,37 +13,49 @@ import { statisticsTestData } from "./testData";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
-interface SpendingBarProps { mode?: 'week' | 'month' | 'overall'; weekIndex?: number; monthIndex?: number; }
-const SpendingBar: React.FC<SpendingBarProps> = ({ mode = 'week', weekIndex, monthIndex }) => {
-  const categories = statisticsTestData.categories;
-  let amounts: number[] = [];
-  if (mode === 'week') {
-    const idx = typeof weekIndex === 'number' ? weekIndex : statisticsTestData.weeklyCategorySpending.length - 1;
-    amounts = statisticsTestData.weeklyCategorySpending[idx];
-  } else if (mode === 'month') {
-    const idx = typeof monthIndex === 'number' ? monthIndex : 0;
-    amounts = Array(categories.length).fill(0);
-    for (let w = idx * 4; w < (idx + 1) * 4 && w < statisticsTestData.weeklyCategorySpending.length; w++) {
-      for (let d = 0; d < categories.length; d++) {
-        amounts[d] += statisticsTestData.weeklyCategorySpending[w][d];
+interface SpendingBarProps {
+  mode?: 'week' | 'month' | 'overall';
+  weekIndex?: number;
+  monthIndex?: number;
+  categories?: string[];
+  amounts?: number[];
+}
+const SpendingBar: React.FC<SpendingBarProps> = ({ mode = 'week', weekIndex, monthIndex, categories, amounts }) => {
+  const fallbackCategories = statisticsTestData.categories;
+  const fallbackAmounts = (() => {
+    if (mode === 'week') {
+      const idx = typeof weekIndex === 'number' ? weekIndex : statisticsTestData.weeklyCategorySpending.length - 1;
+      return statisticsTestData.weeklyCategorySpending[idx];
+    } else if (mode === 'month') {
+      const idx = typeof monthIndex === 'number' ? monthIndex : 0;
+      const arr = Array(fallbackCategories.length).fill(0);
+      for (let w = idx * 4; w < (idx + 1) * 4 && w < statisticsTestData.weeklyCategorySpending.length; w++) {
+        for (let d = 0; d < fallbackCategories.length; d++) {
+          arr[d] += statisticsTestData.weeklyCategorySpending[w][d];
+        }
       }
-    }
-  } else if (mode === 'overall') {
-    amounts = Array(categories.length).fill(0);
-    for (let w = 0; w < statisticsTestData.weeklyCategorySpending.length; w++) {
-      for (let d = 0; d < categories.length; d++) {
-        amounts[d] += statisticsTestData.weeklyCategorySpending[w][d];
+      return arr;
+    } else if (mode === 'overall') {
+      const arr = Array(fallbackCategories.length).fill(0);
+      for (let w = 0; w < statisticsTestData.weeklyCategorySpending.length; w++) {
+        for (let d = 0; d < fallbackCategories.length; d++) {
+          arr[d] += statisticsTestData.weeklyCategorySpending[w][d];
+        }
       }
+      return arr;
     }
-  }
+    return Array(fallbackCategories.length).fill(0);
+  })();
   const barColors = statisticsTestData.barColors;
+  const usedCategories = categories && categories.length ? categories : fallbackCategories;
+  const usedAmounts = amounts && amounts.length === usedCategories.length ? amounts : fallbackAmounts;
 
   const data = {
-    labels: categories,
+    labels: usedCategories,
     datasets: [
       {
         label: "Spending",
-        data: amounts,
+        data: usedAmounts,
         backgroundColor: barColors,
         borderColor: barColors,
         borderWidth: 2,
@@ -53,7 +65,7 @@ const SpendingBar: React.FC<SpendingBarProps> = ({ mode = 'week', weekIndex, mon
     ],
   };
 
-  const yMax = Math.max(200, ...amounts);
+  const yMax = Math.max(200, ...usedAmounts);
 
   const options = {
     responsive: true,

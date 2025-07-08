@@ -9,7 +9,8 @@ import { processExpense, ExpenseInput, AIResponse } from "@/utils/aiApi";
 import "./style.css";
 import DashboardHeader from "@/component/dashboardheader";
 import { useAuthGuard } from "@/utils/useAuthGuard";
-import { statisticsTestData } from "@/app/dashboard/statistics/testData";
+import { db } from "@/utils/firebase";
+import { collection, onSnapshot, doc } from "firebase/firestore";
 
 // Data interface for type safety
 interface WeeklyData {
@@ -26,52 +27,109 @@ interface SummaryData {
 }
 
 // Emoji and custom description mapping for categories
-const categoryDetails: Record<string, { emoji: string; description: string }> = {
-  Food: { emoji: "🍔", description: "Meals, snacks, and groceries." },
-  Fare: { emoji: "🚌", description: "Public transport and commuting costs." },
-  "Gas Money": { emoji: "⛽", description: "Fuel for your vehicle." },
-  "Video Games": { emoji: "🎮", description: "Game purchases and in-game spending." },
-  Shopping: { emoji: "🛍️", description: "Clothes, gadgets, and other shopping." },
-  Bills: { emoji: "🧾", description: "Utilities, rent, and recurring payments." },
-  Other: { emoji: "💡", description: "Miscellaneous expenses." },
-};
+const categoryDetails: Record<string, { emoji: string; description: string }> =
+  {
+    Food: { emoji: "🍔", description: "Meals, snacks, and groceries." },
+    Fare: { emoji: "🚌", description: "Public transport and commuting costs." },
+    "Gas Money": { emoji: "⛽", description: "Fuel for your vehicle." },
+    "Video Games": {
+      emoji: "🎮",
+      description: "Game purchases and in-game spending.",
+    },
+    Shopping: {
+      emoji: "🛍️",
+      description: "Clothes, gadgets, and other shopping.",
+    },
+    Bills: {
+      emoji: "🧾",
+      description: "Utilities, rent, and recurring payments.",
+    },
+    Other: { emoji: "💡", description: "Miscellaneous expenses." },
+  };
 
 const Dashboard = (): React.JSX.Element => {
   const router = useRouter();
 
   // State for active navigation
   const [activeNav, setActiveNav] = useState("home");
-
-  // Empty data - ready for future implementation
-  const [weeklyData, setWeeklyData] = useState<WeeklyData[]>([]);
-  const [summaryData, setSummaryData] = useState<SummaryData[]>([]);
   const [spendingAmount, setSpendingAmount] = useState("");
   const { user, loading } = useAuthGuard();
+  const [categories, setCategories] = useState<any[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
 
-  //Auth Guard Code Block
-  // On mount, set sample data for demonstration
   useEffect(() => {
-    setWeeklyData([
-      { day: "Mon", amount: 0, color: "#ef8a57" },
-      { day: "Tue", amount: 0, color: "#fd523b" },
-      { day: "Wed", amount: 0, color: "#f6c390" },
-      { day: "Thu", amount: 0, color: "#2c3e50" },
-      { day: "Fri", amount: 0, color: "#6c757d" },
-      { day: "Sat", amount: 0, color: "#ffd6b0" },
-      { day: "Sun", amount: 0, color: "#efb857" },
-    ]);
-  }, []);
+    if (!user) return;
+    // Fetch categories
+    const categoriesRef = collection(db, "users", user.uid, "categories");
+    const unsubCategories = onSnapshot(categoriesRef, (snapshot) => {
+      setCategories(
+        snapshot.docs.map((doc) => ({ id: doc.id, name: doc.data().name }))
+      );
+    });
+    // Fetch expenses
+    const expensesRef = collection(db, "users", user.uid, "expenses");
+    const unsubExpenses = onSnapshot(expensesRef, (snapshot) => {
+      setExpenses(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => {
+      unsubCategories();
+      unsubExpenses();
+    };
+  }, [user]);
 
-  // Populate summaryData with category spending on mount
-  useEffect(() => {
-    const summary = statisticsTestData.categories.map((category, idx) => ({
-      label: category,
-      value: `$${statisticsTestData.categoryTotals[idx]}`,
-      color: statisticsTestData.barColors[idx],
-      description: `${categoryDetails[category]?.emoji || ''} ${categoryDetails[category]?.description || ''}`,
-    }));
-    setSummaryData(summary);
-  }, []);
+  // Calculate weekly spending and summary
+  const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const today = new Date();
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 6); // Sunday
+
+  // Filter expenses for this week
+  const weeklyExpenses = expenses.filter((exp) => {
+    const expDate = new Date(exp.date);
+    return expDate >= startOfWeek && expDate <= endOfWeek;
+  });
+
+  // Weekly spending total
+  const totalWeeklySpending = weeklyExpenses.reduce(
+    (sum, exp) => sum + Number(exp.amount),
+    0
+  );
+
+  // Weekly spending per day
+  const weeklyData = weekDays.map((day, idx) => {
+    const date = new Date(startOfWeek);
+    date.setDate(startOfWeek.getDate() + idx);
+    const dayTotal = weeklyExpenses
+      .filter((exp) => {
+        const expDate = new Date(exp.date);
+        return (
+          expDate.getDate() === date.getDate() &&
+          expDate.getMonth() === date.getMonth() &&
+          expDate.getFullYear() === date.getFullYear()
+        );
+      })
+      .reduce((sum, exp) => sum + Number(exp.amount), 0);
+    return { day, amount: dayTotal, color: "#ef8a57" };
+  });
+
+  // Financial summary by category
+  const summaryData = categories
+    .map((cat) => {
+      const value = expenses
+        .filter((exp) => exp.category === cat.name)
+        .reduce((sum, exp) => sum + Number(exp.amount), 0);
+      return {
+        label: cat.name,
+        value: `₱${value}`,
+        color: "#ef8a57",
+        description: `${categoryDetails[cat.name]?.emoji || ""} ${
+          categoryDetails[cat.name]?.description || ""
+        }`,
+      };
+    })
+    .filter((item) => item.value !== "₱0");
 
   if (loading || !user) {
     return (
@@ -97,16 +155,6 @@ const Dashboard = (): React.JSX.Element => {
     audio.play();
   };
 
-  // Function to update weekly data (for future use)
-  const updateWeeklyData = (newData: WeeklyData[]) => {
-    setWeeklyData(newData);
-  };
-
-  // Function to update summary data (for future use)
-  const updateSummaryData = (newData: SummaryData[]) => {
-    setSummaryData(newData);
-  };
-
   // Function to update spending amount (for future use)
   const updateSpendingAmount = (newAmount: string) => {
     setSpendingAmount(newAmount);
@@ -126,10 +174,17 @@ const Dashboard = (): React.JSX.Element => {
       <div className="dashboard-container">
         <div className="dashboard-welcome-card">
           <div className="dashboard-welcome-row">
-            <img src="/BuckMascot.png" alt="Buck Mascot" className="dashboard-welcome-avatar" />
+            <img
+              src="/BuckMascot.png"
+              alt="Buck Mascot"
+              className="dashboard-welcome-avatar"
+            />
             <div>
               <div className="dashboard-welcome-greeting">
-                Welcome, <span className="dashboard-welcome-name">{auth.currentUser?.displayName}!</span>
+                Welcome,{" "}
+                <span className="dashboard-welcome-name">
+                  {auth.currentUser?.displayName}!
+                </span>
               </div>
             </div>
           </div>
@@ -141,7 +196,9 @@ const Dashboard = (): React.JSX.Element => {
             <h2 className="spending-title">Weekly Spending</h2>
             <div className="spending-circle">
               <div className="spending-amount">
-                {spendingAmount || "No Data"}
+                {totalWeeklySpending > 0
+                  ? `₱${totalWeeklySpending}`
+                  : "No Data"}
               </div>
             </div>
             <p className="spending-label">Total spent this week</p>
@@ -152,10 +209,15 @@ const Dashboard = (): React.JSX.Element => {
             <h2 className="graph-title">Weekly Summary of Expenses</h2>
             {/* Dynamic max Y value */}
             {(() => {
-              const maxAmount = Math.max(30, ...weeklyData.map(item => item.amount));
+              const maxAmount = Math.max(
+                30,
+                ...weeklyData.map((item) => item.amount)
+              );
               // Generate Y-axis labels (5 steps)
               const steps = 6;
-              const yLabels = Array.from({ length: steps + 1 }, (_, i) => Math.round(maxAmount - (maxAmount / steps) * i));
+              const yLabels = Array.from({ length: steps + 1 }, (_, i) =>
+                Math.round(maxAmount - (maxAmount / steps) * i)
+              );
               return (
                 <div
                   className="graph-container"
@@ -183,7 +245,10 @@ const Dashboard = (): React.JSX.Element => {
                       <div
                         key={num}
                         style={{
-                          height: idx !== yLabels.length - 1 ? "calc(300px / 6 - 1px)" : 0,
+                          height:
+                            idx !== yLabels.length - 1
+                              ? "calc(300px / 6 - 1px)"
+                              : 0,
                         }}
                       >
                         {num}
@@ -200,21 +265,7 @@ const Dashboard = (): React.JSX.Element => {
                       gap: "1rem",
                     }}
                   >
-                    {weeklyData.length > 0 ? (
-                      weeklyData.map((item, index) => (
-                        <div
-                          key={index}
-                          className="graph-bar"
-                          style={{
-                            height: `${maxAmount === 0 ? 0 : (item.amount / maxAmount) * 100}%`,
-                            background: item.color,
-                          }}
-                          title={`${item.day}: $${item.amount}`}
-                        >
-                          <div className="graph-bar-label">{item.day}</div>
-                        </div>
-                      ))
-                    ) : (
+                    {weeklyData.every((item) => item.amount === 0) ? (
                       <div
                         style={{
                           display: "flex",
@@ -227,6 +278,24 @@ const Dashboard = (): React.JSX.Element => {
                       >
                         No data available
                       </div>
+                    ) : (
+                      weeklyData.map((item, index) => (
+                        <div
+                          key={index}
+                          className="graph-bar"
+                          style={{
+                            height: `${
+                              maxAmount === 0
+                                ? 0
+                                : (item.amount / maxAmount) * 100
+                            }%`,
+                            background: item.color,
+                          }}
+                          title={`${item.day}: ₱${item.amount}`}
+                        >
+                          <div className="graph-bar-label">{item.day}</div>
+                        </div>
+                      ))
                     )}
                   </div>
                 </div>
@@ -249,7 +318,16 @@ const Dashboard = (): React.JSX.Element => {
                     {item.value}
                   </div>
                   <div className="summary-item-label">{item.label}</div>
-                  <div className="summary-item-description" style={{ fontSize: '0.85rem', color: '#888', marginTop: '0.3rem' }}>{item.description}</div>
+                  <div
+                    className="summary-item-description"
+                    style={{
+                      fontSize: "0.85rem",
+                      color: "#888",
+                      marginTop: "0.3rem",
+                    }}
+                  >
+                    {item.description}
+                  </div>
                 </div>
               ))
             ) : (

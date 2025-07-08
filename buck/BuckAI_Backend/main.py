@@ -4,6 +4,7 @@ from ai_models import get_multiplier, predict_future_expense, generate_ai_tip, g
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 from typing import Optional, List, Dict
+import re
 
 app = FastAPI()
 
@@ -138,14 +139,32 @@ def ai_forecast(input: ForecastInput = Body(...)):
             target_date=target_date,
             created_at=today.strftime("%Y-%m-%d")
         )
+        # Extract recommended budget from AI response
+        ai_recommended_budget = None
+        match = re.search(r"save\s+([\d,]+)\s*(?:per month|monthly|a month|each month|every month|per week|weekly|a week|each week|every week)?", tip.replace(',', ''))
+        if match:
+            try:
+                ai_recommended_budget = float(match.group(1).replace(',', ''))
+            except Exception:
+                ai_recommended_budget = None
         return {
             "forecast": tip,
             "forecast_per_day": forecast_per_day,
             "actual_per_day": dict(actual_per_day),
             "days_left": days_left,
             "spent": spent,
-            "remaining": remaining
+            "remaining": remaining,
+            "ai_recommended_budget": ai_recommended_budget
         }
     except Exception as e:
         return {"error": str(e)}
+
+@app.post("/ai/categorize_expense/")
+def categorize_expense(expense: dict):
+    description = expense.get("description", "")
+    if not description:
+        return {"error": "Missing description"}
+    from ai_models import get_expense_category
+    category = get_expense_category(description)
+    return {"category": category}
 

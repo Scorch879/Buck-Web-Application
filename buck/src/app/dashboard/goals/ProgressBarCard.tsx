@@ -10,6 +10,7 @@ interface Goal {
   createdAt: string;
   attitude?: string;
   isActive?: boolean;
+  completed?: boolean;
 }
 
 interface ProgressBarCardProps {
@@ -39,10 +40,10 @@ const ProgressBarCard: React.FC<ProgressBarCardProps> = ({ goal }) => {
       </div>
       <div className="progress-stats">
         <span className="progress-amount">
-          Saved: ${currentAmount.toLocaleString()}
+          Saved: ₱{currentAmount.toLocaleString()}
         </span>
         <span className="progress-remaining">
-          Remaining: ${remainingAmount.toLocaleString()}
+          Remaining: ₱{remainingAmount.toLocaleString()}
         </span>
       </div>
     </div>

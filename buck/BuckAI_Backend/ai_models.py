@@ -7,19 +7,58 @@ import os
 from dotenv import load_dotenv
 import requests
 import os
+import json
 
 load_dotenv(dotenv_path=".env.local")
 # Set your OpenAI key here
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # --- OpenAI Embedding Model ---
-def get_expense_category(text):
-    embedding = openai.embeddings.create(
-        input=text,
-        model="text-embedding-3-small"
+# Reference categories for classification
+REFERENCE_CATEGORIES = [
+    "Food",
+    "Fare",
+    "Gas Money",
+    "Video Games",
+    "Shopping",
+    "Bills",
+    "Education",
+    "Electronics",
+    "Entertainment",
+    "Health",
+    "Home",
+    "Insurance",
+    "Social",
+    "Sport",
+    "Tax",
+    "Telephone",
+    "Transportation"
+]
+
+def get_expense_category(description):
+    api_url = "https://api.together.xyz/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {os.getenv('TOGETHER_API_KEY')}",
+        "Content-Type": "application/json"
+    }
+    prompt = (
+        f"Given the following expense description: '{description}', "
+        f"which of these categories does it belong to: {', '.join(REFERENCE_CATEGORIES)}? "
+        "Only return the category name."
     )
-    # Dummy categorization return (real would compare embedding similarity)
-    return "Food"
+    payload = {
+        "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 16,
+        "temperature": 0
+    }
+    response = requests.post(api_url, headers=headers, json=payload)
+    response.raise_for_status()
+    result = response.json()
+    category = result["choices"][0]["message"]["content"].strip()
+    # Fallback if the model returns something unexpected
+    if category not in REFERENCE_CATEGORIES:
+        category = "Uncategorized"
+    return category
 
 # --- XGBoost Classifier ---
 # Dummy trained model (in reality, train with real data)
