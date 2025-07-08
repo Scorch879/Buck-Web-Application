@@ -122,14 +122,14 @@ const Dashboard = (): React.JSX.Element => {
         .reduce((sum, exp) => sum + Number(exp.amount), 0);
       return {
         label: cat.name,
-        value: `$${value}`,
+        value: `₱${value}`,
         color: "#ef8a57",
         description: `${categoryDetails[cat.name]?.emoji || ""} ${
           categoryDetails[cat.name]?.description || ""
         }`,
       };
     })
-    .filter((item) => item.value !== "$0");
+    .filter((item) => item.value !== "₱0");
 
   if (loading || !user) {
     return (
@@ -197,7 +197,7 @@ const Dashboard = (): React.JSX.Element => {
             <div className="spending-circle">
               <div className="spending-amount">
                 {totalWeeklySpending > 0
-                  ? `$${totalWeeklySpending}`
+                  ? `₱${totalWeeklySpending}`
                   : "No Data"}
               </div>
             </div>
@@ -291,7 +291,7 @@ const Dashboard = (): React.JSX.Element => {
                             }%`,
                             background: item.color,
                           }}
-                          title={`${item.day}: $${item.amount}`}
+                          title={`${item.day}: ₱${item.amount}`}
                         >
                           <div className="graph-bar-label">{item.day}</div>
                         </div>

@@ -52,7 +52,6 @@ body {
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin-left: -10%;
 }
 
 .header-leftside h1:hover {

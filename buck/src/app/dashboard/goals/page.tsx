@@ -726,7 +726,7 @@ const GoalsPage = () => {
               >
                 <h3>{goal.goalName}</h3>
                 <p>
-                  <strong>Target:</strong> ${goal.targetAmount}
+                  <strong>Target:</strong> ₱{goal.targetAmount}
                 </p>
                 <p>
                   <strong>Created:</strong> {goal.createdAt}
@@ -757,7 +757,7 @@ const GoalsPage = () => {
                     <strong>Name:</strong> {selectedGoal.goalName}
                   </p>
                   <p>
-                    <strong>Target Amount:</strong> ${selectedGoal.targetAmount}
+                    <strong>Target Amount:</strong> ₱{selectedGoal.targetAmount}
                   </p>
                   {selectedGoal.targetDate && (
                     <p>
@@ -1358,7 +1358,7 @@ const GoalsPage = () => {
                           minWidth: 80,
                         }}
                       >
-                        ${exp.amount}
+                        ₱{exp.amount}
                       </span>
                       {exp.date && (
                         <span

@@ -1604,7 +1604,7 @@ const Statistics = () => {
                           fontSize: 17,
                         }}
                       >
-                        ${exp.amount}
+                        ₱{exp.amount}
                       </div>
                       <div style={{ flex: 1, color: "#6c757d", fontSize: 14 }}>
                         {exp.date}
