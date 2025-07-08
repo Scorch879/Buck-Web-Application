@@ -10,6 +10,7 @@ interface Goal {
   createdAt: string;
   attitude?: string;
   isActive?: boolean;
+  completed?: boolean;
 }
 
 interface ProgressBarCardProps {
