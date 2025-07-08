@@ -67,7 +67,7 @@ export default function DashboardHeader({
             />
           </div>
           <h1 className="dashboard-title" onClick={() => {
-            setActiveNav("statistics");
+            setActiveNav("home");
             router.push("/dashboard/home");
           }}>Buck</h1>
         </div>
