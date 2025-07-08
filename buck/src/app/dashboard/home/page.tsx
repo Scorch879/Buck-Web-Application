@@ -265,7 +265,20 @@ const Dashboard = (): React.JSX.Element => {
                       gap: "1rem",
                     }}
                   >
-                    {weeklyData.length > 0 ? (
+                    {weeklyData.every((item) => item.amount === 0) ? (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          height: "100%",
+                          color: "#666",
+                          fontSize: "1.1rem",
+                        }}
+                      >
+                        No data available
+                      </div>
+                    ) : (
                       weeklyData.map((item, index) => (
                         <div
                           key={index}
@@ -283,19 +296,6 @@ const Dashboard = (): React.JSX.Element => {
                           <div className="graph-bar-label">{item.day}</div>
                         </div>
                       ))
-                    ) : (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          height: "100%",
-                          color: "#666",
-                          fontSize: "1.1rem",
-                        }}
-                      >
-                        No data available
-                      </div>
                     )}
                   </div>
                 </div>

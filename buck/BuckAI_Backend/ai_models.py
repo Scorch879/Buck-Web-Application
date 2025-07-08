@@ -11,7 +11,6 @@ import json
 
 load_dotenv(dotenv_path=".env.local")
 # Set your OpenAI key here
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # --- OpenAI Embedding Model ---
 # Reference categories for classification
