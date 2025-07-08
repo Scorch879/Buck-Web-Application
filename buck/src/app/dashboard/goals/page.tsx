@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import "./style.css";
 import "./progress-bar.css";
 import { useRouter } from "next/navigation";
@@ -592,84 +592,6 @@ const GoalsPage = () => {
     }
   };
 
-  // --- Weekly Spending Report Data Calculation ---
-  // Returns an array of 7 numbers (Mon-Sun) for the selected week/month/overall
-  function getWeeklySpendingData({
-    mode,
-    weekIndex,
-    monthIndex,
-    expenses,
-    maxBudgetPerDay,
-  }: {
-    mode: "week" | "month" | "overall";
-    weekIndex: number;
-    monthIndex: number;
-    expenses: any[];
-    maxBudgetPerDay: number;
-  }) {
-    const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    let result = Array(7).fill(0);
-    if (mode === "week" && weekDateRanges[weekIndex]) {
-      const { start, end } = weekDateRanges[weekIndex];
-      for (let i = 0; i < 7; i++) {
-        const date = new Date(start);
-        date.setDate(date.getDate() + i);
-        const dayExpenses = expenses.filter((exp) => {
-          const expDate = new Date(exp.date);
-          return (
-            expDate.getDate() === date.getDate() &&
-            expDate.getMonth() === date.getMonth() &&
-            expDate.getFullYear() === date.getFullYear()
-          );
-        });
-        result[i] =
-          maxBudgetPerDay -
-          dayExpenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
-      }
-    } else if (mode === "month" && monthDateRanges[monthIndex]) {
-      const { start, end } = monthDateRanges[monthIndex];
-      // For each day of week, sum all matching days in the month
-      for (let i = 0; i < 7; i++) {
-        let total = 0;
-        let count = 0;
-        let d = new Date(start);
-        while (d <= new Date(end)) {
-          if (d.getDay() === (i + 1) % 7) {
-            const dayExpenses = expenses.filter((exp) => {
-              const expDate = new Date(exp.date);
-              return (
-                expDate.getDate() === d.getDate() &&
-                expDate.getMonth() === d.getMonth() &&
-                expDate.getFullYear() === d.getFullYear()
-              );
-            });
-            total +=
-              maxBudgetPerDay -
-              dayExpenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
-            count++;
-          }
-          d.setDate(d.getDate() + 1);
-        }
-        result[i] = count > 0 ? total / count : maxBudgetPerDay;
-      }
-    } else if (mode === "overall") {
-      // For each day of week, sum all matching days in all expenses
-      for (let i = 0; i < 7; i++) {
-        let total = 0;
-        let count = 0;
-        expenses.forEach((exp) => {
-          const expDate = new Date(exp.date);
-          if (expDate.getDay() === (i + 1) % 7) {
-            total += Number(exp.amount);
-            count++;
-          }
-        });
-        result[i] = maxBudgetPerDay - (count > 0 ? total / count : 0);
-      }
-    }
-    return result;
-  }
-
   // Prepare data for Chart.js (Spending Report style)
   let chartData = null;
   if (forecastData && forecastData.forecast_per_day) {
@@ -726,6 +648,8 @@ const GoalsPage = () => {
       );
     });
   }, [user, selectedGoal]);
+
+  const chartRef = useRef<any>(null);
 
   if (loading || !user || loadingGoals) {
     return (
@@ -1133,40 +1057,69 @@ const GoalsPage = () => {
                           width: "100%",
                           maxWidth: 500,
                           margin: "1rem auto",
+                          minHeight: 300,
+                          position: "relative",
                         }}
                       >
-                        {chartData && (
-                          <Line
-                            data={chartData}
-                            options={{
-                              responsive: true,
-                              plugins: {
-                                legend: { display: true, position: "top" },
-                                tooltip: {
-                                  callbacks: {
-                                    label: function (context) {
-                                      const value = Number(context.raw);
-                                      return `${context.dataset.label}: ${value}`;
+                        {forecastLoading ? (
+                          <div
+                            style={{
+                              textAlign: "center",
+                              color: "#ef8a57",
+                              fontWeight: 600,
+                            }}
+                          >
+                            Loading forecast...
+                          </div>
+                        ) : forecastError ? (
+                          <div style={{ color: "red", textAlign: "center" }}>
+                            {forecastError}
+                          </div>
+                        ) : (
+                          chartData && (
+                            <Line
+                              ref={chartRef}
+                              data={chartData}
+                              options={{
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                  legend: { display: true, position: "top" },
+                                  tooltip: {
+                                    callbacks: {
+                                      label: function (context) {
+                                        const value = Number(context.raw);
+                                        return `${context.dataset.label}: ${value}`;
+                                      },
                                     },
                                   },
                                 },
-                              },
-                              scales: {
-                                x: {
-                                  grid: { display: false },
-                                  ticks: {
-                                    color: "#2c3e50",
-                                    font: { weight: 600 },
+                                scales: {
+                                  x: {
+                                    grid: { display: false },
+                                    ticks: {
+                                      color: "#2c3e50",
+                                      font: { weight: 600 },
+                                    },
+                                  },
+                                  y: {
+                                    grid: { color: "#eee" },
+                                    beginAtZero: true,
+                                    ticks: { color: "#2c3e50" },
                                   },
                                 },
-                                y: {
-                                  grid: { color: "#eee" },
-                                  beginAtZero: true,
-                                  ticks: { color: "#2c3e50" },
+                                animation: {
+                                  onComplete: () => {
+                                    if (chartRef.current) {
+                                      chartRef.current.resize();
+                                    }
+                                  },
                                 },
-                              },
-                            }}
-                          />
+                              }}
+                              redraw
+                              height={300}
+                            />
+                          )
                         )}
                       </div>
                       {/* Add Expense Button and Modal */}

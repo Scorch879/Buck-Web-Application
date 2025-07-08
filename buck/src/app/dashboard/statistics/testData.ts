@@ -9,7 +9,7 @@ export const statisticsTestData = {
     "Bills",
     "Other",
   ],
-  maxBudgetPerDay: 1000,
+  maxBudgetPerDay: 0,
   //categoryTotals: [200, 100, 500, 200, 1000, 300, 500],
   categoryTotals: [220, 60, 40, 90, 70, 110, 30],
   weeklyCategorySpending: [

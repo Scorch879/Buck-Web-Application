@@ -154,15 +154,13 @@ const Statistics = () => {
     try {
       // Get AI category for the expense description
       const aiCategory = await getSuggestedCategory(expenseDesc);
-      // Use selectedCategory if chosen, otherwise AI, otherwise Uncategorized
-      const categoryToUse = selectedCategory || aiCategory || "Uncategorized";
-      // Add expense with correct category
+      // Add expense with AI category
       const expensesRef = collection(db, "users", user.uid, "expenses");
       await addDoc(expensesRef, {
         date: expenseDate,
         amount: parseFloat(expenseAmount),
         description: expenseDesc,
-        category: categoryToUse,
+        category: aiCategory || "Uncategorized",
         goalId: selectedGoal.id,
         userId: user.uid,
       });
@@ -177,7 +175,6 @@ const Statistics = () => {
       setExpenseDate("");
       setExpenseAmount("");
       setExpenseDesc("");
-      setSelectedCategory(""); // Reset selected category after adding
     } catch (err: any) {
       setExpenseError(err.message || "Unknown error");
     } finally {
@@ -490,52 +487,6 @@ const Statistics = () => {
     };
   }
 
-  // --- Aggregation for Weekly Spending Chart ---
-  function getSpendingDataForChart() {
-    // Helper: get day index (0=Mon, 6=Sun)
-    function getDayIndex(dateStr: string) {
-      const d = new Date(dateStr);
-      // JS: 0=Sun, 1=Mon, ..., 6=Sat; want 0=Mon, 6=Sun
-      return (d.getDay() + 6) % 7;
-    }
-    // Helper: filter expenses in a date range
-    function filterExpenses(start: string, end: string) {
-      const startDate = new Date(start);
-      const endDate = new Date(end);
-      return expenses.filter((exp) => {
-        if (!exp.date) return false;
-        const d = new Date(exp.date);
-        return d >= startDate && d <= endDate;
-      });
-    }
-    let spending = Array(7).fill(0);
-    if (selectedMode === "week" && weekDateRanges.length > 0) {
-      const { start, end } = weekDateRanges[selectedWeek] || weekDateRanges[0];
-      const weekExpenses = filterExpenses(start, end);
-      weekExpenses.forEach((exp) => {
-        const idx = getDayIndex(exp.date);
-        spending[idx] += Number(exp.amount) || 0;
-      });
-    } else if (selectedMode === "month" && monthDateRanges.length > 0) {
-      const { start, end } = monthDateRanges[selectedMonth] || monthDateRanges[0];
-      const monthExpenses = filterExpenses(start, end);
-      monthExpenses.forEach((exp) => {
-        const idx = getDayIndex(exp.date);
-        spending[idx] += Number(exp.amount) || 0;
-      });
-    } else if (selectedMode === "overall") {
-      expenses.forEach((exp) => {
-        if (!exp.date) return;
-        const idx = getDayIndex(exp.date);
-        spending[idx] += Number(exp.amount) || 0;
-      });
-    }
-    return spending;
-  }
-
-  // Get AI recommended budget per day (fallback to 1000)
-  const aiMaxBudgetPerDay = forecastData && forecastData.ai_recommended_budget ? forecastData.ai_recommended_budget : 1000;
-
   useEffect(() => {
     if (selectedMode === "week") {
       setShowWeeklyGraph(true);
@@ -549,6 +500,42 @@ const Statistics = () => {
     }
     prevMode.current = selectedMode;
   }, [selectedMode]);
+
+  // --- Weekly Spending Data for Chart ---
+  const getWeeklySpendingData = () => {
+    // Returns array of 7 numbers (Mon-Sun) for the selected week, using real expenses only
+    if (!expenses.length || !weekDateRanges[selectedWeek]) {
+      return Array(7).fill(0);
+    }
+    const { start, end } = weekDateRanges[selectedWeek];
+    // Build array for each day of week (Mon=0, ..., Sun=6)
+    const weekSpending = Array(7).fill(0);
+    expenses.forEach((exp) => {
+      const expDate = new Date(exp.date);
+      const expISO = expDate.toISOString().slice(0, 10);
+      if (expISO >= start && expISO <= end) {
+        // Get day of week (Mon=0, ..., Sun=6)
+        let dayIdx = expDate.getDay();
+        dayIdx = dayIdx === 0 ? 6 : dayIdx - 1; // Sunday=6, Monday=0
+        weekSpending[dayIdx] += Number(exp.amount) || 0;
+      }
+    });
+    return weekSpending;
+  };
+
+  // --- Max Budget Per Day (from AI forecast) ---
+  const [maxBudgetPerDay, setMaxBudgetPerDay] = useState<number>(1000);
+
+  // Set maxBudgetPerDay from AI forecast
+  useEffect(() => {
+    if (forecastData && forecastData.forecast_per_day) {
+      const vals = Object.values(forecastData.forecast_per_day).map(Number);
+      if (vals.length > 0) {
+        const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+        setMaxBudgetPerDay(avg);
+      }
+    }
+  }, [forecastData]);
 
   if (loading || !user || loadingGoals) {
     return (
@@ -964,6 +951,7 @@ const Statistics = () => {
                     {/* Y-Axis Max Control */}
                     <div style={{ marginBottom: "1rem", textAlign: "right" }}>
                       <label style={{ fontWeight: 500, marginRight: 8 }}>
+                        Y Max:
                         <input
                           type="number"
                           value={yMax}
@@ -987,8 +975,17 @@ const Statistics = () => {
                       mode={selectedMode}
                       weekIndex={selectedWeek}
                       monthIndex={selectedMonth}
-                      spendingData={getSpendingDataForChart()}
-                      maxBudgetPerDay={aiMaxBudgetPerDay}
+                      spendingData={getWeeklySpendingData()}
+                      maxBudgetPerDay={maxBudgetPerDay}
+                      noData={
+                        getWeeklySpendingData().every((v) => v === 0) &&
+                        !expenses.some((exp) => {
+                          const expDate = new Date(exp.date);
+                          const expISO = expDate.toISOString().slice(0, 10);
+                          const { start, end } = weekDateRanges[selectedWeek] || {};
+                          return start && end && expISO >= start && expISO <= end;
+                        })
+                      }
                     />
                     {/* Custom Legend (now inside the panel) */}
                     <div className="graph-legend">
