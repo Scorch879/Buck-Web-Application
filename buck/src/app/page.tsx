@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import "./globals.css";
 import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
 import React from "react";
+import { FaBars, FaTimes } from "react-icons/fa";
 
 export default function Home() {
   useRedirectIfAuthenticated(); // Redirects if user is signed in
@@ -19,6 +20,7 @@ export default function Home() {
     null
   );
   const btnRef = React.useRef<HTMLButtonElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const playQuack = () => {
     const audio = new Audio("/quack.mp3");
     audio.play();
@@ -78,6 +80,25 @@ export default function Home() {
     }
   };
 
+  // Close menu on navigation or click outside
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      const menu = document.getElementById("mobile-menu-dropdown");
+      const btn = document.getElementById("mobile-menu-btn");
+      if (
+        menu &&
+        !menu.contains(e.target as Node) &&
+        btn &&
+        !btn.contains(e.target as Node)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuOpen]);
+
   return (
     <>
       <div className="landing-page">
@@ -94,8 +115,9 @@ export default function Home() {
                   onClick={playQuack}
                 />
               </div>
-              <h1>Buck</h1>
+              <h1 onClick={() => document.getElementById('Home')?.scrollIntoView({ behavior: 'smooth' })}>Buck</h1>
             </div>
+            {/* Desktop header buttons */}
             <div className="header-btns">
               <button className="header-button" onClick={() => document.getElementById('Home')?.scrollIntoView({ behavior: 'smooth' })}>
                 Home
@@ -103,11 +125,60 @@ export default function Home() {
               <button className="header-button" onClick={() => document.getElementById('About')?.scrollIntoView({ behavior: 'smooth' })}>
                 About Us
               </button>
-              <button className="header-button" onClick={() => router.push("/sign-in")}>
+              <button className="header-button" onClick={() => router.push("/sign-in")}>Sign In/Sign Up</button>
+            </div>
+            {/* Mobile menu button */}
+            <button
+              id="mobile-menu-btn"
+              className="mobile-menu-btn"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-menu-dropdown"
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              {menuOpen ? <FaTimes size={28} /> : <FaBars size={28} />}
+            </button>
+          </div>
+          {/* Mobile dropdown menu */}
+          {menuOpen && (
+            <div
+              id="mobile-menu-dropdown"
+              className="mobile-menu-dropdown"
+              role="menu"
+              aria-label="Main navigation"
+            >
+              <button
+                className="header-button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  document.getElementById('Home')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                role="menuitem"
+              >
+                Home
+              </button>
+              <button
+                className="header-button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  document.getElementById('About')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                role="menuitem"
+              >
+                About Us
+              </button>
+              <button
+                className="header-button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  router.push("/sign-in");
+                }}
+                role="menuitem"
+              >
                 Sign In/Sign Up
               </button>
             </div>
-          </div>
+          )}
         </div>
         <div
           className="section1"
@@ -179,7 +250,6 @@ export default function Home() {
             <div className="about-us">
               <h1>About Us</h1>
               <h3>{aboutustext}</h3>
-              it does this by
             </div>
             <div className="card-container">
               <div className="s2-cards">
@@ -235,7 +305,7 @@ export default function Home() {
                 <div className="cardtext-container">
                   <h3>
                     Plan ahead with smart projections based on your spending
-                    habits. See what’s coming so you can make better financial decisions today.
+                    habits. See what's coming so you can make better financial decisions today.
                   </h3>
                 </div>
               </div>
