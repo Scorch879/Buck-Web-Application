@@ -432,7 +432,7 @@ success-message,
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 90%;
+  width: 80%;
   min-height: 40%;
   border-radius: 25px;
   background-color: #f8dabc;
@@ -519,7 +519,7 @@ success-message,
   }
 
   .cardtext-container {
-    width: 90%;
+    width: 80%;
     font-size: 1.05rem;
     padding: 5%;
   }
@@ -581,7 +581,7 @@ success-message,
   }
 
   .cardtext-container {
-    width: 95%;
+    width: 80%;
     font-size: 1rem;
     padding: 6%;
   }
@@ -668,7 +668,7 @@ success-message,
   }
 
   .cardtext-container {
-    width: 99%;
+    width: 80%;
     font-size: 0.98rem;
     padding: 8% 3%;
   }
@@ -706,7 +706,7 @@ success-message,
   }
 
   .cardtext-container {
-    width: 95%;
+    width: 80%;
     font-size: 1rem;
     padding: 6%;
   }
@@ -732,7 +732,7 @@ success-message,
   }
 
   .cardtext-container {
-    width: 98%;
+    width: 80%;
     font-size: 0.98rem;
     padding: 7% 4%;
   }
@@ -758,7 +758,7 @@ success-message,
   }
 
   .cardtext-container {
-    width: 99%;
+    width: 80%;
     font-size: 0.93rem;
     padding: 8% 3%;
   }
