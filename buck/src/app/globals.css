@@ -52,7 +52,6 @@ body {
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin-left: -10%;
 }
 
 .header-leftside h1:hover {
@@ -65,9 +64,12 @@ body {
 
 .header-btns {
   display: flex;
-  justify-content: space-between;
-  gap: 80px;
+  /* Allow buttons to wrap */
+  gap: 1.2rem;
   align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .header-button {
@@ -527,7 +529,7 @@ success-message,
 
 @media (max-width: 900px) {
   .lp-header {
-    width: 98%;
+    width: 50%;
     gap: 40px;
     height: auto;
     flex-direction: column;
@@ -607,6 +609,7 @@ success-message,
     border-radius: 0;
     gap: 10px;
     padding: 0.5rem 0;
+    top: 0%
   }
 
   .lp-header-container {
