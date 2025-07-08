@@ -490,6 +490,52 @@ const Statistics = () => {
     };
   }
 
+  // --- Aggregation for Weekly Spending Chart ---
+  function getSpendingDataForChart() {
+    // Helper: get day index (0=Mon, 6=Sun)
+    function getDayIndex(dateStr: string) {
+      const d = new Date(dateStr);
+      // JS: 0=Sun, 1=Mon, ..., 6=Sat; want 0=Mon, 6=Sun
+      return (d.getDay() + 6) % 7;
+    }
+    // Helper: filter expenses in a date range
+    function filterExpenses(start: string, end: string) {
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      return expenses.filter((exp) => {
+        if (!exp.date) return false;
+        const d = new Date(exp.date);
+        return d >= startDate && d <= endDate;
+      });
+    }
+    let spending = Array(7).fill(0);
+    if (selectedMode === "week" && weekDateRanges.length > 0) {
+      const { start, end } = weekDateRanges[selectedWeek] || weekDateRanges[0];
+      const weekExpenses = filterExpenses(start, end);
+      weekExpenses.forEach((exp) => {
+        const idx = getDayIndex(exp.date);
+        spending[idx] += Number(exp.amount) || 0;
+      });
+    } else if (selectedMode === "month" && monthDateRanges.length > 0) {
+      const { start, end } = monthDateRanges[selectedMonth] || monthDateRanges[0];
+      const monthExpenses = filterExpenses(start, end);
+      monthExpenses.forEach((exp) => {
+        const idx = getDayIndex(exp.date);
+        spending[idx] += Number(exp.amount) || 0;
+      });
+    } else if (selectedMode === "overall") {
+      expenses.forEach((exp) => {
+        if (!exp.date) return;
+        const idx = getDayIndex(exp.date);
+        spending[idx] += Number(exp.amount) || 0;
+      });
+    }
+    return spending;
+  }
+
+  // Get AI recommended budget per day (fallback to 1000)
+  const aiMaxBudgetPerDay = forecastData && forecastData.ai_recommended_budget ? forecastData.ai_recommended_budget : 1000;
+
   useEffect(() => {
     if (selectedMode === "week") {
       setShowWeeklyGraph(true);
@@ -941,6 +987,8 @@ const Statistics = () => {
                       mode={selectedMode}
                       weekIndex={selectedWeek}
                       monthIndex={selectedMonth}
+                      spendingData={getSpendingDataForChart()}
+                      maxBudgetPerDay={aiMaxBudgetPerDay}
                     />
                     {/* Custom Legend (now inside the panel) */}
                     <div className="graph-legend">

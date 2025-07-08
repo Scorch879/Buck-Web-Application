@@ -90,13 +90,18 @@ const GoalsPage = () => {
   const [expenses, setExpenses] = useState<any[]>([]);
 
   // --- AI category suggestion for goals page ---
-  async function getSuggestedCategory(description: string): Promise<string | null> {
+  async function getSuggestedCategory(
+    description: string
+  ): Promise<string | null> {
     try {
-      const response = await fetch("https://buck-web-application-1.onrender.com/ai/categorize_expense/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description }),
-      });
+      const response = await fetch(
+        "https://buck-web-application-1.onrender.com/ai/categorize_expense/",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ description }),
+        }
+      );
       const data = await response.json();
       return data.category || null;
     } catch {
@@ -587,6 +592,84 @@ const GoalsPage = () => {
     }
   };
 
+  // --- Weekly Spending Report Data Calculation ---
+  // Returns an array of 7 numbers (Mon-Sun) for the selected week/month/overall
+  function getWeeklySpendingData({
+    mode,
+    weekIndex,
+    monthIndex,
+    expenses,
+    maxBudgetPerDay,
+  }: {
+    mode: "week" | "month" | "overall";
+    weekIndex: number;
+    monthIndex: number;
+    expenses: any[];
+    maxBudgetPerDay: number;
+  }) {
+    const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    let result = Array(7).fill(0);
+    if (mode === "week" && weekDateRanges[weekIndex]) {
+      const { start, end } = weekDateRanges[weekIndex];
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(start);
+        date.setDate(date.getDate() + i);
+        const dayExpenses = expenses.filter((exp) => {
+          const expDate = new Date(exp.date);
+          return (
+            expDate.getDate() === date.getDate() &&
+            expDate.getMonth() === date.getMonth() &&
+            expDate.getFullYear() === date.getFullYear()
+          );
+        });
+        result[i] =
+          maxBudgetPerDay -
+          dayExpenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
+      }
+    } else if (mode === "month" && monthDateRanges[monthIndex]) {
+      const { start, end } = monthDateRanges[monthIndex];
+      // For each day of week, sum all matching days in the month
+      for (let i = 0; i < 7; i++) {
+        let total = 0;
+        let count = 0;
+        let d = new Date(start);
+        while (d <= new Date(end)) {
+          if (d.getDay() === (i + 1) % 7) {
+            const dayExpenses = expenses.filter((exp) => {
+              const expDate = new Date(exp.date);
+              return (
+                expDate.getDate() === d.getDate() &&
+                expDate.getMonth() === d.getMonth() &&
+                expDate.getFullYear() === d.getFullYear()
+              );
+            });
+            total +=
+              maxBudgetPerDay -
+              dayExpenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
+            count++;
+          }
+          d.setDate(d.getDate() + 1);
+        }
+        result[i] = count > 0 ? total / count : maxBudgetPerDay;
+      }
+    } else if (mode === "overall") {
+      // For each day of week, sum all matching days in all expenses
+      for (let i = 0; i < 7; i++) {
+        let total = 0;
+        let count = 0;
+        expenses.forEach((exp) => {
+          const expDate = new Date(exp.date);
+          if (expDate.getDay() === (i + 1) % 7) {
+            total += Number(exp.amount);
+            count++;
+          }
+        });
+        result[i] = maxBudgetPerDay - (count > 0 ? total / count : 0);
+      }
+    }
+    return result;
+  }
+
   // Prepare data for Chart.js (Spending Report style)
   let chartData = null;
   if (forecastData && forecastData.forecast_per_day) {
@@ -1043,18 +1126,6 @@ const GoalsPage = () => {
                       {forecastLoading && <div>Loading forecast...</div>}
                       {forecastError && (
                         <div style={{ color: "red" }}>{forecastError}</div>
-                      )}
-                      {forecastData && forecastData.forecast && (
-                        <div
-                          style={{
-                            margin: "12px 0",
-                            fontWeight: 500,
-                            color: "#2c3e50",
-                            textAlign: "center",
-                          }}
-                        >
-                          {forecastData.forecast}
-                        </div>
                       )}
                       {/* Forecast/Actual Graph */}
                       <div

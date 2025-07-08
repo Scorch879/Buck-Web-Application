@@ -28,12 +28,16 @@ interface WeeklySpendingChartProps {
   mode?: 'week' | 'month' | 'overall';
   weekIndex?: number;
   monthIndex?: number;
+  spendingData?: number[];
+  maxBudgetPerDay?: number;
 }
 
-const WeeklySpendingChart: React.FC<WeeklySpendingChartProps> = ({ mode = 'week', weekIndex, monthIndex }) => {
-  const maxBudgetPerDay = statisticsTestData.maxBudgetPerDay;
+const WeeklySpendingChart: React.FC<WeeklySpendingChartProps> = ({ mode = 'week', weekIndex, monthIndex, spendingData, maxBudgetPerDay }) => {
+  const maxBudget = typeof maxBudgetPerDay === 'number' ? maxBudgetPerDay : statisticsTestData.maxBudgetPerDay;
   let spending: number[] = [];
-  if (mode === 'week') {
+  if (spendingData) {
+    spending = spendingData;
+  } else if (mode === 'week') {
     const idx = typeof weekIndex === 'number' ? weekIndex : statisticsTestData.weeklyCategorySpending.length - 1;
     spending = statisticsTestData.weeklyCategorySpending[idx];
   } else if (mode === 'month') {
@@ -52,8 +56,8 @@ const WeeklySpendingChart: React.FC<WeeklySpendingChartProps> = ({ mode = 'week'
       }
     }
   }
-  const data = spending.map(amt => maxBudgetPerDay - amt);
-  const yMax = Math.max(maxBudgetPerDay, ...data.map(Math.abs), 200);
+  const data = spending.map(amt => maxBudget - amt);
+  const yMax = Math.max(maxBudget, ...data.map(Math.abs), 200);
   return (
     <Line
       data={{
