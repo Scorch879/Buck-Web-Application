@@ -852,6 +852,7 @@ const Statistics = () => {
           </div>
         )}
         {/* Recent Expenses Card */}
+        {goals.length > 0 && (
         <div style={{ width: '100%', maxWidth: 900, margin: '2rem auto' }}>
           <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 4px 24px 0 rgba(239,138,87,0.10)', padding: '2rem 2.5rem', minHeight: 120, transition: 'box-shadow 0.2s', position: 'relative', display: 'flex', flexDirection: 'column', gap: 24 }}>
             {/* Add Expense Button inside card */}
@@ -882,6 +883,7 @@ const Statistics = () => {
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );
