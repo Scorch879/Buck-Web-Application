@@ -7,19 +7,62 @@ import os
 from dotenv import load_dotenv
 import requests
 import os
+import json
 
 load_dotenv(dotenv_path=".env.local")
 # Set your OpenAI key here
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # --- OpenAI Embedding Model ---
+# Reference categories for classification
+REFERENCE_CATEGORIES = [
+    "Food",
+    "Fare",
+    "Gas Money",
+    "Video Games",
+    "Shopping",
+    "Bills",
+    "Education",
+    "Electronics",
+    "Entertainment",
+    "Health",
+    "Home",
+    "Insurance",
+    "Social",
+    "Sport",
+    "Tax",
+    "Telephone",
+    "Transportation"
+]
+
 def get_expense_category(text):
-    embedding = openai.embeddings.create(
-        input=text,
-        model="text-embedding-3-small"
-    )
-    # Dummy categorization return (real would compare embedding similarity)
-    return "Food"
+    # Use TogetherAI embeddings endpoint
+    api_url = "https://api.together.xyz/v1/embeddings"
+    headers = {
+        "Authorization": f"Bearer {os.getenv('TOGETHER_API_KEY')}",
+        "Content-Type": "application/json"
+    }
+    # Prepare input: first is the text, then all categories
+    inputs = [text] + REFERENCE_CATEGORIES
+    payload = {
+        "model": "meta-llama/Llama-3.3-8B-Instruct",  # or another TogetherAI embedding model if available
+        "input": inputs
+    }
+    response = requests.post(api_url, headers=headers, json=payload)
+    response.raise_for_status()
+    result = response.json()
+    # TogetherAI returns embeddings in result["data"][i]["embedding"]
+    embeddings = [item["embedding"] for item in result["data"]]
+    input_emb = embeddings[0]
+    category_embs = embeddings[1:]
+    # Compute cosine similarity between input and each category
+    def cosine_similarity(a, b):
+        a = np.array(a)
+        b = np.array(b)
+        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+    similarities = [cosine_similarity(input_emb, cat_emb) for cat_emb in category_embs]
+    best_idx = int(np.argmax(similarities))
+    return REFERENCE_CATEGORIES[best_idx]
 
 # --- XGBoost Classifier ---
 # Dummy trained model (in reality, train with real data)
