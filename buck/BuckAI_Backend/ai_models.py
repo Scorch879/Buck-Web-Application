@@ -35,34 +35,31 @@ REFERENCE_CATEGORIES = [
     "Transportation"
 ]
 
-def get_expense_category(text):
-    # Use TogetherAI embeddings endpoint
-    api_url = "https://api.together.xyz/v1/embeddings"
+def get_expense_category(description):
+    api_url = "https://api.together.xyz/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {os.getenv('TOGETHER_API_KEY')}",
         "Content-Type": "application/json"
     }
-    # Prepare input: first is the text, then all categories
-    inputs = [text] + REFERENCE_CATEGORIES
+    prompt = (
+        f"Given the following expense description: '{description}', "
+        f"which of these categories does it belong to: {', '.join(REFERENCE_CATEGORIES)}? "
+        "Only return the category name."
+    )
     payload = {
-        "model": "meta-llama/Llama-3.3-8B-Instruct",  # or another TogetherAI embedding model if available
-        "input": inputs
+        "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 16,
+        "temperature": 0
     }
     response = requests.post(api_url, headers=headers, json=payload)
     response.raise_for_status()
     result = response.json()
-    # TogetherAI returns embeddings in result["data"][i]["embedding"]
-    embeddings = [item["embedding"] for item in result["data"]]
-    input_emb = embeddings[0]
-    category_embs = embeddings[1:]
-    # Compute cosine similarity between input and each category
-    def cosine_similarity(a, b):
-        a = np.array(a)
-        b = np.array(b)
-        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
-    similarities = [cosine_similarity(input_emb, cat_emb) for cat_emb in category_embs]
-    best_idx = int(np.argmax(similarities))
-    return REFERENCE_CATEGORIES[best_idx]
+    category = result["choices"][0]["message"]["content"].strip()
+    # Fallback if the model returns something unexpected
+    if category not in REFERENCE_CATEGORIES:
+        category = "Uncategorized"
+    return category
 
 # --- XGBoost Classifier ---
 # Dummy trained model (in reality, train with real data)
