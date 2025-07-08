@@ -14,10 +14,10 @@ export type AIResponse = {
 };
 
 // Change this URL if your backend runs elsewhere
-const BACKEND_URL = 'https://buck-web-application.onrender.com/process_expense/';
+const BACKEND_URL = 'https://buck-web-application-1.onrender.com/process_expense/';
 
 // Add this for AI-powered saving tips
-const SAVING_TIP_URL = 'https://buck-web-application.onrender.com/ai/saving_tip/';
+const SAVING_TIP_URL = 'https://buck-web-application-1.onrender.com/ai/saving_tip/';
 
 export async function processExpense(input: ExpenseInput): Promise<AIResponse> {
   // Send a POST request to the backend
