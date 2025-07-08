@@ -66,7 +66,7 @@ const GoalsPage = () => {
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [aiRecommendation, setAIRecommendation] = useState<string | null>(null);
   const [walletBudget, setWalletBudget] = useState<number | null>(null);
-
+  
   // Progress modal state
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [progressGoal, setProgressGoal] = useState<Goal | null>(null);
