@@ -43,6 +43,7 @@ interface Goal {
   createdAt: string;
   attitude?: string;
   isActive?: boolean;
+  completed?: boolean;
 }
 
 const GoalsPage = () => {
@@ -205,20 +206,21 @@ const GoalsPage = () => {
     }
     setProgressLoading(true);
     const newAmount = (progressGoal.currentAmount || 0) + amountToAdd;
+    const isCompleted = newAmount >= progressGoal.targetAmount;
     try {
       const goalRef = doc(db, "goals", user.uid, "userGoals", progressGoal.id);
-      await updateDoc(goalRef, { currentAmount: newAmount });
+      await updateDoc(goalRef, { currentAmount: newAmount, completed: isCompleted });
       // Update local state
       setGoals(goals =>
         goals.map(goal =>
           goal.id === progressGoal.id
-            ? { ...goal, currentAmount: newAmount }
+            ? { ...goal, currentAmount: newAmount, completed: isCompleted }
             : goal
         )
       );
       // If the selected goal is the one updated, update it too
       if (selectedGoal && selectedGoal.id === progressGoal.id) {
-        setSelectedGoal({ ...selectedGoal, currentAmount: newAmount });
+        setSelectedGoal({ ...selectedGoal, currentAmount: newAmount, completed: isCompleted });
       }
       setShowProgressModal(false);
     } catch (err) {
@@ -254,7 +256,7 @@ const GoalsPage = () => {
       const data = await res.json();
       setForecastData(data);
       // Save AI recommended budget to Firestore if present
-      if (data. ai_recommended_budget && selectedGoal && user) {
+      if (data.ai_recommended_budget && selectedGoal && user) {
         const goalRef = doc(db, "goals", user.uid, "userGoals", selectedGoal.id);
         await updateDoc(goalRef, { aiRecommendedBudget: data.ai_recommended_budget });
       }
@@ -649,15 +651,35 @@ const GoalsPage = () => {
                   </p>
                   <p>
                     <strong>Status:</strong>
-                    <span
-                      style={{
-                        color: selectedGoal.isActive ? "#27ae60" : "#e74c3c",
-                        fontWeight: "600",
-                        marginLeft: "0.5rem",
-                      }}
-                    >
-                      {selectedGoal.isActive ? "Active" : "Inactive"}
-                    </span>
+                    {(() => {
+                      const currentAmount = selectedGoal.currentAmount || 0;
+                      const progressPercentage = Math.min((currentAmount / selectedGoal.targetAmount) * 100, 100);
+                      if (progressPercentage >= 100) {
+                        return (
+                          <span
+                            style={{
+                              color: '#2980ef', // blue for completed
+                              fontWeight: '600',
+                              marginLeft: '0.5rem',
+                            }}
+                          >
+                            Completed
+                          </span>
+                        );
+                      } else {
+                        return (
+                          <span
+                            style={{
+                              color: selectedGoal.isActive ? '#27ae60' : '#e74c3c',
+                              fontWeight: '600',
+                              marginLeft: '0.5rem',
+                            }}
+                          >
+                            {selectedGoal.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        );
+                      }
+                    })()}
                   </p>
                 </div>
                 <ProgressBarCard
@@ -730,7 +752,7 @@ const GoalsPage = () => {
                             legend: { display: true, position: 'top' },
                             tooltip: {
                               callbacks: {
-                                label: function(context) {
+                                label: function (context) {
                                   const value = Number(context.raw);
                                   return `${context.dataset.label}: ${value}`;
                                 }
