@@ -107,7 +107,7 @@ export default function Home() {
             <div className="header-leftside">
               <div className="header-img">
                 <Image
-                  src="/BuckMascot.png"
+                  src="/BuckMascot.svg"
                   alt="Buck Logo"
                   width={60}
                   height={75}
