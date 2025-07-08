@@ -18,7 +18,7 @@ import {
 import ExcessPie from "./excess-pie";
 import SpendingBar from "./spending-bar";
 import { db } from "@/utils/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, onSnapshot, setDoc } from "firebase/firestore";
 import { statisticsTestData } from './testData';
 import { useFinancial } from "@/context/FinancialContext";
 import { Line } from 'react-chartjs-2';
@@ -67,6 +67,141 @@ const Statistics = () => {
   const [showWeeklyGraph, setShowWeeklyGraph] = useState(selectedMode === 'week');
   const [fadeWeeklyGraph, setFadeWeeklyGraph] = useState(false);
   const prevMode = useRef(selectedMode);
+
+  // --- New state for categories, expenses, wallet ---
+  const [categories, setCategories] = useState<any[]>([]); // Changed to any[] to accommodate id
+  const [expenses, setExpenses] = useState<any[]>([]);
+  const [wallet, setWallet] = useState<number>(0);
+
+  // --- Add Expense Modal logic ---
+  const [categorySearch, setCategorySearch] = useState("");
+  const [newCategory, setNewCategory] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [addingCategory, setAddingCategory] = useState(false);
+
+  // --- Add/Edit/Remove Category Logic ---
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState("");
+  const handleEditCategory = async (catId: string, newName: string) => {
+    if (!user || !newName.trim()) return;
+    const catRef = doc(db, "users", user.uid, "categories", catId);
+    await updateDoc(catRef, { name: newName.trim() });
+    setEditingCategoryId(null);
+    setEditCategoryName("");
+  };
+  const handleRemoveCategory = async (catId: string) => {
+    if (!user) return;
+    if (!window.confirm("Are you sure you want to delete this category?")) return;
+    const catRef = doc(db, "users", user.uid, "categories", catId);
+    await deleteDoc(catRef);
+    // Optionally: remove this category from all expenses (not implemented here)
+  };
+
+  const handleAddCategory = async () => {
+    if (!user || !newCategory.trim()) return;
+    const categoriesRef = collection(db, "users", user.uid, "categories");
+    await addDoc(categoriesRef, { name: newCategory.trim() });
+    setNewCategory("");
+    setAddingCategory(false);
+  };
+
+  const handleAddExpenseV2 = async () => {
+    if (!user || !selectedGoal || !selectedCategory || !expenseDate || !expenseAmount) return;
+    setExpenseLoading(true);
+    setExpenseError("");
+    try {
+      // Add expense
+      const expensesRef = collection(db, "users", user.uid, "expenses");
+      await addDoc(expensesRef, {
+        date: expenseDate,
+        amount: parseFloat(expenseAmount),
+        description: expenseDesc,
+        category: selectedCategory,
+        goalId: selectedGoal.id,
+        userId: user.uid,
+      });
+      // Update wallet
+      const walletRef = doc(db, "users", user.uid, "wallet", "main");
+      await setDoc(walletRef, { budget: wallet - parseFloat(expenseAmount) }, { merge: true });
+      setShowExpenseModal(false);
+      setExpenseDate("");
+      setExpenseAmount("");
+      setExpenseDesc("");
+      setSelectedCategory("");
+    } catch (err: any) {
+      setExpenseError(err.message || "Unknown error");
+    } finally {
+      setExpenseLoading(false);
+    }
+  };
+
+  const handleRemoveExpense = async (expenseId: string, amount: number) => {
+    if (!user) return;
+    try {
+      // Remove expense
+      const expenseRef = doc(db, "users", user.uid, "expenses", expenseId);
+      await deleteDoc(expenseRef);
+      // Update wallet
+      const walletRef = doc(db, "users", user.uid, "wallet", "main");
+      await setDoc(walletRef, { budget: wallet + amount }, { merge: true });
+    } catch (err) {
+      // Optionally handle error
+    }
+  };
+
+  // --- Default categories ---
+  const defaultCategories = [
+    "Food",
+    "Gas Money",
+    "Video Games",
+    "Shopping",
+    "Bills",
+    "Education",
+    "Electronics",
+    "Entertainment",
+    "Health",
+    "Home",
+    "Insurance",
+    "Social",
+    "Sport",
+    "Tax",
+    "Telephone",
+    "Transportation"
+  ];
+
+  // --- Fetch categories, expenses, and wallet on load ---
+  useEffect(() => {
+    if (!user) return;
+    // Categories
+    const categoriesRef = collection(db, "users", user.uid, "categories");
+    const unsubCategories = onSnapshot(categoriesRef, async (snapshot) => {
+      let cats = snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+      // If no categories, add defaults
+      if (cats.length === 0) {
+        for (const cat of defaultCategories) {
+          await addDoc(categoriesRef, { name: cat });
+        }
+        cats = defaultCategories.map((name, i) => ({ id: `default-${i}`, name }));
+      }
+      cats.sort((a, b) => a.name.localeCompare(b.name));
+      setCategories(cats);
+    });
+    // Expenses
+    const expensesRef = collection(db, "users", user.uid, "expenses");
+    const unsubExpenses = onSnapshot(expensesRef, (snapshot) => {
+      setExpenses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    // Wallet
+    const walletRef = doc(db, "users", user.uid, "wallet", "main");
+    const unsubWallet = onSnapshot(walletRef, (docSnap) => {
+      if (docSnap.exists()) setWallet(docSnap.data().budget || 0);
+    });
+    return () => {
+      unsubCategories();
+      unsubExpenses();
+      unsubWallet();
+    };
+  }, [user]);
 
   // Dynamically generate week date ranges from goals (real calendar mapping)
   let weekDateRanges: { start: string; end: string }[] = [];
@@ -159,15 +294,13 @@ const Statistics = () => {
   // Assume the first goal is selected for demo (replace with real selection logic)
   const selectedGoal = goals[0];
 
-  // Fetch forecast/actual data
+  // Fetch forecast/actual data (fix: depend on selectedGoal)
   useEffect(() => {
-    if (!user) return;
-    if (!goals || goals.length === 0) return;
+    if (!user || !selectedGoal) return;
 
     setForecastLoading(true);
     setForecastError('');
     setForecastData(null); // Clear previous data to force spinner
-    console.log('Fetching forecast', goals);
 
     const fetchForecast = async () => {
       try {
@@ -190,72 +323,49 @@ const Statistics = () => {
         const data = await res.json();
         setForecastData(data);
       } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-        setForecastError(errorMsg);
+        setForecastError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
         setForecastLoading(false);
       }
     };
 
     fetchForecast();
-  }, [user, goals]);
+  }, [user, selectedGoal]);
 
-  // Add expense handler
-  const handleAddExpense = async () => {
-    if (!user || !selectedGoal) return;
-    setExpenseLoading(true);
-    setExpenseError('');
-    try {
-      const goalPayload = {
-        id: selectedGoal.id,
-        userId: user.uid,
-        targetAmount: selectedGoal.targetAmount,
-        targetDate: selectedGoal.targetDate,
-        attitude: selectedGoal.attitude || "Normal"
-      };
-      const res = await fetch('https://buck-web-application-1.onrender.com/expenses/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: user.uid,
-          goal_id: selectedGoal.id,
-          date: expenseDate,
-          amount: parseFloat(expenseAmount),
-          description: expenseDesc
-        })
-      });
-      if (!res.ok) throw new Error('Failed to add expense');
-      setShowExpenseModal(false);
-      setExpenseDate('');
-      setExpenseAmount('');
-      setExpenseDesc('');
-      // Refresh forecast/actual data
-      const fetchForecast = async () => {
-        const res = await fetch('https://buck-web-application.onrender.com/ai/forecast/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            goal: goalPayload,
-            budget: 0
-          })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setForecastData(data);
-        }
-      };
-      fetchForecast();
-    } catch (err: any) {
-      setExpenseError(err.message || 'Unknown error');
-    } finally {
-      setExpenseLoading(false);
-    }
-  };
+  // --- Forecast Description ---
+  const forecastSummary = (() => {
+    if (!forecastData || !forecastData.forecast_per_day) return null;
+    const vals = Object.values(forecastData.forecast_per_day).map(Number);
+    if (!vals.length) return null;
+    const total = vals.reduce((a, b) => (Number(a) + Number(b)), 0);
+    const avg = total / vals.length;
+    return `To reach your goal, you should save at least $${avg.toFixed(2)} per day and keep your daily spending below this amount.`;
+  })();
 
-  // Prepare data for Chart.js
+  // --- Dynamic SpendingBar data ---
+  const dynamicCategoryList = categories.length ? categories.map(cat => cat.name) : statisticsTestData.categories;
+  const dynamicBarData = (() => {
+    // Build amounts array for each category from expenses
+    const catMap: Record<string, number> = {};
+    dynamicCategoryList.forEach(cat => { catMap[cat] = 0; });
+    expenses.forEach(exp => {
+      if (catMap[exp.category] !== undefined) catMap[exp.category] += exp.amount;
+    });
+    return dynamicCategoryList.map(cat => catMap[cat] || 0);
+  })();
+
+  // --- Forecast Chart Data ---
   let chartData = null;
   if (forecastData && forecastData.forecast_per_day) {
-    const labels = Object.keys(forecastData.forecast_per_day);
+    let labels = Object.keys(forecastData.forecast_per_day);
+    // Filter labels based on selectedMode
+    if (selectedMode === 'week' && weekDateRanges[selectedWeek]) {
+      const { start, end } = weekDateRanges[selectedWeek];
+      labels = labels.filter(date => date >= start && date <= end);
+    } else if (selectedMode === 'month' && monthDateRanges[selectedMonth]) {
+      const { start, end } = monthDateRanges[selectedMonth];
+      labels = labels.filter(date => date >= start && date <= end);
+    }
     const forecastVals = labels.map(d => forecastData.forecast_per_day[d]);
     const actualVals = labels.map(d => (forecastData.actual_per_day && forecastData.actual_per_day[d]) || 0);
     chartData = {
@@ -319,81 +429,104 @@ const Statistics = () => {
         }}
       >
         {/* Info Card and Selectors */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '2.5rem', marginBottom: '1.5rem' }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          marginTop: '2.5rem',
+          marginBottom: '1.5rem',
+          width: '100%',
+          maxWidth: 900
+        }}>
           {/* Info Card */}
-          {selectedMode === 'week' && weekDateRanges.length > 0 && (
-            <div style={{
-              background: currentWeekIdx === selectedWeek ? '#ffe5c2' : '#fff',
-              borderRadius: '16px',
-              boxShadow: '0 4px 24px 0 rgba(239, 138, 87, 0.10)',
-              padding: '1.2rem 2rem',
-              marginBottom: '0.7rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1.5rem',
-              fontSize: '1.15rem',
-              fontWeight: 600,
-              color: '#2c3e50',
-              border: currentWeekIdx === selectedWeek ? '2px solid #ef8a57' : 'none',
-            }}>
-              <span style={{ color: '#ef8a57', fontWeight: 700, fontSize: '1.25rem' }}>
-                Week {selectedWeek + 1}
-              </span>
-              <span style={{ color: '#6c757d', fontWeight: 500, fontSize: '1.05rem' }}>
-                {weekDateRanges[selectedWeek]?.start} to {weekDateRanges[selectedWeek]?.end}
-              </span>
-              {currentWeekIdx === selectedWeek && (
-                <span style={{ color: '#fff', background: '#ef8a57', borderRadius: '8px', padding: '0.2rem 0.7rem', marginLeft: '1rem', fontWeight: 700, fontSize: '1rem' }}>Current</span>
-              )}
-            </div>
-          )}
-          {selectedMode === 'month' && monthDateRanges.length > 0 && (
-            <div style={{
-              background: '#fff',
-              borderRadius: '16px',
-              boxShadow: '0 4px 24px 0 rgba(239, 138, 87, 0.10)',
-              padding: '1.2rem 2rem',
-              marginBottom: '0.7rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1.5rem',
-              fontSize: '1.15rem',
-              fontWeight: 600,
-              color: '#2c3e50',
-            }}>
-              <span style={{ color: '#ef8a57', fontWeight: 700, fontSize: '1.25rem' }}>
-                {monthDateRanges[selectedMonth]?.label}
-              </span>
-              <span style={{ color: '#6c757d', fontWeight: 500, fontSize: '1.05rem' }}>
-                {monthDateRanges[selectedMonth]?.start} to {monthDateRanges[selectedMonth]?.end}
-              </span>
-            </div>
-          )}
-          {selectedMode === 'overall' && (
-            <div style={{
-              background: '#fff',
-              borderRadius: '16px',
-              boxShadow: '0 4px 24px 0 rgba(239, 138, 87, 0.10)',
-              padding: '1.2rem 2rem',
-              marginBottom: '0.7rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1.5rem',
-              fontSize: '1.15rem',
-              fontWeight: 600,
-              color: '#2c3e50',
-              justifyContent: 'center',
-            }}>
-              <span style={{ color: '#ef8a57', fontWeight: 700, fontSize: '1.25rem' }}>
-                Overall
-              </span>
-              <span style={{ color: '#6c757d', fontWeight: 500, fontSize: '1.05rem' }}>
-                {goals.length > 0 ? `${weekDateRanges[0]?.start} to ${weekDateRanges[weekDateRanges.length - 1]?.end}` : 'No data'}
-              </span>
-            </div>
-          )}
+          <div style={{
+            width: '100%',
+            maxWidth: 900,
+            display: 'flex',
+            justifyContent: 'center',
+          }}>
+            {selectedMode === 'week' && weekDateRanges.length > 0 && (
+              <div style={{
+                background: currentWeekIdx === selectedWeek ? '#ffe5c2' : '#fff',
+                borderRadius: '16px',
+                boxShadow: '0 4px 24px 0 rgba(239, 138, 87, 0.10)',
+                padding: '1.2rem 2rem',
+                marginBottom: '0.7rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1.5rem',
+                fontSize: '1.15rem',
+                fontWeight: 600,
+                color: '#2c3e50',
+                border: currentWeekIdx === selectedWeek ? '2px solid #ef8a57' : 'none',
+                width: '100%',
+                maxWidth: 900,
+                justifyContent: 'center',
+              }}>
+                <span style={{ color: '#ef8a57', fontWeight: 700, fontSize: '1.25rem' }}>
+                  Week {selectedWeek + 1}
+                </span>
+                <span style={{ color: '#6c757d', fontWeight: 500, fontSize: '1.05rem' }}>
+                  {weekDateRanges[selectedWeek]?.start} to {weekDateRanges[selectedWeek]?.end}
+                </span>
+                {currentWeekIdx === selectedWeek && (
+                  <span style={{ color: '#fff', background: '#ef8a57', borderRadius: '8px', padding: '0.2rem 0.7rem', marginLeft: '1rem', fontWeight: 700, fontSize: '1rem' }}>Current</span>
+                )}
+              </div>
+            )}
+            {selectedMode === 'month' && monthDateRanges.length > 0 && (
+              <div style={{
+                background: '#fff',
+                borderRadius: '16px',
+                boxShadow: '0 4px 24px 0 rgba(239, 138, 87, 0.10)',
+                padding: '1.2rem 2rem',
+                marginBottom: '0.7rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1.5rem',
+                fontSize: '1.15rem',
+                fontWeight: 600,
+                color: '#2c3e50',
+                width: '100%',
+                maxWidth: 900,
+                justifyContent: 'center',
+              }}>
+                <span style={{ color: '#ef8a57', fontWeight: 700, fontSize: '1.25rem' }}>
+                  {monthDateRanges[selectedMonth]?.label}
+                </span>
+                <span style={{ color: '#6c757d', fontWeight: 500, fontSize: '1.05rem' }}>
+                  {monthDateRanges[selectedMonth]?.start} to {monthDateRanges[selectedMonth]?.end}
+                </span>
+              </div>
+            )}
+            {selectedMode === 'overall' && (
+              <div style={{
+                background: '#fff',
+                borderRadius: '16px',
+                boxShadow: '0 4px 24px 0 rgba(239, 138, 87, 0.10)',
+                padding: '1.2rem 2rem',
+                marginBottom: '0.7rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1.5rem',
+                fontSize: '1.15rem',
+                fontWeight: 600,
+                color: '#2c3e50',
+                justifyContent: 'center',
+                width: '100%',
+                maxWidth: 900,
+              }}>
+                <span style={{ color: '#ef8a57', fontWeight: 700, fontSize: '1.25rem' }}>
+                  Overall
+                </span>
+                <span style={{ color: '#6c757d', fontWeight: 500, fontSize: '1.05rem' }}>
+                  {goals.length > 0 ? `${weekDateRanges[0]?.start} to ${weekDateRanges[weekDateRanges.length - 1]?.end}` : 'No data'}
+                </span>
+              </div>
+            )}
+          </div>
           {/* Selectors Row */}
-          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '1.5rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '1.5rem', width: '100%', maxWidth: 900, justifyContent: 'center' }}>
             {/* View Mode Selector */}
             <div style={{ textAlign: 'center' }}>
               <label style={{ fontWeight: 600, marginRight: 8, color: '#2c3e50' }}>View Mode:</label>
@@ -481,7 +614,7 @@ const Statistics = () => {
           </div>
         </div>
         {/* Panels Container */}
-        <div className="statistics-panels-container">
+        <div className="statistics-panels-container" style={{ width: '100%', maxWidth: 900, margin: '0 auto' }}>
           {goals.length === 0 ? (
             <div className="empty-goals-popup">
               <h2
@@ -508,11 +641,72 @@ const Statistics = () => {
           ) : (
             <>
               {/* First row: Pie chart and Bar graph */}
-              <div style={{ display: "flex", gap: "2rem", alignItems: "flex-start" }}>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  <ExcessPie mode={selectedMode} weekIndex={selectedWeek} monthIndex={selectedMonth} />
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  justifyContent: "flex-start",
+                  alignItems: "stretch",
+                  margin: "2.5rem auto",
+                  width: "100%",
+                  maxWidth: 900,
+                  boxSizing: 'border-box',
+                  background: 'transparent',
+                  gap: '2%',
+                }}
+              >
+                <div
+                  style={{
+                    width: "36%",
+                    boxSizing: 'border-box',
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: 340,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <ExcessPie mode={selectedMode} weekIndex={selectedWeek} monthIndex={selectedMonth} />
+                  </div>
                 </div>
-                <SpendingBar mode={selectedMode} weekIndex={selectedWeek} monthIndex={selectedMonth} />
+                <div
+                  style={{
+                    width: "62%",
+                    boxSizing: 'border-box',
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: 340,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <SpendingBar
+                      mode={selectedMode}
+                      weekIndex={selectedWeek}
+                      monthIndex={selectedMonth}
+                      categories={dynamicCategoryList}
+                      amounts={dynamicBarData}
+                    />
+                  </div>
+                </div>
               </div>
               {/* Second row: Line graph (Weekly Spending Report) */}
               {showWeeklyGraph && (
@@ -559,7 +753,7 @@ const Statistics = () => {
               {/* Forecast/Actual Graph (AI) - use same container and width as weekly graph */}
               <div className="graph-row">
                 <div className="graph-panel weekly-graph-panel" style={{ position: 'relative', minHeight: 300 }}>
-                  {forecastLoading && !chartData ? (
+                  {forecastLoading ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', position: 'absolute', top: 0, left: 0 }}>
                       <div className="spinner"></div>
                       <div style={{ fontSize: '1.1rem', color: '#ef8a57', fontWeight: 600, marginTop: 12, textAlign: 'center' }}>Loading graph...</div>
@@ -600,25 +794,93 @@ const Statistics = () => {
           )}
         </div>
         {/* Add Expense Button and Modal */}
-        <div style={{ width: '100%', maxWidth: 600, margin: '2rem auto' }}>
-          <button onClick={() => setShowExpenseModal(true)} style={{ background: '#ef8a57', color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem 1.5rem', fontWeight: 600, fontSize: 16, cursor: 'pointer', marginBottom: 16 }}>
-            + Add Expense
-          </button>
-          {showExpenseModal && (
-            <div className="modal-backdrop" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div className="modal" style={{ background: '#fff', borderRadius: 8, padding: 24, minWidth: 320, maxWidth: 400, boxShadow: '0 2px 16px rgba(0,0,0,0.2)', position: 'relative' }}>
-                <button onClick={() => setShowExpenseModal(false)} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>&times;</button>
-                <h3 style={{ marginTop: 0 }}>Add Expense</h3>
-                <input type="date" value={expenseDate} onChange={e => setExpenseDate(e.target.value)} style={{ width: '100%', marginBottom: 12, padding: 8, borderRadius: 4, border: '1px solid #ccc' }} />
-                <input type="number" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} placeholder="Amount" style={{ width: '100%', marginBottom: 12, padding: 8, borderRadius: 4, border: '1px solid #ccc' }} />
-                <input type="text" value={expenseDesc} onChange={e => setExpenseDesc(e.target.value)} placeholder="Description" style={{ width: '100%', marginBottom: 12, padding: 8, borderRadius: 4, border: '1px solid #ccc' }} />
-                {expenseError && <div style={{ color: 'red', marginBottom: 8 }}>{expenseError}</div>}
-                <button onClick={handleAddExpense} disabled={expenseLoading} style={{ background: '#ef8a57', color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem 1.5rem', fontWeight: 600, fontSize: 16, cursor: 'pointer', width: '100%' }}>
-                  {expenseLoading ? 'Adding...' : 'Add Expense'}
-                </button>
+        {showExpenseModal && (
+          <div className="modal-backdrop" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.3s' }}>
+            <div className="modal expense-modal-animate" style={{ background: '#fff', borderRadius: 20, padding: 32, width: '100%', maxWidth: 540, minWidth: 320, boxShadow: '0 12px 48px rgba(239,138,87,0.18)', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', animation: 'fadeInScale 0.35s', color: '#2c3e50', fontSize: 17, maxHeight: '90vh', overflowY: 'auto' }}>
+              <button onClick={() => setShowExpenseModal(false)} style={{ position: 'absolute', top: 18, right: 22, background: 'none', border: 'none', fontSize: 26, cursor: 'pointer', color: '#ef8a57', fontWeight: 700, transition: 'color 0.2s' }}>&times;</button>
+              <h3 style={{ marginTop: 0, marginBottom: 18, color: '#ef8a57', fontWeight: 800, fontSize: 30, letterSpacing: 1 }}>Add Expense</h3>
+              <input type="date" value={expenseDate} onChange={e => setExpenseDate(e.target.value)} style={{ width: '100%', marginBottom: 12, padding: 12, borderRadius: 7, border: '1.5px solid #ccc', fontSize: 17, boxSizing: 'border-box', display: 'block', color: '#2c3e50', transition: 'border 0.2s' }} />
+              <input type="number" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} placeholder="Amount" style={{ width: '100%', marginBottom: 12, padding: 12, borderRadius: 7, border: '1.5px solid #ccc', fontSize: 17, boxSizing: 'border-box', display: 'block', color: '#2c3e50', transition: 'border 0.2s' }} />
+              <input type="text" value={expenseDesc} onChange={e => setExpenseDesc(e.target.value)} placeholder="Description" style={{ width: '100%', marginBottom: 12, padding: 12, borderRadius: 7, border: '1.5px solid #ccc', fontSize: 17, boxSizing: 'border-box', display: 'block', color: '#2c3e50', transition: 'border 0.2s' }} />
+              {/* Category Search Bar (moved above Manage Categories) */}
+              <div style={{ width: '100%', margin: '0 0 10px 0' }}>
+                <input type="text" value={categorySearch} onChange={e => setCategorySearch(e.target.value)} placeholder="Search categories..." style={{ width: '100%', marginBottom: 8, padding: 10, borderRadius: 6, border: '1.5px solid #ef8a57', fontSize: 16, color: '#2c3e50', background: '#fff7f0', boxSizing: 'border-box', display: 'block', transition: 'border 0.2s' }} />
+                <div style={{ fontWeight: 600, color: '#ef8a57', marginBottom: 4, fontSize: 16 }}>Manage Categories:</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 120, overflowY: 'auto', marginBottom: 8 }}>
+                  {categories.filter(cat => cat.name.toLowerCase().includes(categorySearch.toLowerCase())).map(cat => (
+                    <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {editingCategoryId === cat.id ? (
+                        <>
+                          <input value={editCategoryName} onChange={e => setEditCategoryName(e.target.value)} style={{ flex: 1, padding: 7, borderRadius: 5, border: '1.5px solid #ccc', fontSize: 16, color: '#2c3e50' }} />
+                          <button onClick={() => handleEditCategory(cat.id, editCategoryName)} style={{ background: '#ef8a57', color: '#fff', border: 'none', borderRadius: 5, padding: '0.3rem 0.8rem', fontWeight: 700, fontSize: 15, marginLeft: 4, cursor: 'pointer', transition: 'background 0.2s' }}>Save</button>
+                          <button onClick={() => { setEditingCategoryId(null); setEditCategoryName(""); }} style={{ background: 'none', color: '#ef8a57', border: 'none', fontWeight: 700, fontSize: 15, marginLeft: 2, cursor: 'pointer' }}>Cancel</button>
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ flex: 1 }}>{cat.name}</span>
+                          <button onClick={() => { setEditingCategoryId(cat.id); setEditCategoryName(cat.name); }} style={{ background: 'none', color: '#ef8a57', border: 'none', fontWeight: 700, fontSize: 15, marginLeft: 2, cursor: 'pointer', transition: 'color 0.2s' }}>Edit</button>
+                          <button onClick={() => handleRemoveCategory(cat.id)} style={{ background: 'none', color: '#ff4136', border: 'none', fontWeight: 700, fontSize: 15, marginLeft: 2, cursor: 'pointer', transition: 'color 0.2s' }}>Remove</button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
+              <div style={{ marginBottom: 12, width: '100%' }}>
+                <label style={{ fontWeight: 700, color: '#ef8a57', display: 'block', marginBottom: 4 }}>Category:</label>
+                <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 7, border: '1.5px solid #ccc', fontSize: 17, boxSizing: 'border-box', display: 'block', color: '#2c3e50', background: '#fff', transition: 'border 0.2s' }}>
+                  <option value="">Select category</option>
+                  {categories.filter(cat => cat.name.toLowerCase().includes(categorySearch.toLowerCase())).map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+                </select>
+                <button onClick={() => setAddingCategory(true)} style={{ marginTop: 10, background: 'none', color: '#ef8a57', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 16, transition: 'color 0.2s' }}>+ Add Category</button>
+              </div>
+              {addingCategory && (
+                <div style={{ marginBottom: 14, width: '100%', animation: 'fadeIn 0.2s' }}>
+                  <input type="text" value={newCategory} onChange={e => setNewCategory(e.target.value)} placeholder="New category name" style={{ width: '100%', padding: 10, borderRadius: 6, border: '1.5px solid #ccc', fontSize: 16, color: '#2c3e50', boxSizing: 'border-box', display: 'block', transition: 'border 0.2s' }} />
+                  <button onClick={handleAddCategory} style={{ marginTop: 10, background: '#ef8a57', color: '#fff', border: 'none', borderRadius: 6, padding: '0.6rem 1.3rem', fontWeight: 700, fontSize: 16, cursor: 'pointer', transition: 'background 0.2s' }}>Add</button>
+                </div>
+              )}
+              {expenseError && <div style={{ color: 'red', marginBottom: 12 }}>{expenseError}</div>}
+              <button onClick={handleAddExpenseV2} disabled={expenseLoading} style={{ background: '#ef8a57', color: '#fff', border: 'none', borderRadius: 9, padding: '1.1rem 1.7rem', fontWeight: 800, fontSize: 20, cursor: 'pointer', width: '100%', marginTop: 10, boxShadow: '0 2px 8px rgba(239,138,87,0.08)', transition: 'background 0.2s' }}>
+                {expenseLoading ? 'Adding...' : 'Add Expense'}
+              </button>
             </div>
-          )}
+            <style>{`
+              @keyframes fadeInScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+              @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+            `}</style>
+          </div>
+        )}
+        {/* Recent Expenses Card */}
+        <div style={{ width: '100%', maxWidth: 900, margin: '2rem auto' }}>
+          <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 4px 24px 0 rgba(239,138,87,0.10)', padding: '2rem 2.5rem', minHeight: 120, transition: 'box-shadow 0.2s', position: 'relative', display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {/* Add Expense Button inside card */}
+            <button onClick={() => setShowExpenseModal(true)} style={{ background: '#ef8a57', color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem 1.5rem', fontWeight: 600, fontSize: 16, cursor: 'pointer', marginBottom: 0, alignSelf: 'flex-end', marginTop: -10, marginRight: -10, boxShadow: '0 2px 8px rgba(239,138,87,0.08)', transition: 'background 0.2s' }}>
+              + Add Expense
+            </button>
+            {/* Forecast Description inside card */}
+            {forecastSummary && (
+              <div style={{ width: '100%', background: '#fff7f0', borderRadius: 8, padding: '1rem 2rem', color: '#ef8a57', fontWeight: 600, textAlign: 'center', fontSize: '1.1rem', marginBottom: 0 }}>
+                {forecastSummary}
+              </div>
+            )}
+            <h3 style={{ color: '#2c3e50', fontWeight: 800, fontSize: '1.3rem', marginBottom: 18, letterSpacing: 0.5 }}>Recent Expenses</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {expenses.slice().reverse().slice(0, 8).map(exp => (
+                <div key={exp.id} style={{ display: 'flex', alignItems: 'center', background: '#fff7f0', borderRadius: 10, boxShadow: '0 2px 8px rgba(239,138,87,0.06)', padding: '0.8rem 1.3rem', gap: 18, transition: 'transform 0.2s', position: 'relative' }}>
+                  <div style={{ flex: 2, fontWeight: 700, color: '#ef8a57' }}>{exp.category}</div>
+                  <div style={{ flex: 3, color: '#2c3e50', fontWeight: 500 }}>{exp.description}</div>
+                  <div style={{ flex: 1, color: '#ef8a57', fontWeight: 800, fontSize: 17 }}>${exp.amount}</div>
+                  <div style={{ flex: 1, color: '#6c757d', fontSize: 14 }}>{exp.date}</div>
+                  <button onClick={() => handleRemoveExpense(exp.id, exp.amount)} style={{ background: '#fff', color: '#ef8a57', border: '1.5px solid #ef8a57', borderRadius: 7, padding: '0.4rem 1.1rem', fontWeight: 700, fontSize: 15, cursor: 'pointer', marginLeft: 10, transition: 'background 0.2s, color 0.2s, border 0.2s' }}
+                    onMouseOver={e => { e.currentTarget.style.background = '#ef8a57'; e.currentTarget.style.color = '#fff'; }}
+                    onMouseOut={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#ef8a57'; }}
+                  >Remove</button>
+                </div>
+              ))}
+              {expenses.length === 0 && <div style={{ color: '#aaa', textAlign: 'center', padding: 24, fontSize: 16 }}>No expenses yet.</div>}
+            </div>
+          </div>
         </div>
       </div>
     </div>

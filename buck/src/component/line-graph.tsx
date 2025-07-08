@@ -37,7 +37,7 @@ const WeeklySpendingChart: React.FC<WeeklySpendingChartProps> = ({ data, yMax })
           {
             label: "Progress",
             data: data,
-            borderColor: function(context) {
+            borderColor: function (context) {
               const chart = context.chart;
               const { ctx, chartArea } = chart;
               if (!chartArea) return;
@@ -46,7 +46,7 @@ const WeeklySpendingChart: React.FC<WeeklySpendingChartProps> = ({ data, yMax })
               gradient.addColorStop(1, "#ff4136");
               return gradient;
             },
-            backgroundColor: function(context) {
+            backgroundColor: function (context) {
               const chart = context.chart;
               const { ctx, chartArea } = chart;
               if (!chartArea) return;
