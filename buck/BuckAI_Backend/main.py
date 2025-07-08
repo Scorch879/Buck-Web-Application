@@ -159,3 +159,12 @@ def ai_forecast(input: ForecastInput = Body(...)):
     except Exception as e:
         return {"error": str(e)}
 
+@app.post("/ai/categorize_goal/")
+def categorize_goal(goal: dict):
+    goal_name = goal.get("goal_name", "")
+    if not goal_name:
+        return {"error": "Missing goal_name"}
+    from ai_models import get_expense_category
+    category = get_expense_category(goal_name)
+    return {"category": category}
+
