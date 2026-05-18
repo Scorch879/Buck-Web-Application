@@ -33,6 +33,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import { formatCurrency } from "@/utils/formatters";
 
 ChartJS.register(
   CategoryScale,
@@ -726,7 +727,7 @@ const GoalsPage = () => {
               >
                 <h3>{goal.goalName}</h3>
                 <p>
-                  <strong>Target:</strong> ₱{goal.targetAmount}
+                  <strong>Target:</strong> {formatCurrency(goal.targetAmount)}
                 </p>
                 <p>
                   <strong>Created:</strong> {goal.createdAt}
@@ -757,7 +758,8 @@ const GoalsPage = () => {
                     <strong>Name:</strong> {selectedGoal.goalName}
                   </p>
                   <p>
-                    <strong>Target Amount:</strong> ₱{selectedGoal.targetAmount}
+                    <strong>Target Amount:</strong>{" "}
+                    {formatCurrency(selectedGoal.targetAmount)}
                   </p>
                   {selectedGoal.targetDate && (
                     <p>
@@ -1037,12 +1039,14 @@ const GoalsPage = () => {
                             ></div>
                           </div>
                           <div style={{ fontSize: 14, color: "#555" }}>
-                            Saved: ₱
-                            {Math.min(
-                              walletBudget || 0,
-                              selectedGoal.targetAmount
+                            Saved:{" "}
+                            {formatCurrency(
+                              Math.min(
+                                walletBudget || 0,
+                                selectedGoal.targetAmount
+                              )
                             )}{" "}
-                            / ₱{selectedGoal.targetAmount}
+                            / {formatCurrency(selectedGoal.targetAmount)}
                           </div>
                         </div>
                       )}
@@ -1089,7 +1093,7 @@ const GoalsPage = () => {
                                     callbacks: {
                                       label: function (context) {
                                         const value = Number(context.raw);
-                                        return `${context.dataset.label}: ${value}`;
+                                        return `${context.dataset.label}: ${formatCurrency(value)}`;
                                       },
                                     },
                                   },
@@ -1358,7 +1362,7 @@ const GoalsPage = () => {
                           minWidth: 80,
                         }}
                       >
-                        ₱{exp.amount}
+                        {formatCurrency(exp.amount)}
                       </span>
                       {exp.date && (
                         <span

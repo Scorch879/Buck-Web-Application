@@ -31,6 +31,7 @@ import {
 import { statisticsTestData } from "./testData";
 import { useFinancial } from "@/context/FinancialContext";
 import { Line } from "react-chartjs-2";
+import { formatCurrency } from "@/utils/formatters";
 
 ChartJS.register(
   CategoryScale,
@@ -425,8 +426,8 @@ const Statistics = () => {
     if (!vals.length) return null;
     const total = vals.reduce((a, b) => Number(a) + Number(b), 0);
     const avg = total / vals.length;
-    return `To reach your goal, you should save at least ₱${avg.toFixed(
-      2
+    return `To reach your goal, you should save at least ${formatCurrency(
+      avg
     )} per day and keep your daily spending below this amount.`;
   })();
 
@@ -1062,7 +1063,7 @@ const Statistics = () => {
                                 callbacks: {
                                   label: function (context) {
                                     const value = Number(context.raw);
-                                    return `${context.dataset.label}: ${value}`;
+                                    return `${context.dataset.label}: ${formatCurrency(value)}`;
                                   },
                                 },
                               },
@@ -1604,7 +1605,7 @@ const Statistics = () => {
                           fontSize: 17,
                         }}
                       >
-                        ₱{exp.amount}
+                        {formatCurrency(exp.amount)}
                       </div>
                       <div style={{ flex: 1, color: "#6c757d", fontSize: 14 }}>
                         {exp.date}

@@ -1,26 +1,23 @@
 "use client";
-import React, { useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/utils/firebase";
 import { motion } from "framer-motion";
 import "./style.css";
 import Image from "next/image";
+import { usePointerGradient } from "@/hooks/usePointerGradient";
 
-const ForgotPassword = (): React.JSX.Element => {
+const ForgotPassword = () => {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [btnMouse, setBtnMouse] = useState<{ x: number; y: number } | null>(
-    null
-  );
+  const resetButton = usePointerGradient<HTMLButtonElement>();
 
   const playQuack = () => {
     const audio = new Audio("/quack.mp3");
-    audio.play();
+    void audio.play();
   };
-
-  const btnRef = React.useRef<HTMLButtonElement>(null);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -79,24 +76,19 @@ const ForgotPassword = (): React.JSX.Element => {
                 placeholder="Email Address"
               />
               <motion.button
-                ref={btnRef}
+                ref={resetButton.ref}
                 type="submit"
                 className="SI-Btn"
                 onClick={handleResetPassword}
-                onMouseMove={(e) => {
-                  const rect = btnRef.current?.getBoundingClientRect();
-                  if (rect) {
-                    const x = e.clientX - rect.left;
-                    const y = e.clientY - rect.top;
-                    setBtnMouse({ x, y });
-                  }
-                }}
-                onMouseLeave={() => setBtnMouse(null)}
+                onMouseMove={resetButton.handlePointerMove}
+                onMouseLeave={resetButton.handlePointerLeave}
                 style={{
-                  background: btnMouse
-                    ? `radial-gradient(circle at ${btnMouse.x}px ${btnMouse.y}px, #fd523b 0%, #ef8a57 100%)`
+                  background: resetButton.pointer
+                    ? `radial-gradient(circle at ${resetButton.pointer.x}px ${resetButton.pointer.y}px, #fd523b 0%, #ef8a57 100%)`
                     : "linear-gradient(90deg, #ef8a57 60%, #fd523b 100%)",
-                  transition: btnMouse ? "background 0.1s" : "background 0.3s",
+                  transition: resetButton.pointer
+                    ? "background 0.1s"
+                    : "background 0.3s",
                 }}
                 whileHover={{
                   scale: 1.03,
@@ -106,9 +98,9 @@ const ForgotPassword = (): React.JSX.Element => {
               </motion.button>
               {message && <div className="forgot-message-card forgot-success">{message}</div>}
               {error && <div className="forgot-message-card forgot-error">{error}</div>}
-              <a href="/sign-in" className="FP-Link">
+              <Link href="/sign-in" className="FP-Link">
                 Back to sign In
-              </a>
+              </Link>
             </div>
           </div>
         </div>

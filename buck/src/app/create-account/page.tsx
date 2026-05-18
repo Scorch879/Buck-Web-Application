@@ -1,9 +1,11 @@
 "use client";
 import { useState } from "react";
-import React from "react";
+import type { ChangeEvent } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { signInWithGoogle, signUpUser } from "@/component/authentication";
 import { motion } from "framer-motion";
+import { usePointerGradient } from "@/hooks/usePointerGradient";
 import "./style.css";
 
 const CreateAccount = () => {
@@ -17,12 +19,9 @@ const CreateAccount = () => {
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [btnMouse, setBtnMouse] = useState<{ x: number; y: number } | null>(
-    null
-  );
-  const btnRef = React.useRef<HTMLButtonElement>(null);
+  const createButton = usePointerGradient<HTMLButtonElement>();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.id]: e.target.value });
   };
 
@@ -73,7 +72,7 @@ const CreateAccount = () => {
 
   const playQuack = () => {
     const audio = new Audio("/quack.mp3");
-    audio.play();
+    void audio.play();
   };
 
   return (
@@ -191,23 +190,18 @@ const CreateAccount = () => {
             </div>
 
             <motion.button
-              ref={btnRef}
+              ref={createButton.ref}
               type="submit"
               className="ca-btn"
-              onMouseMove={(e) => {
-                const rect = btnRef.current?.getBoundingClientRect();
-                if (rect) {
-                  const x = e.clientX - rect.left;
-                  const y = e.clientY - rect.top;
-                  setBtnMouse({ x, y });
-                }
-              }}
-              onMouseLeave={() => setBtnMouse(null)}
+              onMouseMove={createButton.handlePointerMove}
+              onMouseLeave={createButton.handlePointerLeave}
               style={{
-                background: btnMouse
-                  ? `radial-gradient(circle at ${btnMouse.x}px ${btnMouse.y}px, #fd523b 0%, #ef8a57 100%)`
+                background: createButton.pointer
+                  ? `radial-gradient(circle at ${createButton.pointer.x}px ${createButton.pointer.y}px, #fd523b 0%, #ef8a57 100%)`
                   : "linear-gradient(90deg, #ef8a57 60%, #fd523b 100%)",
-                transition: btnMouse ? "background 0.1s" : "background 0.3s",
+                transition: createButton.pointer
+                  ? "background 0.1s"
+                  : "background 0.3s",
               }}
               whileHover={{
                 scale: 1.03,
@@ -231,9 +225,9 @@ const CreateAccount = () => {
           </button>
           <div className="ca-footer">
             Already have an account?{" "}
-            <a href="/sign-in" className="ca-link">
+            <Link href="/sign-in" className="ca-link">
               Sign In
-            </a>
+            </Link>
           </div>
         </div>
       </div>
