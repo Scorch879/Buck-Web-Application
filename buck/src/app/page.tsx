@@ -1,322 +1,341 @@
 "use client";
-
-import type { CSSProperties } from "react";
-import { useEffect, useState } from "react";
-import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { motion } from "framer-motion";
-import { FaArrowRight, FaBars, FaTimes } from "react-icons/fa";
-import {
-  landingFeatures,
-  landingHighlights,
-  landingNavItems,
-  landingPrinciples,
-  landingStats,
-  landingSteps,
-  savingsIcon as SavingsIcon,
-} from "@/constants/landing";
-import { usePointerGradient } from "@/hooks/usePointerGradient";
-import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
 import "./globals.css";
-
-const heroWords = ["Buck", "Budget", "Tracker"];
-
-const wordVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
-
-const heroWordContainer = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.08 },
-  },
-};
+import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
+import React from "react";
+import { FaBars, FaTimes } from "react-icons/fa";
 
 export default function Home() {
-  useRedirectIfAuthenticated();
-
+  useRedirectIfAuthenticated(); // Redirects if user is signed in
   const router = useRouter();
+  const welcomeMsgRef = useRef<HTMLDivElement>(null);
+  const [trailDots, setTrailDots] = useState<
+    Array<{ id: number; x: number; y: number }>
+  >([]);
+  const nextDotId = useRef(0);
+  const [btnMouse, setBtnMouse] = useState<{ x: number; y: number } | null>(
+    null
+  );
+  const btnRef = React.useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const cta = usePointerGradient<HTMLButtonElement>();
+  const playQuack = () => {
+    const audio = new Audio("/quack.mp3");
+    audio.play();
+  };
+  const text =
+    "Need help in saving your money? Guess what, go BUCK yourself! Buck can help you manage your weekly spending with a press of a button!";
+  const words = text.split(" ");
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.05, // Stagger animation for each word
+      },
+    },
+  };
+  const aboutustext = "With Buck, we help you take control of your money with simple tools to track expenses, set goals, and plan ahead. Our mission is to make budgeting easy and empowering, so you can spend smarter, save more, and reach your financial goals with confidence. With Buck, we believe that everyone deserves to feel confident and in control of their finances. Our mission is simple: to help you make the most of your money by giving you clear, easy-to-use tools to track your expenses, set meaningful financial goals, and plan for the future.";
+  const wordVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 },
+    hover: { scale: 1.1, y: -5, transition: { duration: 0.2 } }, // Added hover effect
+  };
+
+  //Prefetching for optimization
   useEffect(() => {
     router.prefetch("/sign-in");
   }, [router]);
 
-  const playQuack = () => {
-    const audio = new Audio("/quack.mp3");
-    void audio.play();
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (welcomeMsgRef.current) {
+      const rect = welcomeMsgRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const newDot = {
+        id: nextDotId.current++,
+        x,
+        y,
+      };
+
+      setTrailDots((prevDots) => {
+        const updatedDots = [...prevDots, newDot];
+        if (updatedDots.length > 50) {
+          // Limit number of dots to prevent performance issues
+          updatedDots.shift();
+        }
+        return updatedDots;
+      });
+
+      // Remove dot after a short delay to create fading effect
+      setTimeout(() => {
+        setTrailDots((prevDots) =>
+          prevDots.filter((dot) => dot.id !== newDot.id)
+        );
+      }, 500); // Dot visible for 500ms
+    }
   };
 
-  const scrollToSection = (targetId: string) => {
-    document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth" });
-    setMenuOpen(false);
-  };
-
-  const goToSignIn = () => {
-    setMenuOpen(false);
-    router.push("/sign-in");
-  };
-
-  const ctaStyle: CSSProperties = {
-    background: cta.pointer
-      ? `radial-gradient(circle at ${cta.pointer.x}px ${cta.pointer.y}px, #1f7a65 0%, #ef8a57 42%, #fd523b 100%)`
-      : "linear-gradient(135deg, #1f7a65 0%, #ef8a57 55%, #fd523b 100%)",
-  };
+  // Close menu on navigation or click outside
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      const menu = document.getElementById("mobile-menu-dropdown");
+      const btn = document.getElementById("mobile-menu-btn");
+      if (
+        menu &&
+        !menu.contains(e.target as Node) &&
+        btn &&
+        !btn.contains(e.target as Node)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuOpen]);
 
   return (
-    <div className="landing-page">
-      <header className="site-header">
-        <div className="site-header-inner">
-          <button
-            className="brand-mark"
-            type="button"
-            onClick={() => scrollToSection("home")}
-            aria-label="Go to Buck home"
-          >
-            <span className="brand-mascot">
-              <Image
-                src="/BuckMascot.svg"
-                alt=""
-                width={58}
-                height={70}
-                className="brand-mascot-image"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  playQuack();
-                }}
-                priority
-              />
-            </span>
-            <span className="brand-copy">
-              <span className="brand-title">Buck</span>
-              <span className="brand-subtitle">Budget Tracker</span>
-            </span>
-          </button>
-
-          <nav className="desktop-nav" aria-label="Primary navigation">
-            {landingNavItems.map((item) => (
-              <button
-                key={item.targetId}
-                className="nav-link-button"
-                type="button"
-                onClick={() => scrollToSection(item.targetId)}
-              >
-                {item.label}
-              </button>
-            ))}
-            <button className="nav-cta" type="button" onClick={goToSignIn}>
-              Sign In
-            </button>
-          </nav>
-
-          <button
-            className="mobile-menu-btn"
-            type="button"
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={menuOpen}
-            aria-controls="mobile-menu"
-            onClick={() => setMenuOpen((isOpen) => !isOpen)}
-          >
-            {menuOpen ? <FaTimes /> : <FaBars />}
-          </button>
-        </div>
-
-        {menuOpen && (
-          <nav
-            id="mobile-menu"
-            className="mobile-menu-dropdown"
-            aria-label="Mobile navigation"
-          >
-            {landingNavItems.map((item) => (
-              <button
-                key={item.targetId}
-                className="nav-link-button"
-                type="button"
-                onClick={() => scrollToSection(item.targetId)}
-              >
-                {item.label}
-              </button>
-            ))}
-            <button className="nav-cta" type="button" onClick={goToSignIn}>
-              Sign In / Sign Up
-            </button>
-          </nav>
-        )}
-      </header>
-
-      <main>
-        <section className="hero-section" id="home">
-          <div className="hero-content">
-            <div className="hero-copy">
-              <p className="eyebrow">Personal budgeting, minus the mess</p>
-              <motion.h1
-                className="hero-title"
-                variants={heroWordContainer}
-                initial="hidden"
-                animate="visible"
-              >
-                {heroWords.map((word) => (
-                  <motion.span key={word} variants={wordVariants}>
-                    {word}
-                  </motion.span>
-                ))}
-              </motion.h1>
-              <p className="hero-description">
-                Buck helps you track expenses, protect your weekly budget, and
-                move toward savings goals with friendly AI guidance.
-              </p>
-              <div className="hero-actions">
-                <motion.button
-                  ref={cta.ref}
-                  className="primary-cta"
-                  type="button"
-                  style={ctaStyle}
-                  onMouseMove={cta.handlePointerMove}
-                  onMouseLeave={cta.handlePointerLeave}
-                  onClick={goToSignIn}
-                  whileHover={{ scale: 1.02 }}
-                >
-                  Get Started
-                  <FaArrowRight aria-hidden="true" />
-                </motion.button>
-                <button
-                  className="secondary-cta"
-                  type="button"
-                  onClick={() => scrollToSection("features")}
-                >
-                  Explore Features
-                </button>
-              </div>
-              <div className="hero-stats" aria-label="Buck highlights">
-                {landingStats.map((stat) => (
-                  <div className="hero-stat" key={stat.label}>
-                    <strong>{stat.value}</strong>
-                    <span>{stat.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="hero-visual" aria-label="Buck app preview">
-              <div className="mascot-stage">
+    <>
+      <div className="landing-page">
+        <div className="lp-header">
+          <div className="lp-header-container">
+            <div className="header-leftside">
+              <div className="header-img">
                 <Image
-                  src="/BuckMascot.png"
-                  alt="Buck mascot"
-                  width={260}
-                  height={320}
-                  priority
-                  className="hero-mascot"
+                  src="/BuckMascot.svg"
+                  alt="Buck Logo"
+                  width={60}
+                  height={75}
+                  className="buckLogo"
                   onClick={playQuack}
                 />
               </div>
-              <div className="preview-panel">
-                <div className="preview-header">
-                  <SavingsIcon aria-hidden="true" />
-                  <span>This week</span>
+              <h1 onClick={() => document.getElementById('Home')?.scrollIntoView({ behavior: 'smooth' })}>Buck</h1>
+            </div>
+            {/* Desktop header buttons */}
+            <div className="header-btns">
+              <button className="header-button" onClick={() => document.getElementById('Home')?.scrollIntoView({ behavior: 'smooth' })}>
+                Home
+              </button>
+              <button className="header-button" onClick={() => document.getElementById('About')?.scrollIntoView({ behavior: 'smooth' })}>
+                About Us
+              </button>
+              <button className="header-button" onClick={() => router.push("/sign-in")}>Sign In/Sign Up</button>
+            </div>
+            {/* Mobile menu button */}
+            <button
+              id="mobile-menu-btn"
+              className="mobile-menu-btn"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-menu-dropdown"
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              {menuOpen ? <FaTimes size={28} /> : <FaBars size={28} />}
+            </button>
+          </div>
+          {/* Mobile dropdown menu */}
+          {menuOpen && (
+            <div
+              id="mobile-menu-dropdown"
+              className="mobile-menu-dropdown"
+              role="menu"
+              aria-label="Main navigation"
+            >
+              <button
+                className="header-button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  document.getElementById('Home')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                role="menuitem"
+              >
+                Home
+              </button>
+              <button
+                className="header-button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  document.getElementById('About')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                role="menuitem"
+              >
+                About Us
+              </button>
+              <button
+                className="header-button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  router.push("/sign-in");
+                }}
+                role="menuitem"
+              >
+                Sign In/Sign Up
+              </button>
+            </div>
+          )}
+        </div>
+        <div
+          className="section1"
+          id="Home"
+          onMouseMove={handleMouseMove}
+          ref={welcomeMsgRef}
+        >
+          <div className="section1-msg">
+            <motion.p
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                justifyContent: "center",
+              }}
+            >
+              {words.map((word, index) => (
+                <motion.span
+                  key={index}
+                  variants={wordVariants}
+                  style={{ marginRight: "0.25em" }}
+                >
+                  {word}
+                </motion.span>
+              ))}
+            </motion.p>
+            {trailDots.map((dot) => (
+              <div
+                key={dot.id}
+                className="mouse-trail-dot"
+                style={{
+                  left: `${dot.x}px`,
+                  top: `${dot.y}px`,
+                }}
+              />
+            ))}
+          </div>
+          <motion.button
+            ref={btnRef}
+            onClick={() => router.push("/sign-in")}
+            type="submit"
+            className="getstarted-btn"
+            onMouseMove={(e) => {
+              const rect = btnRef.current?.getBoundingClientRect();
+              if (rect) {
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                setBtnMouse({ x, y });
+              }
+            }}
+            onMouseLeave={() => setBtnMouse(null)}
+            style={{
+              background: btnMouse
+                ? `radial-gradient(circle at ${btnMouse.x}px ${btnMouse.y}px, #fd523b 0%, #ef8a57 100%)`
+                : "linear-gradient(90deg, #ef8a57 60%, #fd523b 100%)",
+              transition: btnMouse ? "background 0.1s" : "background 0.3s",
+            }}
+            whileHover={{
+              scale: 1.03,
+            }}
+          >
+            Get Started
+          </motion.button>
+        </div>
+        <div className="section2" id="About">
+          <div className="s2-container">
+            <div className="about-us">
+              <h1>About Us</h1>
+              <h3>{aboutustext}</h3>
+            </div>
+            <div className="card-container">
+              <div className="s2-cards">
+                <div className="card-svg-container" style={{ position: "relative", width: "100%", aspectRatio: "2/3", maxWidth: 120 }}>
+                  <Image
+                    src="/goaltracking.svg"
+                    alt="goal tracking"
+                    fill
+                    style={{ objectFit: "contain" }}
+                    sizes="(max-width: 600px) 100vw, 120px"
+                    priority
+                  />
                 </div>
-                <div className="preview-total">PHP 4,280</div>
-                <div className="preview-bars" aria-hidden="true">
-                  {[54, 72, 38, 82, 46, 64, 30].map((height, index) => (
-                    <span key={index} style={{ height: `${height}%` }} />
-                  ))}
+                <h1> Goal Tracking</h1>
+                <div className="cardtext-container">
+                  <h3>
+                    Set clear financial goals and watch your progress in real time. Buck keeps you
+                    motivated and on track toward what matters most.
+                  </h3>
                 </div>
-                <div className="preview-note">
-                  On pace to save 18% more than last week.
+              </div>
+              <div className="s2-cards">
+                <div className="card-svg-container" style={{ position: "relative", width: "100%", aspectRatio: "2/3", maxWidth: 120 }}>
+                  <Image
+                    src="/expensetracking.svg"
+                    alt="expense tracking"
+                    fill
+                    style={{ objectFit: "contain" }}
+                    sizes="(max-width: 600px) 100vw, 120px"
+                    priority
+                  />
+                </div>
+                <h1>Expense Tracking</h1>
+                <div className="cardtext-container">
+                  <h3>
+                    Easily log and categorize your expenses to see where your money goes. Stay on
+                    budget and cut unnecessary costs effortlessly.
+                  </h3>
+                </div>
+              </div>
+              <div className="s2-cards">
+                <div className="card-svg-container" style={{ position: "relative", width: "100%", aspectRatio: "2/3", maxWidth: 120 }}>
+                  <Image
+                    src="/forecasting.svg"
+                    alt="forecasting"
+                    fill
+                    style={{ objectFit: "contain" }}
+                    sizes="(max-width: 600px) 100vw, 120px"
+                    priority
+                  />
+                </div>
+                <h1> Forecasting</h1>
+                <div className="cardtext-container">
+                  <h3>
+                    Plan ahead with smart projections based on your spending
+                    habits. See what's coming so you can make better financial decisions today.
+                  </h3>
                 </div>
               </div>
             </div>
           </div>
-        </section>
-
-        <section className="feature-section" id="features">
-          <div className="section-heading">
-            <p className="eyebrow">What Buck keeps tidy</p>
-            <h2>Everything important has a clear place.</h2>
-          </div>
-          <div className="feature-grid">
-            {landingFeatures.map((feature) => {
-              const FeatureIcon = feature.icon;
-
-              return (
-                <article className="feature-card" key={feature.title}>
-                  <div className="feature-icon">
-                    <FeatureIcon aria-hidden="true" />
-                  </div>
-                  <Image
-                    src={feature.image}
-                    alt=""
-                    width={130}
-                    height={150}
-                    className="feature-image"
-                  />
-                  <h3>{feature.title}</h3>
-                  <p>{feature.description}</p>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="about-section" id="about">
-          <div className="about-copy">
-            <p className="eyebrow">About Buck</p>
-            <h2>Budgeting should feel calm, visible, and doable.</h2>
-            <p>
-              Buck was built around a simple idea: when your expenses, goals,
-              and forecasts live in one readable place, money decisions get less
-              stressful. The app gives you a weekly view, goal progress, wallet
-              tracking, and AI suggestions so you can spend with intention.
-            </p>
-            <div className="principle-grid">
-              {landingPrinciples.map((principle) => (
-                <article className="principle-card" key={principle.title}>
-                  <h3>{principle.title}</h3>
-                  <p>{principle.description}</p>
-                </article>
-              ))}
+        </div>
+        <div className="footer">
+          <div className="footersection">
+            <div className="quicklinks">
+              <h2>Quick Links</h2>
+              <button className="footer-btn" onClick={() => document.getElementById('Home')?.scrollIntoView({ behavior: 'smooth' })}>
+                Home
+              </button>
+              <button className="footer-btn" onClick={() => document.getElementById('About')?.scrollIntoView({ behavior: 'smooth' })}>
+                About
+              </button>
+            </div>
+            <div className="contact-us">
+              <h2>Contact Us</h2>
+              <p>BuckTheBudgetTracker@gmail.com</p>
             </div>
           </div>
-
-          <div className="workflow-panel">
-            <h3>How it flows</h3>
-            <ol>
-              {landingSteps.map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ol>
-            <div className="highlight-list">
-              {landingHighlights.map((highlight) => (
-                <div className="highlight-item" key={highlight.title}>
-                  <strong>{highlight.title}</strong>
-                  <span>{highlight.description}</span>
-                </div>
-              ))}
+          <div className="copyright-section">
+            <div className="copyright-line"></div>
+            <div className="copyright">
+              <p>© 2025 Buck. All rights reserved</p>
             </div>
           </div>
-        </section>
-      </main>
-
-      <footer className="landing-footer">
-        <div>
-          <strong>Buck Budget Tracker</strong>
-          <span>Spend smarter. Save steadier.</span>
         </div>
-        <div className="footer-links">
-          <button type="button" onClick={() => scrollToSection("home")}>
-            Home
-          </button>
-          <button type="button" onClick={() => scrollToSection("features")}>
-            Features
-          </button>
-          <a href="mailto:BuckTheBudgetTracker@gmail.com">
-            BuckTheBudgetTracker@gmail.com
-          </a>
-        </div>
-        <p>&copy; 2026 Buck. All rights reserved.</p>
-      </footer>
-    </div>
+      </div>
+    </>
   );
 }

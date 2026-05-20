@@ -1,14 +1,14 @@
-.background {
+.background, html, body {
   background-color: #ef8a57;
-  width: 100%;
-  min-height: 100dvh;
-  display: flex;
-  padding: 1rem;
+  width: 100dvw;
+  height: 100dvh;
+  display:flex;
 }
 
 .forgot-password-page {
   min-height: 100dvh;
-  width: 100%;
+  min-width: 100vw;
+  /* Add this line */
   background: #ef8a57;
   display: flex;
   align-items: center;
@@ -61,13 +61,14 @@
 .forgot-password-panel {
   background-color: #ffffff;
   border: 2px solid;
-  border-radius: 8px;
+  border-radius: 18px;
   box-shadow: 0 6px 32px 0 rgba(0, 0, 0, 0.2);
   height: auto;
   /* Allow height to adjust based on content */
   min-height: 350px;
   /* Maintain a minimum height */
-  width: min(450px, 100%);
+  width: 450px;
+  /* Adjusted width */
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -86,7 +87,7 @@
   color: #ef8a57;
   margin-top: 2px;
   margin-bottom: 1.2rem;
-  letter-spacing: 0;
+  letter-spacing: 0.5px;
 }
 
 .forgot-password-panel p {

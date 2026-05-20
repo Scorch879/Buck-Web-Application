@@ -1,31 +1,21 @@
 "use client";
+import { signOut } from "firebase/auth";
 import { useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
 import { auth, db } from "@/utils/firebase";
-import {
-  createUserWithEmailAndPassword,
-  GoogleAuthProvider,
-  sendPasswordResetEmail,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  signOut,
-  updateProfile,
-} from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { sendPasswordResetEmail } from "firebase/auth";
 
-type AuthFormData = {
+type FormData = {
   username: string;
   pass: string;
   confirm: string;
   email: string;
 };
 
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Something went wrong.";
-}
-
 export function SignInSignUp() {
-  const [form, setForm] = useState<AuthFormData>({
+  const [form, setForm] = useState<FormData>({
     username: "",
     pass: "",
     confirm: "",
@@ -34,13 +24,14 @@ export function SignInSignUp() {
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.id]: e.target.value });
   };
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    //I don't  know  if this still works but don't touch it  maybe something breaks
+    //number of time  touched : 1 (increase if you do some shit here)
     if (form.username === "" || form.pass === "" || form.email === "") {
       alert("Please fill in all fields");
       return;
@@ -67,8 +58,8 @@ export function SignInSignUp() {
       });
 
       alert("Sign up successful!");
-    } catch (error) {
-      alert(getErrorMessage(error));
+    } catch (error: any) {
+      alert(error.message);
     }
   };
 
@@ -83,22 +74,24 @@ export function SignInSignUp() {
 export async function signUpUser(email: string, password: string, username: string) {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-    if (username) {
-      await updateProfile(userCredential.user, { displayName: username });
+    // Optionally set display name
+    if (auth.currentUser && username) {
+      await updateProfile(auth.currentUser, { displayName: username });
     }
     return { success: true, user: userCredential.user };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Sign up error:", error);
-    return { success: false, message: getErrorMessage(error) };
+    return { success: false, message: error.message };
   }
 }
 
 export async function signInUser(email: string, password: string) {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const user= userCredential.user
     return { success: true, user: userCredential.user };
-  } catch (error) {
-    return { success: false, message: getErrorMessage(error) };
+  } catch (error: any) {
+    return { success: false, message: error.message };
   }
 }
 
@@ -111,10 +104,10 @@ export async function signInWithGoogle() {
   }
   catch (error: any) {
     if (error.code === "auth/popup-closed-by-user") {
-      return { success: false, cancelled: true };
+      return { success: false, cancelled: true }; //if user closed the popup it is treated as a cancellation of your life
     }
 
-    return { success: false, message: getErrorMessage(error) };
+    return { success: false, message: error.message };
   }
 }
 
@@ -128,8 +121,8 @@ export async function sendPasswordReset(email: string) {
   try {
     await sendPasswordResetEmail(auth, email);
     return { success: true, message: "Password reset email sent!" };
-  } catch (error) {
-    return { success: false, message: getErrorMessage(error) };
+  } catch (error: any) {
+    return { success: false, message: error.message };
   }
 }
 
@@ -137,7 +130,7 @@ export async function signOutUser() {
   try {
     await signOut(auth);
     return { success: true };
-  } catch (error) {
-    return { success: false, message: getErrorMessage(error) };
+  } catch (error: any) {
+    return { success: false, message: error.message };
   }
 }

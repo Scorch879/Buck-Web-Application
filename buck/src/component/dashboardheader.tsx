@@ -1,149 +1,195 @@
 "use client";
-
-import { useState } from "react";
+import React from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { FaBars, FaTimes, FaWallet } from "react-icons/fa";
-import WalletModal from "@/app/dashboard/wallet/WalletModal";
+import { useEffect, useState } from "react";
 import { signOutUser } from "./authentication";
+import { useRouter } from "next/navigation";
 import "./dashboard.css";
-
-const dashboardNavItems = [
-  { id: "home", label: "Home", href: "/dashboard/home" },
-  { id: "statistics", label: "Statistics", href: "/dashboard/statistics" },
-  { id: "goals", label: "Goals", href: "/dashboard/goals" },
-] as const;
-
-type DashboardNavId = (typeof dashboardNavItems)[number]["id"];
-
-type DashboardHeaderProps = {
-  initialActiveNav?: DashboardNavId;
-};
+import WalletModal from "@/app/dashboard/wallet/WalletModal";
 
 export default function DashboardHeader({
   initialActiveNav = "home",
-}: DashboardHeaderProps) {
-  const [activeNav, setActiveNav] = useState<DashboardNavId>(initialActiveNav);
-  const [menuOpen, setMenuOpen] = useState(false);
+}: { initialActiveNav?: string } = {}) {
+  const [activeNav, setActiveNav] = useState(initialActiveNav);
   const [walletOpen, setWalletOpen] = useState(false);
   const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 600);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const playQuack = () => {
     const audio = new Audio("/quack.mp3");
-    void audio.play();
+    audio.play();
   };
-
-  const navigateTo = (item: (typeof dashboardNavItems)[number]) => {
-    setActiveNav(item.id);
-    setMenuOpen(false);
-    router.push(item.href);
-  };
-
-  const openWallet = () => {
-    setWalletOpen(true);
-    setMenuOpen(false);
-  };
-
   const handleSignOut = async () => {
     const result = await signOutUser();
-
     if (result.success) {
-      router.push("/");
-      return;
+      router.push("/"); // Redirect to sign-in page
+    } else {
+      alert(result.message || "Sign out failed.");
     }
-
-    alert(result.message || "Sign out failed.");
   };
-
-  const renderNavItems = () =>
-    dashboardNavItems.map((item) => (
-      <button
-        key={item.id}
-        className={`nav-button ${activeNav === item.id ? "active" : ""}`}
-        type="button"
-        onClick={() => navigateTo(item)}
-      >
-        {item.label}
-      </button>
-    ));
-
+  const handleNavClick = (navItem: string) => {
+    setActiveNav(navItem);
+    // Add your navigation logic here
+    console.log(`Navigating to: ${navItem}`);
+  };
   return (
-    <header className="dashboard-header">
+    <div className="dashboard-header">
       <div className="dashboard-header-inner">
-        <button
-          className="dashboard-brand"
-          type="button"
-          onClick={() => navigateTo(dashboardNavItems[0])}
-          aria-label="Go to dashboard home"
-        >
-          <span className="dashboard-mascot">
-            <Image
-              src="/BuckMascot.png"
-              alt=""
-              width={50}
-              height={70}
-              className="dashboard-mascot-img"
-              priority
-              onClick={(event) => {
-                event.stopPropagation();
-                playQuack();
-              }}
-            />
-          </span>
-          <span className="dashboard-title">Buck</span>
-        </button>
-
-        <nav className="dashboard-nav" aria-label="Dashboard navigation">
-          {renderNavItems()}
-        </nav>
-
-        <div className="dashboard-header-actions">
-          <button className="nav-button" type="button" onClick={openWallet}>
-            <FaWallet aria-hidden="true" />
-            Wallet
-          </button>
-          <button className="nav-button" type="button" onClick={handleSignOut}>
-            Sign Out
-          </button>
-        </div>
-
-        <button
-          className="burger-menu"
-          type="button"
-          aria-label={menuOpen ? "Close dashboard menu" : "Open dashboard menu"}
-          aria-expanded={menuOpen}
-          aria-controls="dashboard-mobile-menu"
-          onClick={() => setMenuOpen((isOpen) => !isOpen)}
-        >
-          {menuOpen ? <FaTimes /> : <FaBars />}
-        </button>
+        <>
+          {!isMobile && (
+            <div className="dashboard-header-left">
+              <div className="dashboard-mascot">
+                <Image
+                  src="/BuckMascot.png"
+                  alt="Buck Mascot"
+                  width={50}
+                  height={70}
+                  className="dashboard-mascot-img"
+                  priority
+                  onClick={playQuack}
+                />
+              </div>
+              <h1 className="dashboard-title" onClick={() => {
+                setActiveNav("home");
+                router.push("/dashboard/home");
+              }}>Buck</h1>
+            </div>
+          )}
+          <div className="dashboard-header-row-mobile">
+            <div className="dashboard-header-left">
+              <div className="dashboard-mascot">
+                <Image
+                  src="/BuckMascot.png"
+                  alt="Buck Mascot"
+                  width={50}
+                  height={70}
+                  className="dashboard-mascot-img"
+                  priority
+                  onClick={playQuack}
+                />
+              </div>
+              <h1 className="dashboard-title" onClick={() => {
+                setActiveNav("home");
+                router.push("/dashboard/home");
+              }}>Buck</h1>
+            </div>
+            {isMobile && (
+              <button className="burger-menu" onClick={() => setMenuOpen(!menuOpen)}>
+                <span className="burger-bar"></span>
+                <span className="burger-bar"></span>
+                <span className="burger-bar"></span>
+              </button>
+            )}
+          </div>
+          {isMobile ? (
+            <React.Fragment>
+              {menuOpen && (
+                <div className="mobile-dropdown">
+                  <button
+                    className={`nav-button ${activeNav === "home" ? "active" : ""}`}
+                    onClick={() => {
+                      setActiveNav("home");
+                      router.push("/dashboard/home");
+                      setMenuOpen(false);
+                    }}
+                  >
+                    Home
+                  </button>
+                  <button
+                    className={`nav-button ${activeNav === "statistics" ? "active" : ""}`}
+                    onClick={() => {
+                      setActiveNav("statistics");
+                      router.push("/dashboard/statistics");
+                      setMenuOpen(false);
+                    }}
+                  >
+                    Statistics
+                  </button>
+                  <button
+                    className={`nav-button ${activeNav === "goals" ? "active" : ""}`}
+                    onClick={() => {
+                      setActiveNav("goals");
+                      router.push("/dashboard/goals");
+                      setMenuOpen(false);
+                    }}
+                  >
+                    Goals
+                  </button>
+                  <button
+                    className="nav-button"
+                    onClick={() => {
+                      setWalletOpen(true);
+                      setMenuOpen(false);
+                    }}
+                    title="Wallet"
+                    style={{ display: "flex", alignItems: "center", gap: 4 }}
+                  >
+                    Wallet
+                  </button>
+                  <button className="nav-button" onClick={() => { handleSignOut(); setMenuOpen(false); }}>
+                    Sign Out
+                  </button>
+                </div>
+              )}
+            </React.Fragment>
+          ) : (
+            <>
+              <div className="dashboard-nav">
+                <button
+                  className={`nav-button ${activeNav === "home" ? "active" : ""}`}
+                  onClick={() => {
+                    setActiveNav("home");
+                    router.push("/dashboard/home");
+                  }}
+                >
+                  Home
+                </button>
+                <button
+                  className={`nav-button ${activeNav === "statistics" ? "active" : ""}`}
+                  onClick={() => {
+                    setActiveNav("statistics");
+                    router.push("/dashboard/statistics");
+                  }}
+                >
+                  Statistics
+                </button>
+                <button
+                  className={`nav-button ${activeNav === "goals" ? "active" : ""}`}
+                  onClick={() => {
+                    setActiveNav("goals");
+                    router.push("/dashboard/goals");
+                  }}
+                >
+                  Goals
+                </button>
+              </div>
+              <div className="dashboard-header-right">
+                <button
+                  className="nav-button"
+                  onClick={() => setWalletOpen(true)}
+                  title="Wallet"
+                  style={{ display: "flex", alignItems: "center", gap: 4 }}
+                >
+                  Wallet
+                </button>
+                <button className="nav-button" onClick={handleSignOut}>
+                  Sign Out
+                </button>
+              </div>
+            </>
+          )}
+          <WalletModal open={walletOpen} onClose={() => setWalletOpen(false)} />
+        </>
       </div>
-
-      {menuOpen && (
-        <nav
-          id="dashboard-mobile-menu"
-          className="mobile-dropdown"
-          aria-label="Mobile dashboard navigation"
-        >
-          {renderNavItems()}
-          <button className="nav-button" type="button" onClick={openWallet}>
-            <FaWallet aria-hidden="true" />
-            Wallet
-          </button>
-          <button
-            className="nav-button"
-            type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              void handleSignOut();
-            }}
-          >
-            Sign Out
-          </button>
-        </nav>
-      )}
-
-      <WalletModal open={walletOpen} onClose={() => setWalletOpen(false)} />
-    </header>
+    </div>
   );
 }
