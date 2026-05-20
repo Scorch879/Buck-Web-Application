@@ -11,7 +11,6 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { formatCurrency } from "@/utils/formatters";
 
 ChartJS.register(
   CategoryScale,
@@ -114,9 +113,9 @@ const WeeklySpendingChart: React.FC<WeeklySpendingChartProps> = ({
                 label: function (context) {
                   const value = Number(context.raw);
                   if (value >= 0) {
-                    return `Saved: ${formatCurrency(value)}`;
+                    return `Saved: ${value}`;
                   } else {
-                    return `Excess: ${formatCurrency(-value)}`;
+                    return `Excess: ${-value}`;
                   }
                 },
               },
