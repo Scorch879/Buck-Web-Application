@@ -12,6 +12,8 @@ import {
 } from "firebase/firestore";
 import styles from "./WalletModal.module.css";
 import { motion } from "framer-motion";
+import { usePointerGradient } from "@/hooks/usePointerGradient";
+import { formatCurrency } from "@/utils/formatters";
 
 interface Wallet {
   id: string;
@@ -35,8 +37,7 @@ export default function WalletModal({
   const [editName, setEditName] = useState("");
   const [editBudget, setEditBudget] = useState("");
   const [activeWalletId, setActiveWalletId] = useState<string | null>(null);
-  const [addBtnMouse, setAddBtnMouse] = useState<{ x: number; y: number } | null>(null);
-  const addBtnRef = React.useRef<HTMLButtonElement>(null);
+  const addButton = usePointerGradient<HTMLButtonElement>();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [justActivatedId, setJustActivatedId] = useState<string | null>(null);
 
@@ -167,7 +168,7 @@ export default function WalletModal({
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <h2 className={styles.title}>Wallets</h2>
         <div className={styles.totalBudget}>
-          Total Budget: <span>${totalBudget}</span>
+          Total Budget: <span>{formatCurrency(totalBudget)}</span>
         </div>
         <form onSubmit={handleAddWallet} className={styles.form}>
           <input
@@ -185,23 +186,16 @@ export default function WalletModal({
             className={styles.input}
           />
           <motion.button
-            ref={addBtnRef}
+            ref={addButton.ref}
             type="submit"
             className={styles.addBtn}
-            onMouseMove={(e) => {
-              const rect = addBtnRef.current?.getBoundingClientRect();
-              if (rect) {
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                setAddBtnMouse({ x, y });
-              }
-            }}
-            onMouseLeave={() => setAddBtnMouse(null)}
+            onMouseMove={addButton.handlePointerMove}
+            onMouseLeave={addButton.handlePointerLeave}
             style={{
-              background: addBtnMouse
-                ? `radial-gradient(circle at ${addBtnMouse.x}px ${addBtnMouse.y}px, #fd523b 0%, #ef8a57 100%)`
+              background: addButton.pointer
+                ? `radial-gradient(circle at ${addButton.pointer.x}px ${addButton.pointer.y}px, #fd523b 0%, #ef8a57 100%)`
                 : "linear-gradient(90deg, #ef8a57 60%, #fd523b 100%)",
-              transition: addBtnMouse ? "background 0.1s" : "background 0.3s",
+              transition: addButton.pointer ? "background 0.1s" : "background 0.3s",
             }}
             whileHover={{ scale: 1.03 }}
           >
@@ -258,7 +252,9 @@ export default function WalletModal({
                     <>
                       <span className={styles.nameBalance}>
                         <span className={styles.name}>{w.name}</span> -{" "}
-                        <span className={styles.balance}>${w.budget}</span>
+                        <span className={styles.balance}>
+                          {formatCurrency(w.budget)}
+                        </span>
                         {w.id === activeWalletId && (
                           <span className={styles.activeLabel}>(Active)</span>
                         )}

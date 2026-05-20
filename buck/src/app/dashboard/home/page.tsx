@@ -1,355 +1,296 @@
 "use client";
-import { use, useEffect, useState } from "react";
+
+import type { CSSProperties } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { auth } from "@/utils/firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { signOutUser } from "@/component/authentication";
-import { processExpense, ExpenseInput, AIResponse } from "@/utils/aiApi";
-import "./style.css";
+import { collection, onSnapshot } from "firebase/firestore";
 import DashboardHeader from "@/component/dashboardheader";
 import { useAuthGuard } from "@/utils/useAuthGuard";
 import { db } from "@/utils/firebase";
-import { collection, onSnapshot, doc } from "firebase/firestore";
+import { formatCurrency, toNumber } from "@/utils/formatters";
+import "./style.css";
 
-// Data interface for type safety
-interface WeeklyData {
+type Category = {
+  id: string;
+  name: string;
+};
+
+type Expense = {
+  id: string;
+  amount: number | string;
+  category?: string;
+  date?: string;
+  description?: string;
+};
+
+type WeeklyDatum = {
   day: string;
   amount: number;
-  color: string;
-}
+};
 
-interface SummaryData {
+type SummaryItem = {
   label: string;
-  value: string;
-  color: string;
+  amount: number;
   description: string;
+};
+
+const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+const categoryDescriptions: Record<string, string> = {
+  Food: "Meals, snacks, and groceries.",
+  Fare: "Public transport and commuting costs.",
+  "Gas Money": "Fuel and vehicle costs.",
+  "Video Games": "Game purchases and in-game spending.",
+  Shopping: "Clothes, gadgets, and personal shopping.",
+  Bills: "Utilities, rent, and recurring payments.",
+  Other: "Miscellaneous expenses.",
+};
+
+function getCurrentWeekRange() {
+  const today = new Date();
+  const start = new Date(today);
+  start.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+
+  return { start, end };
 }
 
-// Emoji and custom description mapping for categories
-const categoryDetails: Record<string, { emoji: string; description: string }> =
-  {
-    Food: { emoji: "🍔", description: "Meals, snacks, and groceries." },
-    Fare: { emoji: "🚌", description: "Public transport and commuting costs." },
-    "Gas Money": { emoji: "⛽", description: "Fuel for your vehicle." },
-    "Video Games": {
-      emoji: "🎮",
-      description: "Game purchases and in-game spending.",
-    },
-    Shopping: {
-      emoji: "🛍️",
-      description: "Clothes, gadgets, and other shopping.",
-    },
-    Bills: {
-      emoji: "🧾",
-      description: "Utilities, rent, and recurring payments.",
-    },
-    Other: { emoji: "💡", description: "Miscellaneous expenses." },
-  };
+function parseExpenseDate(expense: Expense) {
+  if (!expense.date) return null;
 
-const Dashboard = (): React.JSX.Element => {
-  const router = useRouter();
+  const date = new Date(expense.date);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 
-  // State for active navigation
-  const [activeNav, setActiveNav] = useState("home");
-  const [spendingAmount, setSpendingAmount] = useState("");
+function isSameCalendarDate(first: Date, second: Date) {
+  return (
+    first.getDate() === second.getDate() &&
+    first.getMonth() === second.getMonth() &&
+    first.getFullYear() === second.getFullYear()
+  );
+}
+
+function getWeeklyExpenses(expenses: Expense[]) {
+  const { start, end } = getCurrentWeekRange();
+
+  return expenses.filter((expense) => {
+    const expenseDate = parseExpenseDate(expense);
+    return expenseDate ? expenseDate >= start && expenseDate <= end : false;
+  });
+}
+
+function getWeeklyData(weeklyExpenses: Expense[]) {
+  const { start } = getCurrentWeekRange();
+
+  return weekDays.map((day, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+
+    const amount = weeklyExpenses
+      .filter((expense) => {
+        const expenseDate = parseExpenseDate(expense);
+        return expenseDate ? isSameCalendarDate(expenseDate, date) : false;
+      })
+      .reduce((sum, expense) => sum + toNumber(expense.amount), 0);
+
+    return { day, amount };
+  });
+}
+
+function getSummaryData(categories: Category[], expenses: Expense[]) {
+  return categories
+    .map<SummaryItem>((category) => {
+      const amount = expenses
+        .filter((expense) => expense.category === category.name)
+        .reduce((sum, expense) => sum + toNumber(expense.amount), 0);
+
+      return {
+        label: category.name,
+        amount,
+        description:
+          categoryDescriptions[category.name] || "Custom budget category.",
+      };
+    })
+    .filter((item) => item.amount > 0);
+}
+
+function WeeklyBarChart({ data }: { data: WeeklyDatum[] }) {
+  const maxAmount = Math.max(30, ...data.map((item) => item.amount));
+  const yLabels = Array.from({ length: 7 }, (_, index) =>
+    Math.round(maxAmount - (maxAmount / 6) * index)
+  );
+  const hasData = data.some((item) => item.amount > 0);
+
+  return (
+    <div className="graph-container">
+      <div className="graph-axis" aria-hidden="true">
+        {yLabels.map((label) => (
+          <span key={label}>{label}</span>
+        ))}
+      </div>
+
+      <div className="graph-bars">
+        {hasData ? (
+          data.map((item) => {
+            const height = maxAmount === 0 ? 0 : (item.amount / maxAmount) * 100;
+            const barStyle = { "--bar-height": `${height}%` } as CSSProperties;
+
+            return (
+              <div
+                key={item.day}
+                className="graph-bar"
+                style={barStyle}
+                title={`${item.day}: ${formatCurrency(item.amount)}`}
+              >
+                <span className="graph-bar-label">{item.day}</span>
+              </div>
+            );
+          })
+        ) : (
+          <div className="empty-chart-state">No data available</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function Dashboard() {
   const { user, loading } = useAuthGuard();
-  const [categories, setCategories] = useState<any[]>([]);
-  const [expenses, setExpenses] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
 
   useEffect(() => {
     if (!user) return;
-    // Fetch categories
+
     const categoriesRef = collection(db, "users", user.uid, "categories");
-    const unsubCategories = onSnapshot(categoriesRef, (snapshot) => {
+    const unsubscribeCategories = onSnapshot(categoriesRef, (snapshot) => {
       setCategories(
-        snapshot.docs.map((doc) => ({ id: doc.id, name: doc.data().name }))
+        snapshot.docs.map((categoryDoc) => ({
+          id: categoryDoc.id,
+          name: String(categoryDoc.data().name || "Unnamed category"),
+        }))
       );
     });
-    // Fetch expenses
+
     const expensesRef = collection(db, "users", user.uid, "expenses");
-    const unsubExpenses = onSnapshot(expensesRef, (snapshot) => {
-      setExpenses(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    const unsubscribeExpenses = onSnapshot(expensesRef, (snapshot) => {
+      setExpenses(
+        snapshot.docs.map(
+          (expenseDoc) =>
+            ({
+              id: expenseDoc.id,
+              ...expenseDoc.data(),
+            }) as Expense
+        )
+      );
     });
+
     return () => {
-      unsubCategories();
-      unsubExpenses();
+      unsubscribeCategories();
+      unsubscribeExpenses();
     };
   }, [user]);
 
-  // Calculate weekly spending and summary
-  const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const today = new Date();
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 6); // Sunday
-
-  // Filter expenses for this week
-  const weeklyExpenses = expenses.filter((exp) => {
-    const expDate = new Date(exp.date);
-    return expDate >= startOfWeek && expDate <= endOfWeek;
-  });
-
-  // Weekly spending total
-  const totalWeeklySpending = weeklyExpenses.reduce(
-    (sum, exp) => sum + Number(exp.amount),
-    0
+  const weeklyExpenses = useMemo(() => getWeeklyExpenses(expenses), [expenses]);
+  const weeklyData = useMemo(
+    () => getWeeklyData(weeklyExpenses),
+    [weeklyExpenses]
   );
-
-  // Weekly spending per day
-  const weeklyData = weekDays.map((day, idx) => {
-    const date = new Date(startOfWeek);
-    date.setDate(startOfWeek.getDate() + idx);
-    const dayTotal = weeklyExpenses
-      .filter((exp) => {
-        const expDate = new Date(exp.date);
-        return (
-          expDate.getDate() === date.getDate() &&
-          expDate.getMonth() === date.getMonth() &&
-          expDate.getFullYear() === date.getFullYear()
-        );
-      })
-      .reduce((sum, exp) => sum + Number(exp.amount), 0);
-    return { day, amount: dayTotal, color: "#ef8a57" };
-  });
-
-  // Financial summary by category
-  const summaryData = categories
-    .map((cat) => {
-      const value = expenses
-        .filter((exp) => exp.category === cat.name)
-        .reduce((sum, exp) => sum + Number(exp.amount), 0);
-      return {
-        label: cat.name,
-        value: `₱${value}`,
-        color: "#ef8a57",
-        description: `${categoryDetails[cat.name]?.emoji || ""} ${
-          categoryDetails[cat.name]?.description || ""
-        }`,
-      };
-    })
-    .filter((item) => item.value !== "₱0");
+  const totalWeeklySpending = useMemo(
+    () =>
+      weeklyExpenses.reduce(
+        (sum, expense) => sum + toNumber(expense.amount),
+        0
+      ),
+    [weeklyExpenses]
+  );
+  const summaryData = useMemo(
+    () => getSummaryData(categories, expenses),
+    [categories, expenses]
+  );
 
   if (loading || !user) {
     return (
       <div className="loading-spinner">
-        <div className="spinner"></div>
+        <div className="spinner" />
         <div className="loading-text">Loading Buck...</div>
       </div>
     );
   }
 
-  const handleSignOut = async () => {
-    const result = await signOutUser();
-    if (result.success) {
-      router.push("/"); // Redirect to sign-in page
-    } else {
-      alert(result.message || "Sign out failed.");
-    }
-  };
-
-  //Audio Method
-  const playQuack = () => {
-    const audio = new Audio("/quack.mp3");
-    audio.play();
-  };
-
-  // Function to update spending amount (for future use)
-  const updateSpendingAmount = (newAmount: string) => {
-    setSpendingAmount(newAmount);
-  };
-
-  // Navigation button click handlers
-  const handleNavClick = (navItem: string) => {
-    setActiveNav(navItem);
-    // Add your navigation logic here
-    console.log(`Navigating to: ${navItem}`);
-  };
+  const displayName = user.displayName || user.email || "friend";
 
   return (
     <div className="dashboard">
-      {/* Sticky Header */}
       <DashboardHeader />
       <div className="dashboard-container">
-        <div className="dashboard-welcome-card">
-          <div className="dashboard-welcome-row">
-            <img
-              src="/BuckMascot.png"
-              alt="Buck Mascot"
-              className="dashboard-welcome-avatar"
-            />
-            <div>
-              <div className="dashboard-welcome-greeting">
-                Welcome,{" "}
-                <span className="dashboard-welcome-name">
-                  {auth.currentUser?.displayName}!
-                </span>
-              </div>
-            </div>
+        <section className="dashboard-welcome-card">
+          <Image
+            src="/BuckMascot.png"
+            alt=""
+            width={64}
+            height={64}
+            className="dashboard-welcome-avatar"
+            priority
+          />
+          <div>
+            <p className="dashboard-welcome-kicker">Welcome back</p>
+            <h1 className="dashboard-welcome-greeting">{displayName}</h1>
           </div>
-        </div>
-        {/* Main Content */}
-        <div className="dashboard-content">
-          {/* Spending Card */}
-          <div className="spending-card">
-            <h2 className="spending-title">Weekly Spending</h2>
+        </section>
+
+        <section className="dashboard-content" aria-label="Weekly overview">
+          <article className="spending-card">
+            <p className="card-eyebrow">Weekly Spending</p>
             <div className="spending-circle">
               <div className="spending-amount">
                 {totalWeeklySpending > 0
-                  ? `₱${totalWeeklySpending}`
+                  ? formatCurrency(totalWeeklySpending)
                   : "No Data"}
               </div>
             </div>
             <p className="spending-label">Total spent this week</p>
-          </div>
+          </article>
 
-          {/* Graph Card */}
-          <div className="graph-card">
-            <h2 className="graph-title">Weekly Summary of Expenses</h2>
-            {/* Dynamic max Y value */}
-            {(() => {
-              const maxAmount = Math.max(
-                30,
-                ...weeklyData.map((item) => item.amount)
-              );
-              // Generate Y-axis labels (5 steps)
-              const steps = 6;
-              const yLabels = Array.from({ length: steps + 1 }, (_, i) =>
-                Math.round(maxAmount - (maxAmount / steps) * i)
-              );
-              return (
-                <div
-                  className="graph-container"
-                  style={{
-                    display: "flex",
-                    flexDirection: "row",
-                    alignItems: "flex-end",
-                  }}
-                >
-                  {/* Y-Axis */}
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                      height: "300px",
-                      marginRight: "1rem",
-                      fontSize: "0.9rem",
-                      color: "#6c757d",
-                      alignItems: "flex-end",
-                      minWidth: "28px",
-                    }}
-                  >
-                    {yLabels.map((num, idx) => (
-                      <div
-                        key={num}
-                        style={{
-                          height:
-                            idx !== yLabels.length - 1
-                              ? "calc(300px / 6 - 1px)"
-                              : 0,
-                        }}
-                      >
-                        {num}
-                      </div>
-                    ))}
-                  </div>
-                  {/* Bars */}
-                  <div
-                    style={{
-                      flex: 1,
-                      display: "flex",
-                      alignItems: "flex-end",
-                      height: "300px",
-                      gap: "1rem",
-                    }}
-                  >
-                    {weeklyData.every((item) => item.amount === 0) ? (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          height: "100%",
-                          color: "#666",
-                          fontSize: "1.1rem",
-                        }}
-                      >
-                        No data available
-                      </div>
-                    ) : (
-                      weeklyData.map((item, index) => (
-                        <div
-                          key={index}
-                          className="graph-bar"
-                          style={{
-                            height: `${
-                              maxAmount === 0
-                                ? 0
-                                : (item.amount / maxAmount) * 100
-                            }%`,
-                            background: item.color,
-                          }}
-                          title={`${item.day}: ₱${item.amount}`}
-                        >
-                          <div className="graph-bar-label">{item.day}</div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
+          <article className="graph-card">
+            <div className="card-heading">
+              <p className="card-eyebrow">Weekly Summary</p>
+              <h2 className="graph-title">Expenses by day</h2>
+            </div>
+            <WeeklyBarChart data={weeklyData} />
+          </article>
+        </section>
 
-        {/* Summary Card */}
-        <div className="summary-card">
-          <h2 className="summary-title">Financial Summary</h2>
+        <section className="summary-card">
+          <div className="card-heading">
+            <p className="card-eyebrow">Categories</p>
+            <h2 className="summary-title">Financial Summary</h2>
+          </div>
           <div className="summary-content">
             {summaryData.length > 0 ? (
-              summaryData.map((item, index) => (
-                <div key={index} className="summary-item">
-                  <div
-                    className="summary-item-value"
-                    style={{ color: item.color }}
-                  >
-                    {item.value}
+              summaryData.map((item) => (
+                <article key={item.label} className="summary-item">
+                  <div className="summary-item-value">
+                    {formatCurrency(item.amount)}
                   </div>
                   <div className="summary-item-label">{item.label}</div>
-                  <div
-                    className="summary-item-description"
-                    style={{
-                      fontSize: "0.85rem",
-                      color: "#888",
-                      marginTop: "0.3rem",
-                    }}
-                  >
+                  <p className="summary-item-description">
                     {item.description}
-                  </div>
-                </div>
+                  </p>
+                </article>
               ))
             ) : (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  height: "100%",
-                  color: "#666",
-                  fontSize: "1.1rem",
-                  gridColumn: "1 / -1",
-                }}
-              >
+              <div className="empty-summary-state">
                 No summary data available
               </div>
             )}
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );
-};
-
-export default Dashboard;
+}

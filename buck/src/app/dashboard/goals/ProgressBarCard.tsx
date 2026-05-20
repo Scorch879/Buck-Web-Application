@@ -1,5 +1,6 @@
 import React from 'react';
 import './progress-bar.css';
+import { formatCurrency } from "@/utils/formatters";
 
 interface Goal {
   id: string;
@@ -40,10 +41,10 @@ const ProgressBarCard: React.FC<ProgressBarCardProps> = ({ goal }) => {
       </div>
       <div className="progress-stats">
         <span className="progress-amount">
-          Saved: ₱{currentAmount.toLocaleString()}
+          Saved: {formatCurrency(currentAmount)}
         </span>
         <span className="progress-remaining">
-          Remaining: ₱{remainingAmount.toLocaleString()}
+          Remaining: {formatCurrency(remainingAmount)}
         </span>
       </div>
     </div>
