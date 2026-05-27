@@ -1,5 +1,3 @@
-declare module "*.css";
-
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
@@ -16,9 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
