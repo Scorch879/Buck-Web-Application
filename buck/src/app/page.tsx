@@ -19,6 +19,7 @@ import {
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 
 const heroWords = ["Buck", "Budget", "Tracker"];
+const adviserRotationDelay = 6800;
 
 const weeklyPreviewSnapshots = [
   {
@@ -115,6 +116,7 @@ export default function Home() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [isDarkTheme, setIsDarkTheme] = useState(false);
+  const [isHeaderStuck, setIsHeaderStuck] = useState(false);
   const [activeSection, setActiveSection] = useState(
     landingNavItems[0]?.targetId ?? "home"
   );
@@ -122,6 +124,9 @@ export default function Home() {
   const [adviserIndex, setAdviserIndex] = useState(0);
   const previewSnapshot = weeklyPreviewSnapshots[previewIndex];
   const adviserSnapshot = adviserSnapshots[adviserIndex];
+  const [typedAdviserAdvice, setTypedAdviserAdvice] = useState(
+    adviserSnapshot.advice
+  );
   const cta = usePointerGradient<HTMLButtonElement>();
 
   useEffect(() => {
@@ -142,6 +147,8 @@ export default function Home() {
     const updateActiveSection = () => {
       const activationLine = Math.min(window.innerHeight * 0.35, 260);
       let currentSection = sections[0].id;
+
+      setIsHeaderStuck(window.scrollY > 18);
 
       for (const section of sections) {
         const bounds = section.getBoundingClientRect();
@@ -201,13 +208,49 @@ export default function Home() {
       setAdviserIndex(
         (currentIndex) => (currentIndex + 1) % adviserSnapshots.length
       );
-    }, 4800);
+    }, adviserRotationDelay);
 
     return () => {
       window.clearInterval(previewIntervalId);
       window.clearInterval(adviserIntervalId);
     };
   }, []);
+
+  useEffect(() => {
+    const advice = adviserSnapshot.advice;
+    const prefersReducedMotion = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    if (prefersReducedMotion) {
+      setTypedAdviserAdvice(advice);
+      return;
+    }
+
+    let currentCharacter = 0;
+    let typingIntervalId: number | null = null;
+
+    setTypedAdviserAdvice("");
+
+    const typingDelayId = window.setTimeout(() => {
+      typingIntervalId = window.setInterval(() => {
+        currentCharacter += 1;
+        setTypedAdviserAdvice(advice.slice(0, currentCharacter));
+
+        if (currentCharacter >= advice.length && typingIntervalId !== null) {
+          window.clearInterval(typingIntervalId);
+        }
+      }, 18);
+    }, 160);
+
+    return () => {
+      window.clearTimeout(typingDelayId);
+
+      if (typingIntervalId !== null) {
+        window.clearInterval(typingIntervalId);
+      }
+    };
+  }, [adviserSnapshot.advice]);
 
   useEffect(() => {
     const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)")
@@ -260,10 +303,23 @@ export default function Home() {
     ? "Switch to light mode"
     : "Switch to dark mode";
 
+  const ctaGradient = isDarkTheme
+    ? {
+        base:
+          "linear-gradient(135deg, #f47536 0%, #ff8d3d 100%)",
+        hover: cta.pointer
+          ? `radial-gradient(circle at ${cta.pointer.x}px ${cta.pointer.y}px, rgba(255, 240, 200, 0.92) 0%, rgba(255, 197, 71, 0.72) 20%, rgba(255, 197, 71, 0) 46%), linear-gradient(135deg, #f47536 0%, #ff8d3d 100%)`
+          : "",
+      }
+    : {
+        base: "linear-gradient(135deg, #f47536 0%, #ff3838 100%)",
+        hover: cta.pointer
+          ? `radial-gradient(circle at ${cta.pointer.x}px ${cta.pointer.y}px, rgba(255, 240, 200, 0.88) 0%, rgba(255, 197, 71, 0.68) 20%, rgba(255, 197, 71, 0) 46%), linear-gradient(135deg, #f47536 0%, #ff3838 100%)`
+          : "",
+      };
+
   const ctaStyle: CSSProperties = {
-    background: cta.pointer
-      ? `radial-gradient(circle at ${cta.pointer.x}px ${cta.pointer.y}px, #ffc547 0%, #f47536 42%, #ff3838 100%)`
-      : "linear-gradient(135deg, #f47536 0%, #ff3838 100%)",
+    background: cta.pointer ? ctaGradient.hover : ctaGradient.base,
   };
 
   const getNavButtonClassName = (targetId: string) =>
@@ -275,7 +331,9 @@ export default function Home() {
     <div
       className={`landing-page${isDarkTheme ? " landing-page--dark" : ""}`}
     >
-      <header className="site-header">
+      <header
+        className={`site-header${isHeaderStuck ? " site-header--stuck" : ""}`}
+      >
         <div className="site-header-inner">
           <button
             className="brand-mark"
@@ -428,7 +486,7 @@ export default function Home() {
                   type="button"
                   onClick={() => scrollToSection("features")}
                 >
-                  Explore Features
+                  <span>Explore Features</span>
                 </button>
               </div>
               <div className="hero-stats" aria-label="Buck highlights">
@@ -531,7 +589,7 @@ export default function Home() {
               </p>
             </div>
 
-            <article className="adviser-card" aria-live="polite">
+            <article className="adviser-card">
               <div className="adviser-card-header">
                 <span className="adviser-badge">
                   <SavingsIcon aria-hidden="true" />
@@ -557,7 +615,20 @@ export default function Home() {
               >
                 <span className="adviser-focus">{adviserSnapshot.focus}</span>
                 <strong>{adviserSnapshot.headline}</strong>
-                <p>{adviserSnapshot.advice}</p>
+                <p
+                  className="adviser-typing"
+                  aria-label={adviserSnapshot.advice}
+                >
+                  <span aria-hidden="true">{typedAdviserAdvice}</span>
+                  <span
+                    className={`adviser-typing-cursor${
+                      typedAdviserAdvice.length >= adviserSnapshot.advice.length
+                        ? " adviser-typing-cursor--idle"
+                        : ""
+                    }`}
+                    aria-hidden="true"
+                  />
+                </p>
               </motion.div>
 
               <div className="adviser-meter" aria-hidden="true">
