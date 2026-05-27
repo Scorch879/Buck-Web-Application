@@ -1,17 +1,18 @@
-.background, html {
+.background {
   min-height: 100dvh;
-  min-width: 100vw;
-  /* Add this line */
-  background: #ef8a57;
+  width: 100%;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 244, 0.14), rgba(255, 250, 244, 0)),
+    #ef8a57;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 1rem;
 }
 
 .SI-Background {
   min-height: 100dvh;
-  min-width: 100vw;
-  /* Add this line */
+  width: 100%;
   background: #ef8a57;
   display: flex;
   align-items: center;
@@ -21,7 +22,7 @@
 .SI-Container {
   background: #fff;
   padding: 2.5rem 2rem 2rem 2rem;
-  border-radius: 18px;
+  border-radius: 8px;
   box-shadow: 0 6px 32px 0 rgba(0, 0, 0, 0.2);
   width: 100%;
   max-width: 370px;
@@ -103,7 +104,7 @@
   font-weight: 700;
   color: #ef8a57;
   margin-bottom: 1.2rem;
-  letter-spacing: 0.5px;
+  letter-spacing: 0;
 }
 
 .SI-Label {

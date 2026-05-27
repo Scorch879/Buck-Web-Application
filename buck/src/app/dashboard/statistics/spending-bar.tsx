@@ -10,6 +10,7 @@ import {
 } from "chart.js";
 import styles from "./spending-bar.module.css";
 import { statisticsTestData } from "./testData";
+import { formatCurrency } from "@/utils/formatters";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
@@ -74,7 +75,7 @@ const SpendingBar: React.FC<SpendingBarProps> = ({ mode = 'week', weekIndex, mon
       tooltip: {
         callbacks: {
           label: function (context: any) {
-            return `$${context.raw}`;
+            return formatCurrency(Number(context.raw));
           },
         },
       },

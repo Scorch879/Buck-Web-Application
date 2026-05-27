@@ -1,21 +1,31 @@
 "use client";
-import { signOut } from "firebase/auth";
 import { useState } from "react";
-import { auth, db } from "@/utils/firebase";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import type { ChangeEvent, FormEvent } from "react";
+import { auth, db, isFirebaseConfigured } from "@/utils/firebase";
+import {
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+  updateProfile,
+} from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { sendPasswordResetEmail } from "firebase/auth";
 
-type FormData = {
+type AuthFormData = {
   username: string;
   pass: string;
   confirm: string;
   email: string;
 };
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Something went wrong.";
+}
+
 export function SignInSignUp() {
-  const [form, setForm] = useState<FormData>({
+  const [form, setForm] = useState<AuthFormData>({
     username: "",
     pass: "",
     confirm: "",
@@ -24,14 +34,13 @@ export function SignInSignUp() {
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.id]: e.target.value });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    //I don't  know  if this still works but don't touch it  maybe something breaks
-    //number of time  touched : 1 (increase if you do some shit here)
+
     if (form.username === "" || form.pass === "" || form.email === "") {
       alert("Please fill in all fields");
       return;
@@ -42,6 +51,10 @@ export function SignInSignUp() {
     }
     if (!emailRegex.test(form.email)) {
       alert("Please enter a valid email address");
+      return;
+    }
+    if (!isFirebaseConfigured) {
+      alert("Firebase authentication is not configured.");
       return;
     }
 
@@ -58,8 +71,8 @@ export function SignInSignUp() {
       });
 
       alert("Sign up successful!");
-    } catch (error: any) {
-      alert(error.message);
+    } catch (error) {
+      alert(getErrorMessage(error));
     }
   };
 
@@ -72,42 +85,54 @@ export function SignInSignUp() {
 }
 
 export async function signUpUser(email: string, password: string, username: string) {
+  if (!isFirebaseConfigured) {
+    return { success: false, message: "Firebase authentication is not configured." };
+  }
+
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-    // Optionally set display name
-    if (auth.currentUser && username) {
-      await updateProfile(auth.currentUser, { displayName: username });
+    if (username) {
+      await updateProfile(userCredential.user, { displayName: username });
     }
     return { success: true, user: userCredential.user };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Sign up error:", error);
-    return { success: false, message: error.message };
+    return { success: false, message: getErrorMessage(error) };
   }
 }
 
 export async function signInUser(email: string, password: string) {
+  if (!isFirebaseConfigured) {
+    return { success: false, message: "Firebase authentication is not configured." };
+  }
+
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const user= userCredential.user
     return { success: true, user: userCredential.user };
-  } catch (error: any) {
-    return { success: false, message: error.message };
+  } catch (error) {
+    return { success: false, message: getErrorMessage(error) };
   }
 }
 
 export async function signInWithGoogle() {
+  if (!isFirebaseConfigured) {
+    return { success: false, message: "Firebase authentication is not configured." };
+  }
+
   const provider = new GoogleAuthProvider();
   try {
     const result = await signInWithPopup(auth, provider);
     // result.user contains the signed-in user info
     return { success: true, user: result.user };
   }
-  catch (error: any) {
-    if (error.code === "auth/popup-closed-by-user") {
-      return { success: false, cancelled: true }; //if user closed the popup it is treated as a cancellation of your life
+  catch (error) {
+    const authError = error as { code?: string };
+
+    if (authError.code === "auth/popup-closed-by-user") {
+      return { success: false, cancelled: true };
     }
 
-    return { success: false, message: error.message };
+    return { success: false, message: getErrorMessage(error) };
   }
 }
 
@@ -118,19 +143,27 @@ export async function signInWithGoogle() {
  */
 
 export async function sendPasswordReset(email: string) {
+  if (!isFirebaseConfigured) {
+    return { success: false, message: "Firebase authentication is not configured." };
+  }
+
   try {
     await sendPasswordResetEmail(auth, email);
     return { success: true, message: "Password reset email sent!" };
-  } catch (error: any) {
-    return { success: false, message: error.message };
+  } catch (error) {
+    return { success: false, message: getErrorMessage(error) };
   }
 }
 
 export async function signOutUser() {
+  if (!isFirebaseConfigured) {
+    return { success: false, message: "Firebase authentication is not configured." };
+  }
+
   try {
     await signOut(auth);
     return { success: true };
-  } catch (error: any) {
-    return { success: false, message: error.message };
+  } catch (error) {
+    return { success: false, message: getErrorMessage(error) };
   }
 }

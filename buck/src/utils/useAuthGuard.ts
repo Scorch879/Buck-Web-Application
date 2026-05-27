@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "@/utils/firebase";
+import { auth, isFirebaseConfigured } from "@/utils/firebase";
 
 export function useAuthGuard() {
   const router = useRouter();
@@ -10,13 +10,22 @@ export function useAuthGuard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!isFirebaseConfigured) {
+      setLoading(false);
+      router.replace("/sign-in");
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (!firebaseUser) {
-        router.replace("/sign-in");
-      } else {
-        setUser(firebaseUser);
+        setUser(null);
         setLoading(false);
+        router.replace("/sign-in");
+        return;
       }
+
+      setUser(firebaseUser);
+      setLoading(false);
     });
     return () => unsubscribe();
   }, [router]);
@@ -28,6 +37,8 @@ export function useRedirectIfAuthenticated(redirectTo = "/dashboard/home") {
   const router = useRouter();
 
   useEffect(() => {
+    if (!isFirebaseConfigured) return;
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         router.replace(redirectTo);
