@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import type { Variants } from "framer-motion";
 import { FaArrowRight, FaBars, FaTimes } from "react-icons/fa";
 import {
   landingFeatures,
@@ -17,16 +18,15 @@ import {
 } from "@/constants/landing";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
-import "./globals.css";
 
 const heroWords = ["Buck", "Budget", "Tracker"];
 
-const wordVariants = {
+const wordVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0 },
 };
 
-const heroWordContainer = {
+const heroWordContainer: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -62,8 +62,8 @@ export default function Home() {
 
   const ctaStyle: CSSProperties = {
     background: cta.pointer
-      ? `radial-gradient(circle at ${cta.pointer.x}px ${cta.pointer.y}px, #1f7a65 0%, #ef8a57 42%, #fd523b 100%)`
-      : "linear-gradient(135deg, #1f7a65 0%, #ef8a57 55%, #fd523b 100%)",
+      ? `radial-gradient(circle at ${cta.pointer.x}px ${cta.pointer.y}px, #ffc547 0%, #f47536 42%, #ff3838 100%)`
+      : "linear-gradient(135deg, #f47536 0%, #ff3838 100%)",
   };
 
   return (
