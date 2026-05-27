@@ -1,14 +1,12 @@
 "use client";
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import type { FormEvent } from "react";
+import React from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/utils/firebase";
 import { signInUser, signInWithGoogle } from "@/component/authentication";
 import { motion } from "framer-motion";
-import { usePointerGradient } from "@/hooks/usePointerGradient";
 import "./style.css";
 
 const SignIn = () => {
@@ -18,7 +16,10 @@ const SignIn = () => {
   const [pass, setPass] = useState("");
   const [message, setMsg] = useState("");
   const [error, setError] = useState("");
-  const signInButton = usePointerGradient<HTMLButtonElement>();
+  const [btnMouse, setBtnMouse] = useState<{ x: number; y: number } | null>(
+    null
+  );
+  const btnRef = React.useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -34,7 +35,7 @@ const SignIn = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
-  const handleSignIn = async (e: FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (!email || !pass) {
@@ -70,9 +71,11 @@ const SignIn = () => {
     }
   };
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
   const playQuack = () => {
     const audio = new Audio("/quack.mp3");
-    void audio.play();
+    audio.play();
   };
 
   return (
@@ -144,24 +147,30 @@ const SignIn = () => {
 
             <div className="SI-Anchors">
               <div className="SI-Forgot">
-                <Link href="/forgot-password" className="SI-Link">
+                <a href="/forgot-password" className="SI-Link">
                   Forgot Password
-                </Link>
+                </a>
               </div>
             </div>
             <motion.button
-              ref={signInButton.ref}
+              ref={btnRef}
+              onClick={handleSignIn}
               type="submit"
               className="SI-Btn"
-              onMouseMove={signInButton.handlePointerMove}
-              onMouseLeave={signInButton.handlePointerLeave}
+              onMouseMove={(e) => {
+                const rect = btnRef.current?.getBoundingClientRect();
+                if (rect) {
+                  const x = e.clientX - rect.left;
+                  const y = e.clientY - rect.top;
+                  setBtnMouse({ x, y });
+                }
+              }}
+              onMouseLeave={() => setBtnMouse(null)}
               style={{
-                background: signInButton.pointer
-                  ? `radial-gradient(circle at ${signInButton.pointer.x}px ${signInButton.pointer.y}px, #fd523b 0%, #ef8a57 100%)`
+                background: btnMouse
+                  ? `radial-gradient(circle at ${btnMouse.x}px ${btnMouse.y}px, #fd523b 0%, #ef8a57 100%)`
                   : "linear-gradient(90deg, #ef8a57 60%, #fd523b 100%)",
-                transition: signInButton.pointer
-                  ? "background 0.1s"
-                  : "background 0.3s",
+                transition: btnMouse ? "background 0.1s" : "background 0.3s",
               }}
               whileHover={{
                 scale: 1.03,
@@ -185,9 +194,9 @@ const SignIn = () => {
           </button>
           <div className="SI-Create">
             Don't have an account?{" "}
-            <Link href="/create-account" className="SI-Link">
+            <a href="/create-account" className="SI-Link">
               Create Account
-            </Link>
+            </a>
           </div>
         </div>
       </div>
