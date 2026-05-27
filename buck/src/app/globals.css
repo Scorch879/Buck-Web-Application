@@ -1059,3 +1059,218 @@ main {
     justify-content: flex-start;
   }
 }
+
+.maintenance-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 3vw, 2rem);
+  color: var(--buck-ink);
+  background:
+    linear-gradient(180deg, rgba(255, 250, 244, 0.88), rgba(235, 230, 226, 0.95)),
+    repeating-linear-gradient(
+      -6deg,
+      rgba(43, 37, 35, 0.08) 0,
+      rgba(43, 37, 35, 0.08) 2px,
+      transparent 2px,
+      transparent 76px
+    ),
+    linear-gradient(135deg, #fffaf4 0%, #ffc547 48%, #f47536 100%);
+}
+
+.maintenance-shell {
+  width: min(1060px, 100%);
+  overflow: hidden;
+  border: 1px solid rgba(214, 208, 203, 0.9);
+  border-radius: 8px;
+  background:
+    linear-gradient(110deg, rgba(255, 250, 244, 0.96) 0 58%, rgba(244, 117, 54, 0.12) 58% 100%),
+    var(--buck-surface);
+  box-shadow: var(--buck-shadow);
+}
+
+.maintenance-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: clamp(1rem, 2.2vw, 1.4rem) clamp(1rem, 3vw, 2rem) 0;
+}
+
+.maintenance-mascot {
+  display: grid;
+  place-items: end center;
+  width: 58px;
+  height: 58px;
+  overflow: hidden;
+  border: 1px solid rgba(244, 117, 54, 0.26);
+  border-radius: 50%;
+  background: linear-gradient(145deg, var(--buck-gold-soft), #ffd78a);
+}
+
+.maintenance-mascot img {
+  width: 48px;
+  height: 66px;
+  object-fit: contain;
+  transform: translateY(10px);
+}
+
+.maintenance-brand strong,
+.maintenance-brand small {
+  display: block;
+}
+
+.maintenance-brand strong {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.maintenance-brand small {
+  margin-top: 0.18rem;
+  color: var(--buck-muted);
+  font-weight: 700;
+}
+
+.maintenance-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+  gap: clamp(1.5rem, 4vw, 3rem);
+  align-items: center;
+  padding: clamp(2.2rem, 6vw, 5.2rem) clamp(1rem, 5vw, 4.4rem)
+    clamp(2rem, 5vw, 4rem);
+}
+
+.maintenance-copy {
+  max-width: 680px;
+}
+
+.maintenance-kicker {
+  margin: 0 0 0.85rem;
+  color: var(--buck-orange);
+  font-size: clamp(0.78rem, 2vw, 0.9rem);
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.maintenance-copy h1 {
+  margin: 0;
+  max-width: 760px;
+  font-size: clamp(2.65rem, 8vw, 5.8rem);
+  line-height: 0.92;
+}
+
+.maintenance-copy > p:not(.maintenance-kicker) {
+  max-width: 620px;
+  margin: 1.2rem 0 0;
+  color: var(--buck-muted);
+  font-size: clamp(1rem, 2.4vw, 1.24rem);
+  line-height: 1.7;
+}
+
+.maintenance-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-top: 1.7rem;
+}
+
+.maintenance-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-height: 48px;
+  padding: 0.86rem 1.1rem;
+  color: #fffaf4;
+  background: linear-gradient(135deg, var(--buck-orange), var(--buck-coral));
+  border-radius: 8px;
+  font-weight: 900;
+  text-decoration: none;
+  box-shadow: 0 12px 24px rgba(255, 56, 56, 0.2);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.maintenance-actions a:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px rgba(255, 56, 56, 0.26);
+}
+
+.maintenance-status {
+  padding: clamp(1rem, 3vw, 1.35rem);
+  border: 1px solid rgba(214, 208, 203, 0.92);
+  border-radius: 8px;
+  background: rgba(255, 250, 244, 0.88);
+  box-shadow: 0 16px 34px rgba(79, 47, 24, 0.12);
+}
+
+.maintenance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.52rem;
+  color: var(--buck-coral);
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.maintenance-meter {
+  height: 14px;
+  margin: 1.4rem 0;
+  overflow: hidden;
+  border: 1px solid rgba(244, 117, 54, 0.22);
+  border-radius: 999px;
+  background: var(--buck-gold-soft);
+}
+
+.maintenance-meter span {
+  display: block;
+  width: 68%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--buck-gold), var(--buck-orange), var(--buck-coral));
+}
+
+.maintenance-list {
+  display: grid;
+  gap: 0.86rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.maintenance-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  color: var(--buck-muted);
+  line-height: 1.55;
+}
+
+.maintenance-list svg {
+  flex: 0 0 auto;
+  margin-top: 0.22rem;
+  color: var(--buck-orange);
+}
+
+@media (max-width: 760px) {
+  .maintenance-page {
+    place-items: stretch;
+  }
+
+  .maintenance-shell {
+    align-self: center;
+  }
+
+  .maintenance-grid {
+    grid-template-columns: 1fr;
+    padding-top: 2.4rem;
+  }
+
+  .maintenance-copy h1 {
+    font-size: clamp(2.4rem, 12vw, 3.5rem);
+  }
+
+  .maintenance-actions a {
+    width: 100%;
+  }
+}
