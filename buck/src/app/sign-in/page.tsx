@@ -13,7 +13,6 @@ import {
   FaArrowRight,
   FaChartLine,
   FaPiggyBank,
-  FaShieldAlt,
   FaWallet,
 } from "react-icons/fa";
 import type { IconType } from "react-icons";
@@ -236,16 +235,6 @@ const SignIn = () => {
             })}
           </div>
 
-          <div className="SI-TrustCard">
-            <div>
-              <strong>PHP 4,280</strong>
-              <span>tracked this week</span>
-            </div>
-            <div>
-              <FaShieldAlt aria-hidden="true" />
-              <span>Protected budget session</span>
-            </div>
-          </div>
         </section>
 
         <section className="SI-AuthPanel" aria-labelledby="sign-in-title">
