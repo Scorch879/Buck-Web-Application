@@ -1,6 +1,8 @@
+declare module "*.css";
+
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import "./globals.css";
-import "../component/signup.css";
 
 export const metadata: Metadata = {
   title: "Buck",
@@ -10,7 +12,7 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: ReactNode;
 }>) {
   return (
     <html lang="en">

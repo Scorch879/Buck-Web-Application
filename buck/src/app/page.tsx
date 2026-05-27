@@ -3,10 +3,34 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import "./globals.css";
+import type { Variants } from "framer-motion";
+import { FaArrowRight, FaBars, FaTimes } from "react-icons/fa";
+import {
+  landingFeatures,
+  landingHighlights,
+  landingNavItems,
+  landingPrinciples,
+  landingStats,
+  landingSteps,
+  savingsIcon as SavingsIcon,
+} from "@/constants/landing";
+import { usePointerGradient } from "@/hooks/usePointerGradient";
 import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
-import React from "react";
-import { FaBars, FaTimes } from "react-icons/fa";
+
+const heroWords = ["Buck", "Budget", "Tracker"];
+
+const wordVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+};
+
+const heroWordContainer: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.08 },
+  },
+};
 
 export default function Home() {
   useRedirectIfAuthenticated(); // Redirects if user is signed in
@@ -71,13 +95,10 @@ export default function Home() {
         return updatedDots;
       });
 
-      // Remove dot after a short delay to create fading effect
-      setTimeout(() => {
-        setTrailDots((prevDots) =>
-          prevDots.filter((dot) => dot.id !== newDot.id)
-        );
-      }, 500); // Dot visible for 500ms
-    }
+  const ctaStyle: CSSProperties = {
+    background: cta.pointer
+      ? `radial-gradient(circle at ${cta.pointer.x}px ${cta.pointer.y}px, #ffc547 0%, #f47536 42%, #ff3838 100%)`
+      : "linear-gradient(135deg, #f47536 0%, #ff3838 100%)",
   };
 
   // Close menu on navigation or click outside
