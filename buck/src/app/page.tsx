@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import type { Variants } from "framer-motion";
-import { FaArrowRight, FaBars, FaTimes } from "react-icons/fa";
+import { FaArrowRight, FaBars, FaMoon, FaSun, FaTimes } from "react-icons/fa";
 import {
   landingFeatures,
   landingHighlights,
@@ -19,6 +19,84 @@ import {
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 
 const heroWords = ["Buck", "Budget", "Tracker"];
+
+const weeklyPreviewSnapshots = [
+  {
+    label: "This week",
+    total: "PHP 4,280",
+    note: "On pace to save 18% more than last week.",
+    bars: [54, 72, 38, 82, 46, 64, 30],
+  },
+  {
+    label: "Budget left",
+    total: "PHP 1,740",
+    note: "Food, transit, and bills are still inside your plan.",
+    bars: [44, 58, 50, 66, 42, 36, 28],
+  },
+  {
+    label: "Goal boost",
+    total: "PHP 620",
+    note: "A small transfer keeps your savings goal ahead.",
+    bars: [30, 36, 48, 54, 68, 72, 82],
+  },
+  {
+    label: "Forecast",
+    total: "PHP 3,910",
+    note: "Likely to finish 9% under your weekly budget.",
+    bars: [62, 46, 70, 52, 64, 44, 36],
+  },
+];
+
+const adviserSnapshots = [
+  {
+    focus: "Food spending",
+    headline: "Trim PHP 480 this week",
+    advice:
+      "Lunch and snack spending climbed after Wednesday. Keep meals near PHP 170 per day and Buck can protect your weekend buffer.",
+    primaryMetric: "PHP 170/day",
+    primaryLabel: "Suggested food cap",
+    secondaryMetric: "PHP 480",
+    secondaryLabel: "Possible weekly save",
+    confidence: "High confidence",
+    progress: 74,
+  },
+  {
+    focus: "Savings goal",
+    headline: "Move PHP 300 safely",
+    advice:
+      "Your bills are covered and daily spending is under pace. Moving PHP 300 today keeps the goal ahead without tightening the week.",
+    primaryMetric: "PHP 300",
+    primaryLabel: "Safe goal transfer",
+    secondaryMetric: "5 days",
+    secondaryLabel: "Buffer remaining",
+    confidence: "Good timing",
+    progress: 62,
+  },
+  {
+    focus: "Weekend forecast",
+    headline: "Set aside PHP 850",
+    advice:
+      "Your weekend pattern usually runs higher. Reserve PHP 850 now and the weekly budget still lands below the limit.",
+    primaryMetric: "PHP 850",
+    primaryLabel: "Weekend envelope",
+    secondaryMetric: "9%",
+    secondaryLabel: "Under budget forecast",
+    confidence: "Forecast ready",
+    progress: 68,
+  },
+  {
+    focus: "Subscriptions",
+    headline: "Review PHP 399",
+    advice:
+      "A recurring charge is coming up before payday. Skip one nonessential renewal and your cash flow stays smoother.",
+    primaryMetric: "PHP 399",
+    primaryLabel: "Charge to review",
+    secondaryMetric: "Low",
+    secondaryLabel: "Cash-flow risk",
+    confidence: "Heads up",
+    progress: 52,
+  },
+];
 
 const wordVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
@@ -36,11 +114,114 @@ const heroWordContainer: Variants = {
 export default function Home() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isDarkTheme, setIsDarkTheme] = useState(false);
+  const [activeSection, setActiveSection] = useState(
+    landingNavItems[0]?.targetId ?? "home"
+  );
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [adviserIndex, setAdviserIndex] = useState(0);
+  const previewSnapshot = weeklyPreviewSnapshots[previewIndex];
+  const adviserSnapshot = adviserSnapshots[adviserIndex];
   const cta = usePointerGradient<HTMLButtonElement>();
 
   useEffect(() => {
     router.prefetch("/sign-in");
   }, [router]);
+
+  useEffect(() => {
+    const sections = landingNavItems
+      .map((item) => document.getElementById(item.targetId))
+      .filter((section): section is HTMLElement => section !== null);
+
+    if (sections.length === 0) {
+      return;
+    }
+
+    let animationFrameId: number | null = null;
+
+    const updateActiveSection = () => {
+      const activationLine = Math.min(window.innerHeight * 0.35, 260);
+      let currentSection = sections[0].id;
+
+      for (const section of sections) {
+        const bounds = section.getBoundingClientRect();
+
+        if (bounds.top <= activationLine && bounds.bottom > activationLine) {
+          currentSection = section.id;
+          break;
+        }
+
+        if (bounds.top <= activationLine) {
+          currentSection = section.id;
+        }
+      }
+
+      setActiveSection(currentSection);
+      animationFrameId = null;
+    };
+
+    const requestActiveSectionUpdate = () => {
+      if (animationFrameId === null) {
+        animationFrameId = window.requestAnimationFrame(updateActiveSection);
+      }
+    };
+
+    updateActiveSection();
+    window.addEventListener("scroll", requestActiveSectionUpdate, {
+      passive: true,
+    });
+    window.addEventListener("resize", requestActiveSectionUpdate);
+
+    return () => {
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+
+      window.removeEventListener("scroll", requestActiveSectionUpdate);
+      window.removeEventListener("resize", requestActiveSectionUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
+    const prefersReducedMotion = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    if (prefersReducedMotion) {
+      return;
+    }
+
+    const previewIntervalId = window.setInterval(() => {
+      setPreviewIndex(
+        (currentIndex) => (currentIndex + 1) % weeklyPreviewSnapshots.length
+      );
+    }, 3600);
+
+    const adviserIntervalId = window.setInterval(() => {
+      setAdviserIndex(
+        (currentIndex) => (currentIndex + 1) % adviserSnapshots.length
+      );
+    }, 4800);
+
+    return () => {
+      window.clearInterval(previewIntervalId);
+      window.clearInterval(adviserIntervalId);
+    };
+  }, []);
+
+  useEffect(() => {
+    const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)")
+      .matches;
+    let savedTheme: string | null = null;
+
+    try {
+      savedTheme = window.localStorage.getItem("buck-landing-theme");
+    } catch {
+      savedTheme = null;
+    }
+
+    setIsDarkTheme(savedTheme ? savedTheme === "dark" : Boolean(prefersDark));
+  }, []);
 
   const playQuack = () => {
     const audio = new Audio("/quack.mp3");
@@ -48,6 +229,7 @@ export default function Home() {
   };
 
   const scrollToSection = (targetId: string) => {
+    setActiveSection(targetId);
     document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth" });
     setMenuOpen(false);
   };
@@ -57,14 +239,42 @@ export default function Home() {
     router.push("/sign-in");
   };
 
+  const toggleTheme = () => {
+    setIsDarkTheme((currentTheme) => {
+      const nextTheme = !currentTheme;
+
+      try {
+        window.localStorage.setItem(
+          "buck-landing-theme",
+          nextTheme ? "dark" : "light"
+        );
+      } catch {
+        // Theme still toggles for the current session if storage is unavailable.
+      }
+
+      return nextTheme;
+    });
+  };
+
+  const themeLabel = isDarkTheme
+    ? "Switch to light mode"
+    : "Switch to dark mode";
+
   const ctaStyle: CSSProperties = {
     background: cta.pointer
       ? `radial-gradient(circle at ${cta.pointer.x}px ${cta.pointer.y}px, #ffc547 0%, #f47536 42%, #ff3838 100%)`
       : "linear-gradient(135deg, #f47536 0%, #ff3838 100%)",
   };
 
+  const getNavButtonClassName = (targetId: string) =>
+    `nav-link-button${
+      activeSection === targetId ? " nav-link-button--active" : ""
+    }`;
+
   return (
-    <div className="landing-page">
+    <div
+      className={`landing-page${isDarkTheme ? " landing-page--dark" : ""}`}
+    >
       <header className="site-header">
         <div className="site-header-inner">
           <button
@@ -97,13 +307,30 @@ export default function Home() {
             {landingNavItems.map((item) => (
               <button
                 key={item.targetId}
-                className="nav-link-button"
+                className={getNavButtonClassName(item.targetId)}
                 type="button"
+                aria-current={
+                  activeSection === item.targetId ? "location" : undefined
+                }
                 onClick={() => scrollToSection(item.targetId)}
               >
                 {item.label}
               </button>
             ))}
+            <button
+              className="theme-toggle"
+              type="button"
+              aria-label={themeLabel}
+              aria-pressed={isDarkTheme}
+              onClick={toggleTheme}
+            >
+              {isDarkTheme ? (
+                <FaSun aria-hidden="true" />
+              ) : (
+                <FaMoon aria-hidden="true" />
+              )}
+              <span>{isDarkTheme ? "Light" : "Dark"}</span>
+            </button>
             <button className="nav-cta" type="button" onClick={goToSignIn}>
               Sign In
             </button>
@@ -130,13 +357,30 @@ export default function Home() {
             {landingNavItems.map((item) => (
               <button
                 key={item.targetId}
-                className="nav-link-button"
+                className={getNavButtonClassName(item.targetId)}
                 type="button"
+                aria-current={
+                  activeSection === item.targetId ? "location" : undefined
+                }
                 onClick={() => scrollToSection(item.targetId)}
               >
                 {item.label}
               </button>
             ))}
+            <button
+              className="theme-toggle theme-toggle--mobile"
+              type="button"
+              aria-label={themeLabel}
+              aria-pressed={isDarkTheme}
+              onClick={toggleTheme}
+            >
+              {isDarkTheme ? (
+                <FaSun aria-hidden="true" />
+              ) : (
+                <FaMoon aria-hidden="true" />
+              )}
+              <span>{isDarkTheme ? "Light mode" : "Dark mode"}</span>
+            </button>
             <button className="nav-cta" type="button" onClick={goToSignIn}>
               Sign In / Sign Up
             </button>
@@ -212,17 +456,38 @@ export default function Home() {
               <div className="preview-panel">
                 <div className="preview-header">
                   <SavingsIcon aria-hidden="true" />
-                  <span>This week</span>
+                  <motion.span
+                    key={previewSnapshot.label}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.24 }}
+                  >
+                    {previewSnapshot.label}
+                  </motion.span>
                 </div>
-                <div className="preview-total">PHP 4,280</div>
+                <motion.div
+                  className="preview-total"
+                  key={previewSnapshot.total}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.28 }}
+                >
+                  {previewSnapshot.total}
+                </motion.div>
                 <div className="preview-bars" aria-hidden="true">
-                  {[54, 72, 38, 82, 46, 64, 30].map((height, index) => (
+                  {previewSnapshot.bars.map((height, index) => (
                     <span key={index} style={{ height: `${height}%` }} />
                   ))}
                 </div>
-                <div className="preview-note">
-                  On pace to save 18% more than last week.
-                </div>
+                <motion.div
+                  className="preview-note"
+                  key={previewSnapshot.note}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.24 }}
+                >
+                  {previewSnapshot.note}
+                </motion.div>
               </div>
             </div>
           </div>
@@ -254,6 +519,62 @@ export default function Home() {
                 </article>
               );
             })}
+          </div>
+
+          <div className="adviser-showcase">
+            <div className="adviser-copy">
+              <p className="eyebrow">Financial adviser</p>
+              <h3>Advice that sounds like a next step.</h3>
+              <p>
+                Buck turns the week&apos;s spending pattern into calm, practical
+                guidance before the budget feels tight.
+              </p>
+            </div>
+
+            <article className="adviser-card" aria-live="polite">
+              <div className="adviser-card-header">
+                <span className="adviser-badge">
+                  <SavingsIcon aria-hidden="true" />
+                  Financial adviser
+                </span>
+                <motion.span
+                  className="adviser-confidence"
+                  key={adviserSnapshot.confidence}
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.22 }}
+                >
+                  {adviserSnapshot.confidence}
+                </motion.span>
+              </div>
+
+              <motion.div
+                className="adviser-output"
+                key={adviserSnapshot.headline}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.28 }}
+              >
+                <span className="adviser-focus">{adviserSnapshot.focus}</span>
+                <strong>{adviserSnapshot.headline}</strong>
+                <p>{adviserSnapshot.advice}</p>
+              </motion.div>
+
+              <div className="adviser-meter" aria-hidden="true">
+                <span style={{ width: `${adviserSnapshot.progress}%` }} />
+              </div>
+
+              <div className="adviser-metrics">
+                <div>
+                  <strong>{adviserSnapshot.primaryMetric}</strong>
+                  <span>{adviserSnapshot.primaryLabel}</span>
+                </div>
+                <div>
+                  <strong>{adviserSnapshot.secondaryMetric}</strong>
+                  <span>{adviserSnapshot.secondaryLabel}</span>
+                </div>
+              </div>
+            </article>
           </div>
         </section>
 
