@@ -1,7 +1,37 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
 import { FaEnvelope, FaShieldAlt, FaTools } from "react-icons/fa";
 
+const supportEmail = "BuckTheBudgetTracker@gmail.com";
+
 export default function MaintenancePage() {
+  const [contactStatus, setContactStatus] = useState(supportEmail);
+
+  const handleContactSupport = async () => {
+    let copiedEmail = false;
+
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(supportEmail);
+        copiedEmail = true;
+      }
+    } catch {
+      copiedEmail = false;
+    }
+
+    setContactStatus(
+      copiedEmail
+        ? "Support email copied. Opening your email app..."
+        : `Email us at ${supportEmail}`
+    );
+
+    window.location.href = `mailto:${supportEmail}?subject=${encodeURIComponent(
+      "Buck Budget Tracker support"
+    )}`;
+  };
+
   return (
     <main className="maintenance-page" aria-labelledby="maintenance-title">
       <section className="maintenance-shell">
@@ -31,11 +61,18 @@ export default function MaintenancePage() {
             </p>
 
             <div className="maintenance-actions" aria-label="Maintenance contact">
-              <a href="mailto:BuckTheBudgetTracker@gmail.com">
+              <button
+                className="maintenance-contact-button"
+                type="button"
+                onClick={handleContactSupport}
+              >
                 <FaEnvelope aria-hidden="true" />
                 Contact support
-              </a>
+              </button>
             </div>
+            <p className="maintenance-contact-note" role="status">
+              {contactStatus}
+            </p>
           </div>
 
           <aside className="maintenance-status" aria-label="Maintenance status">
