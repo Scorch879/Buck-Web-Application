@@ -5,8 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 from typing import Optional, List, Dict
 import re
+import logging
 
 app = FastAPI()
+logger = logging.getLogger(__name__)
 
 app.add_middleware(
     CORSMiddleware,
@@ -65,7 +67,8 @@ def ai_goal_recommendation(goal: GoalInput):
         )
         return {"recommendation": tip}
     except Exception as e:
-        return {"error": str(e)}
+        logger.exception("Error generating goal recommendation")
+        return {"error": "An internal error occurred."}
 
 @app.post("/ai/saving_tip/")
 def saving_tip(input: TipInput):
@@ -73,7 +76,8 @@ def saving_tip(input: TipInput):
         tip = generate_ai_tip(input.category, input.user_context or "", input.target_date, input.created_at)
         return {"tip": tip}
     except Exception as e:
-        return {"error": str(e)}
+        logger.exception("Error generating saving tip")
+        return {"error": "An internal error occurred."}
 
 @app.post("/expenses/")
 def add_expense(expense: ExpenseInput):
@@ -157,7 +161,8 @@ def ai_forecast(input: ForecastInput = Body(...)):
             "ai_recommended_budget": ai_recommended_budget
         }
     except Exception as e:
-        return {"error": str(e)}
+        logger.exception("Error generating forecast")
+        return {"error": "An internal error occurred."}
 
 @app.post("/ai/categorize_expense/")
 def categorize_expense(expense: dict):
