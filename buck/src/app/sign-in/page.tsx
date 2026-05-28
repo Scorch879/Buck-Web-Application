@@ -119,16 +119,13 @@ const SignIn = () => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
-      className={`SI-Background${
-        isDarkTheme ? " SI-Background--dark" : " SI-Background--light"
-      }`}
-    >
-      <main className="SI-Page">
+    <div className="SI-Background">
+      <motion.main
+        className="SI-Page"
+        initial={{ opacity: 0, y: 14, scale: 0.985, filter: "blur(8px)" }}
+        animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      >
         <section className="SI-Story" aria-labelledby="sign-in-story-title">
           <Link href="/" className="SI-Brand" aria-label="Back to Buck home">
             <span className="SI-BrandMark">
@@ -152,9 +149,12 @@ const SignIn = () => {
             <h1 id="sign-in-story-title">
               Pick up your budget exactly where you left it.
             </h1>
-            <p>
+            <p className="SI-DesktopIntro">
               Sign back in to review your weekly spending, protect your goals,
               and get clear AI guidance before the week gets noisy.
+            </p>
+            <p className="SI-MobileIntro">
+              Sign in and get back to your budget.
             </p>
           </div>
 
@@ -272,6 +272,12 @@ const SignIn = () => {
                   />
                 </button>
               </div>
+              <Link
+                href="/forgot-password"
+                className="SI-Link SI-ForgotLinkMobile"
+              >
+                Forgot password?
+              </Link>
 
               <motion.button
                 ref={signInButton.ref}
@@ -300,8 +306,8 @@ const SignIn = () => {
             </div>
           </div>
         </section>
-      </main>
-    </motion.div>
+      </motion.main>
+    </div>
   );
 };
 

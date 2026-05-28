@@ -86,16 +86,13 @@ const ForgotPassword = () => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
-      className={`FP-Background${
-        isDarkTheme ? " FP-Background--dark" : " FP-Background--light"
-      }`}
-    >
-      <main className="FP-Page">
+    <div className="FP-Background">
+      <motion.main
+        className="FP-Page"
+        initial={{ opacity: 0, y: 14, scale: 0.985, filter: "blur(8px)" }}
+        animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      >
         <section className="FP-Story" aria-labelledby="forgot-story-title">
           <Link href="/" className="FP-Brand" aria-label="Back to Buck home">
             <span className="FP-BrandMark">
@@ -119,9 +116,12 @@ const ForgotPassword = () => {
             <h1 id="forgot-story-title">
               Get back to your budget without the scramble.
             </h1>
-            <p>
+            <p className="FP-DesktopIntro">
               Send yourself a reset link, update your password, and return to
               your weekly plan when you are ready.
+            </p>
+            <p className="FP-MobileIntro">
+              Send a reset link and return when ready.
             </p>
           </div>
 
@@ -225,8 +225,8 @@ const ForgotPassword = () => {
             </div>
           </div>
         </section>
-      </main>
-    </motion.div>
+      </motion.main>
+    </div>
   );
 };
 

@@ -11,25 +11,77 @@
   --buck-peach-soft: #ffe3c2;
   --buck-apricot-soft: #f8c894;
   --buck-shadow: 0 18px 45px rgba(139, 75, 38, 0.16);
+  --buck-page-background-base: #fff1d8;
+  --buck-page-background:
+    linear-gradient(
+      160deg,
+      rgba(255, 243, 222, 0.84) 0%,
+      rgba(255, 231, 184, 0.56) 40%,
+      rgba(255, 197, 71, 0.26) 68%,
+      rgba(244, 117, 54, 0.26) 100%
+    ),
+    linear-gradient(
+      112deg,
+      #fff1d8 0%,
+      #ffe2b0 38%,
+      #ffc95f 62%,
+      #ffa15b 82%,
+      #ff7a34 100%
+    );
+}
+
+html {
+  color-scheme: light;
+  background: var(--buck-page-background-base);
+}
+
+html[data-buck-theme="dark"] {
+  --buck-page-background-base: #120d0a;
+  --buck-page-background:
+    linear-gradient(
+      160deg,
+      rgba(255, 248, 237, 0.08) 0%,
+      rgba(255, 197, 71, 0.04) 42%,
+      rgba(244, 117, 54, 0.08) 70%,
+      rgba(255, 56, 56, 0.06) 100%
+    ),
+    linear-gradient(
+      112deg,
+      #120d0a 0%,
+      #1a110d 38%,
+      #2b180f 58%,
+      #4b2414 80%,
+      #6a2e18 100%
+    );
+  color-scheme: dark;
+  background: var(--buck-page-background-base);
 }
 
 * {
   box-sizing: border-box;
 }
 
-html {
-  scroll-behavior: smooth;
-}
-
 body {
+  position: relative;
   margin: 0;
   min-width: 320px;
   min-height: 100dvh;
   overflow-x: hidden;
   color: var(--buck-ink);
-  background: var(--buck-paper);
+  background: var(--buck-page-background);
+  background-attachment: fixed;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   letter-spacing: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+html[data-buck-theme="dark"] body {
+  color: #fff8ed;
+  background: var(--buck-page-background);
+  background-attachment: fixed;
 }
 
 button,
@@ -53,7 +105,7 @@ img {
   width: 100%;
   min-height: 100dvh;
   color: var(--buck-ink);
-  background: #fff7ea;
+  background: var(--buck-page-background);
   transition:
     background 220ms ease,
     color 220ms ease;
@@ -65,22 +117,7 @@ img {
   z-index: 0;
   content: "";
   pointer-events: none;
-  background:
-    linear-gradient(
-      160deg,
-      rgba(255, 255, 255, 0.88) 0%,
-      rgba(255, 250, 244, 0.62) 38%,
-      rgba(255, 231, 184, 0.28) 62%,
-      rgba(255, 136, 64, 0.16) 100%
-    ),
-    linear-gradient(
-      112deg,
-      #fffaf4 0%,
-      #fff4e3 38%,
-      #ffdf9e 63%,
-      #ffb36c 82%,
-      #ff8840 100%
-    );
+  background: var(--buck-page-background);
   transition: background 220ms ease;
 }
 
@@ -92,26 +129,26 @@ img {
   --buck-line: rgba(255, 211, 154, 0.2);
   --buck-gold-soft: rgba(255, 197, 71, 0.16);
   --buck-shadow: 0 18px 45px rgba(0, 0, 0, 0.34);
-  background: #120d0a;
+  background: var(--buck-page-background);
 }
 
 .landing-page--dark::before {
-  background:
-    linear-gradient(
-      160deg,
-      rgba(255, 248, 237, 0.08) 0%,
-      rgba(255, 197, 71, 0.04) 42%,
-      rgba(244, 117, 54, 0.08) 70%,
-      rgba(255, 56, 56, 0.06) 100%
-    ),
-    linear-gradient(
-      112deg,
-      #120d0a 0%,
-      #1a110d 38%,
-      #2b180f 58%,
-      #4b2414 80%,
-      #6a2e18 100%
-    );
+  background: var(--buck-page-background);
+}
+
+html[data-buck-theme="dark"] .landing-page {
+  --buck-ink: #fff8ed;
+  --buck-muted: #d9c7b6;
+  --buck-paper: #17100c;
+  --buck-surface: rgba(38, 25, 18, 0.86);
+  --buck-line: rgba(255, 211, 154, 0.2);
+  --buck-gold-soft: rgba(255, 197, 71, 0.16);
+  --buck-shadow: 0 18px 45px rgba(0, 0, 0, 0.34);
+  background: var(--buck-page-background);
+}
+
+html[data-buck-theme="dark"] .landing-page::before {
+  background: var(--buck-page-background);
 }
 
 .site-header {

@@ -118,16 +118,13 @@ const CreateAccount = () => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
-      className={`CA-Background${
-        isDarkTheme ? " CA-Background--dark" : " CA-Background--light"
-      }`}
-    >
-      <main className="CA-Page">
+    <div className="CA-Background">
+      <motion.main
+        className="CA-Page"
+        initial={{ opacity: 0, y: 14, scale: 0.985, filter: "blur(8px)" }}
+        animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      >
         <section className="CA-Story" aria-labelledby="create-story-title">
           <Link href="/" className="CA-Brand" aria-label="Back to Buck home">
             <span className="CA-BrandMark">
@@ -151,9 +148,12 @@ const CreateAccount = () => {
             <h1 id="create-story-title">
               Build a budget home that keeps up with you.
             </h1>
-            <p>
+            <p className="CA-DesktopIntro">
               Create your Buck account to track spending, protect goals, and
               keep your weekly plan visible from the first day.
+            </p>
+            <p className="CA-MobileIntro">
+              Create your tracker and start clean.
             </p>
           </div>
 
@@ -341,8 +341,8 @@ const CreateAccount = () => {
             </div>
           </div>
         </section>
-      </main>
-    </motion.div>
+      </motion.main>
+    </div>
   );
 };
 

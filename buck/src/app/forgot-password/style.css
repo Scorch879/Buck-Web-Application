@@ -2,45 +2,23 @@
 .FP-Background {
   min-height: 100dvh;
   color: #fff8ed;
-  background:
-    linear-gradient(
-      160deg,
-      rgba(255, 248, 237, 0.08) 0%,
-      rgba(255, 197, 71, 0.04) 42%,
-      rgba(244, 117, 54, 0.08) 70%,
-      rgba(255, 56, 56, 0.06) 100%
-    ),
-    linear-gradient(
-      112deg,
-      #120d0a 0%,
-      #1a110d 38%,
-      #2b180f 58%,
-      #4b2414 80%,
-      #6a2e18 100%
-    );
+  background: var(--buck-page-background);
+  background-attachment: fixed;
   transition:
     background 220ms ease,
     color 220ms ease;
 }
 
-.FP-Background--light {
+html[data-buck-theme="light"] .FP-Background {
   color: #2b2523;
-  background:
-    linear-gradient(
-      160deg,
-      rgba(255, 255, 255, 0.7) 0%,
-      rgba(255, 248, 237, 0.48) 40%,
-      rgba(255, 197, 71, 0.18) 68%,
-      rgba(244, 117, 54, 0.22) 100%
-    ),
-    linear-gradient(
-      112deg,
-      #fffaf4 0%,
-      #fff4e5 38%,
-      #ffe0a3 58%,
-      #ffb56e 80%,
-      #ff8840 100%
-    );
+  background: var(--buck-page-background);
+  background-attachment: fixed;
+}
+
+html[data-buck-theme="dark"] .FP-Background {
+  color: #fff8ed;
+  background: var(--buck-page-background);
+  background-attachment: fixed;
 }
 
 .FP-Page {
@@ -150,6 +128,10 @@
   margin: 1.25rem 0 0;
   font-size: 1rem;
   line-height: 1.65;
+}
+
+.FP-MobileIntro {
+  display: none;
 }
 
 .FP-Highlights {
@@ -302,6 +284,25 @@
   box-shadow: 0 0 0 3px rgba(255, 197, 71, 0.12);
 }
 
+.FP-Input:-webkit-autofill,
+.FP-Input:-webkit-autofill:hover {
+  border-color: rgba(255, 211, 154, 0.2);
+  caret-color: #fff8ed;
+  -webkit-text-fill-color: #fff8ed;
+  -webkit-box-shadow: 0 0 0 1000px #4a3027 inset;
+  box-shadow: 0 0 0 1000px #4a3027 inset;
+}
+
+.FP-Input:-webkit-autofill:focus {
+  border-color: rgba(255, 197, 71, 0.5);
+  -webkit-box-shadow:
+    0 0 0 1000px #4a3027 inset,
+    0 0 0 3px rgba(255, 197, 71, 0.12);
+  box-shadow:
+    0 0 0 1000px #4a3027 inset,
+    0 0 0 3px rgba(255, 197, 71, 0.12);
+}
+
 .FP-Btn {
   display: inline-flex;
   align-items: center;
@@ -321,7 +322,7 @@
     transform 180ms ease;
 }
 
-.FP-Background--dark .FP-Btn {
+html[data-buck-theme="dark"] .FP-Background .FP-Btn {
   color: #241409;
 }
 
@@ -372,80 +373,99 @@
 }
 
 /* Light theme overrides */
-.FP-Background--light .FP-Brand strong,
-.FP-Background--light .FP-HeroCopy h1,
-.FP-Background--light .FP-Title,
-.FP-Background--light .FP-Highlight strong,
-.FP-Background--light .FP-Label {
+html[data-buck-theme="light"] .FP-Background .FP-Brand strong,
+html[data-buck-theme="light"] .FP-Background .FP-HeroCopy h1,
+html[data-buck-theme="light"] .FP-Background .FP-Title,
+html[data-buck-theme="light"] .FP-Background .FP-Highlight strong,
+html[data-buck-theme="light"] .FP-Background .FP-Label {
   color: #2b2523;
 }
 
-.FP-Background--light .FP-HeroCopy h1::first-line {
+html[data-buck-theme="light"] .FP-Background .FP-HeroCopy h1::first-line {
   color: #ff3838;
 }
 
-.FP-Background--light .FP-Brand small,
-.FP-Background--light .FP-HeroCopy p:not(.FP-Kicker),
-.FP-Background--light .FP-PanelHeading p,
-.FP-Background--light .FP-Highlight p,
-.FP-Background--light .FP-Footer {
+html[data-buck-theme="light"] .FP-Background .FP-Brand small,
+html[data-buck-theme="light"] .FP-Background .FP-HeroCopy p:not(.FP-Kicker),
+html[data-buck-theme="light"] .FP-Background .FP-PanelHeading p,
+html[data-buck-theme="light"] .FP-Background .FP-Highlight p,
+html[data-buck-theme="light"] .FP-Background .FP-Footer {
   color: #625750;
 }
 
-.FP-Background--light .FP-BrandMark,
-.FP-Background--light .FP-Mascot-Circle {
+html[data-buck-theme="light"] .FP-Background .FP-BrandMark,
+html[data-buck-theme="light"] .FP-Background .FP-Mascot-Circle {
   background: linear-gradient(145deg, rgba(255, 197, 71, 0.3), rgba(244, 117, 54, 0.14));
   border-color: rgba(184, 51, 36, 0.18);
 }
 
-.FP-Background--light .FP-Highlight > span {
+html[data-buck-theme="light"] .FP-Background .FP-Highlight > span {
   color: #ff3838;
   background: rgba(255, 197, 71, 0.2);
   border-color: rgba(184, 51, 36, 0.12);
 }
 
-.FP-Background--light .FP-Container {
+html[data-buck-theme="light"] .FP-Background .FP-Container {
   background:
     linear-gradient(145deg, rgba(255, 250, 244, 0.96), rgba(255, 241, 218, 0.9));
   border-color: rgba(120, 92, 70, 0.18);
   box-shadow: 0 28px 70px rgba(94, 59, 34, 0.18);
 }
 
-.FP-Background--light .FP-Container::before {
+html[data-buck-theme="light"] .FP-Background .FP-Container::before {
   background: linear-gradient(112deg, rgba(255, 197, 71, 0.15), rgba(244, 117, 54, 0.1), transparent 72%);
 }
 
-.FP-Background--light .FP-Input {
+html[data-buck-theme="light"] .FP-Background .FP-Input {
   color: #2b2523;
   background: rgba(255, 255, 255, 0.72);
   border-color: rgba(184, 51, 36, 0.2);
 }
 
-.FP-Background--light .FP-Input::placeholder {
+html[data-buck-theme="light"] .FP-Background .FP-Input::placeholder {
   color: rgba(98, 87, 80, 0.68);
 }
 
-.FP-Background--light .FP-Input:focus {
+html[data-buck-theme="light"] .FP-Background .FP-Input:focus {
   background: rgba(255, 255, 255, 0.88);
   border-color: rgba(244, 117, 54, 0.56);
   box-shadow: 0 0 0 3px rgba(244, 117, 54, 0.13);
 }
 
-.FP-Background--light .FP-Link {
+html[data-buck-theme="light"] .FP-Background .FP-Input:-webkit-autofill,
+html[data-buck-theme="light"] .FP-Background .FP-Input:-webkit-autofill:hover {
+  border-color: rgba(184, 51, 36, 0.2);
+  caret-color: #2b2523;
+  -webkit-text-fill-color: #2b2523;
+  -webkit-box-shadow: 0 0 0 1000px #fff4e5 inset;
+  box-shadow: 0 0 0 1000px #fff4e5 inset;
+}
+
+html[data-buck-theme="light"] .FP-Background .FP-Input:-webkit-autofill:focus {
+  border-color: rgba(244, 117, 54, 0.56);
+  -webkit-box-shadow:
+    0 0 0 1000px #fff4e5 inset,
+    0 0 0 3px rgba(244, 117, 54, 0.13);
+  box-shadow:
+    0 0 0 1000px #fff4e5 inset,
+    0 0 0 3px rgba(244, 117, 54, 0.13);
+}
+
+html[data-buck-theme="light"] .FP-Background .FP-Link {
   color: #b83324;
 }
 
-.FP-Background--light .FP-Link:hover {
+html[data-buck-theme="light"] .FP-Background .FP-Link:hover {
   color: #ff3838;
 }
 
-.FP-Background--light .forgot-success {
+html[data-buck-theme="light"] .FP-Background .forgot-success {
   color: #256a33;
   background: rgba(46, 125, 50, 0.12);
   border-color: rgba(46, 125, 50, 0.22);
 }
 
-.FP-Background--light .forgot-error {
+html[data-buck-theme="light"] .FP-Background .forgot-error {
   color: #b83324;
   background: rgba(255, 56, 56, 0.1);
   border-color: rgba(255, 56, 56, 0.2);
@@ -484,11 +504,38 @@
 
 @media (max-width: 680px) {
   .FP-Page {
+    gap: 1rem;
     width: min(100% - 24px, 520px);
+    padding: 1rem 0 1.5rem;
+  }
+
+  .FP-Story {
+    gap: 0.85rem;
+  }
+
+  .FP-Kicker {
+    margin-bottom: 0.45rem;
+    font-size: 0.72rem;
+  }
+
+  .FP-HeroCopy h1 {
+    font-size: clamp(1.45rem, 7vw, 2.05rem);
+    line-height: 1.08;
+  }
+
+  .FP-DesktopIntro {
+    display: none;
+  }
+
+  .FP-MobileIntro {
+    display: block;
+    margin: 0.65rem 0 0;
+    font-size: 0.92rem;
+    line-height: 1.45;
   }
 
   .FP-Highlights {
-    grid-template-columns: 1fr;
+    display: none;
   }
 
   .FP-Container {
@@ -501,3 +548,4 @@
     font-size: 1.95rem;
   }
 }
+

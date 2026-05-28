@@ -2,45 +2,23 @@
 .CA-Background {
   min-height: 100dvh;
   color: #fff8ed;
-  background:
-    linear-gradient(
-      160deg,
-      rgba(255, 248, 237, 0.08) 0%,
-      rgba(255, 197, 71, 0.04) 42%,
-      rgba(244, 117, 54, 0.08) 70%,
-      rgba(255, 56, 56, 0.06) 100%
-    ),
-    linear-gradient(
-      112deg,
-      #120d0a 0%,
-      #1a110d 38%,
-      #2b180f 58%,
-      #4b2414 80%,
-      #6a2e18 100%
-    );
+  background: var(--buck-page-background);
+  background-attachment: fixed;
   transition:
     background 220ms ease,
     color 220ms ease;
 }
 
-.CA-Background--light {
+html[data-buck-theme="light"] .CA-Background {
   color: #2b2523;
-  background:
-    linear-gradient(
-      160deg,
-      rgba(255, 255, 255, 0.7) 0%,
-      rgba(255, 248, 237, 0.48) 40%,
-      rgba(255, 197, 71, 0.18) 68%,
-      rgba(244, 117, 54, 0.22) 100%
-    ),
-    linear-gradient(
-      112deg,
-      #fffaf4 0%,
-      #fff4e5 38%,
-      #ffe0a3 58%,
-      #ffb56e 80%,
-      #ff8840 100%
-    );
+  background: var(--buck-page-background);
+  background-attachment: fixed;
+}
+
+html[data-buck-theme="dark"] .CA-Background {
+  color: #fff8ed;
+  background: var(--buck-page-background);
+  background-attachment: fixed;
 }
 
 .CA-Page {
@@ -150,6 +128,10 @@
   margin: 1.25rem 0 0;
   font-size: 1rem;
   line-height: 1.65;
+}
+
+.CA-MobileIntro {
+  display: none;
 }
 
 .CA-Highlights {
@@ -361,6 +343,25 @@
   box-shadow: 0 0 0 3px rgba(255, 197, 71, 0.12);
 }
 
+.CA-Input:-webkit-autofill,
+.CA-Input:-webkit-autofill:hover {
+  border-color: rgba(255, 211, 154, 0.2);
+  caret-color: #fff8ed;
+  -webkit-text-fill-color: #fff8ed;
+  -webkit-box-shadow: 0 0 0 1000px #4a3027 inset;
+  box-shadow: 0 0 0 1000px #4a3027 inset;
+}
+
+.CA-Input:-webkit-autofill:focus {
+  border-color: rgba(255, 197, 71, 0.5);
+  -webkit-box-shadow:
+    0 0 0 1000px #4a3027 inset,
+    0 0 0 3px rgba(255, 197, 71, 0.12);
+  box-shadow:
+    0 0 0 1000px #4a3027 inset,
+    0 0 0 3px rgba(255, 197, 71, 0.12);
+}
+
 .CA-InputWrapper .CA-Input {
   padding-right: 2.8rem;
 }
@@ -376,6 +377,7 @@
   background: transparent;
   border: 0;
   border-radius: 50%;
+  z-index: 2;
   opacity: 0.76;
   transition:
     background 180ms ease,
@@ -401,7 +403,7 @@
   box-shadow: 0 14px 30px rgba(255, 56, 56, 0.2);
 }
 
-.CA-Background--dark .CA-Btn {
+html[data-buck-theme="dark"] .CA-Background .CA-Btn {
   color: #241409;
 }
 
@@ -453,108 +455,127 @@
 }
 
 /* Light theme overrides */
-.CA-Background--light .CA-Brand strong,
-.CA-Background--light .CA-HeroCopy h1,
-.CA-Background--light .CA-Title,
-.CA-Background--light .CA-Highlight strong,
-.CA-Background--light .CA-Label {
+html[data-buck-theme="light"] .CA-Background .CA-Brand strong,
+html[data-buck-theme="light"] .CA-Background .CA-HeroCopy h1,
+html[data-buck-theme="light"] .CA-Background .CA-Title,
+html[data-buck-theme="light"] .CA-Background .CA-Highlight strong,
+html[data-buck-theme="light"] .CA-Background .CA-Label {
   color: #2b2523;
 }
 
-.CA-Background--light .CA-HeroCopy h1::first-line {
+html[data-buck-theme="light"] .CA-Background .CA-HeroCopy h1::first-line {
   color: #ff3838;
 }
 
-.CA-Background--light .CA-Brand small,
-.CA-Background--light .CA-HeroCopy p:not(.CA-Kicker),
-.CA-Background--light .CA-PanelHeading p,
-.CA-Background--light .CA-Highlight p,
-.CA-Background--light .CA-Footer {
+html[data-buck-theme="light"] .CA-Background .CA-Brand small,
+html[data-buck-theme="light"] .CA-Background .CA-HeroCopy p:not(.CA-Kicker),
+html[data-buck-theme="light"] .CA-Background .CA-PanelHeading p,
+html[data-buck-theme="light"] .CA-Background .CA-Highlight p,
+html[data-buck-theme="light"] .CA-Background .CA-Footer {
   color: #625750;
 }
 
-.CA-Background--light .CA-BrandMark,
-.CA-Background--light .CA-Mascot-Circle {
+html[data-buck-theme="light"] .CA-Background .CA-BrandMark,
+html[data-buck-theme="light"] .CA-Background .CA-Mascot-Circle {
   background: linear-gradient(145deg, rgba(255, 197, 71, 0.3), rgba(244, 117, 54, 0.14));
   border-color: rgba(184, 51, 36, 0.18);
 }
 
-.CA-Background--light .CA-Highlight > span {
+html[data-buck-theme="light"] .CA-Background .CA-Highlight > span {
   color: #ff3838;
   background: rgba(255, 197, 71, 0.2);
   border-color: rgba(184, 51, 36, 0.12);
 }
 
-.CA-Background--light .CA-Container {
+html[data-buck-theme="light"] .CA-Background .CA-Container {
   background:
     linear-gradient(145deg, rgba(255, 250, 244, 0.96), rgba(255, 241, 218, 0.9));
   border-color: rgba(120, 92, 70, 0.18);
   box-shadow: 0 28px 70px rgba(94, 59, 34, 0.18);
 }
 
-.CA-Background--light .CA-Container::before {
+html[data-buck-theme="light"] .CA-Background .CA-Container::before {
   background: linear-gradient(112deg, rgba(255, 197, 71, 0.15), rgba(244, 117, 54, 0.1), transparent 72%);
 }
 
-.CA-Background--light .CA-Google-Btn {
+html[data-buck-theme="light"] .CA-Background .CA-Google-Btn {
   color: #2b2523;
   background: rgba(255, 255, 255, 0.7);
   border-color: rgba(184, 51, 36, 0.2);
 }
 
-.CA-Background--light .CA-Google-Btn:hover {
+html[data-buck-theme="light"] .CA-Background .CA-Google-Btn:hover {
   border-color: rgba(184, 51, 36, 0.4);
   box-shadow: 0 14px 30px rgba(94, 59, 34, 0.16);
 }
 
-.CA-Background--light .CA-Divider {
+html[data-buck-theme="light"] .CA-Background .CA-Divider {
   color: #756d68;
 }
 
-.CA-Background--light .CA-Divider::before,
-.CA-Background--light .CA-Divider::after {
+html[data-buck-theme="light"] .CA-Background .CA-Divider::before,
+html[data-buck-theme="light"] .CA-Background .CA-Divider::after {
   background: rgba(120, 92, 70, 0.18);
 }
 
-.CA-Background--light .CA-Input {
+html[data-buck-theme="light"] .CA-Background .CA-Input {
   color: #2b2523;
   background: rgba(255, 255, 255, 0.72);
   border-color: rgba(184, 51, 36, 0.2);
 }
 
-.CA-Background--light .CA-Input::placeholder {
+html[data-buck-theme="light"] .CA-Background .CA-Input::placeholder {
   color: rgba(98, 87, 80, 0.68);
 }
 
-.CA-Background--light .CA-Input:focus {
+html[data-buck-theme="light"] .CA-Background .CA-Input:focus {
   background: rgba(255, 255, 255, 0.88);
   border-color: rgba(244, 117, 54, 0.56);
   box-shadow: 0 0 0 3px rgba(244, 117, 54, 0.13);
 }
 
-.CA-Background--light .CA-Eye-Btn img {
+html[data-buck-theme="light"] .CA-Background .CA-Input:-webkit-autofill,
+html[data-buck-theme="light"] .CA-Background .CA-Input:-webkit-autofill:hover {
+  border-color: rgba(184, 51, 36, 0.2);
+  caret-color: #2b2523;
+  -webkit-text-fill-color: #2b2523;
+  -webkit-box-shadow: 0 0 0 1000px #fff4e5 inset;
+  box-shadow: 0 0 0 1000px #fff4e5 inset;
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-Input:-webkit-autofill:focus {
+  border-color: rgba(244, 117, 54, 0.56);
+  -webkit-box-shadow:
+    0 0 0 1000px #fff4e5 inset,
+    0 0 0 3px rgba(244, 117, 54, 0.13);
+  box-shadow:
+    0 0 0 1000px #fff4e5 inset,
+    0 0 0 3px rgba(244, 117, 54, 0.13);
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-Eye-Btn img {
   filter: invert(17%) sepia(15%) saturate(430%) hue-rotate(335deg) brightness(94%) contrast(92%);
 }
 
-.CA-Background--light .CA-Eye-Btn:hover {
+html[data-buck-theme="light"] .CA-Background .CA-Eye-Btn:hover {
   background: rgba(184, 51, 36, 0.1);
 }
 
-.CA-Background--light .CA-Link {
+html[data-buck-theme="light"] .CA-Background .CA-Link {
   color: #b83324;
 }
 
-.CA-Background--light .CA-Link:hover {
+html[data-buck-theme="light"] .CA-Background .CA-Link:hover {
   color: #ff3838;
 }
 
-.CA-Background--light .success-message {
+html[data-buck-theme="light"] .CA-Background .success-message {
   color: #256a33;
   background: rgba(46, 125, 50, 0.12);
   border-color: rgba(46, 125, 50, 0.22);
 }
 
-.CA-Background--light .error-message {
+html[data-buck-theme="light"] .CA-Background .error-message {
   color: #b83324;
   background: rgba(255, 56, 56, 0.1);
   border-color: rgba(255, 56, 56, 0.2);
@@ -593,11 +614,38 @@
 
 @media (max-width: 680px) {
   .CA-Page {
+    gap: 1rem;
     width: min(100% - 24px, 520px);
+    padding: 1rem 0 1.5rem;
+  }
+
+  .CA-Story {
+    gap: 0.85rem;
+  }
+
+  .CA-Kicker {
+    margin-bottom: 0.45rem;
+    font-size: 0.72rem;
+  }
+
+  .CA-HeroCopy h1 {
+    font-size: clamp(1.45rem, 7vw, 2.05rem);
+    line-height: 1.08;
+  }
+
+  .CA-DesktopIntro {
+    display: none;
+  }
+
+  .CA-MobileIntro {
+    display: block;
+    margin: 0.65rem 0 0;
+    font-size: 0.92rem;
+    line-height: 1.45;
   }
 
   .CA-Highlights {
-    grid-template-columns: 1fr;
+    display: none;
   }
 
   .CA-Container {
@@ -610,3 +658,4 @@
     font-size: 1.95rem;
   }
 }
+
