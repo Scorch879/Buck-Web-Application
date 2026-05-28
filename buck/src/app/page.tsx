@@ -17,6 +17,10 @@ import {
   savingsIcon as SavingsIcon,
 } from "@/constants/landing";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
+import {
+  applyDocumentTheme,
+  resolveLandingTheme,
+} from "@/hooks/useAuthPageTheme";
 
 const heroWords = ["Buck", "Budget", "Tracker"];
 const adviserRotationDelay = 6800;
@@ -253,17 +257,23 @@ export default function Home() {
   }, [adviserSnapshot.advice]);
 
   useEffect(() => {
-    const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)")
-      .matches;
-    let savedTheme: string | null = null;
+    const mediaQuery = window.matchMedia?.("(prefers-color-scheme: dark)");
 
-    try {
-      savedTheme = window.localStorage.getItem("buck-landing-theme");
-    } catch {
-      savedTheme = null;
-    }
+    const syncThemeFromPreference = () => {
+      const nextTheme = resolveLandingTheme(mediaQuery);
 
-    setIsDarkTheme(savedTheme ? savedTheme === "dark" : Boolean(prefersDark));
+      applyDocumentTheme(nextTheme);
+      setIsDarkTheme(nextTheme === "dark");
+    };
+
+    syncThemeFromPreference();
+    window.addEventListener("storage", syncThemeFromPreference);
+    mediaQuery?.addEventListener("change", syncThemeFromPreference);
+
+    return () => {
+      window.removeEventListener("storage", syncThemeFromPreference);
+      mediaQuery?.removeEventListener("change", syncThemeFromPreference);
+    };
   }, []);
 
   const playQuack = () => {
@@ -294,6 +304,8 @@ export default function Home() {
       } catch {
         // Theme still toggles for the current session if storage is unavailable.
       }
+
+      applyDocumentTheme(nextTheme ? "dark" : "light");
 
       return nextTheme;
     });

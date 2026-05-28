@@ -1,12 +1,48 @@
 "use client";
+
 import { useState } from "react";
-import type { ChangeEvent } from "react";
+import type { ChangeEvent, CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { signInWithGoogle, signUpUser } from "@/component/authentication";
 import { motion } from "framer-motion";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
+import {
+  getAuthButtonBackground,
+  useAuthPageTheme,
+} from "@/hooks/useAuthPageTheme";
+import {
+  FaArrowRight,
+  FaChartLine,
+  FaPiggyBank,
+  FaWallet,
+} from "react-icons/fa";
+import type { IconType } from "react-icons";
 import "./style.css";
+
+type CreateAccountHighlight = {
+  icon: IconType;
+  title: string;
+  description: string;
+};
+
+const createAccountHighlights: CreateAccountHighlight[] = [
+  {
+    icon: FaWallet,
+    title: "Set your weekly wallet",
+    description: "Start with a clear budget that is easy to check every day.",
+  },
+  {
+    icon: FaPiggyBank,
+    title: "Protect saving goals",
+    description: "Give future-you a target before daily spending gets loud.",
+  },
+  {
+    icon: FaChartLine,
+    title: "Plan with AI guidance",
+    description: "Let Buck turn new patterns into practical next steps.",
+  },
+];
 
 const CreateAccount = () => {
   const [form, setForm] = useState({
@@ -19,6 +55,7 @@ const CreateAccount = () => {
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const isDarkTheme = useAuthPageTheme();
   const createButton = usePointerGradient<HTMLButtonElement>();
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -75,163 +112,237 @@ const CreateAccount = () => {
     void audio.play();
   };
 
+  const createButtonStyle: CSSProperties = {
+    background: getAuthButtonBackground(isDarkTheme, createButton.pointer),
+    transition: createButton.pointer ? "background 0.1s" : "background 0.3s",
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
-      className="ca-bg"
-    >
-      <div className="background">
-        <div className="ca-card">
-          <div className="ca-mascot-top">
-            <div className="ca-mascot-circle">
+    <div className="CA-Background">
+      <motion.main
+        className="CA-Page"
+        initial={{ opacity: 0, y: 14, scale: 0.985, filter: "blur(8px)" }}
+        animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <section className="CA-Story" aria-labelledby="create-story-title">
+          <Link href="/" className="CA-Brand" aria-label="Back to Buck home">
+            <span className="CA-BrandMark">
               <Image
                 src="/BuckMascot.png"
-                alt="Buck Mascot"
-                width={70}
-                height={100}
-                className="ca-mascot-img"
+                alt=""
+                width={58}
+                height={74}
+                className="CA-BrandMascot"
                 priority
-                onClick={playQuack} // <-- Add this line
-                style={{ cursor: "pointer" }}
               />
-            </div>
+            </span>
+            <span>
+              <strong>Buck</strong>
+              <small>Budget Tracker</small>
+            </span>
+          </Link>
+
+          <div className="CA-HeroCopy">
+            <p className="CA-Kicker">Start budgeting without the mess</p>
+            <h1 id="create-story-title">
+              Build a budget home that keeps up with you.
+            </h1>
+            <p className="CA-DesktopIntro">
+              Create your Buck account to track spending, protect goals, and
+              keep your weekly plan visible from the first day.
+            </p>
+            <p className="CA-MobileIntro">
+              Create your tracker and start clean.
+            </p>
           </div>
-          <h2 className="ca-title">Create Account</h2>
-          <form
-            className="ca-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleCreateAccount();
-            }}
-          >
-            <label htmlFor="username" className="ca-label">
-              Username
-            </label>
-            <input
-              id="username"
-              className="ca-input"
-              type="text"
-              placeholder="Username"
-              value={form.username}
-              onChange={handleChange}
-            />
 
-            <label htmlFor="email" className="ca-label">
-              Email Address *
-            </label>
-            <input
-              id="email"
-              className="ca-input"
-              type="email"
-              placeholder="Email Address"
-              value={form.email}
-              onChange={handleChange}
-            />
+          <div className="CA-Highlights" aria-label="Create account benefits">
+            {createAccountHighlights.map((item) => {
+              const HighlightIcon = item.icon;
 
-            <label htmlFor="password" className="ca-label">
-              Password *
-            </label>
-            <div className="ca-input-wrapper">
-              <input
-                id="password"
-                className="ca-input"
-                type={showPassword ? "text" : "password"}
-                placeholder="Password"
-                value={form.password}
-                onChange={handleChange}
-                autoComplete="new-password"
-              />
-              <button
-                type="button"
-                className="ca-eye-btn"
-                tabIndex={-1}
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
+              return (
+                <div className="CA-Highlight" key={item.title}>
+                  <span>
+                    <HighlightIcon aria-hidden="true" />
+                  </span>
+                  <div>
+                    <strong>{item.title}</strong>
+                    <p>{item.description}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="CA-AuthPanel" aria-labelledby="create-account-title">
+          <div className="CA-Container">
+            <button
+              className="CA-Mascot-Top"
+              type="button"
+              onClick={playQuack}
+              aria-label="Play Buck mascot sound"
+            >
+              <span className="CA-Mascot-Circle">
                 <Image
-                  src={showPassword ? "/duck-eye.png" : "/duck-eye-closed.png"}
-                  alt={showPassword ? "Hide password" : "Show password"}
-                  width={24}
-                  height={24}
+                  src="/BuckMascot.png"
+                  alt="Buck Mascot"
+                  width={70}
+                  height={100}
+                  className="CA-Mascot-Img"
+                  priority
                 />
-              </button>
+              </span>
+            </button>
+
+            <div className="CA-PanelHeading">
+              <p className="CA-Kicker">New to Buck?</p>
+              <h2 id="create-account-title" className="CA-Title">
+                Create account
+              </h2>
+              <p>Set up your tracker and start keeping the week visible.</p>
             </div>
 
-            <label htmlFor="confirm" className="ca-label">
-              Confirm Password *
-            </label>
-            <div className="ca-input-wrapper">
-              <input
-                id="confirm"
-                className="ca-input"
-                type={showConfirm ? "text" : "password"}
-                placeholder="Confirm Password"
-                value={form.confirm}
-                onChange={handleChange}
-                autoComplete="new-password"
+            <button
+              className="CA-Google-Btn"
+              type="button"
+              onClick={handleGoogleSignIn}
+            >
+              <Image
+                src="/Google.png"
+                alt=""
+                width={20}
+                height={20}
+                className="CA-Google-Icon"
               />
-              <button
-                type="button"
-                className="ca-eye-btn"
-                tabIndex={-1}
-                onClick={() => setShowConfirm((v) => !v)}
-                aria-label={showConfirm ? "Hide password" : "Show password"}
-              >
-                <Image
-                  src={showConfirm ? "/duck-eye.png" : "/duck-eye-closed.png"}
-                  alt={showConfirm ? "Hide password" : "Show password"}
-                  width={24}
-                  height={24}
-                />
-              </button>
+              Continue with Google
+            </button>
+
+            <div className="CA-Divider">
+              <span>or create with email</span>
             </div>
 
-            <motion.button
-              ref={createButton.ref}
-              type="submit"
-              className="ca-btn"
-              onMouseMove={createButton.handlePointerMove}
-              onMouseLeave={createButton.handlePointerLeave}
-              style={{
-                background: createButton.pointer
-                  ? `radial-gradient(circle at ${createButton.pointer.x}px ${createButton.pointer.y}px, #fd523b 0%, #ef8a57 100%)`
-                  : "linear-gradient(90deg, #ef8a57 60%, #fd523b 100%)",
-                transition: createButton.pointer
-                  ? "background 0.1s"
-                  : "background 0.3s",
-              }}
-              whileHover={{
-                scale: 1.03,
+            <form
+              className="CA-Form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleCreateAccount();
               }}
             >
-              Create Account
-            </motion.button>
+              <label htmlFor="username" className="CA-Label">
+                Username
+              </label>
+              <input
+                id="username"
+                className="CA-Input"
+                type="text"
+                placeholder="Your display name"
+                value={form.username}
+                onChange={handleChange}
+                autoComplete="username"
+              />
 
-            {message && <div className="success-message">{message}</div>}
-            {error && <div className="error-message">{error}</div>}
-          </form>
-          <button className="ca-google-btn" onClick={handleGoogleSignIn}>
-            <Image
-              src="/Google.png"
-              alt="Google"
-              width={20}
-              height={20}
-              className="ca-google-icon"
-            />
-            Sign up with Google
-          </button>
-          <div className="ca-footer">
-            Already have an account?{" "}
-            <Link href="/sign-in" className="ca-link">
-              Sign In
-            </Link>
+              <label htmlFor="email" className="CA-Label">
+                Email address
+              </label>
+              <input
+                id="email"
+                className="CA-Input"
+                type="email"
+                placeholder="you@example.com"
+                value={form.email}
+                onChange={handleChange}
+                autoComplete="email"
+              />
+
+              <label htmlFor="password" className="CA-Label">
+                Password
+              </label>
+              <div className="CA-InputWrapper">
+                <input
+                  id="password"
+                  className="CA-Input"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Create a password"
+                  value={form.password}
+                  onChange={handleChange}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  className="CA-Eye-Btn"
+                  tabIndex={-1}
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  <Image
+                    src={showPassword ? "/duck-eye.png" : "/duck-eye-closed.png"}
+                    alt=""
+                    width={24}
+                    height={24}
+                  />
+                </button>
+              </div>
+
+              <label htmlFor="confirm" className="CA-Label">
+                Confirm password
+              </label>
+              <div className="CA-InputWrapper">
+                <input
+                  id="confirm"
+                  className="CA-Input"
+                  type={showConfirm ? "text" : "password"}
+                  placeholder="Confirm your password"
+                  value={form.confirm}
+                  onChange={handleChange}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  className="CA-Eye-Btn"
+                  tabIndex={-1}
+                  onClick={() => setShowConfirm((v) => !v)}
+                  aria-label={showConfirm ? "Hide password" : "Show password"}
+                >
+                  <Image
+                    src={showConfirm ? "/duck-eye.png" : "/duck-eye-closed.png"}
+                    alt=""
+                    width={24}
+                    height={24}
+                  />
+                </button>
+              </div>
+
+              <motion.button
+                ref={createButton.ref}
+                type="submit"
+                className="CA-Btn"
+                onMouseMove={createButton.handlePointerMove}
+                onMouseLeave={createButton.handlePointerLeave}
+                style={createButtonStyle}
+                whileHover={{
+                  scale: 1.02,
+                }}
+              >
+                Create Account
+                <FaArrowRight aria-hidden="true" />
+              </motion.button>
+
+              {message && <div className="success-message">{message}</div>}
+              {error && <div className="error-message">{error}</div>}
+            </form>
+
+            <div className="CA-Footer">
+              Already have an account?{" "}
+              <Link href="/sign-in" className="CA-Link">
+                Sign In
+              </Link>
+            </div>
           </div>
-        </div>
-      </div>
-    </motion.div>
+        </section>
+      </motion.main>
+    </div>
   );
 };
 

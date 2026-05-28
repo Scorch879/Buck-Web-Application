@@ -10,6 +10,10 @@ import { signInUser, signInWithGoogle } from "@/component/authentication";
 import { motion } from "framer-motion";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 import {
+  getAuthButtonBackground,
+  useAuthPageTheme,
+} from "@/hooks/useAuthPageTheme";
+import {
   FaArrowRight,
   FaChartLine,
   FaPiggyBank,
@@ -18,23 +22,11 @@ import {
 import type { IconType } from "react-icons";
 import "./style.css";
 
-type LandingTheme = "dark" | "light";
-
-type PointerPosition = {
-  x: number;
-  y: number;
-} | null;
-
 type SignInHighlight = {
   icon: IconType;
   title: string;
   description: string;
 };
-
-const LANDING_THEME_STORAGE_KEY = "buck-landing-theme";
-const DARK_SIGN_IN_BUTTON = "linear-gradient(135deg, #f47536 0%, #ff8d3d 100%)";
-const LIGHT_SIGN_IN_BUTTON =
-  "linear-gradient(135deg, #f47536 0%, #ff3838 100%)";
 
 const signInHighlights: SignInHighlight[] = [
   {
@@ -54,40 +46,6 @@ const signInHighlights: SignInHighlight[] = [
   },
 ];
 
-const getStoredLandingTheme = (): LandingTheme | null => {
-  try {
-    const savedTheme = window.localStorage.getItem(LANDING_THEME_STORAGE_KEY);
-
-    return savedTheme === "dark" || savedTheme === "light"
-      ? savedTheme
-      : null;
-  } catch {
-    return null;
-  }
-};
-
-const resolveLandingTheme = (
-  mediaQuery: MediaQueryList | undefined
-): LandingTheme =>
-  getStoredLandingTheme() ?? (mediaQuery?.matches ? "dark" : "light");
-
-const getSignInButtonBackground = (
-  isDarkTheme: boolean,
-  pointer: PointerPosition
-) => {
-  const baseGradient = isDarkTheme ? DARK_SIGN_IN_BUTTON : LIGHT_SIGN_IN_BUTTON;
-
-  if (!pointer) {
-    return baseGradient;
-  }
-
-  const glow = isDarkTheme
-    ? "rgba(255, 232, 163, 0.58) 0%, rgba(255, 197, 71, 0.52) 22%, rgba(255, 197, 71, 0) 50%"
-    : "rgba(255, 240, 200, 0.88) 0%, rgba(255, 197, 71, 0.68) 22%, rgba(255, 197, 71, 0) 48%";
-
-  return `radial-gradient(circle at ${pointer.x}px ${pointer.y}px, ${glow}), ${baseGradient}`;
-};
-
 const SignIn = () => {
   const router = useRouter();
 
@@ -95,26 +53,9 @@ const SignIn = () => {
   const [pass, setPass] = useState("");
   const [message, setMsg] = useState("");
   const [error, setError] = useState("");
-  const [isDarkTheme, setIsDarkTheme] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const isDarkTheme = useAuthPageTheme();
   const signInButton = usePointerGradient<HTMLButtonElement>();
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia?.("(prefers-color-scheme: dark)");
-
-    const updateThemeFromPreference = () => {
-      setIsDarkTheme(resolveLandingTheme(mediaQuery) === "dark");
-    };
-
-    updateThemeFromPreference();
-    window.addEventListener("storage", updateThemeFromPreference);
-    mediaQuery?.addEventListener("change", updateThemeFromPreference);
-
-    return () => {
-      window.removeEventListener("storage", updateThemeFromPreference);
-      mediaQuery?.removeEventListener("change", updateThemeFromPreference);
-    };
-  }, []);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
@@ -173,21 +114,18 @@ const SignIn = () => {
   };
 
   const signInButtonStyle: CSSProperties = {
-    background: getSignInButtonBackground(isDarkTheme, signInButton.pointer),
+    background: getAuthButtonBackground(isDarkTheme, signInButton.pointer),
     transition: signInButton.pointer ? "background 0.1s" : "background 0.3s",
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
-      className={`SI-Background${
-        isDarkTheme ? " SI-Background--dark" : " SI-Background--light"
-      }`}
-    >
-      <main className="SI-Page">
+    <div className="SI-Background">
+      <motion.main
+        className="SI-Page"
+        initial={{ opacity: 0, y: 14, scale: 0.985, filter: "blur(8px)" }}
+        animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      >
         <section className="SI-Story" aria-labelledby="sign-in-story-title">
           <Link href="/" className="SI-Brand" aria-label="Back to Buck home">
             <span className="SI-BrandMark">
@@ -211,9 +149,12 @@ const SignIn = () => {
             <h1 id="sign-in-story-title">
               Pick up your budget exactly where you left it.
             </h1>
-            <p>
+            <p className="SI-DesktopIntro">
               Sign back in to review your weekly spending, protect your goals,
               and get clear AI guidance before the week gets noisy.
+            </p>
+            <p className="SI-MobileIntro">
+              Sign in and get back to your budget.
             </p>
           </div>
 
@@ -331,6 +272,12 @@ const SignIn = () => {
                   />
                 </button>
               </div>
+              <Link
+                href="/forgot-password"
+                className="SI-Link SI-ForgotLinkMobile"
+              >
+                Forgot password?
+              </Link>
 
               <motion.button
                 ref={signInButton.ref}
@@ -359,8 +306,8 @@ const SignIn = () => {
             </div>
           </div>
         </section>
-      </main>
-    </motion.div>
+      </motion.main>
+    </div>
   );
 };
 
