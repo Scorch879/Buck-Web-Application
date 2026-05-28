@@ -81,8 +81,11 @@ export default function MaintenancePage() {
               <span>Maintenance Mode</span>
             </div>
 
-            <div className="maintenance-meter" aria-hidden="true">
-              <span />
+            <div className="maintenance-loader" aria-label="Maintenance loading">
+              <div className="maintenance-loader-track" aria-hidden="true">
+                <span />
+              </div>
+              <p>Preparing Buck to come back online...</p>
             </div>
 
             <ul className="maintenance-list">

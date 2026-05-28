@@ -1750,21 +1750,42 @@ main {
   font-weight: 900;
 }
 
-.maintenance-meter {
+.maintenance-loader {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1.25rem 0 1.4rem;
+  padding: 1rem;
+  border: 1px solid rgba(244, 117, 54, 0.2);
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.76), rgba(255, 240, 207, 0.54));
+}
+
+.maintenance-loader p {
+  margin: 0;
+  color: var(--buck-muted);
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.maintenance-loader-track {
+  position: relative;
   height: 14px;
-  margin: 1.4rem 0;
   overflow: hidden;
   border: 1px solid rgba(244, 117, 54, 0.22);
   border-radius: 999px;
   background: var(--buck-gold-soft);
 }
 
-.maintenance-meter span {
+.maintenance-loader-track span {
   display: block;
-  width: 68%;
+  width: 46%;
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--buck-gold), var(--buck-orange), var(--buck-coral));
+  box-shadow: 0 8px 18px rgba(244, 117, 54, 0.24);
+  animation: maintenance-loading 1.8s ease-in-out infinite;
 }
 
 .maintenance-list {
@@ -1789,6 +1810,27 @@ main {
   color: var(--buck-orange);
 }
 
+@keyframes maintenance-loading {
+  0% {
+    transform: translateX(-110%);
+  }
+
+  52% {
+    transform: translateX(62%);
+  }
+
+  100% {
+    transform: translateX(235%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .maintenance-loader-track span {
+    animation: none;
+    transform: translateX(0);
+  }
+}
+
 @media (max-width: 760px) {
   .maintenance-page {
     place-items: stretch;
@@ -1810,4 +1852,5 @@ main {
   .maintenance-contact-button {
     width: 100%;
   }
+
 }
