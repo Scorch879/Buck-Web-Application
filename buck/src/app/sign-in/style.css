@@ -384,13 +384,21 @@
   padding: 0;
   background: transparent;
   border: 0;
+  border-radius: 50%;
   opacity: 0.76;
   transition:
+    background 180ms ease,
     opacity 180ms ease,
     transform 180ms ease;
 }
 
+.SI-Eye-Btn img {
+  filter: invert(83%) sepia(64%) saturate(684%) hue-rotate(338deg) brightness(104%) contrast(101%);
+  transition: filter 180ms ease;
+}
+
 .SI-Eye-Btn:hover {
+  background: rgba(255, 197, 71, 0.12);
   opacity: 1;
   transform: translateY(-1px);
 }
@@ -532,6 +540,14 @@
   background: rgba(255, 255, 255, 0.88);
   border-color: rgba(244, 117, 54, 0.56);
   box-shadow: 0 0 0 3px rgba(244, 117, 54, 0.13);
+}
+
+.SI-Background--light .SI-Eye-Btn img {
+  filter: invert(17%) sepia(15%) saturate(430%) hue-rotate(335deg) brightness(94%) contrast(92%);
+}
+
+.SI-Background--light .SI-Eye-Btn:hover {
+  background: rgba(184, 51, 36, 0.1);
 }
 
 .SI-Background--light .SI-Link {

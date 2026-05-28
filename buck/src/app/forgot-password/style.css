@@ -1,186 +1,503 @@
-.background {
-  background-color: #ef8a57;
-  width: 100%;
+/* Theme and page shell */
+.FP-Background {
   min-height: 100dvh;
-  display: flex;
-  padding: 1rem;
+  color: #fff8ed;
+  background:
+    linear-gradient(
+      160deg,
+      rgba(255, 248, 237, 0.08) 0%,
+      rgba(255, 197, 71, 0.04) 42%,
+      rgba(244, 117, 54, 0.08) 70%,
+      rgba(255, 56, 56, 0.06) 100%
+    ),
+    linear-gradient(
+      112deg,
+      #120d0a 0%,
+      #1a110d 38%,
+      #2b180f 58%,
+      #4b2414 80%,
+      #6a2e18 100%
+    );
+  transition:
+    background 220ms ease,
+    color 220ms ease;
 }
 
-.forgot-password-page {
+.FP-Background--light {
+  color: #2b2523;
+  background:
+    linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.7) 0%,
+      rgba(255, 248, 237, 0.48) 40%,
+      rgba(255, 197, 71, 0.18) 68%,
+      rgba(244, 117, 54, 0.22) 100%
+    ),
+    linear-gradient(
+      112deg,
+      #fffaf4 0%,
+      #fff4e5 38%,
+      #ffe0a3 58%,
+      #ffb56e 80%,
+      #ff8840 100%
+    );
+}
+
+.FP-Page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 500px);
+  gap: clamp(2rem, 6vw, 5rem);
+  align-items: center;
+  width: min(1240px, calc(100% - clamp(24px, 6vw, 88px)));
   min-height: 100dvh;
-  width: 100%;
-  background: #ef8a57;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 3rem) 0;
 }
 
-.forgot-password-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100%;
-  width: 100%;
-  position: relative;
-  color: #ffffff;
+.FP-Story {
+  display: grid;
+  gap: clamp(1.5rem, 4vw, 2.4rem);
+  align-content: center;
+  min-height: min(760px, 100dvh);
 }
 
-.SI-Mascot-Top {
-  display: flex;
-  justify-content: center;
+/* Brand and story content */
+.FP-Brand {
+  display: inline-flex;
   align-items: center;
-  margin-bottom: 1.2rem;
-  width: 100%;
+  gap: 0.8rem;
+  width: fit-content;
+  color: inherit;
+  text-decoration: none;
 }
 
-.SI-Mascot-Circle {
-  position: relative;
-  width: 90px;
-  height: 90px;
-  background: #ef8a57;
-  border-radius: 50%;
+.FP-BrandMark,
+.FP-Mascot-Circle {
+  display: grid;
+  place-items: end center;
   overflow: hidden;
-  /* This makes the circle act as a mask */
-  box-shadow: 0 2px 8px 0 rgba(239, 138, 87, 0.1);
-  display: flex;
-  align-items: flex-end;
-  /* Align mascot to bottom of circle */
-  justify-content: center;
+  border: 1px solid rgba(255, 197, 71, 0.36);
+  border-radius: 50%;
+  background: linear-gradient(145deg, rgba(255, 197, 71, 0.26), rgba(244, 117, 54, 0.2));
 }
 
-.SI-Mascot-Img {
-  position: relative;
-  width: 70px;
-  height: 100px;
+.FP-BrandMark {
+  width: 56px;
+  height: 56px;
+}
+
+.FP-BrandMascot {
+  width: 45px;
+  height: 62px;
   object-fit: contain;
-  top: 20px;
-  /* Move mascot up/down to control peep */
+  transform: translateY(8px);
 }
 
-.forgot-password-panel {
-  background-color: #ffffff;
-  border: 2px solid;
-  border-radius: 8px;
-  box-shadow: 0 6px 32px 0 rgba(0, 0, 0, 0.2);
-  height: auto;
-  /* Allow height to adjust based on content */
-  min-height: 350px;
-  /* Maintain a minimum height */
-  width: min(450px, 100%);
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  /* Align content from the top */
-  align-items: center;
-  padding: 30px 20px;
-  /* Increase vertical padding */
-  z-index: 2;
-  /* Ensure panel is above the background elements */
+.FP-Brand strong,
+.FP-Brand small {
+  display: block;
 }
 
-.forgot-password-panel h2 {
-  font-family: "Segoe UI", Helvetica, Arial, sans-serif;
-  font-size: 1.7rem;
-  font-weight: 700;
-  color: #ef8a57;
-  margin-top: 2px;
-  margin-bottom: 1.2rem;
+.FP-Brand strong {
+  color: #fff8ed;
+  font-size: 1.25rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.FP-Brand small {
+  margin-top: 0.18rem;
+  color: #d9c7b6;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.FP-HeroCopy {
+  max-width: 760px;
+}
+
+.FP-Kicker {
+  margin: 0 0 0.9rem;
+  color: #f47536;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.FP-HeroCopy h1 {
+  max-width: 780px;
+  margin: 0;
+  color: #fff8ed;
+  font-size: clamp(2.1rem, 4.4vw, 3.8rem);
+  line-height: 1.04;
   letter-spacing: 0;
 }
 
-.forgot-password-panel p {
-  color: #000000;
-  font-family: inherit;
+.FP-HeroCopy h1::first-line {
+  color: #ffc547;
+}
+
+.FP-HeroCopy p:not(.FP-Kicker),
+.FP-PanelHeading p,
+.FP-Highlight p,
+.FP-Footer {
+  color: #d9c7b6;
+}
+
+.FP-HeroCopy p:not(.FP-Kicker) {
+  max-width: 560px;
+  margin: 1.25rem 0 0;
   font-size: 1rem;
-  margin-bottom: 25px;
-  text-align: center;
-  line-height: 1.5;
+  line-height: 1.65;
+}
+
+.FP-Highlights {
+  display: grid;
+  gap: 0.85rem;
+  max-width: 680px;
+}
+
+.FP-Highlight {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: start;
+}
+
+.FP-Highlight > span {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  color: #ffc547;
+  background: rgba(255, 197, 71, 0.1);
+  border: 1px solid rgba(255, 211, 154, 0.18);
+  border-radius: 8px;
+}
+
+.FP-Highlight strong {
+  color: #fff8ed;
+  font-size: 0.94rem;
+}
+
+.FP-Highlight p {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+/* Reset panel */
+.FP-AuthPanel {
+  display: grid;
+  justify-items: center;
+}
+
+.FP-Container {
+  position: relative;
+  width: min(100%, 448px);
+  padding: clamp(1.25rem, 3vw, 1.65rem);
+  overflow: hidden;
+  background:
+    linear-gradient(145deg, rgba(38, 25, 18, 0.94), rgba(49, 26, 17, 0.88));
+  border: 1px solid rgba(255, 211, 154, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.36);
+}
+
+.FP-Container::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(112deg, rgba(255, 197, 71, 0.1), rgba(244, 117, 54, 0.08), transparent 70%);
+}
+
+.FP-Container > * {
+  position: relative;
+  z-index: 1;
+}
+
+.FP-Mascot-Top {
+  display: flex;
+  justify-content: center;
   width: 100%;
-  /* Ensure paragraph takes full width */
+  padding: 0;
+  background: transparent;
+  border: 0;
 }
 
-.email-input {
-  padding: 0.5rem 0.9rem;
-  width: 73%;
-  border: 1.5px solid #ef8a57;
-  border-radius: 7px;
-  font-size: 1rem;
-  font-family: inherit;
-  background: #f9f9f9;
-  color: #222;
+.FP-Mascot-Circle {
+  width: 82px;
+  height: 82px;
+}
+
+.FP-Mascot-Img {
+  width: 66px;
+  height: 96px;
+  object-fit: contain;
+  transform: translateY(18px);
+  transition: transform 180ms ease;
+}
+
+.FP-Mascot-Top:hover .FP-Mascot-Img {
+  transform: translateY(12px);
+}
+
+.FP-PanelHeading {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.FP-Title {
+  margin: 0;
+  color: #fff8ed;
+  font-size: clamp(1.55rem, 2.5vw, 1.95rem);
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.FP-PanelHeading p {
+  margin: 0.65rem 0 0;
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+/* Form controls */
+.FP-Form {
+  display: grid;
+  gap: 0.72rem;
+  width: 100%;
+  margin-top: 1.25rem;
+}
+
+.FP-Label {
+  color: #fff8ed;
+  font-size: 0.92rem;
+  font-weight: 850;
+}
+
+.FP-Input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0.75rem 0.95rem;
+  color: #fff8ed;
+  background: rgba(255, 248, 237, 0.08);
+  border: 1px solid rgba(255, 211, 154, 0.16);
+  border-radius: 8px;
   outline: none;
-  transition: border 0.2s;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
-.email-input::placeholder {
-  color: #888;
-  /* Softer placeholder color */
+.FP-Input::placeholder {
+  color: rgba(217, 199, 182, 0.68);
 }
 
+.FP-Input:focus {
+  background: rgba(255, 248, 237, 0.12);
+  border-color: rgba(255, 197, 71, 0.5);
+  box-shadow: 0 0 0 3px rgba(255, 197, 71, 0.12);
+}
 
-.SI-Btn {
-  width: 80%;
-  margin-top: 1.1rem;
-  padding: 0.6rem 0;
-  background: linear-gradient(90deg, #ef8a57 60%, #fd523b 100%);
-  color: #fff;
-  font-size: 1.1rem;
-  font-weight: 600;
-  border: none;
-  border-radius: 7px;
-  cursor: pointer;
-  transition: background 0.2s;
-  box-shadow: 0 2px 8px 0 rgba(239, 138, 87, 0.1);
+.FP-Btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 46px;
+  margin-top: 0.55rem;
+  color: #ffffff;
+  border: 0;
+  border-radius: 8px;
+  font-weight: 850;
+  box-shadow: 0 14px 30px rgba(255, 56, 56, 0.2);
+  transition:
+    box-shadow 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.FP-Background--dark .FP-Btn {
+  color: #241409;
+}
+
+.FP-Btn:hover {
+  box-shadow: 0 18px 38px rgba(255, 197, 71, 0.18);
 }
 
 .forgot-message-card {
-  width: 80%;
-  box-sizing: border-box;
-  padding: 0.8em 0;
-  margin-top: 0.5em;
-  border-radius: 12px;
-  font-weight: 600;
-  font-size: 1.1rem;
-  text-align: center;
-  border: 2px solid transparent;
-  transition: background 0.2s, border 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  padding: 0.75em 1em;
+  margin-top: 0.35rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 800;
 }
 
 .forgot-success {
-  background: #e8f5e9;
-  color: #2e7d32;
-  border-color: #a5d6a7;
+  color: #d7f7dc;
+  background: rgba(46, 125, 50, 0.22);
+  border: 1px solid rgba(165, 214, 167, 0.28);
 }
 
 .forgot-error {
-  background: #ffebee;
-  color: #c62828;
-  border-color: #ef9a9a;
-}
-
-.back-to-signin {
-  color: #ef8a57;
-  font-family: inherit;
-  font-size: 0.95rem;
-  margin-top: auto;
-  /* Push to the bottom */
-  text-decoration: underline;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-}
-
-.back-to-signin:hover {
-  opacity: 0.8;
+  color: #ffd8d8;
+  background: rgba(198, 40, 40, 0.22);
+  border: 1px solid rgba(239, 154, 154, 0.28);
 }
 
 .FP-Link {
-  color: #ef8a57;
+  color: #ffc547;
+  font-weight: 850;
   text-decoration: none;
-  font-weight: 600;
-  margin-left: 0.2em;
-  margin-top: 10px;
+  transition: color 180ms ease;
 }
 
 .FP-Link:hover {
+  color: #ffe7a3;
   text-decoration: underline;
+}
+
+.FP-Footer {
+  margin-top: 1.15rem;
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+/* Light theme overrides */
+.FP-Background--light .FP-Brand strong,
+.FP-Background--light .FP-HeroCopy h1,
+.FP-Background--light .FP-Title,
+.FP-Background--light .FP-Highlight strong,
+.FP-Background--light .FP-Label {
+  color: #2b2523;
+}
+
+.FP-Background--light .FP-HeroCopy h1::first-line {
+  color: #ff3838;
+}
+
+.FP-Background--light .FP-Brand small,
+.FP-Background--light .FP-HeroCopy p:not(.FP-Kicker),
+.FP-Background--light .FP-PanelHeading p,
+.FP-Background--light .FP-Highlight p,
+.FP-Background--light .FP-Footer {
+  color: #625750;
+}
+
+.FP-Background--light .FP-BrandMark,
+.FP-Background--light .FP-Mascot-Circle {
+  background: linear-gradient(145deg, rgba(255, 197, 71, 0.3), rgba(244, 117, 54, 0.14));
+  border-color: rgba(184, 51, 36, 0.18);
+}
+
+.FP-Background--light .FP-Highlight > span {
+  color: #ff3838;
+  background: rgba(255, 197, 71, 0.2);
+  border-color: rgba(184, 51, 36, 0.12);
+}
+
+.FP-Background--light .FP-Container {
+  background:
+    linear-gradient(145deg, rgba(255, 250, 244, 0.96), rgba(255, 241, 218, 0.9));
+  border-color: rgba(120, 92, 70, 0.18);
+  box-shadow: 0 28px 70px rgba(94, 59, 34, 0.18);
+}
+
+.FP-Background--light .FP-Container::before {
+  background: linear-gradient(112deg, rgba(255, 197, 71, 0.15), rgba(244, 117, 54, 0.1), transparent 72%);
+}
+
+.FP-Background--light .FP-Input {
+  color: #2b2523;
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(184, 51, 36, 0.2);
+}
+
+.FP-Background--light .FP-Input::placeholder {
+  color: rgba(98, 87, 80, 0.68);
+}
+
+.FP-Background--light .FP-Input:focus {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(244, 117, 54, 0.56);
+  box-shadow: 0 0 0 3px rgba(244, 117, 54, 0.13);
+}
+
+.FP-Background--light .FP-Link {
+  color: #b83324;
+}
+
+.FP-Background--light .FP-Link:hover {
+  color: #ff3838;
+}
+
+.FP-Background--light .forgot-success {
+  color: #256a33;
+  background: rgba(46, 125, 50, 0.12);
+  border-color: rgba(46, 125, 50, 0.22);
+}
+
+.FP-Background--light .forgot-error {
+  color: #b83324;
+  background: rgba(255, 56, 56, 0.1);
+  border-color: rgba(255, 56, 56, 0.2);
+}
+
+/* Responsive layout */
+@media (max-width: 980px) {
+  .FP-Page {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    align-items: start;
+    padding: 1.2rem 0 2rem;
+  }
+
+  .FP-Story {
+    min-height: auto;
+  }
+
+  .FP-HeroCopy h1 {
+    font-size: clamp(2rem, 7vw, 3rem);
+  }
+
+  .FP-Highlights {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    max-width: none;
+  }
+
+  .FP-Highlight {
+    grid-template-columns: 1fr;
+  }
+
+  .FP-AuthPanel {
+    width: 100%;
+  }
+}
+
+@media (max-width: 680px) {
+  .FP-Page {
+    width: min(100% - 24px, 520px);
+  }
+
+  .FP-Highlights {
+    grid-template-columns: 1fr;
+  }
+
+  .FP-Container {
+    padding: 1.1rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .FP-HeroCopy h1 {
+    font-size: 1.95rem;
+  }
 }
