@@ -4,9 +4,8 @@ import type { CSSProperties, FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth, isFirebaseConfigured } from "@/utils/firebase";
 import { signInUser, signInWithGoogle } from "@/component/authentication";
+import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
 import { motion } from "framer-motion";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 import {
@@ -46,6 +45,14 @@ const signInHighlights: SignInHighlight[] = [
   },
 ];
 
+function getSafeRedirectPath(redirectTo: string | null) {
+  if (!redirectTo || !redirectTo.startsWith("/") || redirectTo.startsWith("//")) {
+    return "/dashboard/home";
+  }
+
+  return redirectTo;
+}
+
 const SignIn = () => {
   const router = useRouter();
 
@@ -54,19 +61,19 @@ const SignIn = () => {
   const [message, setMsg] = useState("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [redirectTo, setRedirectTo] = useState("/dashboard/home");
   const isDarkTheme = useAuthPageTheme();
   const signInButton = usePointerGradient<HTMLButtonElement>();
 
   useEffect(() => {
-    if (!isFirebaseConfigured) return;
+    setRedirectTo(
+      getSafeRedirectPath(
+        new URLSearchParams(window.location.search).get("redirectTo")
+      )
+    );
+  }, []);
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        router.replace("/dashboard/home");
-      }
-    });
-    return () => unsubscribe();
-  }, [router]);
+  useRedirectIfAuthenticated(redirectTo);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -90,17 +97,20 @@ const SignIn = () => {
     const result = await signInUser(email, pass);
     if (result.success) {
       setMsg("Sign in successful!");
-      router.push("/dashboard/home"); // Redirect to dashboard or home page
+      router.push(redirectTo);
     } else {
       setError(result.message || "Sign in failed.");
     }
   };
 
   const handleGoogleSignIn = async () => {
-    const result = await signInWithGoogle();
+    const result = await signInWithGoogle(redirectTo);
     if (result.success) {
-      setMsg("Google Sign-In successful!");
-      router.push("/dashboard/home"); // Redirect to dashboard or home page
+      setMsg("Redirecting to Google...");
+
+      if (!result.redirecting) {
+        router.push(redirectTo);
+      }
     } else if (result.cancelled) {
       // Do nothing, user cancelled
     } else {

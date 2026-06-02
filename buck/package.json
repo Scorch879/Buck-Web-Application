@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.106.2",
     "chart.js": "^4.5.0",
     "firebase": "^11.9.1",
     "framer-motion": "^12.18.1",

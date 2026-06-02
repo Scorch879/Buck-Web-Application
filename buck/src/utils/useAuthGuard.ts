@@ -1,34 +1,94 @@
 "use client";
+
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { auth, isFirebaseConfigured } from "@/utils/firebase";
+import { usePathname, useRouter } from "next/navigation";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { isSupabaseConfigured, supabase } from "@/utils/supabase";
+
+export type BuckUser = SupabaseUser & {
+  uid: string;
+  displayName: string | null;
+};
+
+function toBuckUser(user: SupabaseUser | null): BuckUser | null {
+  if (!user) {
+    return null;
+  }
+
+  const displayName =
+    typeof user.user_metadata?.username === "string"
+      ? user.user_metadata.username
+      : typeof user.user_metadata?.full_name === "string"
+        ? user.user_metadata.full_name
+        : typeof user.user_metadata?.name === "string"
+          ? user.user_metadata.name
+          : null;
+
+  return {
+    ...user,
+    uid: user.id,
+    displayName,
+  };
+}
+
+function getSignInPath(pathname: string | null) {
+  if (!pathname || pathname === "/dashboard/home") {
+    return "/sign-in";
+  }
+
+  return `/sign-in?redirectTo=${encodeURIComponent(pathname)}`;
+}
 
 export function useAuthGuard() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
+  const pathname = usePathname();
+  const [user, setUser] = useState<BuckUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isFirebaseConfigured) {
+    if (!isSupabaseConfigured || !supabase) {
+      setUser(null);
       setLoading(false);
-      router.replace("/sign-in");
+      router.replace(getSignInPath(pathname));
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (!firebaseUser) {
-        setUser(null);
-        setLoading(false);
-        router.replace("/sign-in");
+    let mounted = true;
+
+    const setSessionUser = (sessionUser: SupabaseUser | null) => {
+      if (!mounted) {
         return;
       }
 
-      setUser(firebaseUser);
+      const nextUser = toBuckUser(sessionUser);
+      setUser(nextUser);
       setLoading(false);
+
+      if (!nextUser) {
+        router.replace(getSignInPath(pathname));
+      }
+    };
+
+    supabase.auth.getUser().then(({ data, error }) => {
+      if (error) {
+        setSessionUser(null);
+        return;
+      }
+
+      setSessionUser(data.user);
     });
-    return () => unsubscribe();
-  }, [router]);
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionUser(session?.user ?? null);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [pathname, router]);
 
   return { user, loading };
 }
@@ -37,13 +97,29 @@ export function useRedirectIfAuthenticated(redirectTo = "/dashboard/home") {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isFirebaseConfigured) return;
+    if (!isSupabaseConfigured || !supabase) {
+      return;
+    }
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
+    let mounted = true;
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (mounted && data.user) {
         router.replace(redirectTo);
       }
     });
-    return () => unsubscribe();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        router.replace(redirectTo);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [router, redirectTo]);
 }

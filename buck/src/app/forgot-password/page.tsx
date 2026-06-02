@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { sendPasswordReset } from "@/component/authentication";
+import { useRouter } from "next/navigation";
+import { sendPasswordReset, updatePassword } from "@/component/authentication";
+import { supabase } from "@/utils/supabase";
 import { motion } from "framer-motion";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 import {
@@ -47,15 +49,71 @@ const forgotPasswordHighlights: ForgotPasswordHighlight[] = [
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const ForgotPassword = () => {
+  const router = useRouter();
   const [email, setEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const isDarkTheme = useAuthPageTheme();
   const resetButton = usePointerGradient<HTMLButtonElement>();
 
+  useEffect(() => {
+    const hasRecoveryToken =
+      window.location.hash.includes("type=recovery") ||
+      window.location.search.includes("type=recovery");
+
+    if (hasRecoveryToken) {
+      setIsRecoveryMode(true);
+    }
+
+    const {
+      data: { subscription },
+    } = supabase?.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setIsRecoveryMode(true);
+      }
+    }) ?? { data: { subscription: null } };
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
+
   const playQuack = () => {
     const audio = new Audio("/quack.mp3");
     void audio.play();
+  };
+
+  const handleUpdatePassword = async () => {
+    setMessage("");
+    setError("");
+
+    if (!newPassword || !confirmPassword) {
+      setError("Please fill in both password fields.");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    const result = await updatePassword(newPassword);
+
+    if (result.success) {
+      setMessage("Password updated. Redirecting to sign in...");
+      window.setTimeout(() => router.push("/sign-in"), 900);
+      return;
+    }
+
+    setError(result.message || "Failed to update password.");
   };
 
   const handleResetPassword = async () => {
@@ -167,30 +225,71 @@ const ForgotPassword = () => {
             <div className="FP-PanelHeading">
               <p className="FP-Kicker">Need a new key?</p>
               <h2 id="forgot-password-title" className="FP-Title">
-                Reset password
+                {isRecoveryMode ? "Create new password" : "Reset password"}
               </h2>
-              <p>Enter the email connected to your Buck account.</p>
+              <p>
+                {isRecoveryMode
+                  ? "Choose a new password for your Buck account."
+                  : "Enter the email connected to your Buck account."}
+              </p>
             </div>
 
             <form
               className="FP-Form"
               onSubmit={(event) => {
                 event.preventDefault();
+                if (isRecoveryMode) {
+                  handleUpdatePassword();
+                  return;
+                }
+
                 handleResetPassword();
               }}
             >
-              <label htmlFor="forgot-email" className="FP-Label">
-                Email address
-              </label>
-              <input
-                id="forgot-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="FP-Input"
-                placeholder="you@example.com"
-                autoComplete="email"
-              />
+              {isRecoveryMode ? (
+                <>
+                  <label htmlFor="new-password" className="FP-Label">
+                    New password
+                  </label>
+                  <input
+                    id="new-password"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="FP-Input"
+                    placeholder="Create a new password"
+                    autoComplete="new-password"
+                  />
+
+                  <label htmlFor="confirm-password" className="FP-Label">
+                    Confirm password
+                  </label>
+                  <input
+                    id="confirm-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="FP-Input"
+                    placeholder="Confirm your new password"
+                    autoComplete="new-password"
+                  />
+                </>
+              ) : (
+                <>
+                  <label htmlFor="forgot-email" className="FP-Label">
+                    Email address
+                  </label>
+                  <input
+                    id="forgot-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="FP-Input"
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                  />
+                </>
+              )}
 
               <motion.button
                 ref={resetButton.ref}
@@ -203,7 +302,7 @@ const ForgotPassword = () => {
                   scale: 1.02,
                 }}
               >
-                Send Reset Link
+                {isRecoveryMode ? "Update Password" : "Send Reset Link"}
                 <FaArrowRight aria-hidden="true" />
               </motion.button>
 
