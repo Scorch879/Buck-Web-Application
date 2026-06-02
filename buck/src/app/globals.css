@@ -11,6 +11,10 @@
   --buck-peach-soft: #ffe3c2;
   --buck-apricot-soft: #f8c894;
   --buck-shadow: 0 18px 45px rgba(139, 75, 38, 0.16);
+  --landing-shell-width: 1120px;
+  --landing-section-space: clamp(4.5rem, 8vw, 6.5rem);
+  --landing-content-gap: clamp(1.5rem, 3vw, 2rem);
+  --landing-card-gap: clamp(0.9rem, 2vw, 1.25rem);
   --buck-page-background-base: #fff1d8;
   --buck-page-background:
     linear-gradient(
@@ -102,6 +106,8 @@ img {
 .landing-page {
   position: relative;
   isolation: isolate;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   min-height: 100dvh;
   color: var(--buck-ink);
@@ -187,7 +193,7 @@ html[data-buck-theme="dark"] .landing-page::before {
   justify-content: space-between;
   gap: 0.75rem;
   width: 100%;
-  max-width: 1120px;
+  max-width: var(--landing-shell-width);
   margin: 0 auto;
   padding: 0.62rem 0;
   background: transparent;
@@ -438,6 +444,9 @@ html[data-buck-theme="dark"] .landing-page::before {
 main {
   position: relative;
   z-index: 1;
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
   width: 100%;
 }
 
@@ -446,7 +455,7 @@ main {
   display: flex;
   align-items: center;
   min-height: min(760px, calc(100dvh - 90px));
-  padding: clamp(3rem, 7vw, 5.5rem) clamp(1rem, 4vw, 1.5rem) clamp(4rem, 7vw, 6rem);
+  padding: var(--landing-section-space) clamp(1rem, 4vw, 1.5rem);
   scroll-margin-top: 118px;
 }
 
@@ -457,7 +466,7 @@ main {
   grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
   align-items: center;
   gap: clamp(2rem, 5vw, 4rem);
-  width: min(1120px, 100%);
+  width: min(var(--landing-shell-width), 100%);
   margin: 0 auto;
 }
 
@@ -524,6 +533,7 @@ main {
   position: relative;
   isolation: isolate;
   overflow: hidden;
+  min-height: 42px;
   padding: 0.85rem 1.1rem;
   color: #9f2e20;
   background:
@@ -594,7 +604,7 @@ main {
 .hero-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: var(--landing-card-gap);
   width: min(620px, 100%);
   margin-top: 2rem;
 }
@@ -777,14 +787,50 @@ main {
 }
 
 .feature-section,
-.about-section {
-  width: min(1120px, calc(100% - clamp(24px, 5vw, 64px)));
-  margin: 0 auto;
+.adviser-section,
+.about-band {
+  position: relative;
+  width: 100%;
+  padding: var(--landing-section-space) clamp(1rem, 4vw, 1.5rem);
+  border-top: 1px solid rgba(120, 92, 70, 0.16);
   scroll-margin-top: 118px;
 }
 
 .feature-section {
-  padding: 4.5rem 0 3rem;
+  background: linear-gradient(90deg, rgba(255, 250, 244, 0.08), rgba(255, 197, 71, 0.06));
+}
+
+.adviser-section {
+  background: linear-gradient(90deg, rgba(255, 197, 71, 0.07), rgba(244, 117, 54, 0.06));
+}
+
+.about-band {
+  background: linear-gradient(90deg, rgba(244, 117, 54, 0.06), rgba(255, 250, 244, 0.08));
+}
+
+.landing-page--dark .feature-section,
+.landing-page--dark .adviser-section,
+.landing-page--dark .about-band {
+  border-top-color: rgba(255, 211, 154, 0.14);
+}
+
+.landing-page--dark .feature-section {
+  background: linear-gradient(90deg, rgba(255, 197, 71, 0.03), rgba(244, 117, 54, 0.04));
+}
+
+.landing-page--dark .adviser-section {
+  background: linear-gradient(90deg, rgba(255, 197, 71, 0.05), rgba(244, 117, 54, 0.04));
+}
+
+.landing-page--dark .about-band {
+  background: linear-gradient(90deg, rgba(244, 117, 54, 0.04), rgba(255, 197, 71, 0.03));
+}
+
+.section-inner,
+.adviser-showcase,
+.about-section {
+  width: min(var(--landing-shell-width), 100%);
+  margin: 0 auto;
 }
 
 .section-heading {
@@ -805,8 +851,8 @@ main {
 .feature-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
-  margin-top: 2rem;
+  gap: var(--landing-card-gap);
+  margin-top: var(--landing-content-gap);
 }
 
 .feature-card,
@@ -825,6 +871,8 @@ main {
 
 .feature-card {
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-height: 360px;
   padding: 1.35rem;
   overflow: hidden;
@@ -897,7 +945,7 @@ main {
   display: block;
   width: auto;
   height: 126px;
-  margin: 1rem auto;
+  margin: 1.25rem auto;
   object-fit: contain;
 }
 
@@ -917,12 +965,15 @@ main {
   line-height: 1.65;
 }
 
+.feature-card p {
+  margin: 0.8rem 0 0;
+}
+
 .adviser-showcase {
   display: grid;
   grid-template-columns: minmax(0, 0.78fr) minmax(320px, 1fr);
   align-items: center;
-  gap: clamp(1.2rem, 4vw, 3rem);
-  margin-top: 2.5rem;
+  gap: clamp(1.5rem, 4vw, 3rem);
 }
 
 .adviser-copy {
@@ -1169,8 +1220,7 @@ main {
 .about-section {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
-  gap: 1.4rem;
-  padding: 3rem 0 5rem;
+  gap: var(--landing-content-gap);
   align-items: start;
 }
 
@@ -1183,8 +1233,8 @@ main {
 .principle-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.8rem;
-  margin-top: 1.5rem;
+  gap: var(--landing-card-gap);
+  margin-top: var(--landing-content-gap);
 }
 
 .principle-card {
@@ -1217,8 +1267,8 @@ main {
 
 .highlight-list {
   display: grid;
-  gap: 0.65rem;
-  margin-top: 1.4rem;
+  gap: var(--landing-card-gap);
+  margin-top: var(--landing-content-gap);
 }
 
 .highlight-item {
@@ -1268,17 +1318,46 @@ main {
   position: relative;
   z-index: 1;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   width: 100%;
   margin: 0;
-  padding: 1.35rem max(clamp(24px, 5vw, 64px), calc((100% - 1120px) / 2)) 1.7rem;
+  padding: 1.35rem max(clamp(24px, 5vw, 64px), calc((100% - var(--landing-shell-width)) / 2)) 1.7rem;
   color: #524840;
   background:
     linear-gradient(90deg, rgba(255, 250, 244, 0.88), rgba(255, 241, 218, 0.78));
   border-top: 1px solid rgba(120, 92, 70, 0.18);
   backdrop-filter: blur(16px);
+}
+
+@media (min-width: 1800px) and (min-height: 1100px) {
+  :root {
+    --landing-shell-width: clamp(1120px, 48vw, 1680px);
+    --landing-section-space: clamp(4rem, 5vh, 6.5rem);
+    --landing-content-gap: clamp(1.25rem, 2vh, 2rem);
+  }
+
+  main {
+    justify-content: flex-start;
+    gap: 0;
+    padding-block: 0;
+  }
+
+  .hero-section {
+    min-height: clamp(360px, 31vh, 540px);
+    border-bottom: 1px solid rgba(120, 92, 70, 0.16);
+  }
+
+  .landing-page--dark .hero-section {
+    border-bottom-color: rgba(255, 211, 154, 0.14);
+  }
+
+  .landing-footer {
+    padding-top: clamp(1.35rem, 1.4vh, 2rem);
+    padding-bottom: clamp(1.55rem, 1.8vh, 2.4rem);
+  }
 }
 
 .landing-page--dark .landing-footer {
@@ -1404,6 +1483,12 @@ main {
 }
 
 @media (max-width: 900px) {
+  :root {
+    --landing-section-space: clamp(3.25rem, 9vw, 4.5rem);
+    --landing-content-gap: 1.25rem;
+    --landing-card-gap: 0.9rem;
+  }
+
   .desktop-nav {
     display: none;
   }
@@ -1422,12 +1507,12 @@ main {
 
   .hero-section {
     min-height: 0;
-    padding: 4rem 1rem 3.25rem;
+    padding: var(--landing-section-space) 1rem;
   }
 
   .hero-content {
     grid-template-columns: 1fr;
-    gap: 1.25rem;
+    gap: var(--landing-content-gap);
   }
 
   .hero-copy {
@@ -1442,7 +1527,7 @@ main {
     justify-self: center;
     width: min(390px, 100%);
     height: 360px;
-    margin-top: 2rem;
+    margin-top: var(--landing-content-gap);
     opacity: 1;
   }
 
@@ -1469,6 +1554,10 @@ main {
     grid-template-columns: 1fr;
   }
 
+  .adviser-showcase {
+    margin-top: 0;
+  }
+
   .adviser-copy {
     max-width: none;
   }
@@ -1493,10 +1582,6 @@ main {
     width: 100%;
   }
 
-  .feature-section {
-    padding-top: 3.25rem;
-  }
-
   .section-heading h2,
   .about-copy h2 {
     font-size: clamp(2rem, 8vw, 2.45rem);
@@ -1504,6 +1589,12 @@ main {
 }
 
 @media (max-width: 600px) {
+  :root {
+    --landing-section-space: 3rem;
+    --landing-content-gap: 1rem;
+    --landing-card-gap: 0.8rem;
+  }
+
   .site-header-inner {
     gap: 0.5rem;
     padding: 0.5rem 0;
@@ -1579,7 +1670,7 @@ main {
 
 @media (max-width: 430px) {
   .hero-section {
-    padding-top: 3rem;
+    padding-block: var(--landing-section-space);
   }
 
   .hero-title {

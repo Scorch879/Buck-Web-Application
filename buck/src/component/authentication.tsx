@@ -1,17 +1,8 @@
 "use client";
+
 import { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import { auth, db, isFirebaseConfigured } from "@/utils/firebase";
-import {
-  createUserWithEmailAndPassword,
-  GoogleAuthProvider,
-  sendPasswordResetEmail,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  signOut,
-  updateProfile,
-} from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { getSupabaseClient, isSupabaseConfigured } from "@/utils/supabase";
 
 type AuthFormData = {
   username: string;
@@ -20,8 +11,42 @@ type AuthFormData = {
   email: string;
 };
 
+type AuthResult = {
+  success: boolean;
+  message?: string;
+  cancelled?: boolean;
+  redirecting?: boolean;
+  needsEmailConfirmation?: boolean;
+};
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong.";
+}
+
+function getSiteUrl() {
+  if (typeof window === "undefined") {
+    return process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  }
+
+  return window.location.origin;
+}
+
+function getSafeRedirectPath(redirectTo: string) {
+  if (!redirectTo.startsWith("/") || redirectTo.startsWith("//")) {
+    return "/dashboard/home";
+  }
+
+  return redirectTo;
+}
+
+function getConfiguredAuthError(): AuthResult {
+  return {
+    success: false,
+    message:
+      "Supabase authentication is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+  };
 }
 
 export function SignInSignUp() {
@@ -29,10 +54,8 @@ export function SignInSignUp() {
     username: "",
     pass: "",
     confirm: "",
-    email: ""
+    email: "",
   });
-
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.id]: e.target.value });
@@ -45,123 +68,181 @@ export function SignInSignUp() {
       alert("Please fill in all fields");
       return;
     }
+
     if (form.pass !== form.confirm) {
       alert("Passwords do not match");
       return;
     }
+
     if (!emailRegex.test(form.email)) {
       alert("Please enter a valid email address");
       return;
     }
-    if (!isFirebaseConfigured) {
-      alert("Firebase authentication is not configured.");
+
+    const result = await signUpUser(form.email, form.pass, form.username);
+
+    if (!result.success) {
+      alert(result.message || "Sign up failed.");
       return;
     }
 
-    try {
-      // 1. Create user in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, form.email, form.pass);
-      const user = userCredential.user;
-
-      // 2. Store additional user info in Firestore (not the password!)
-      await setDoc(doc(db, "users", user.uid), {
-        username: form.username,
-        email: form.email,
-        createdAt: new Date()
-      });
-
-      alert("Sign up successful!");
-    } catch (error) {
-      alert(getErrorMessage(error));
-    }
+    alert(
+      result.needsEmailConfirmation
+        ? "Account created. Please check your email to confirm your account."
+        : "Sign up successful!"
+    );
   };
-
 
   return {
     form,
     handleChange,
-    handleSubmit
+    handleSubmit,
   };
 }
 
-export async function signUpUser(email: string, password: string, username: string) {
-  if (!isFirebaseConfigured) {
-    return { success: false, message: "Firebase authentication is not configured." };
+export async function signUpUser(
+  email: string,
+  password: string,
+  username: string
+): Promise<AuthResult> {
+  if (!isSupabaseConfigured) {
+    return getConfiguredAuthError();
   }
 
   try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-    if (username) {
-      await updateProfile(userCredential.user, { displayName: username });
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        data: {
+          username: username.trim(),
+          full_name: username.trim(),
+        },
+        emailRedirectTo: `${getSiteUrl()}/dashboard/home`,
+      },
+    });
+
+    if (error) {
+      return { success: false, message: error.message };
     }
-    return { success: true, user: userCredential.user };
+
+    return {
+      success: true,
+      needsEmailConfirmation: Boolean(data.user && !data.session),
+    };
   } catch (error) {
     console.error("Sign up error:", error);
     return { success: false, message: getErrorMessage(error) };
   }
 }
 
-export async function signInUser(email: string, password: string) {
-  if (!isFirebaseConfigured) {
-    return { success: false, message: "Firebase authentication is not configured." };
+export async function signInUser(
+  email: string,
+  password: string
+): Promise<AuthResult> {
+  if (!isSupabaseConfigured) {
+    return getConfiguredAuthError();
   }
 
   try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    return { success: true, user: userCredential.user };
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+
+    return { success: true };
   } catch (error) {
     return { success: false, message: getErrorMessage(error) };
   }
 }
 
-export async function signInWithGoogle() {
-  if (!isFirebaseConfigured) {
-    return { success: false, message: "Firebase authentication is not configured." };
+export async function signInWithGoogle(
+  redirectTo = "/dashboard/home"
+): Promise<AuthResult> {
+  if (!isSupabaseConfigured) {
+    return getConfiguredAuthError();
   }
 
-  const provider = new GoogleAuthProvider();
   try {
-    const result = await signInWithPopup(auth, provider);
-    // result.user contains the signed-in user info
-    return { success: true, user: result.user };
-  }
-  catch (error) {
-    const authError = error as { code?: string };
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${getSiteUrl()}${getSafeRedirectPath(redirectTo)}`,
+      },
+    });
 
-    if (authError.code === "auth/popup-closed-by-user") {
-      return { success: false, cancelled: true };
+    if (error) {
+      return { success: false, message: error.message };
     }
 
+    return { success: true, redirecting: true };
+  } catch (error) {
     return { success: false, message: getErrorMessage(error) };
   }
 }
 
-/**
- * Sends a password reset email to the given address.
- * @param email The user's email address.
- * @returns {Promise<{success: boolean, message?: string}>}
- */
-
-export async function sendPasswordReset(email: string) {
-  if (!isFirebaseConfigured) {
-    return { success: false, message: "Firebase authentication is not configured." };
+export async function sendPasswordReset(email: string): Promise<AuthResult> {
+  if (!isSupabaseConfigured) {
+    return getConfiguredAuthError();
   }
 
   try {
-    await sendPasswordResetEmail(auth, email);
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${getSiteUrl()}/forgot-password`,
+    });
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+
     return { success: true, message: "Password reset email sent!" };
   } catch (error) {
     return { success: false, message: getErrorMessage(error) };
   }
 }
 
-export async function signOutUser() {
-  if (!isFirebaseConfigured) {
-    return { success: false, message: "Firebase authentication is not configured." };
+export async function updatePassword(password: string): Promise<AuthResult> {
+  if (!isSupabaseConfigured) {
+    return getConfiguredAuthError();
   }
 
   try {
-    await signOut(auth);
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.auth.updateUser({ password });
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+
+    await supabase.auth.signOut();
+
+    return { success: true, message: "Password updated successfully." };
+  } catch (error) {
+    return { success: false, message: getErrorMessage(error) };
+  }
+}
+
+export async function signOutUser(): Promise<AuthResult> {
+  if (!isSupabaseConfigured) {
+    return getConfiguredAuthError();
+  }
+
+  try {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+
     return { success: true };
   } catch (error) {
     return { success: false, message: getErrorMessage(error) };
