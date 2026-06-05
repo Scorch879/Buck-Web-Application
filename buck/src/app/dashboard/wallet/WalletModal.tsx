@@ -1,25 +1,24 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
-import { db, auth } from "@/utils/firebase";
-import {
-  collection,
-  addDoc,
-  getDocs,
-  deleteDoc,
-  doc,
-  updateDoc,
-  getDoc,
-  setDoc,
-} from "firebase/firestore";
+import { createPortal } from "react-dom";
 import styles from "./WalletModal.module.css";
 import { motion } from "framer-motion";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 import { formatCurrency } from "@/utils/formatters";
+import { useAuthGuard } from "@/utils/useAuthGuard";
+import {
+  addWallet,
+  deleteWallet,
+  getActiveWalletId,
+  listWallets,
+  setActiveWallet,
+  subscribeUserTable,
+  updateWallet,
+  type BuckWallet,
+} from "@/utils/supabaseData";
 
-interface Wallet {
-  id: string;
-  name: string;
-  budget: number;
-}
+type Wallet = BuckWallet;
 
 export default function WalletModal({
   open,
@@ -40,43 +39,72 @@ export default function WalletModal({
   const addButton = usePointerGradient<HTMLButtonElement>();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [justActivatedId, setJustActivatedId] = useState<string | null>(null);
+  const [portalReady, setPortalReady] = useState(false);
 
-  const user = auth.currentUser;
+  const { user } = useAuthGuard();
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
 
   const fetchWallets = async () => {
     if (!user) return;
     setLoading(true);
-    const snap = await getDocs(
-      collection(db, "wallets", user.uid, "userWallets")
-    );
-    const walletsArr = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Wallet));
-    setWallets(walletsArr);
-    setLoading(false);
-    if (walletsArr.length === 1) {
-      await setDoc(
-        doc(db, "users", user.uid),
-        { activeWallet: walletsArr[0].id },
-        { merge: true }
-      );
-      setActiveWalletId(walletsArr[0].id);
+    try {
+      const walletsArr = await listWallets(user.uid);
+      setWallets(walletsArr);
+
+      if (walletsArr.length === 1) {
+        await setActiveWallet(user.uid, walletsArr[0].id);
+        setActiveWalletId(walletsArr[0].id);
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to load wallets.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const fetchActiveWallet = async () => {
     if (!user) return;
-    const userDoc = await getDoc(doc(db, "users", user.uid));
-    if (userDoc.exists()) {
-      setActiveWalletId(userDoc.data().activeWallet || null);
+    try {
+      setActiveWalletId(await getActiveWalletId(user.uid));
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "Failed to load active wallet."
+      );
     }
   };
 
   useEffect(() => {
-    if (open) {
-      fetchWallets();
-      fetchActiveWallet();
+    if (!open || !user) {
+      return;
     }
-    // eslint-disable-next-line
-  }, [open]);
+
+    fetchWallets();
+    fetchActiveWallet();
+
+    const unsubscribeWallets = subscribeUserTable("wallets", user.uid, () => {
+      void fetchWallets();
+    });
+
+    return () => {
+      unsubscribeWallets();
+    };
+  }, [open, user]);
 
   const handleAddWallet = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,25 +114,18 @@ export default function WalletModal({
       return;
     }
     if (!user) return;
-    await addDoc(collection(db, "wallets", user.uid, "userWallets"), {
-      name: name.trim(),
-      budget: Number(budget),
-      createdAt: new Date().toISOString(),
-    });
+    await addWallet(user.uid, name, Number(budget));
     setName("");
     setBudget("");
     fetchWallets();
+    fetchActiveWallet();
   };
 
   const handleDelete = async (id: string) => {
     if (!user) return;
-    await deleteDoc(doc(db, "wallets", user.uid, "userWallets", id));
+    await deleteWallet(user.uid, id);
     if (activeWalletId === id) {
-      await setDoc(
-        doc(db, "users", user.uid),
-        { activeWallet: null },
-        { merge: true }
-      );
+      await setActiveWallet(user.uid, null);
       setActiveWalletId(null);
     }
     fetchWallets();
@@ -123,8 +144,8 @@ export default function WalletModal({
       setError("Please enter a valid name and a budget greater than 0.");
       return;
     }
-    await updateDoc(doc(db, "wallets", user.uid, "userWallets", id), {
-      name: editName.trim(),
+    await updateWallet(user.uid, id, {
+      name: editName,
       budget: Number(editBudget),
     });
     setEditId(null);
@@ -143,11 +164,7 @@ export default function WalletModal({
 
   const handleSetActive = async (id: string) => {
     if (!user) return;
-    await setDoc(
-      doc(db, "users", user.uid),
-      { activeWallet: id },
-      { merge: true }
-    );
+    await setActiveWallet(user.uid, id);
     setActiveWalletId(id);
     setJustActivatedId(id);
     setTimeout(() => setJustActivatedId(null), 900);
@@ -162,8 +179,9 @@ export default function WalletModal({
     ...wallets.filter((w) => w.id !== activeWalletId),
   ];
 
-  if (!open) return null;
-  return (
+  if (!open || !portalReady) return null;
+
+  return createPortal(
     <div className={styles.backdrop} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <h2 className={styles.title}>Wallets</h2>
@@ -193,8 +211,8 @@ export default function WalletModal({
             onMouseLeave={addButton.handlePointerLeave}
             style={{
               background: addButton.pointer
-                ? `radial-gradient(circle at ${addButton.pointer.x}px ${addButton.pointer.y}px, #fd523b 0%, #ef8a57 100%)`
-                : "linear-gradient(90deg, #ef8a57 60%, #fd523b 100%)",
+                ? `radial-gradient(circle at ${addButton.pointer.x}px ${addButton.pointer.y}px, var(--buck-gold) 0%, var(--buck-orange) 48%, var(--buck-coral) 100%)`
+                : "linear-gradient(135deg, var(--buck-orange), var(--buck-coral))",
               transition: addButton.pointer ? "background 0.1s" : "background 0.3s",
             }}
             whileHover={{ scale: 1.03 }}
@@ -317,6 +335,7 @@ export default function WalletModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

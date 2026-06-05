@@ -1,0 +1,921 @@
+import { getSupabaseClient } from "@/utils/supabase";
+import {
+  designPreviewUserId,
+  isDesignPreviewMode,
+} from "@/utils/designPreview";
+
+export type BuckCategory = {
+  id: string;
+  name: string;
+};
+
+export type BuckExpense = {
+  id: string;
+  amount: number;
+  category: string;
+  categoryId?: string | null;
+  date: string;
+  description: string;
+  goalId?: string | null;
+  walletId?: string | null;
+  userId: string;
+};
+
+export type BuckGoal = {
+  id: string;
+  goalName: string;
+  targetAmount: number;
+  currentAmount: number;
+  targetDate?: string;
+  createdAt: string;
+  attitude?: string;
+  isActive: boolean;
+  completed: boolean;
+  aiRecommendation?: string;
+  aiRecommendedBudget?: number | null;
+};
+
+export type BuckWallet = {
+  id: string;
+  name: string;
+  budget: number;
+};
+
+type TableName = "wallets" | "categories" | "goals" | "expenses";
+
+const defaultCategoryNames = [
+  "Food",
+  "Gas Money",
+  "Video Games",
+  "Shopping",
+  "Bills",
+  "Education",
+  "Electronics",
+  "Entertainment",
+  "Health",
+  "Home",
+  "Insurance",
+  "Social",
+  "Sport",
+  "Tax",
+  "Telephone",
+  "Transportation",
+  "Uncategorized",
+];
+
+const previewCategories: BuckCategory[] = [
+  { id: "preview-category-food", name: "Food" },
+  { id: "preview-category-transport", name: "Transportation" },
+  { id: "preview-category-shopping", name: "Shopping" },
+  { id: "preview-category-bills", name: "Bills" },
+  { id: "preview-category-goals", name: "Goal Transfer" },
+];
+
+const previewWallets: BuckWallet[] = [
+  { id: "preview-wallet-main", name: "Weekly Wallet", budget: 4280 },
+  { id: "preview-wallet-savings", name: "Savings Buffer", budget: 1850 },
+];
+
+const previewGoals: BuckGoal[] = [
+  {
+    id: "preview-goal-emergency",
+    goalName: "Emergency Fund",
+    targetAmount: 12000,
+    currentAmount: 5280,
+    targetDate: "2026-08-31",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    attitude: "Moderate",
+    isActive: true,
+    completed: false,
+    aiRecommendation:
+      "Keep a PHP 850 weekend envelope and move PHP 300 to savings after bills clear.",
+    aiRecommendedBudget: 850,
+  },
+  {
+    id: "preview-goal-laptop",
+    goalName: "Laptop Upgrade",
+    targetAmount: 35000,
+    currentAmount: 8600,
+    targetDate: "2026-12-15",
+    createdAt: "2026-05-15T00:00:00.000Z",
+    attitude: "Normal",
+    isActive: false,
+    completed: false,
+    aiRecommendation:
+      "Hold nonessential shopping below PHP 900 this week to keep the goal moving.",
+    aiRecommendedBudget: 900,
+  },
+];
+
+const previewExpenses: BuckExpense[] = [
+  {
+    id: "preview-expense-1",
+    amount: 220,
+    category: "Food",
+    categoryId: "preview-category-food",
+    date: "2026-06-01",
+    description: "Lunch and coffee",
+    goalId: "preview-goal-emergency",
+    walletId: "preview-wallet-main",
+    userId: designPreviewUserId,
+  },
+  {
+    id: "preview-expense-2",
+    amount: 180,
+    category: "Transportation",
+    categoryId: "preview-category-transport",
+    date: "2026-06-02",
+    description: "Commute fare",
+    goalId: "preview-goal-emergency",
+    walletId: "preview-wallet-main",
+    userId: designPreviewUserId,
+  },
+  {
+    id: "preview-expense-3",
+    amount: 640,
+    category: "Bills",
+    categoryId: "preview-category-bills",
+    date: "2026-06-03",
+    description: "Internet bill",
+    goalId: "preview-goal-emergency",
+    walletId: "preview-wallet-main",
+    userId: designPreviewUserId,
+  },
+  {
+    id: "preview-expense-4",
+    amount: 399,
+    category: "Shopping",
+    categoryId: "preview-category-shopping",
+    date: "2026-06-05",
+    description: "Subscription renewal",
+    goalId: "preview-goal-laptop",
+    walletId: "preview-wallet-main",
+    userId: designPreviewUserId,
+  },
+];
+
+function toNumber(value: unknown) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function mapCategory(row: Record<string, unknown>): BuckCategory {
+  return {
+    id: String(row.id),
+    name: String(row.name || "Unnamed category"),
+  };
+}
+
+function mapExpense(row: Record<string, unknown>): BuckExpense {
+  return {
+    id: String(row.id),
+    amount: toNumber(row.amount),
+    category: String(row.category_name || "Uncategorized"),
+    categoryId: row.category_id ? String(row.category_id) : null,
+    date: String(row.spent_on || row.created_at || ""),
+    description: String(row.description || ""),
+    goalId: row.goal_id ? String(row.goal_id) : null,
+    walletId: row.wallet_id ? String(row.wallet_id) : null,
+    userId: String(row.user_id),
+  };
+}
+
+function mapGoal(row: Record<string, unknown>): BuckGoal {
+  return {
+    id: String(row.id),
+    goalName: String(row.goal_name || "Untitled goal"),
+    targetAmount: toNumber(row.target_amount),
+    currentAmount: toNumber(row.current_amount),
+    targetDate: row.target_date ? String(row.target_date) : undefined,
+    createdAt: String(row.created_at || new Date().toISOString()),
+    attitude: row.attitude ? String(row.attitude) : undefined,
+    isActive: Boolean(row.is_active),
+    completed: Boolean(row.completed),
+    aiRecommendation: row.ai_recommendation
+      ? String(row.ai_recommendation)
+      : undefined,
+    aiRecommendedBudget:
+      row.ai_recommended_budget === null || row.ai_recommended_budget === undefined
+        ? null
+        : toNumber(row.ai_recommended_budget),
+  };
+}
+
+function mapWallet(row: Record<string, unknown>): BuckWallet {
+  return {
+    id: String(row.id),
+    name: String(row.name || "Wallet"),
+    budget: toNumber(row.budget),
+  };
+}
+
+async function getCurrentUserId() {
+  if (isDesignPreviewMode) {
+    return designPreviewUserId;
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.auth.getUser();
+
+  if (error || !data.user) {
+    throw new Error("User not authenticated");
+  }
+
+  return data.user.id;
+}
+
+export function subscribeUserTable(
+  table: TableName,
+  userId: string,
+  onChange: () => void
+) {
+  if (isDesignPreviewMode) {
+    return () => {};
+  }
+
+  const supabase = getSupabaseClient();
+  const channel = supabase
+    .channel(`${table}:${userId}:${Math.random().toString(36).slice(2)}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table,
+        filter: `user_id=eq.${userId}`,
+      },
+      onChange
+    )
+    .subscribe();
+
+  return () => {
+    void supabase.removeChannel(channel);
+  };
+}
+
+export async function ensureDefaultCategories(userId: string) {
+  if (isDesignPreviewMode) {
+    return previewCategories;
+  }
+
+  const supabase = getSupabaseClient();
+  const existingCategories = await listCategories(userId);
+
+  if (existingCategories.length > 0) {
+    return existingCategories;
+  }
+
+  const { error } = await supabase.from("categories").insert(
+    defaultCategoryNames.map((name, index) => ({
+      user_id: userId,
+      name,
+      sort_order: (index + 1) * 10,
+    }))
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return listCategories(userId);
+}
+
+export async function listCategories(userId: string) {
+  if (isDesignPreviewMode) {
+    return previewCategories;
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("categories")
+    .select("id, name, sort_order")
+    .eq("user_id", userId)
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map(mapCategory);
+}
+
+export async function addCategory(userId: string, name: string) {
+  if (isDesignPreviewMode) {
+    return {
+      id: `preview-category-${name.toLowerCase().replace(/\s+/g, "-")}`,
+      name: name.trim(),
+    };
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("categories")
+    .insert({ user_id: userId, name: name.trim() })
+    .select("id, name")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapCategory(data);
+}
+
+export async function updateCategoryName(
+  userId: string,
+  categoryId: string,
+  name: string
+) {
+  if (isDesignPreviewMode) {
+    return;
+  }
+
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("categories")
+    .update({ name: name.trim() })
+    .eq("id", categoryId)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function deleteCategory(userId: string, categoryId: string) {
+  if (isDesignPreviewMode) {
+    return;
+  }
+
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("categories")
+    .delete()
+    .eq("id", categoryId)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function listExpenses(userId: string) {
+  if (isDesignPreviewMode) {
+    return previewExpenses;
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("expenses")
+    .select(
+      "id, user_id, wallet_id, goal_id, category_id, category_name, amount, description, spent_on, created_at"
+    )
+    .eq("user_id", userId)
+    .order("spent_on", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map(mapExpense);
+}
+
+async function getCategoryByName(userId: string, categoryName: string) {
+  if (isDesignPreviewMode) {
+    return (
+      previewCategories.find(
+        (category) =>
+          category.name.toLowerCase() === categoryName.toLowerCase()
+      ) ?? null
+    );
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("categories")
+    .select("id, name")
+    .eq("user_id", userId)
+    .ilike("name", categoryName)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ? mapCategory(data) : null;
+}
+
+export async function addExpense(
+  userId: string,
+  expense: {
+    amount: number;
+    categoryName?: string;
+    categoryId?: string | null;
+    date: string;
+    description: string;
+    goalId?: string | null;
+    walletId?: string | null;
+  }
+) {
+  if (isDesignPreviewMode) {
+    return {
+      id: `preview-expense-${Date.now()}`,
+      amount: expense.amount,
+      category: expense.categoryName || "Uncategorized",
+      categoryId: expense.categoryId ?? null,
+      date: expense.date,
+      description: expense.description,
+      goalId: expense.goalId ?? null,
+      walletId: expense.walletId ?? "preview-wallet-main",
+      userId,
+    };
+  }
+
+  const supabase = getSupabaseClient();
+  const categoryName = expense.categoryName?.trim() || "Uncategorized";
+  const category =
+    expense.categoryId || categoryName === "Uncategorized"
+      ? null
+      : await getCategoryByName(userId, categoryName);
+
+  const { data, error } = await supabase
+    .from("expenses")
+    .insert({
+      user_id: userId,
+      wallet_id: expense.walletId ?? null,
+      goal_id: expense.goalId ?? null,
+      category_id: expense.categoryId ?? category?.id ?? null,
+      category_name: category?.name ?? categoryName,
+      amount: expense.amount,
+      description: expense.description,
+      spent_on: expense.date || new Date().toISOString().slice(0, 10),
+    })
+    .select(
+      "id, user_id, wallet_id, goal_id, category_id, category_name, amount, description, spent_on, created_at"
+    )
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapExpense(data);
+}
+
+export async function deleteExpense(userId: string, expenseId: string) {
+  if (isDesignPreviewMode) {
+    return;
+  }
+
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("expenses")
+    .delete()
+    .eq("id", expenseId)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function listGoals(userId: string) {
+  if (isDesignPreviewMode) {
+    return previewGoals;
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("goals")
+    .select(
+      "id, goal_name, target_amount, current_amount, target_date, created_at, attitude, is_active, completed, ai_recommendation, ai_recommended_budget"
+    )
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map(mapGoal);
+}
+
+export async function createGoalRecord(
+  goalName: string,
+  targetAmount: string,
+  attitude: string,
+  targetDate: string,
+  aiRecommendation = ""
+) {
+  if (isDesignPreviewMode) {
+    return {
+      id: `preview-goal-${Date.now()}`,
+      goalName,
+      targetAmount: Number(targetAmount),
+      currentAmount: 0,
+      targetDate,
+      createdAt: new Date().toISOString(),
+      attitude,
+      isActive: false,
+      completed: false,
+      aiRecommendation,
+      aiRecommendedBudget: null,
+    };
+  }
+
+  const userId = await getCurrentUserId();
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("goals")
+    .insert({
+      user_id: userId,
+      goal_name: goalName,
+      target_amount: Number(targetAmount),
+      attitude,
+      target_date: targetDate,
+      is_active: false,
+      ai_recommendation: aiRecommendation,
+    })
+    .select(
+      "id, goal_name, target_amount, current_amount, target_date, created_at, attitude, is_active, completed, ai_recommendation, ai_recommended_budget"
+    )
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapGoal(data);
+}
+
+export async function deleteGoalRecord(goalId: string) {
+  if (isDesignPreviewMode) {
+    return;
+  }
+
+  const userId = await getCurrentUserId();
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("goals")
+    .delete()
+    .eq("id", goalId)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function updateGoalStatusRecord(goalId: string, isActive: boolean) {
+  if (isDesignPreviewMode) {
+    return;
+  }
+
+  const userId = await getCurrentUserId();
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("goals")
+    .update({ is_active: isActive })
+    .eq("id", goalId)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function setOnlyGoalActiveRecord(goalId: string) {
+  if (isDesignPreviewMode) {
+    return;
+  }
+
+  const userId = await getCurrentUserId();
+  const supabase = getSupabaseClient();
+  const { error: deactivateError } = await supabase
+    .from("goals")
+    .update({ is_active: false })
+    .eq("user_id", userId);
+
+  if (deactivateError) {
+    throw new Error(deactivateError.message);
+  }
+
+  const { error: activateError } = await supabase
+    .from("goals")
+    .update({ is_active: true })
+    .eq("id", goalId)
+    .eq("user_id", userId);
+
+  if (activateError) {
+    throw new Error(activateError.message);
+  }
+}
+
+export async function updateGoalRecord(
+  goalId: string,
+  goalName: string,
+  targetAmount: string,
+  attitude: string,
+  targetDate: string,
+  aiRecommendation = ""
+) {
+  if (isDesignPreviewMode) {
+    return;
+  }
+
+  const userId = await getCurrentUserId();
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("goals")
+    .update({
+      goal_name: goalName,
+      target_amount: Number(targetAmount),
+      attitude,
+      target_date: targetDate,
+      ai_recommendation: aiRecommendation,
+    })
+    .eq("id", goalId)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function updateGoalProgress(
+  userId: string,
+  goalId: string,
+  currentAmount: number,
+  completed: boolean
+) {
+  if (isDesignPreviewMode) {
+    return;
+  }
+
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("goals")
+    .update({
+      current_amount: currentAmount,
+      completed,
+    })
+    .eq("id", goalId)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function updateGoalAiRecommendedBudget(
+  userId: string,
+  goalId: string,
+  aiRecommendedBudget: number
+) {
+  if (isDesignPreviewMode) {
+    return;
+  }
+
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("goals")
+    .update({ ai_recommended_budget: aiRecommendedBudget })
+    .eq("id", goalId)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function listWallets(userId: string) {
+  if (isDesignPreviewMode) {
+    return previewWallets;
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("wallets")
+    .select("id, name, budget")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map(mapWallet);
+}
+
+export async function getActiveWalletId(userId: string) {
+  if (isDesignPreviewMode) {
+    return previewWallets[0]?.id ?? null;
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("active_wallet_id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data?.active_wallet_id ? String(data.active_wallet_id) : null;
+}
+
+export async function setActiveWallet(userId: string, walletId: string | null) {
+  if (isDesignPreviewMode) {
+    return;
+  }
+
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("profiles")
+    .upsert(
+      {
+        id: userId,
+        active_wallet_id: walletId,
+      },
+      { onConflict: "id" }
+    );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function getActiveWallet(userId: string) {
+  if (isDesignPreviewMode) {
+    return previewWallets[0] ?? null;
+  }
+
+  const wallets = await listWallets(userId);
+  let activeWalletId = await getActiveWalletId(userId);
+
+  if (!activeWalletId && wallets.length === 1) {
+    activeWalletId = wallets[0].id;
+    await setActiveWallet(userId, activeWalletId);
+  }
+
+  if (!activeWalletId) {
+    return null;
+  }
+
+  return wallets.find((wallet) => wallet.id === activeWalletId) ?? null;
+}
+
+export async function addWallet(userId: string, name: string, budget: number) {
+  if (isDesignPreviewMode) {
+    return {
+      id: `preview-wallet-${name.toLowerCase().replace(/\s+/g, "-")}`,
+      name: name.trim(),
+      budget,
+    };
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("wallets")
+    .insert({
+      user_id: userId,
+      name: name.trim(),
+      budget,
+    })
+    .select("id, name, budget")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const wallet = mapWallet(data);
+  const wallets = await listWallets(userId);
+
+  if (wallets.length === 1) {
+    await setActiveWallet(userId, wallet.id);
+  }
+
+  return wallet;
+}
+
+export async function updateWallet(
+  userId: string,
+  walletId: string,
+  values: { name?: string; budget?: number }
+) {
+  if (isDesignPreviewMode) {
+    return;
+  }
+
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("wallets")
+    .update({
+      ...(values.name !== undefined ? { name: values.name.trim() } : {}),
+      ...(values.budget !== undefined ? { budget: values.budget } : {}),
+    })
+    .eq("id", walletId)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function deleteWallet(userId: string, walletId: string) {
+  if (isDesignPreviewMode) {
+    return;
+  }
+
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("wallets")
+    .delete()
+    .eq("id", walletId)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function addExpenseWithWalletDeduction(
+  userId: string,
+  expense: {
+    amount: number;
+    categoryName?: string;
+    date: string;
+    description: string;
+    goalId?: string | null;
+  }
+) {
+  if (isDesignPreviewMode) {
+    return addExpense(userId, {
+      ...expense,
+      walletId: previewWallets[0]?.id ?? null,
+    });
+  }
+
+  const activeWallet = await getActiveWallet(userId);
+
+  if (!activeWallet) {
+    throw new Error("No active wallet. Please create or select a wallet first.");
+  }
+
+  if (expense.amount > activeWallet.budget) {
+    throw new Error("Expense exceeds your wallet balance.");
+  }
+
+  const savedExpense = await addExpense(userId, {
+    ...expense,
+    walletId: activeWallet.id,
+  });
+
+  await updateWallet(userId, activeWallet.id, {
+    budget: activeWallet.budget - expense.amount,
+  });
+
+  return savedExpense;
+}
+
+export async function deleteExpenseAndRestoreWallet(
+  userId: string,
+  expenseId: string,
+  amount: number
+) {
+  if (isDesignPreviewMode) {
+    return;
+  }
+
+  const expenses = await listExpenses(userId);
+  const expense = expenses.find((item) => item.id === expenseId);
+  await deleteExpense(userId, expenseId);
+
+  const walletId = expense?.walletId;
+  if (!walletId) {
+    const activeWallet = await getActiveWallet(userId);
+
+    if (!activeWallet) {
+      return;
+    }
+
+    await updateWallet(userId, activeWallet.id, {
+      budget: activeWallet.budget + amount,
+    });
+    return;
+  }
+
+  const wallets = await listWallets(userId);
+  const wallet = wallets.find((item) => item.id === walletId);
+
+  if (wallet) {
+    await updateWallet(userId, wallet.id, {
+      budget: wallet.budget + amount,
+    });
+  }
+}

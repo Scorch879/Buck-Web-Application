@@ -3,25 +3,20 @@
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { collection, onSnapshot } from "firebase/firestore";
-import DashboardHeader from "@/component/dashboardheader";
+import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useAuthGuard } from "@/utils/useAuthGuard";
-import { db } from "@/utils/firebase";
 import { formatCurrency, toNumber } from "@/utils/formatters";
+import {
+  ensureDefaultCategories,
+  listExpenses,
+  subscribeUserTable,
+  type BuckCategory,
+  type BuckExpense,
+} from "@/utils/supabaseData";
 import "./style.css";
 
-type Category = {
-  id: string;
-  name: string;
-};
-
-type Expense = {
-  id: string;
-  amount: number | string;
-  category?: string;
-  date?: string;
-  description?: string;
-};
+type Category = BuckCategory;
+type Expense = BuckExpense;
 
 type WeeklyDatum = {
   day: string;
@@ -166,28 +161,30 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user) return;
 
-    const categoriesRef = collection(db, "users", user.uid, "categories");
-    const unsubscribeCategories = onSnapshot(categoriesRef, (snapshot) => {
-      setCategories(
-        snapshot.docs.map((categoryDoc) => ({
-          id: categoryDoc.id,
-          name: String(categoryDoc.data().name || "Unnamed category"),
-        }))
-      );
-    });
+    const loadCategories = () => {
+      ensureDefaultCategories(user.uid)
+        .then(setCategories)
+        .catch((error) => console.error("Failed to load categories:", error));
+    };
+    const loadExpenses = () => {
+      listExpenses(user.uid)
+        .then(setExpenses)
+        .catch((error) => console.error("Failed to load expenses:", error));
+    };
 
-    const expensesRef = collection(db, "users", user.uid, "expenses");
-    const unsubscribeExpenses = onSnapshot(expensesRef, (snapshot) => {
-      setExpenses(
-        snapshot.docs.map(
-          (expenseDoc) =>
-            ({
-              id: expenseDoc.id,
-              ...expenseDoc.data(),
-            }) as Expense
-        )
-      );
-    });
+    loadCategories();
+    loadExpenses();
+
+    const unsubscribeCategories = subscribeUserTable(
+      "categories",
+      user.uid,
+      loadCategories
+    );
+    const unsubscribeExpenses = subscribeUserTable(
+      "expenses",
+      user.uid,
+      loadExpenses
+    );
 
     return () => {
       unsubscribeCategories();
@@ -214,20 +211,13 @@ export default function Dashboard() {
   );
 
   if (loading || !user) {
-    return (
-      <div className="loading-spinner">
-        <div className="spinner" />
-        <div className="loading-text">Loading Buck...</div>
-      </div>
-    );
+    return <DashboardPageSkeleton variant="home" />;
   }
 
   const displayName = user.displayName || user.email || "friend";
 
   return (
-    <div className="dashboard">
-      <DashboardHeader />
-      <div className="dashboard-container">
+    <div className="dashboard-container">
         <section className="dashboard-welcome-card">
           <Image
             src="/BuckMascot.png"
@@ -290,7 +280,6 @@ export default function Dashboard() {
             )}
           </div>
         </section>
-      </div>
     </div>
   );
 }

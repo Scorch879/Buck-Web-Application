@@ -9,6 +9,7 @@ import {
   Legend,
 } from "chart.js";
 import styles from "./spending-bar.module.css";
+import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import { statisticsTestData } from "./testData";
 import { formatCurrency } from "@/utils/formatters";
 
@@ -22,6 +23,9 @@ interface SpendingBarProps {
   amounts?: number[];
 }
 const SpendingBar: React.FC<SpendingBarProps> = ({ mode = 'week', weekIndex, monthIndex, categories, amounts }) => {
+  const isDarkTheme = useAuthPageTheme();
+  const chartText = isDarkTheme ? "#fff8ed" : "#2b2523";
+  const chartGrid = isDarkTheme ? "rgba(255,211,154,0.16)" : "rgba(120,92,70,0.18)";
   const fallbackCategories = statisticsTestData.categories;
   const fallbackAmounts = (() => {
     if (mode === 'week') {
@@ -47,7 +51,15 @@ const SpendingBar: React.FC<SpendingBarProps> = ({ mode = 'week', weekIndex, mon
     }
     return Array(fallbackCategories.length).fill(0);
   })();
-  const barColors = statisticsTestData.barColors;
+  const barColors = [
+    "#ff3838",
+    "#f47536",
+    "#ffc547",
+    "#ff8d3d",
+    "#b83324",
+    "#ffb85c",
+    "#fff0c8",
+  ];
   const usedCategories = categories && categories.length ? categories : fallbackCategories;
   const usedAmounts = amounts && amounts.length === usedCategories.length ? amounts : fallbackAmounts;
 
@@ -83,13 +95,13 @@ const SpendingBar: React.FC<SpendingBarProps> = ({ mode = 'week', weekIndex, mon
     scales: {
       x: {
         grid: { display: false },
-        ticks: { color: "#2c3e50", font: { weight: 600 } },
+        ticks: { color: chartText, font: { weight: 600 } },
       },
       y: {
         beginAtZero: true,
         max: yMax,
-        grid: { color: "#eee" },
-        ticks: { color: "#2c3e50" },
+        grid: { color: chartGrid },
+        ticks: { color: chartText },
       },
     },
   };

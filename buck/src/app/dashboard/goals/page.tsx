@@ -3,17 +3,9 @@ import React, { useEffect, useState, useRef } from "react";
 import "./style.css";
 import "./progress-bar.css";
 import { useRouter } from "next/navigation";
-import DashboardHeader from "@/component/dashboardheader";
+import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
+import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import { useAuthGuard } from "@/utils/useAuthGuard";
-import { db } from "@/utils/firebase";
-import {
-  collection,
-  getDocs,
-  doc,
-  updateDoc,
-  getDoc,
-  addDoc,
-} from "firebase/firestore";
 import CreateGoalModal from "./CreateGoalModal";
 import {
   deleteGoal,
@@ -34,6 +26,17 @@ import {
   Legend,
 } from "chart.js";
 import { formatCurrency } from "@/utils/formatters";
+import {
+  addExpenseWithWalletDeduction,
+  getActiveWallet,
+  listExpenses,
+  listGoals,
+  subscribeUserTable,
+  updateGoalAiRecommendedBudget,
+  updateGoalProgress,
+  type BuckExpense,
+  type BuckGoal,
+} from "@/utils/supabaseData";
 
 ChartJS.register(
   CategoryScale,
@@ -45,22 +48,27 @@ ChartJS.register(
   Legend
 );
 
-// --- Goal interface for type safety ---
-interface Goal {
-  id: string;
-  goalName: string;
-  targetAmount: number;
-  currentAmount?: number;
-  targetDate?: string;
-  createdAt: string;
-  attitude?: string;
-  isActive?: boolean;
-  completed?: boolean;
-}
+type Goal = BuckGoal;
 
 const GoalsPage = () => {
   const router = useRouter();
   const { user, loading } = useAuthGuard();
+  const isDarkTheme = useAuthPageTheme();
+  const chartTextColor = isDarkTheme ? "#fff8ed" : "#2b2523";
+  const chartGridColor = isDarkTheme
+    ? "rgba(255,211,154,0.16)"
+    : "rgba(120,92,70,0.18)";
+  const primaryButtonBackground = isDarkTheme
+    ? "linear-gradient(135deg, #ffc547, #f47536)"
+    : "linear-gradient(135deg, #f47536, #ff3838)";
+  const primaryButtonColor = isDarkTheme ? "#241409" : "#fffaf4";
+  const modalBackground = "var(--buck-surface)";
+  const softBackground = isDarkTheme
+    ? "rgba(255,197,71,0.10)"
+    : "rgba(255,240,200,0.52)";
+  const fieldBackground = isDarkTheme
+    ? "rgba(255,197,71,0.08)"
+    : "rgba(255,250,244,0.74)";
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loadingGoals, setLoadingGoals] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -88,7 +96,7 @@ const GoalsPage = () => {
   const [expenseError, setExpenseError] = useState("");
 
   // Add state for expenses
-  const [expenses, setExpenses] = useState<any[]>([]);
+  const [expenses, setExpenses] = useState<BuckExpense[]>([]);
 
   // --- AI category suggestion for goals page ---
   async function getSuggestedCategory(
@@ -227,11 +235,12 @@ const GoalsPage = () => {
     const newAmount = (progressGoal.currentAmount || 0) + amountToAdd;
     const isCompleted = newAmount >= progressGoal.targetAmount;
     try {
-      const goalRef = doc(db, "goals", user.uid, "userGoals", progressGoal.id);
-      await updateDoc(goalRef, {
-        currentAmount: newAmount,
-        completed: isCompleted,
-      });
+      await updateGoalProgress(
+        user.uid,
+        progressGoal.id,
+        newAmount,
+        isCompleted
+      );
       // Update local state
       setGoals((goals) =>
         goals.map((goal) =>
@@ -296,18 +305,12 @@ const GoalsPage = () => {
       if (!res.ok) throw new Error("Failed to fetch forecast");
       const data = await res.json();
       setForecastData(data);
-      // Save AI recommended budget to Firestore if present
       if (data.ai_recommended_budget && selectedGoal && user) {
-        const goalRef = doc(
-          db,
-          "goals",
+        await updateGoalAiRecommendedBudget(
           user.uid,
-          "userGoals",
-          selectedGoal.id
+          selectedGoal.id,
+          Number(data.ai_recommended_budget)
         );
-        await updateDoc(goalRef, {
-          aiRecommendedBudget: data.ai_recommended_budget,
-        });
       }
     } catch (err: any) {
       setForecastError(err.message || "Unknown error");
@@ -342,15 +345,29 @@ const GoalsPage = () => {
     const fetchGoals = async () => {
       if (user) {
         setLoadingGoals(true);
-        const goalsRef = collection(db, "goals", user.uid, "userGoals");
-        const snapshot = await getDocs(goalsRef);
-        setGoals(
-          snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Goal))
-        );
-        setLoadingGoals(false);
+        try {
+          setGoals(await listGoals(user.uid));
+        } catch (error) {
+          console.error("Failed to load goals:", error);
+        } finally {
+          setLoadingGoals(false);
+        }
       }
     };
+
     fetchGoals();
+
+    if (!user) {
+      return;
+    }
+
+    const unsubscribeGoals = subscribeUserTable("goals", user.uid, () => {
+      void fetchGoals();
+    });
+
+    return () => {
+      unsubscribeGoals();
+    };
   }, [user]);
 
   useEffect(() => {
@@ -416,25 +433,23 @@ const GoalsPage = () => {
   useEffect(() => {
     const fetchWalletBudget = async () => {
       if (!user) return;
-      // Fetch active wallet ID from user doc
-      const userDocRef = doc(db, "users", user.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      if (!userDocSnap.exists()) return;
-      const activeWalletId = userDocSnap.data().activeWallet;
-      if (!activeWalletId) return;
-      // Fetch wallet doc
-      const walletDocRef = doc(
-        db,
-        "wallets",
-        user.uid,
-        "userWallets",
-        activeWalletId
-      );
-      const walletDocSnap = await getDoc(walletDocRef);
-      if (!walletDocSnap.exists()) return;
-      setWalletBudget(walletDocSnap.data().budget || null);
+      const activeWallet = await getActiveWallet(user.uid);
+      setWalletBudget(activeWallet?.budget ?? null);
     };
+
     fetchWalletBudget();
+
+    if (!user) {
+      return;
+    }
+
+    const unsubscribeWallets = subscribeUserTable("wallets", user.uid, () => {
+      void fetchWalletBudget();
+    });
+
+    return () => {
+      unsubscribeWallets();
+    };
   }, [user]);
 
   useEffect(() => {
@@ -478,18 +493,12 @@ const GoalsPage = () => {
         if (!res.ok) throw new Error("Failed to fetch forecast");
         const data = await res.json();
         setForecastData(data);
-        // Save AI recommended budget to Firestore if present
         if (data.ai_recommended_budget && selectedGoal && user) {
-          const goalRef = doc(
-            db,
-            "goals",
+          await updateGoalAiRecommendedBudget(
             user.uid,
-            "userGoals",
-            selectedGoal.id
+            selectedGoal.id,
+            Number(data.ai_recommended_budget)
           );
-          await updateDoc(goalRef, {
-            aiRecommendedBudget: data.ai_recommended_budget,
-          });
         }
       } catch (err: any) {
         setForecastError(err.message || "Unknown error");
@@ -531,53 +540,16 @@ const GoalsPage = () => {
     setExpenseLoading(true);
     setExpenseError("");
     try {
-      // Get AI category for the expense description
       const aiCategory = await getSuggestedCategory(expenseDesc);
-      // Add expense with AI category to backend
-      const res = await fetch(
-        "https://buck-web-application-1.onrender.com/expenses/",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user_id: user.uid,
-            goal_id: selectedGoal.id,
-            date: expenseDate,
-            amount: expenseValue,
-            description: expenseDesc,
-            category: aiCategory || "Uncategorized",
-          }),
-        }
-      );
-      if (!res.ok) throw new Error("Failed to add expense");
-      // Also add expense to Firestore for statistics
-      await addDoc(collection(db, "users", user.uid, "expenses"), {
+      await addExpenseWithWalletDeduction(user.uid, {
         date: expenseDate,
         amount: expenseValue,
         description: expenseDesc,
-        category: aiCategory || "Uncategorized",
+        categoryName: aiCategory || "Uncategorized",
         goalId: selectedGoal.id,
-        userId: user.uid,
       });
-      // Subtract from wallet in Firestore
-      const userDocRef = doc(db, "users", user.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      if (!userDocSnap.exists()) throw new Error("User doc not found");
-      const activeWalletId = userDocSnap.data().activeWallet;
-      if (!activeWalletId) throw new Error("No active wallet");
-      const walletDocRef = doc(
-        db,
-        "wallets",
-        user.uid,
-        "userWallets",
-        activeWalletId
-      );
-      const walletDocSnap = await getDoc(walletDocRef);
-      if (!walletDocSnap.exists()) throw new Error("Wallet doc not found");
-      const walletAmount = walletDocSnap.data().budget || 0;
-      const newWalletAmount = walletAmount - expenseValue;
-      await updateDoc(walletDocRef, { budget: newWalletAmount });
-      setWalletBudget(newWalletAmount);
+      const activeWallet = await getActiveWallet(user.uid);
+      setWalletBudget(activeWallet?.budget ?? null);
       setShowExpenseModal(false);
       setExpenseDate("");
       setExpenseAmount("");
@@ -608,12 +580,12 @@ const GoalsPage = () => {
         {
           label: "Forecasted Daily Expense",
           data: forecastVals,
-          borderColor: "#ef8a57",
-          backgroundColor: "rgba(239,138,87,0.15)",
+          borderColor: "#f47536",
+          backgroundColor: "rgba(244,117,54,0.16)",
           fill: true,
           tension: 0.4,
-          pointBackgroundColor: "#ef8a57",
-          pointBorderColor: "#ef8a57",
+          pointBackgroundColor: "#f47536",
+          pointBorderColor: "#f47536",
           pointRadius: 4,
           pointHoverRadius: 6,
           borderWidth: 3,
@@ -621,12 +593,12 @@ const GoalsPage = () => {
         {
           label: "Actual Daily Expense",
           data: actualVals,
-          borderColor: "#3498db",
-          backgroundColor: "rgba(52,152,219,0.15)",
+          borderColor: "#ffc547",
+          backgroundColor: "rgba(255,197,71,0.18)",
           fill: true,
           tension: 0.4,
-          pointBackgroundColor: "#3498db",
-          pointBorderColor: "#3498db",
+          pointBackgroundColor: "#ffc547",
+          pointBorderColor: "#ffc547",
           pointRadius: 4,
           pointHoverRadius: 6,
           borderWidth: 3,
@@ -638,34 +610,40 @@ const GoalsPage = () => {
   // Fetch expenses for the selected goal
   useEffect(() => {
     if (!user || !selectedGoal) return;
-    const expensesRef = collection(db, "users", user.uid, "expenses");
-    getDocs(expensesRef).then((snapshot) => {
-      const allExpenses = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setExpenses(
-        allExpenses.filter((exp) => (exp as any).goalId === selectedGoal.id)
-      );
-    });
+
+    const fetchExpenses = () => {
+      listExpenses(user.uid)
+        .then((allExpenses) =>
+          setExpenses(
+            allExpenses.filter((expense) => expense.goalId === selectedGoal.id)
+          )
+        )
+        .catch((error) => console.error("Failed to load expenses:", error));
+    };
+
+    fetchExpenses();
+
+    const unsubscribeExpenses = subscribeUserTable(
+      "expenses",
+      user.uid,
+      fetchExpenses
+    );
+
+    return () => {
+      unsubscribeExpenses();
+    };
   }, [user, selectedGoal]);
 
   const chartRef = useRef<any>(null);
 
   if (loading || !user || loadingGoals) {
-    return (
-      <div className="loading-spinner">
-        <div className="spinner"></div>
-        <div className="loading-text">Loading Buck...</div>
-      </div>
-    );
+    return <DashboardPageSkeleton variant="goals" />;
   }
 
   if (goals.length === 0) {
     // No goals set
     return (
-      <div className="dashboard">
-        <DashboardHeader initialActiveNav="goals" />
+      <>
         <div className="emptyContainer">
           <div className="goals-card">
             <h2 className="goals-title">
@@ -691,14 +669,13 @@ const GoalsPage = () => {
             }}
           />
         )}
-      </div>
+      </>
     );
   }
 
   // User has at least one goal
   return (
-    <div className="dashboard">
-      <DashboardHeader initialActiveNav="goals" />
+    <>
       <div className="GoalsPage">
         <div className="GoalsCard">
           <div className="goals-header">
@@ -785,7 +762,7 @@ const GoalsPage = () => {
                         return (
                           <span
                             style={{
-                              color: "#2980ef", // blue for completed
+                              color: "#ffc547",
                               fontWeight: "600",
                               marginLeft: "0.5rem",
                             }}
@@ -798,8 +775,8 @@ const GoalsPage = () => {
                           <span
                             style={{
                               color: selectedGoal.isActive
-                                ? "#27ae60"
-                                : "#e74c3c",
+                                ? "#f47536"
+                                : "#ff3838",
                               fontWeight: "600",
                               marginLeft: "0.5rem",
                             }}
@@ -843,14 +820,14 @@ const GoalsPage = () => {
                 </button>
                 {forecastModalOpen && (
                   <div
-                    className="modal-backdrop"
-                    style={{
+                      className="modal-backdrop"
+                      style={{
                       position: "fixed",
                       top: 0,
                       left: 0,
                       width: "100vw",
                       height: "100vh",
-                      background: "rgba(0,0,0,0.4)",
+                        background: "rgba(18,13,10,0.48)",
                       zIndex: 1000,
                       display: "flex",
                       alignItems: "center",
@@ -860,12 +837,14 @@ const GoalsPage = () => {
                     <div
                       className="modal"
                       style={{
-                        background: "#fff",
+                        background: modalBackground,
+                        color: "var(--buck-ink)",
+                        border: "1px solid var(--buck-line)",
                         borderRadius: 8,
                         padding: 24,
                         minWidth: 400,
                         maxWidth: 600,
-                        boxShadow: "0 2px 16px rgba(0,0,0,0.2)",
+                        boxShadow: "var(--buck-shadow)",
                         position: "relative",
                       }}
                     >
@@ -886,7 +865,7 @@ const GoalsPage = () => {
                       <h3
                         style={{
                           marginTop: 0,
-                          color: "#ef8a57",
+                          color: "var(--buck-orange)",
                           textAlign: "center",
                         }}
                       >
@@ -905,9 +884,14 @@ const GoalsPage = () => {
                           onClick={() => setSelectedMode("week")}
                           style={{
                             background:
-                              selectedMode === "week" ? "#ef8a57" : "#eee",
-                            color: selectedMode === "week" ? "#fff" : "#333",
-                            border: "none",
+                              selectedMode === "week"
+                                ? primaryButtonBackground
+                                : softBackground,
+                            color:
+                              selectedMode === "week"
+                                ? primaryButtonColor
+                                : "var(--buck-ink)",
+                            border: "1px solid var(--buck-line)",
                             borderRadius: 6,
                             padding: "0.5rem 1.2rem",
                             fontWeight: 600,
@@ -920,9 +904,14 @@ const GoalsPage = () => {
                           onClick={() => setSelectedMode("month")}
                           style={{
                             background:
-                              selectedMode === "month" ? "#ef8a57" : "#eee",
-                            color: selectedMode === "month" ? "#fff" : "#333",
-                            border: "none",
+                              selectedMode === "month"
+                                ? primaryButtonBackground
+                                : softBackground,
+                            color:
+                              selectedMode === "month"
+                                ? primaryButtonColor
+                                : "var(--buck-ink)",
+                            border: "1px solid var(--buck-line)",
                             borderRadius: 6,
                             padding: "0.5rem 1.2rem",
                             fontWeight: 600,
@@ -935,9 +924,14 @@ const GoalsPage = () => {
                           onClick={() => setSelectedMode("overall")}
                           style={{
                             background:
-                              selectedMode === "overall" ? "#ef8a57" : "#eee",
-                            color: selectedMode === "overall" ? "#fff" : "#333",
-                            border: "none",
+                              selectedMode === "overall"
+                                ? primaryButtonBackground
+                                : softBackground,
+                            color:
+                              selectedMode === "overall"
+                                ? primaryButtonColor
+                                : "var(--buck-ink)",
+                            border: "1px solid var(--buck-line)",
                             borderRadius: 6,
                             padding: "0.5rem 1.2rem",
                             fontWeight: 600,
@@ -965,7 +959,9 @@ const GoalsPage = () => {
                             style={{
                               padding: "0.3rem 0.7rem",
                               borderRadius: 6,
-                              border: "1px solid #ccc",
+                              color: "var(--buck-ink)",
+                              background: fieldBackground,
+                              border: "1px solid rgba(244,117,54,0.32)",
                             }}
                           >
                             {weekDateRanges.map((range, idx) => (
@@ -994,7 +990,9 @@ const GoalsPage = () => {
                               style={{
                                 padding: "0.3rem 0.7rem",
                                 borderRadius: 6,
-                                border: "1px solid #ccc",
+                                color: "var(--buck-ink)",
+                                background: fieldBackground,
+                                border: "1px solid rgba(244,117,54,0.32)",
                               }}
                             >
                               {monthDateRanges.map((range, idx) => (
@@ -1013,7 +1011,7 @@ const GoalsPage = () => {
                           </div>
                           <div
                             style={{
-                              background: "#eee",
+                              background: "rgba(244,117,54,0.12)",
                               borderRadius: 8,
                               height: 18,
                               width: "100%",
@@ -1022,7 +1020,8 @@ const GoalsPage = () => {
                           >
                             <div
                               style={{
-                                background: "#ef8a57",
+                                background:
+                                  "linear-gradient(90deg, #ffc547, #f47536, #ff3838)",
                                 height: "100%",
                                 borderRadius: 8,
                                 width: `${Math.min(
@@ -1038,7 +1037,7 @@ const GoalsPage = () => {
                               }}
                             ></div>
                           </div>
-                          <div style={{ fontSize: 14, color: "#555" }}>
+                          <div style={{ fontSize: 14, color: "var(--buck-muted)" }}>
                             Saved:{" "}
                             {formatCurrency(
                               Math.min(
@@ -1069,7 +1068,7 @@ const GoalsPage = () => {
                           <div
                             style={{
                               textAlign: "center",
-                              color: "#ef8a57",
+                              color: "var(--buck-orange)",
                               fontWeight: 600,
                             }}
                           >
@@ -1102,14 +1101,14 @@ const GoalsPage = () => {
                                   x: {
                                     grid: { display: false },
                                     ticks: {
-                                      color: "#2c3e50",
+                                      color: chartTextColor,
                                       font: { weight: 600 },
                                     },
                                   },
                                   y: {
-                                    grid: { color: "#eee" },
+                                    grid: { color: chartGridColor },
                                     beginAtZero: true,
-                                    ticks: { color: "#2c3e50" },
+                                    ticks: { color: chartTextColor },
                                   },
                                 },
                                 animation: {
@@ -1137,8 +1136,8 @@ const GoalsPage = () => {
                         <button
                           onClick={() => setShowExpenseModal(true)}
                           style={{
-                            background: "#ef8a57",
-                            color: "#fff",
+                            background: primaryButtonBackground,
+                            color: primaryButtonColor,
                             border: "none",
                             borderRadius: 8,
                             padding: "0.7rem 1.5rem",
@@ -1153,14 +1152,14 @@ const GoalsPage = () => {
                         </button>
                         {showExpenseModal && (
                           <div
-                            className="modal-backdrop"
-                            style={{
+                              className="modal-backdrop"
+                              style={{
                               position: "fixed",
                               top: 0,
                               left: 0,
                               width: "100vw",
                               height: "100vh",
-                              background: "rgba(0,0,0,0.4)",
+                              background: "rgba(18,13,10,0.48)",
                               zIndex: 1100,
                               display: "flex",
                               alignItems: "center",
@@ -1170,7 +1169,9 @@ const GoalsPage = () => {
                             <div
                               className="modal"
                               style={{
-                                background: "#fff",
+                                background: modalBackground,
+                                color: "var(--buck-ink)",
+                                border: "1px solid var(--buck-line)",
                                 borderRadius: 20,
                                 padding: 32,
                                 width: "100%",
@@ -1182,7 +1183,6 @@ const GoalsPage = () => {
                                 flexDirection: "column",
                                 alignItems: "center",
                                 animation: "fadeInScale 0.35s",
-                                color: "#2c3e50",
                                 fontSize: 17,
                                 maxHeight: "90vh",
                                 overflowY: "auto",
@@ -1198,7 +1198,7 @@ const GoalsPage = () => {
                                   border: "none",
                                   fontSize: 26,
                                   cursor: "pointer",
-                                  color: "#ef8a57",
+                                  color: "var(--buck-orange)",
                                   fontWeight: 700,
                                   transition: "color 0.2s",
                                 }}
@@ -1209,7 +1209,7 @@ const GoalsPage = () => {
                                 style={{
                                   marginTop: 0,
                                   marginBottom: 18,
-                                  color: "#ef8a57",
+                                  color: "var(--buck-orange)",
                                   fontWeight: 800,
                                   fontSize: 30,
                                   letterSpacing: 1,
@@ -1226,11 +1226,12 @@ const GoalsPage = () => {
                                   marginBottom: 12,
                                   padding: 12,
                                   borderRadius: 7,
-                                  border: "1.5px solid #ccc",
+                                  border: "1px solid rgba(244,117,54,0.32)",
+                                  background: fieldBackground,
                                   fontSize: 17,
                                   boxSizing: "border-box",
                                   display: "block",
-                                  color: "#2c3e50",
+                                  color: "var(--buck-ink)",
                                   transition: "border 0.2s",
                                 }}
                               />
@@ -1246,11 +1247,12 @@ const GoalsPage = () => {
                                   marginBottom: 12,
                                   padding: 12,
                                   borderRadius: 7,
-                                  border: "1.5px solid #ccc",
+                                  border: "1px solid rgba(244,117,54,0.32)",
+                                  background: fieldBackground,
                                   fontSize: 17,
                                   boxSizing: "border-box",
                                   display: "block",
-                                  color: "#2c3e50",
+                                  color: "var(--buck-ink)",
                                   transition: "border 0.2s",
                                 }}
                               />
@@ -1264,11 +1266,12 @@ const GoalsPage = () => {
                                   marginBottom: 12,
                                   padding: 12,
                                   borderRadius: 7,
-                                  border: "1.5px solid #ccc",
+                                  border: "1px solid rgba(244,117,54,0.32)",
+                                  background: fieldBackground,
                                   fontSize: 17,
                                   boxSizing: "border-box",
                                   display: "block",
-                                  color: "#2c3e50",
+                                  color: "var(--buck-ink)",
                                   transition: "border 0.2s",
                                 }}
                               />
@@ -1281,8 +1284,8 @@ const GoalsPage = () => {
                                 onClick={handleAddExpense}
                                 disabled={expenseLoading}
                                 style={{
-                                  background: "#ef8a57",
-                                  color: "#fff",
+                                  background: primaryButtonBackground,
+                                  color: primaryButtonColor,
                                   border: "none",
                                   borderRadius: 9,
                                   padding: "1.1rem 1.7rem",
@@ -1323,21 +1326,23 @@ const GoalsPage = () => {
                 <h3
                   style={{
                     fontWeight: 700,
-                    color: "#2c3e50",
+                    color: "var(--buck-ink)",
                     marginBottom: 12,
                   }}
                 >
                   Recent Expenses
                 </h3>
                 {expenses.length === 0 ? (
-                  <div style={{ color: "#888" }}>No expenses yet.</div>
+                  <div style={{ color: "var(--buck-muted)" }}>No expenses yet.</div>
                 ) : (
                   expenses.map((exp) => (
                     <div
                       key={exp.id}
                       style={{
                         marginBottom: 8,
-                        background: "#fff7f0",
+                        background: softBackground,
+                        color: "var(--buck-ink)",
+                        border: "1px solid var(--buck-line)",
                         borderRadius: 10,
                         padding: "10px 18px",
                         display: "flex",
@@ -1347,7 +1352,7 @@ const GoalsPage = () => {
                     >
                       <span
                         style={{
-                          color: "#ef8a57",
+                          color: "var(--buck-orange)",
                           fontWeight: 700,
                           minWidth: 120,
                         }}
@@ -1358,7 +1363,7 @@ const GoalsPage = () => {
                       <span
                         style={{
                           fontWeight: 700,
-                          color: "#ef8a57",
+                          color: "var(--buck-orange)",
                           minWidth: 80,
                         }}
                       >
@@ -1366,7 +1371,7 @@ const GoalsPage = () => {
                       </span>
                       {exp.date && (
                         <span
-                          style={{ color: "#888", fontSize: 14, minWidth: 90 }}
+                          style={{ color: "var(--buck-muted)", fontSize: 14, minWidth: 90 }}
                         >
                           {exp.date}
                         </span>
@@ -1437,7 +1442,7 @@ const GoalsPage = () => {
             left: 0,
             width: "100vw",
             height: "100vh",
-            background: "rgba(0,0,0,0.4)",
+            background: "rgba(18,13,10,0.48)",
             zIndex: 1200,
             display: "flex",
             alignItems: "center",
@@ -1445,14 +1450,16 @@ const GoalsPage = () => {
           }}
         >
           <div
-            className="modal"
-            style={{
-              background: "#fff",
+              className="modal"
+              style={{
+              background: modalBackground,
+              color: "var(--buck-ink)",
+              border: "1px solid var(--buck-line)",
               borderRadius: 8,
               padding: 24,
               minWidth: 320,
               maxWidth: 400,
-              boxShadow: "0 2px 16px rgba(0,0,0,0.2)",
+              boxShadow: "var(--buck-shadow)",
               position: "relative",
               textAlign: "center",
             }}
@@ -1471,14 +1478,14 @@ const GoalsPage = () => {
             >
               &times;
             </button>
-            <h3 style={{ marginTop: 0, color: "#e74c3c" }}>
+            <h3 style={{ marginTop: 0, color: "var(--buck-coral)" }}>
               Action Not Allowed
             </h3>
             <div
               style={{
                 margin: "18px 0",
                 fontWeight: 500,
-                color: "#2c3e50",
+                color: "var(--buck-ink)",
                 fontSize: 17,
               }}
             >
@@ -1487,8 +1494,8 @@ const GoalsPage = () => {
             <button
               onClick={() => setShowErrorModal(false)}
               style={{
-                background: "#ef8a57",
-                color: "#fff",
+                background: primaryButtonBackground,
+                color: primaryButtonColor,
                 border: "none",
                 borderRadius: 8,
                 padding: "0.7rem 1.5rem",
@@ -1503,7 +1510,7 @@ const GoalsPage = () => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

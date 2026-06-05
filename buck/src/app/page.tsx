@@ -564,37 +564,41 @@ export default function Home() {
         </section>
 
         <section className="feature-section" id="features">
-          <div className="section-heading">
-            <p className="eyebrow">What Buck keeps tidy</p>
-            <h2>Everything important has a clear place.</h2>
-          </div>
-          <div className="feature-grid">
-            {landingFeatures.map((feature) => {
-              const FeatureIcon = feature.icon;
+          <div className="section-inner">
+            <div className="section-heading">
+              <p className="eyebrow">What Buck keeps tidy</p>
+              <h2>Everything important has a clear place.</h2>
+            </div>
+            <div className="feature-grid">
+              {landingFeatures.map((feature) => {
+                const FeatureIcon = feature.icon;
 
-              return (
-                <article className="feature-card" key={feature.title}>
-                  <div className="feature-icon">
-                    <FeatureIcon aria-hidden="true" />
-                  </div>
-                  <Image
-                    src={feature.image}
-                    alt=""
-                    width={130}
-                    height={150}
-                    className="feature-image"
-                  />
-                  <h3>{feature.title}</h3>
-                  <p>{feature.description}</p>
-                </article>
-              );
-            })}
+                return (
+                  <article className="feature-card" key={feature.title}>
+                    <div className="feature-icon">
+                      <FeatureIcon aria-hidden="true" />
+                    </div>
+                    <Image
+                      src={feature.image}
+                      alt=""
+                      width={130}
+                      height={150}
+                      className="feature-image"
+                    />
+                    <h3>{feature.title}</h3>
+                    <p>{feature.description}</p>
+                  </article>
+                );
+              })}
+            </div>
           </div>
+        </section>
 
+        <section className="adviser-section" aria-labelledby="adviser-heading">
           <div className="adviser-showcase">
             <div className="adviser-copy">
               <p className="eyebrow">Financial adviser</p>
-              <h3>Advice that sounds like a next step.</h3>
+              <h3 id="adviser-heading">Advice that sounds like a next step.</h3>
               <p>
                 Buck turns the week&apos;s spending pattern into calm, practical
                 guidance before the budget feels tight.
@@ -661,40 +665,42 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="about-section" id="about">
-          <div className="about-copy">
-            <p className="eyebrow">About Buck</p>
-            <h2>Budgeting should feel calm, visible, and doable.</h2>
-            <p>
-              Buck was built around a simple idea: when your expenses, goals,
-              and forecasts live in one readable place, money decisions get less
-              stressful. The app gives you a weekly view, goal progress, wallet
-              tracking, and AI suggestions so you can spend with intention.
-            </p>
-            <div className="principle-grid">
-              {landingPrinciples.map((principle) => (
-                <article className="principle-card" key={principle.title}>
-                  <h3>{principle.title}</h3>
-                  <p>{principle.description}</p>
-                </article>
-              ))}
+        <section className="about-band" id="about">
+          <div className="about-section">
+            <div className="about-copy">
+              <p className="eyebrow">About Buck</p>
+              <h2>Budgeting should feel calm, visible, and doable.</h2>
+              <p>
+                Buck was built around a simple idea: when your expenses, goals,
+                and forecasts live in one readable place, money decisions get less
+                stressful. The app gives you a weekly view, goal progress, wallet
+                tracking, and AI suggestions so you can spend with intention.
+              </p>
+              <div className="principle-grid">
+                {landingPrinciples.map((principle) => (
+                  <article className="principle-card" key={principle.title}>
+                    <h3>{principle.title}</h3>
+                    <p>{principle.description}</p>
+                  </article>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div className="workflow-panel">
-            <h3>How it flows</h3>
-            <ol>
-              {landingSteps.map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ol>
-            <div className="highlight-list">
-              {landingHighlights.map((highlight) => (
-                <div className="highlight-item" key={highlight.title}>
-                  <strong>{highlight.title}</strong>
-                  <span>{highlight.description}</span>
-                </div>
-              ))}
+            <div className="workflow-panel">
+              <h3>How it flows</h3>
+              <ol>
+                {landingSteps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+              <div className="highlight-list">
+                {landingHighlights.map((highlight) => (
+                  <div className="highlight-item" key={highlight.title}>
+                    <strong>{highlight.title}</strong>
+                    <span>{highlight.description}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>

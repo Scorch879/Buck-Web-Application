@@ -4,7 +4,9 @@ import { useState } from "react";
 import type { ChangeEvent, CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { signInWithGoogle, signUpUser } from "@/component/authentication";
+import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
 import { motion } from "framer-motion";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 import {
@@ -45,6 +47,7 @@ const createAccountHighlights: CreateAccountHighlight[] = [
 ];
 
 const CreateAccount = () => {
+  const router = useRouter();
   const [form, setForm] = useState({
     username: "",
     email: "",
@@ -57,6 +60,7 @@ const CreateAccount = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const isDarkTheme = useAuthPageTheme();
   const createButton = usePointerGradient<HTMLButtonElement>();
+  useRedirectIfAuthenticated();
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.id]: e.target.value });
@@ -89,8 +93,15 @@ const CreateAccount = () => {
     }
     const result = await signUpUser(form.email, form.password, form.username);
     if (result.success) {
-      setMessage("Account created! You can now sign in.");
       setForm({ username: "", email: "", password: "", confirm: "" });
+
+      if (result.needsEmailConfirmation) {
+        router.push(`/check-email?email=${encodeURIComponent(form.email)}`);
+        return;
+      }
+
+      setMessage("Account created! Redirecting to your dashboard...");
+      router.push("/dashboard/home");
     } else {
       setError(result.message || "Account creation failed.");
     }
@@ -99,7 +110,9 @@ const CreateAccount = () => {
   const handleGoogleSignIn = async () => {
     const result = await signInWithGoogle();
     if (result.success) {
-      alert("Google Sign-In successful!");
+      if (!result.redirecting) {
+        router.push("/dashboard/home");
+      }
     } else if (result.cancelled) {
       // Do nothing, user cancelled
     } else {
