@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+import {
+  designPreviewUserId,
+  isDesignPreviewMode,
+} from "@/utils/designPreview";
 import { isSupabaseConfigured, supabase } from "@/utils/supabase";
 
 export type BuckUser = SupabaseUser & {
@@ -39,6 +43,50 @@ function getSignInPath(pathname: string | null) {
   return `/sign-in?redirectTo=${encodeURIComponent(pathname)}`;
 }
 
+function isInvalidRefreshTokenError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return error.message.toLowerCase().includes("refresh token");
+}
+
+async function clearBrokenLocalSession() {
+  if (!supabase) {
+    return;
+  }
+
+  try {
+    await supabase.auth.signOut({ scope: "local" });
+  } catch (error) {
+    if (!isInvalidRefreshTokenError(error)) {
+      console.warn("Failed to clear local auth session:", error);
+    }
+  }
+}
+
+function getDesignPreviewUser(): BuckUser {
+  const now = new Date().toISOString();
+
+  return {
+    id: designPreviewUserId,
+    uid: designPreviewUserId,
+    app_metadata: {},
+    aud: "authenticated",
+    confirmed_at: now,
+    created_at: now,
+    displayName: "Design Preview",
+    email: "preview@buck.local",
+    identities: [],
+    role: "authenticated",
+    updated_at: now,
+    user_metadata: {
+      full_name: "Design Preview",
+      username: "Design Preview",
+    },
+  } as BuckUser;
+}
+
 export function useAuthGuard() {
   const router = useRouter();
   const pathname = usePathname();
@@ -46,6 +94,12 @@ export function useAuthGuard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (isDesignPreviewMode) {
+      setUser(getDesignPreviewUser());
+      setLoading(false);
+      return;
+    }
+
     if (!isSupabaseConfigured || !supabase) {
       setUser(null);
       setLoading(false);
@@ -69,14 +123,26 @@ export function useAuthGuard() {
       }
     };
 
-    supabase.auth.getUser().then(({ data, error }) => {
-      if (error) {
-        setSessionUser(null);
-        return;
-      }
+    supabase.auth
+      .getUser()
+      .then(async ({ data, error }) => {
+        if (error) {
+          await clearBrokenLocalSession();
+          setSessionUser(null);
+          return;
+        }
 
-      setSessionUser(data.user);
-    });
+        setSessionUser(data.user);
+      })
+      .catch(async (error) => {
+        if (isInvalidRefreshTokenError(error)) {
+          await clearBrokenLocalSession();
+        } else {
+          console.warn("Failed to read auth session:", error);
+        }
+
+        setSessionUser(null);
+      });
 
     const {
       data: { subscription },
@@ -97,17 +163,36 @@ export function useRedirectIfAuthenticated(redirectTo = "/dashboard/home") {
   const router = useRouter();
 
   useEffect(() => {
+    if (isDesignPreviewMode) {
+      return;
+    }
+
     if (!isSupabaseConfigured || !supabase) {
       return;
     }
 
     let mounted = true;
 
-    supabase.auth.getUser().then(({ data }) => {
-      if (mounted && data.user) {
-        router.replace(redirectTo);
-      }
-    });
+    supabase.auth
+      .getUser()
+      .then(async ({ data, error }) => {
+        if (error) {
+          await clearBrokenLocalSession();
+          return;
+        }
+
+        if (mounted && data.user) {
+          router.replace(redirectTo);
+        }
+      })
+      .catch(async (error) => {
+        if (isInvalidRefreshTokenError(error)) {
+          await clearBrokenLocalSession();
+          return;
+        }
+
+        console.warn("Failed to read auth session:", error);
+      });
 
     const {
       data: { subscription },

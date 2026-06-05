@@ -7,12 +7,16 @@ import {
   Legend,
 } from "chart.js";
 import styles from "./excess-pie.module.css";
+import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import { statisticsTestData } from "./testData";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 interface ExcessPieProps { mode?: 'week' | 'month' | 'overall'; weekIndex?: number; monthIndex?: number; }
 const ExcessPie: React.FC<ExcessPieProps> = ({ mode = 'week', weekIndex, monthIndex }) => {
+  const isDarkTheme = useAuthPageTheme();
+  const chartText = isDarkTheme ? "#fff8ed" : "#2b2523";
+  const chartMuted = isDarkTheme ? "#d9c7b6" : "#756d68";
   let spending = 0;
   let savings = 0;
   const maxBudgetPerDay = statisticsTestData.maxBudgetPerDay;
@@ -51,7 +55,7 @@ const ExcessPie: React.FC<ExcessPieProps> = ({ mode = 'week', weekIndex, monthIn
     datasets: [
       {
         data: [spending, savings],
-        backgroundColor: ["#ff4136", "#2ecc40"],
+        backgroundColor: ["#ff3838", "#ffc547"],
         borderWidth: 2,
       },
     ],
@@ -96,10 +100,10 @@ const ExcessPie: React.FC<ExcessPieProps> = ({ mode = 'week', weekIndex, monthIn
             pointerEvents: "none",
           }}
         >
-          <span style={{ fontSize: "2.2rem", fontWeight: 700, color: "#2c3e50" }}>
+          <span style={{ fontSize: "2.2rem", fontWeight: 800, color: chartText }}>
             {mainPercent.toFixed(0)}%
           </span>
-          <span style={{ fontSize: "1.1rem", color: "#888" }}>{mainLabel}</span>
+          <span style={{ fontSize: "1.1rem", color: chartMuted }}>{mainLabel}</span>
         </div>
       </div>
       <div className={styles.excessPieLegend}>

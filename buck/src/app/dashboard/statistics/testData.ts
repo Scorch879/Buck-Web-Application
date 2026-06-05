@@ -24,13 +24,13 @@ export const statisticsTestData = {
     );
   },
   barColors: [
-    "#ff4136", // Food - red
-    "#2ecc40", // Fare - green
-    "#0074d9", // Gas Money - blue
-    "#b10dc9", // Video Games - purple
-    "#ffb347", // Shopping - orange
-    "#ef8a57", // Bills - coral
-    "#ffd700", // Other - gold
+    "#ff3838", // Food - coral
+    "#f47536", // Fare - Buck orange
+    "#ffc547", // Gas Money - Buck gold
+    "#ff8d3d", // Video Games - warm orange
+    "#b83324", // Shopping - deep coral
+    "#ffb85c", // Bills - amber
+    "#fff0c8", // Other - soft gold
   ],
   get totalSpending() {
     return this.categoryTotals.reduce((a: number, b: number) => a + b, 0);

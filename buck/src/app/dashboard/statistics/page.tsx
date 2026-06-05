@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./style.css";
 import { useRouter } from "next/navigation";
-import DashboardHeader from "@/component/dashboardheader";
+import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
+import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import { useAuthGuard } from "@/utils/useAuthGuard";
 import WeeklySpendingChart from "./weekly-spending";
 import {
@@ -17,21 +18,25 @@ import {
 } from "chart.js";
 import ExcessPie from "./excess-pie";
 import SpendingBar from "./spending-bar";
-import { db } from "@/utils/firebase";
-import {
-  collection,
-  getDocs,
-  addDoc,
-  deleteDoc,
-  doc,
-  updateDoc,
-  onSnapshot,
-  setDoc,
-} from "firebase/firestore";
 import { statisticsTestData } from "./testData";
 import { useFinancial } from "@/context/FinancialContext";
 import { Line } from "react-chartjs-2";
 import { formatCurrency } from "@/utils/formatters";
+import {
+  addCategory,
+  addExpenseWithWalletDeduction,
+  deleteCategory,
+  deleteExpenseAndRestoreWallet,
+  ensureDefaultCategories,
+  getActiveWallet,
+  listExpenses,
+  listGoals,
+  subscribeUserTable,
+  updateCategoryName,
+  type BuckCategory,
+  type BuckExpense,
+  type BuckGoal,
+} from "@/utils/supabaseData";
 
 ChartJS.register(
   CategoryScale,
@@ -43,20 +48,27 @@ ChartJS.register(
   Legend
 );
 
-interface Goal {
-  id: string;
-  goalName: string;
-  targetAmount: number;
-  currentAmount?: number;
-  targetDate?: string;
-  createdAt: string;
-  attitude?: string;
-  isActive?: boolean;
-}
+type Goal = BuckGoal;
 
 const Statistics = () => {
   const router = useRouter();
   const { user, loading } = useAuthGuard();
+  const isDarkTheme = useAuthPageTheme();
+  const chartTextColor = isDarkTheme ? "#fff8ed" : "#2b2523";
+  const chartGridColor = isDarkTheme
+    ? "rgba(255,211,154,0.16)"
+    : "rgba(120,92,70,0.18)";
+  const primaryButtonBackground = isDarkTheme
+    ? "linear-gradient(135deg, #ffc547, #f47536)"
+    : "linear-gradient(135deg, #f47536, #ff3838)";
+  const primaryButtonColor = isDarkTheme ? "#241409" : "#fffaf4";
+  const modalBackground = "var(--buck-surface)";
+  const softBackground = isDarkTheme
+    ? "rgba(255,197,71,0.10)"
+    : "rgba(255,240,200,0.52)";
+  const fieldBackground = isDarkTheme
+    ? "rgba(255,197,71,0.08)"
+    : "rgba(255,250,244,0.74)";
   const [yMax, setYMax] = useState(1000);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loadingGoals, setLoadingGoals] = useState(false);
@@ -82,8 +94,8 @@ const Statistics = () => {
   const prevMode = useRef(selectedMode);
 
   // --- New state for categories, expenses, wallet ---
-  const [categories, setCategories] = useState<any[]>([]); // Changed to any[] to accommodate id
-  const [expenses, setExpenses] = useState<any[]>([]);
+  const [categories, setCategories] = useState<BuckCategory[]>([]);
+  const [expenses, setExpenses] = useState<BuckExpense[]>([]);
   const [wallet, setWallet] = useState<number>(0);
 
   // --- Add Expense Modal logic ---
@@ -119,8 +131,7 @@ const Statistics = () => {
   const [editCategoryName, setEditCategoryName] = useState("");
   const handleEditCategory = async (catId: string, newName: string) => {
     if (!user || !newName.trim()) return;
-    const catRef = doc(db, "users", user.uid, "categories", catId);
-    await updateDoc(catRef, { name: newName.trim() });
+    await updateCategoryName(user.uid, catId, newName);
     setEditingCategoryId(null);
     setEditCategoryName("");
   };
@@ -128,15 +139,12 @@ const Statistics = () => {
     if (!user) return;
     if (!window.confirm("Are you sure you want to delete this category?"))
       return;
-    const catRef = doc(db, "users", user.uid, "categories", catId);
-    await deleteDoc(catRef);
-    // Optionally: remove this category from all expenses (not implemented here)
+    await deleteCategory(user.uid, catId);
   };
 
   const handleAddCategory = async () => {
     if (!user || !newCategory.trim()) return;
-    const categoriesRef = collection(db, "users", user.uid, "categories");
-    await addDoc(categoriesRef, { name: newCategory.trim() });
+    await addCategory(user.uid, newCategory);
     setNewCategory("");
     setAddingCategory(false);
   };
@@ -153,25 +161,16 @@ const Statistics = () => {
     setExpenseLoading(true);
     setExpenseError("");
     try {
-      // Get AI category for the expense description
       const aiCategory = await getSuggestedCategory(expenseDesc);
-      // Add expense with AI category
-      const expensesRef = collection(db, "users", user.uid, "expenses");
-      await addDoc(expensesRef, {
+      await addExpenseWithWalletDeduction(user.uid, {
         date: expenseDate,
         amount: parseFloat(expenseAmount),
         description: expenseDesc,
-        category: aiCategory || "Uncategorized",
+        categoryName: selectedCategory || aiCategory || "Uncategorized",
         goalId: selectedGoal.id,
-        userId: user.uid,
       });
-      // Update wallet
-      const walletRef = doc(db, "users", user.uid, "wallet", "main");
-      await setDoc(
-        walletRef,
-        { budget: wallet - parseFloat(expenseAmount) },
-        { merge: true }
-      );
+      const activeWallet = await getActiveWallet(user.uid);
+      setWallet(activeWallet?.budget ?? 0);
       setShowExpenseModal(false);
       setExpenseDate("");
       setExpenseAmount("");
@@ -186,74 +185,56 @@ const Statistics = () => {
   const handleRemoveExpense = async (expenseId: string, amount: number) => {
     if (!user) return;
     try {
-      // Remove expense
-      const expenseRef = doc(db, "users", user.uid, "expenses", expenseId);
-      await deleteDoc(expenseRef);
-      // Update wallet
-      const walletRef = doc(db, "users", user.uid, "wallet", "main");
-      await setDoc(walletRef, { budget: wallet + amount }, { merge: true });
+      await deleteExpenseAndRestoreWallet(user.uid, expenseId, amount);
+      const activeWallet = await getActiveWallet(user.uid);
+      setWallet(activeWallet?.budget ?? 0);
     } catch (err) {
       // Optionally handle error
     }
   };
 
-  // --- Default categories ---
-  const defaultCategories = [
-    "Food",
-    "Gas Money",
-    "Video Games",
-    "Shopping",
-    "Bills",
-    "Education",
-    "Electronics",
-    "Entertainment",
-    "Health",
-    "Home",
-    "Insurance",
-    "Social",
-    "Sport",
-    "Tax",
-    "Telephone",
-    "Transportation",
-  ];
-
   // --- Fetch categories, expenses, and wallet on load ---
   useEffect(() => {
     if (!user) return;
-    // Categories
-    const categoriesRef = collection(db, "users", user.uid, "categories");
-    const unsubCategories = onSnapshot(categoriesRef, async (snapshot) => {
-      let cats = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        name: doc.data().name,
-      }));
-      // If no categories, add defaults
-      if (cats.length === 0) {
-        for (const cat of defaultCategories) {
-          await addDoc(categoriesRef, { name: cat });
-        }
-        cats = defaultCategories.map((name, i) => ({
-          id: `default-${i}`,
-          name,
-        }));
-      }
-      cats.sort((a, b) => a.name.localeCompare(b.name));
-      setCategories(cats);
-    });
-    // Expenses
-    const expensesRef = collection(db, "users", user.uid, "expenses");
-    const unsubExpenses = onSnapshot(expensesRef, (snapshot) => {
-      setExpenses(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    });
-    // Wallet
-    const walletRef = doc(db, "users", user.uid, "wallet", "main");
-    const unsubWallet = onSnapshot(walletRef, (docSnap) => {
-      if (docSnap.exists()) setWallet(docSnap.data().budget || 0);
-    });
+
+    const fetchCategories = () => {
+      ensureDefaultCategories(user.uid)
+        .then((cats) =>
+          setCategories([...cats].sort((a, b) => a.name.localeCompare(b.name)))
+        )
+        .catch((error) => console.error("Failed to load categories:", error));
+    };
+    const fetchExpenses = () => {
+      listExpenses(user.uid)
+        .then(setExpenses)
+        .catch((error) => console.error("Failed to load expenses:", error));
+    };
+    const fetchWallet = () => {
+      getActiveWallet(user.uid)
+        .then((activeWallet) => setWallet(activeWallet?.budget ?? 0))
+        .catch((error) => console.error("Failed to load wallet:", error));
+    };
+
+    fetchCategories();
+    fetchExpenses();
+    fetchWallet();
+
+    const unsubCategories = subscribeUserTable(
+      "categories",
+      user.uid,
+      fetchCategories
+    );
+    const unsubExpenses = subscribeUserTable(
+      "expenses",
+      user.uid,
+      fetchExpenses
+    );
+    const unsubWallets = subscribeUserTable("wallets", user.uid, fetchWallet);
+
     return () => {
       unsubCategories();
       unsubExpenses();
-      unsubWallet();
+      unsubWallets();
     };
   }, [user]);
 
@@ -319,15 +300,29 @@ const Statistics = () => {
     const fetchGoals = async () => {
       if (user) {
         setLoadingGoals(true);
-        const goalsRef = collection(db, "goals", user.uid, "userGoals");
-        const snapshot = await getDocs(goalsRef);
-        setGoals(
-          snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Goal))
-        );
-        setLoadingGoals(false);
+        try {
+          setGoals(await listGoals(user.uid));
+        } catch (error) {
+          console.error("Failed to load goals:", error);
+        } finally {
+          setLoadingGoals(false);
+        }
       }
     };
+
     fetchGoals();
+
+    if (!user) {
+      return;
+    }
+
+    const unsubscribeGoals = subscribeUserTable("goals", user.uid, () => {
+      void fetchGoals();
+    });
+
+    return () => {
+      unsubscribeGoals();
+    };
   }, [user]);
 
   // Calculate totalSaved for the user (use your real calculation here)
@@ -471,16 +466,16 @@ const Statistics = () => {
         {
           label: "Forecasted Daily Expense",
           data: forecastVals,
-          borderColor: "rgba(239,138,87,1)",
-          backgroundColor: "rgba(239,138,87,0.2)",
+          borderColor: "rgba(244,117,54,1)",
+          backgroundColor: "rgba(244,117,54,0.18)",
           fill: true,
           tension: 0.3,
         },
         {
           label: "Actual Daily Expense",
           data: actualVals,
-          borderColor: "rgba(52, 152, 219, 1)",
-          backgroundColor: "rgba(52, 152, 219, 0.2)",
+          borderColor: "rgba(255,197,71,1)",
+          backgroundColor: "rgba(255,197,71,0.18)",
           fill: true,
           tension: 0.3,
         },
@@ -539,18 +534,11 @@ const Statistics = () => {
   }, [forecastData]);
 
   if (loading || !user || loadingGoals) {
-    return (
-      <div className="loading-spinner">
-        <div className="spinner"></div>
-        <div className="loading-text">Loading Buck...</div>
-      </div>
-    );
+    return <DashboardPageSkeleton variant="statistics" />;
   }
 
   return (
-    <div className="dashboard">
-      {/* Sticky Header */}
-      <DashboardHeader initialActiveNav="statistics" />
+    <>
       <div
         className="dashboard-container"
         style={{
@@ -586,7 +574,7 @@ const Statistics = () => {
               <div
                 style={{
                   background:
-                    currentWeekIdx === selectedWeek ? "#ffe5c2" : "#fff",
+                    currentWeekIdx === selectedWeek ? softBackground : modalBackground,
                   borderRadius: "16px",
                   boxShadow: "0 4px 24px 0 rgba(239, 138, 87, 0.10)",
                   padding: "1.2rem 2rem",
@@ -596,10 +584,10 @@ const Statistics = () => {
                   gap: "1.5rem",
                   fontSize: "1.15rem",
                   fontWeight: 600,
-                  color: "#2c3e50",
+                  color: "var(--buck-ink)",
                   border:
                     currentWeekIdx === selectedWeek
-                      ? "2px solid #ef8a57"
+                      ? "1px solid rgba(244,117,54,0.38)"
                       : "none",
                   width: "100%",
                   maxWidth: 900,
@@ -608,7 +596,7 @@ const Statistics = () => {
               >
                 <span
                   style={{
-                    color: "#ef8a57",
+                    color: "var(--buck-orange)",
                     fontWeight: 700,
                     fontSize: "1.25rem",
                   }}
@@ -617,7 +605,7 @@ const Statistics = () => {
                 </span>
                 <span
                   style={{
-                    color: "#6c757d",
+                    color: "var(--buck-muted)",
                     fontWeight: 500,
                     fontSize: "1.05rem",
                   }}
@@ -628,8 +616,8 @@ const Statistics = () => {
                 {currentWeekIdx === selectedWeek && (
                   <span
                     style={{
-                      color: "#fff",
-                      background: "#ef8a57",
+                      color: primaryButtonColor,
+                      background: primaryButtonBackground,
                       borderRadius: "8px",
                       padding: "0.2rem 0.7rem",
                       marginLeft: "1rem",
@@ -645,7 +633,7 @@ const Statistics = () => {
             {selectedMode === "month" && monthDateRanges.length > 0 && (
               <div
                 style={{
-                  background: "#fff",
+                  background: modalBackground,
                   borderRadius: "16px",
                   boxShadow: "0 4px 24px 0 rgba(239, 138, 87, 0.10)",
                   padding: "1.2rem 2rem",
@@ -655,7 +643,7 @@ const Statistics = () => {
                   gap: "1.5rem",
                   fontSize: "1.15rem",
                   fontWeight: 600,
-                  color: "#2c3e50",
+                  color: "var(--buck-ink)",
                   width: "100%",
                   maxWidth: 900,
                   justifyContent: "center",
@@ -663,7 +651,7 @@ const Statistics = () => {
               >
                 <span
                   style={{
-                    color: "#ef8a57",
+                    color: "var(--buck-orange)",
                     fontWeight: 700,
                     fontSize: "1.25rem",
                   }}
@@ -672,7 +660,7 @@ const Statistics = () => {
                 </span>
                 <span
                   style={{
-                    color: "#6c757d",
+                    color: "var(--buck-muted)",
                     fontWeight: 500,
                     fontSize: "1.05rem",
                   }}
@@ -685,7 +673,7 @@ const Statistics = () => {
             {selectedMode === "overall" && (
               <div
                 style={{
-                  background: "#fff",
+                  background: modalBackground,
                   borderRadius: "16px",
                   boxShadow: "0 4px 24px 0 rgba(239, 138, 87, 0.10)",
                   padding: "1.2rem 2rem",
@@ -695,7 +683,7 @@ const Statistics = () => {
                   gap: "1.5rem",
                   fontSize: "1.15rem",
                   fontWeight: 600,
-                  color: "#2c3e50",
+                  color: "var(--buck-ink)",
                   justifyContent: "center",
                   width: "100%",
                   maxWidth: 900,
@@ -703,7 +691,7 @@ const Statistics = () => {
               >
                 <span
                   style={{
-                    color: "#ef8a57",
+                    color: "var(--buck-orange)",
                     fontWeight: 700,
                     fontSize: "1.25rem",
                   }}
@@ -712,7 +700,7 @@ const Statistics = () => {
                 </span>
                 <span
                   style={{
-                    color: "#6c757d",
+                    color: "var(--buck-muted)",
                     fontWeight: 500,
                     fontSize: "1.05rem",
                   }}
@@ -741,7 +729,7 @@ const Statistics = () => {
             {/* View Mode Selector */}
             <div style={{ textAlign: "center" }}>
               <label
-                style={{ fontWeight: 600, marginRight: 8, color: "#2c3e50" }}
+                style={{ fontWeight: 600, marginRight: 8, color: "var(--buck-ink)" }}
               >
                 View Mode:
               </label>
@@ -755,9 +743,9 @@ const Statistics = () => {
                 style={{
                   padding: "0.5rem 1.2rem",
                   borderRadius: "10px",
-                  border: "2px solid #ef8a57",
-                  background: "#fff7f0",
-                  color: "#ef8a57",
+                  border: "1px solid rgba(244,117,54,0.38)",
+                  background: softBackground,
+                  color: "var(--buck-orange)",
                   fontWeight: 600,
                   fontSize: "1rem",
                   boxShadow: "0 2px 8px 0 rgba(239, 138, 87, 0.08)",
@@ -775,7 +763,7 @@ const Statistics = () => {
             {selectedMode === "week" && weekDateRanges.length > 0 && (
               <div style={{ textAlign: "center" }}>
                 <label
-                  style={{ fontWeight: 600, marginRight: 8, color: "#2c3e50" }}
+                  style={{ fontWeight: 600, marginRight: 8, color: "var(--buck-ink)" }}
                 >
                   Select Week:
                 </label>
@@ -785,9 +773,9 @@ const Statistics = () => {
                   style={{
                     padding: "0.5rem 1.2rem",
                     borderRadius: "10px",
-                    border: "2px solid #ef8a57",
-                    background: "#fff7f0",
-                    color: "#ef8a57",
+                    border: "1px solid rgba(244,117,54,0.38)",
+                    background: softBackground,
+                    color: "var(--buck-orange)",
                     fontWeight: 600,
                     fontSize: "1rem",
                     boxShadow: "0 2px 8px 0 rgba(239, 138, 87, 0.08)",
@@ -798,7 +786,7 @@ const Statistics = () => {
                   disabled={weekDateRanges.length === 0}
                 >
                   {weekDateRanges.map((range, idx) => (
-                    <option key={idx} value={idx} style={{ color: "#2c3e50" }}>
+                    <option key={idx} value={idx} style={{ color: "var(--buck-ink)" }}>
                       Week {idx + 1}: {range.start} to {range.end}
                     </option>
                   ))}
@@ -808,7 +796,7 @@ const Statistics = () => {
             {selectedMode === "month" && monthDateRanges.length > 0 && (
               <div style={{ textAlign: "center" }}>
                 <label
-                  style={{ fontWeight: 600, marginRight: 8, color: "#2c3e50" }}
+                  style={{ fontWeight: 600, marginRight: 8, color: "var(--buck-ink)" }}
                 >
                   Select Month:
                 </label>
@@ -818,9 +806,9 @@ const Statistics = () => {
                   style={{
                     padding: "0.5rem 1.2rem",
                     borderRadius: "10px",
-                    border: "2px solid #ef8a57",
-                    background: "#fff7f0",
-                    color: "#ef8a57",
+                    border: "1px solid rgba(244,117,54,0.38)",
+                    background: softBackground,
+                    color: "var(--buck-orange)",
                     fontWeight: 600,
                     fontSize: "1rem",
                     boxShadow: "0 2px 8px 0 rgba(239, 138, 87, 0.08)",
@@ -831,7 +819,7 @@ const Statistics = () => {
                   disabled={monthDateRanges.length === 0}
                 >
                   {monthDateRanges.map((range, idx) => (
-                    <option key={idx} value={idx} style={{ color: "#2c3e50" }}>
+                    <option key={idx} value={idx} style={{ color: "var(--buck-ink)" }}>
                       {range.label}: {range.start} to {range.end}
                     </option>
                   ))}
@@ -851,7 +839,7 @@ const Statistics = () => {
                 style={{
                   fontSize: "2rem",
                   fontWeight: 700,
-                  color: "#2c3e50",
+                  color: "var(--buck-ink)",
                   marginBottom: "2rem",
                 }}
               >
@@ -966,7 +954,7 @@ const Statistics = () => {
                             width: 60,
                             padding: "0.2rem 0.5rem",
                             borderRadius: 6,
-                            border: "1px solid #ccc",
+                            border: "1px solid rgba(244,117,54,0.32)",
                             fontSize: "1rem",
                           }}
                         />
@@ -1026,7 +1014,7 @@ const Statistics = () => {
                       <div
                         style={{
                           fontSize: "1.1rem",
-                          color: "#ef8a57",
+                          color: "var(--buck-orange)",
                           fontWeight: 600,
                           marginTop: 12,
                           textAlign: "center",
@@ -1040,7 +1028,7 @@ const Statistics = () => {
                       <div
                         className="graph-panel-header"
                         style={{
-                          color: "#ef8a57",
+                          color: "var(--buck-orange)",
                           fontWeight: 700,
                           fontSize: "1.2rem",
                           marginBottom: 8,
@@ -1072,14 +1060,14 @@ const Statistics = () => {
                               x: {
                                 grid: { display: false },
                                 ticks: {
-                                  color: "#2c3e50",
+                                  color: chartTextColor,
                                   font: { weight: 600 },
                                 },
                               },
                               y: {
-                                grid: { color: "#eee" },
+                                grid: { color: chartGridColor },
                                 beginAtZero: true,
-                                ticks: { color: "#2c3e50" },
+                                ticks: { color: chartTextColor },
                               },
                             },
                           }}
@@ -1113,7 +1101,7 @@ const Statistics = () => {
             <div
               className="modal expense-modal-animate"
               style={{
-                background: "#fff",
+                background: modalBackground,
                 borderRadius: 20,
                 padding: 32,
                 width: "100%",
@@ -1125,7 +1113,7 @@ const Statistics = () => {
                 flexDirection: "column",
                 alignItems: "center",
                 animation: "fadeInScale 0.35s",
-                color: "#2c3e50",
+                color: "var(--buck-ink)",
                 fontSize: 17,
                 maxHeight: "90vh",
                 overflowY: "auto",
@@ -1141,7 +1129,7 @@ const Statistics = () => {
                   border: "none",
                   fontSize: 26,
                   cursor: "pointer",
-                  color: "#ef8a57",
+                  color: "var(--buck-orange)",
                   fontWeight: 700,
                   transition: "color 0.2s",
                 }}
@@ -1152,7 +1140,7 @@ const Statistics = () => {
                 style={{
                   marginTop: 0,
                   marginBottom: 18,
-                  color: "#ef8a57",
+                  color: "var(--buck-orange)",
                   fontWeight: 800,
                   fontSize: 30,
                   letterSpacing: 1,
@@ -1169,11 +1157,12 @@ const Statistics = () => {
                   marginBottom: 12,
                   padding: 12,
                   borderRadius: 7,
-                  border: "1.5px solid #ccc",
+                  border: "1px solid rgba(244,117,54,0.32)",
                   fontSize: 17,
                   boxSizing: "border-box",
                   display: "block",
-                  color: "#2c3e50",
+                  color: "var(--buck-ink)",
+                  background: fieldBackground,
                   transition: "border 0.2s",
                 }}
               />
@@ -1187,11 +1176,12 @@ const Statistics = () => {
                   marginBottom: 12,
                   padding: 12,
                   borderRadius: 7,
-                  border: "1.5px solid #ccc",
+                  border: "1px solid rgba(244,117,54,0.32)",
                   fontSize: 17,
                   boxSizing: "border-box",
                   display: "block",
-                  color: "#2c3e50",
+                  color: "var(--buck-ink)",
+                  background: fieldBackground,
                   transition: "border 0.2s",
                 }}
               />
@@ -1205,11 +1195,12 @@ const Statistics = () => {
                   marginBottom: 12,
                   padding: 12,
                   borderRadius: 7,
-                  border: "1.5px solid #ccc",
+                  border: "1px solid rgba(244,117,54,0.32)",
                   fontSize: 17,
                   boxSizing: "border-box",
                   display: "block",
-                  color: "#2c3e50",
+                  color: "var(--buck-ink)",
+                  background: fieldBackground,
                   transition: "border 0.2s",
                 }}
               />
@@ -1225,10 +1216,10 @@ const Statistics = () => {
                     marginBottom: 8,
                     padding: 10,
                     borderRadius: 6,
-                    border: "1.5px solid #ef8a57",
+                    border: "1px solid rgba(244,117,54,0.38)",
                     fontSize: 16,
-                    color: "#2c3e50",
-                    background: "#fff7f0",
+                    color: "var(--buck-ink)",
+                    background: softBackground,
                     boxSizing: "border-box",
                     display: "block",
                     transition: "border 0.2s",
@@ -1237,7 +1228,7 @@ const Statistics = () => {
                 <div
                   style={{
                     fontWeight: 600,
-                    color: "#ef8a57",
+                    color: "var(--buck-orange)",
                     marginBottom: 4,
                     fontSize: 16,
                   }}
@@ -1280,9 +1271,10 @@ const Statistics = () => {
                                 flex: 1,
                                 padding: 7,
                                 borderRadius: 5,
-                                border: "1.5px solid #ccc",
+                                border: "1px solid rgba(244,117,54,0.32)",
                                 fontSize: 16,
-                                color: "#2c3e50",
+                                color: "var(--buck-ink)",
+                                background: fieldBackground,
                               }}
                             />
                             <button
@@ -1290,8 +1282,8 @@ const Statistics = () => {
                                 handleEditCategory(cat.id, editCategoryName)
                               }
                               style={{
-                                background: "#ef8a57",
-                                color: "#fff",
+                                background: primaryButtonBackground,
+                                color: primaryButtonColor,
                                 border: "none",
                                 borderRadius: 5,
                                 padding: "0.3rem 0.8rem",
@@ -1311,7 +1303,7 @@ const Statistics = () => {
                               }}
                               style={{
                                 background: "none",
-                                color: "#ef8a57",
+                                color: "var(--buck-orange)",
                                 border: "none",
                                 fontWeight: 700,
                                 fontSize: 15,
@@ -1332,7 +1324,7 @@ const Statistics = () => {
                               }}
                               style={{
                                 background: "none",
-                                color: "#ef8a57",
+                                color: "var(--buck-orange)",
                                 border: "none",
                                 fontWeight: 700,
                                 fontSize: 15,
@@ -1347,7 +1339,7 @@ const Statistics = () => {
                               onClick={() => handleRemoveCategory(cat.id)}
                               style={{
                                 background: "none",
-                                color: "#ff4136",
+                                color: "var(--buck-coral)",
                                 border: "none",
                                 fontWeight: 700,
                                 fontSize: 15,
@@ -1368,7 +1360,7 @@ const Statistics = () => {
                 <label
                   style={{
                     fontWeight: 700,
-                    color: "#ef8a57",
+                    color: "var(--buck-orange)",
                     display: "block",
                     marginBottom: 4,
                   }}
@@ -1382,12 +1374,12 @@ const Statistics = () => {
                     width: "100%",
                     padding: 12,
                     borderRadius: 7,
-                    border: "1.5px solid #ccc",
+                    border: "1px solid rgba(244,117,54,0.32)",
                     fontSize: 17,
                     boxSizing: "border-box",
                     display: "block",
-                    color: "#2c3e50",
-                    background: "#fff",
+                    color: "var(--buck-ink)",
+                    background: modalBackground,
                     transition: "border 0.2s",
                   }}
                 >
@@ -1409,7 +1401,7 @@ const Statistics = () => {
                   style={{
                     marginTop: 10,
                     background: "none",
-                    color: "#ef8a57",
+                    color: "var(--buck-orange)",
                     border: "none",
                     cursor: "pointer",
                     fontWeight: 700,
@@ -1437,9 +1429,10 @@ const Statistics = () => {
                       width: "100%",
                       padding: 10,
                       borderRadius: 6,
-                      border: "1.5px solid #ccc",
+                      border: "1px solid rgba(244,117,54,0.32)",
                       fontSize: 16,
-                      color: "#2c3e50",
+                      color: "var(--buck-ink)",
+                      background: fieldBackground,
                       boxSizing: "border-box",
                       display: "block",
                       transition: "border 0.2s",
@@ -1449,8 +1442,8 @@ const Statistics = () => {
                     onClick={handleAddCategory}
                     style={{
                       marginTop: 10,
-                      background: "#ef8a57",
-                      color: "#fff",
+                      background: primaryButtonBackground,
+                      color: primaryButtonColor,
                       border: "none",
                       borderRadius: 6,
                       padding: "0.6rem 1.3rem",
@@ -1473,8 +1466,8 @@ const Statistics = () => {
                 onClick={handleAddExpenseV2}
                 disabled={expenseLoading}
                 style={{
-                  background: "#ef8a57",
-                  color: "#fff",
+                  background: primaryButtonBackground,
+                  color: primaryButtonColor,
                   border: "none",
                   borderRadius: 9,
                   padding: "1.1rem 1.7rem",
@@ -1501,7 +1494,7 @@ const Statistics = () => {
           <div style={{ width: "100%", maxWidth: 900, margin: "2rem auto" }}>
             <div
               style={{
-                background: "#fff",
+                background: modalBackground,
                 borderRadius: 16,
                 boxShadow: "0 4px 24px 0 rgba(239,138,87,0.10)",
                 padding: "2rem 2.5rem",
@@ -1517,8 +1510,8 @@ const Statistics = () => {
               <button
                 onClick={() => setShowExpenseModal(true)}
                 style={{
-                  background: "#ef8a57",
-                  color: "#fff",
+                  background: primaryButtonBackground,
+                  color: primaryButtonColor,
                   border: "none",
                   borderRadius: 8,
                   padding: "0.7rem 1.5rem",
@@ -1540,10 +1533,10 @@ const Statistics = () => {
                 <div
                   style={{
                     width: "100%",
-                    background: "#fff7f0",
+                    background: softBackground,
                     borderRadius: 8,
                     padding: "1rem 2rem",
-                    color: "#ef8a57",
+                    color: "var(--buck-orange)",
                     fontWeight: 600,
                     textAlign: "center",
                     marginLeft:"-4%",
@@ -1556,7 +1549,7 @@ const Statistics = () => {
               )}
               <h3
                 style={{
-                  color: "#2c3e50",
+                  color: "var(--buck-ink)",
                   fontWeight: 800,
                   fontSize: "1.3rem",
                   marginBottom: 18,
@@ -1578,7 +1571,7 @@ const Statistics = () => {
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        background: "#fff7f0",
+                        background: softBackground,
                         borderRadius: 10,
                         boxShadow: "0 2px 8px rgba(239,138,87,0.06)",
                         padding: "0.8rem 1.3rem",
@@ -1588,34 +1581,34 @@ const Statistics = () => {
                       }}
                     >
                       <div
-                        style={{ flex: 2, fontWeight: 700, color: "#ef8a57" }}
+                        style={{ flex: 2, fontWeight: 700, color: "var(--buck-orange)" }}
                       >
                         {exp.category}
                       </div>
                       <div
-                        style={{ flex: 3, color: "#2c3e50", fontWeight: 500 }}
+                        style={{ flex: 3, color: "var(--buck-ink)", fontWeight: 500 }}
                       >
                         {exp.description}
                       </div>
                       <div
                         style={{
                           flex: 1,
-                          color: "#ef8a57",
+                          color: "var(--buck-orange)",
                           fontWeight: 800,
                           fontSize: 17,
                         }}
                       >
                         {formatCurrency(exp.amount)}
                       </div>
-                      <div style={{ flex: 1, color: "#6c757d", fontSize: 14 }}>
+                      <div style={{ flex: 1, color: "var(--buck-muted)", fontSize: 14 }}>
                         {exp.date}
                       </div>
                       <button
                         onClick={() => handleRemoveExpense(exp.id, exp.amount)}
                         style={{
-                          background: "#fff",
-                          color: "#ef8a57",
-                          border: "1.5px solid #ef8a57",
+                          background: modalBackground,
+                          color: "var(--buck-orange)",
+                          border: "1px solid rgba(244,117,54,0.38)",
                           borderRadius: 7,
                           padding: "0.4rem 1.1rem",
                           fontWeight: 700,
@@ -1626,12 +1619,12 @@ const Statistics = () => {
                             "background 0.2s, color 0.2s, border 0.2s",
                         }}
                         onMouseOver={(e) => {
-                          e.currentTarget.style.background = "#ef8a57";
-                          e.currentTarget.style.color = "#fff";
+                          e.currentTarget.style.background = primaryButtonBackground;
+                          e.currentTarget.style.color = primaryButtonColor;
                         }}
                         onMouseOut={(e) => {
-                          e.currentTarget.style.background = "#fff";
-                          e.currentTarget.style.color = "#ef8a57";
+                          e.currentTarget.style.background = modalBackground;
+                          e.currentTarget.style.color = "var(--buck-orange)";
                         }}
                       >
                         Remove
@@ -1641,7 +1634,7 @@ const Statistics = () => {
                 {expenses.length === 0 && (
                   <div
                     style={{
-                      color: "#aaa",
+                      color: "var(--buck-muted)",
                       textAlign: "center",
                       padding: 24,
                       fontSize: 16,
@@ -1655,7 +1648,7 @@ const Statistics = () => {
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 };
 

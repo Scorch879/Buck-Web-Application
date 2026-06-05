@@ -1,25 +1,17 @@
-// In goals.tsx
 import {
-  addDoc,
-  collection,
-  doc,
-  updateDoc,
-  deleteDoc,
-  setDoc,
-  getDocs,
-} from "firebase/firestore";
-import { auth, db } from "@/utils/firebase";
+  createGoalRecord,
+  deleteGoalRecord,
+  setOnlyGoalActiveRecord,
+  updateGoalRecord,
+  updateGoalStatusRecord,
+} from "@/utils/supabaseData";
 
-export async function createGoal(
+async function getGoalRecommendation(
   goalName: string,
   targetAmount: string,
-  attitude: string,
-  targetDate: string
+  attitude: string
 ) {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
   try {
-    // Call backend to get AI recommendation
     const aiResponse = await fetch(
       "https://buck-web-application.onrender.com/ai/saving_tip/",
       {
@@ -31,46 +23,48 @@ export async function createGoal(
         }),
       }
     );
-    let aiRecommendation = "";
-    if (aiResponse.ok) {
-      const data = await aiResponse.json();
-      aiRecommendation = data.tip || "";
+
+    if (!aiResponse.ok) {
+      return "";
     }
-    const docRef = await addDoc(
-      collection(db, "goals", user.uid, "userGoals"),
-      {
-        goalName,
-        targetAmount,
-        attitude,
-        createdAt: new Date().toISOString().slice(0, 10),
-        targetDate,
-        isActive: false,
-        aiRecommendation, // Save the AI recommendation
-      }
+
+    const data = await aiResponse.json();
+    return typeof data.tip === "string" ? data.tip : "";
+  } catch {
+    return "";
+  }
+}
+
+export async function createGoal(
+  goalName: string,
+  targetAmount: string,
+  attitude: string,
+  targetDate: string
+) {
+  try {
+    const aiRecommendation = await getGoalRecommendation(
+      goalName,
+      targetAmount,
+      attitude
     );
-    return {
-      success: true,
-      goal: {
-        id: docRef.id,
-        goalName,
-        targetAmount,
-        attitude,
-        createdAt: new Date().toISOString().slice(0, 10),
-        targetDate,
-        isActive: false,
-        aiRecommendation,
-      },
-    };
+    const goal = await createGoalRecord(
+      goalName,
+      targetAmount,
+      attitude,
+      targetDate,
+      aiRecommendation
+    );
+
+    return { success: true, goal };
   } catch (error) {
-    return { success: false };
+    console.error("Failed to create goal:", error);
+    return { success: false, message: "Failed to create goal." };
   }
 }
 
 export async function deleteGoal(goalId: string) {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
   try {
-    await deleteDoc(doc(db, "goals", user.uid, "userGoals", goalId));
+    await deleteGoalRecord(goalId);
     return { success: true };
   } catch (error) {
     console.error("Failed to delete goal:", error);
@@ -79,34 +73,21 @@ export async function deleteGoal(goalId: string) {
 }
 
 export async function updateGoalStatus(goalId: string, isActive: boolean) {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
   try {
-    await updateDoc(doc(db, "goals", user.uid, "userGoals", goalId), {
-      isActive,
-    });
+    await updateGoalStatusRecord(goalId, isActive);
     return { success: true };
   } catch (error) {
+    console.error("Failed to update goal status:", error);
     return { success: false, message: "Failed to update goal status." };
   }
 }
-export async function setOnlyGoalActive(goalId: string) {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
-  try {
-    const goalsRef = collection(db, "goals", user.uid, "userGoals");
-    const snapshot = await getDocs(goalsRef);
-    // Deactivate all goals
-    const updates = snapshot.docs.map((docSnap) => {
-      const isActive = docSnap.id === goalId;
-      return updateDoc(doc(db, "goals", user.uid, "userGoals", docSnap.id), {
-        isActive,
-      });
-    });
-    await Promise.all(updates);
 
+export async function setOnlyGoalActive(goalId: string) {
+  try {
+    await setOnlyGoalActiveRecord(goalId);
     return { success: true };
   } catch (error) {
+    console.error("Failed to update goals:", error);
     return { success: false, message: "Failed to update goals." };
   }
 }
@@ -118,41 +99,24 @@ export async function updateGoal(
   attitude: string,
   targetDate: string
 ) {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
   try {
-    // Call backend to get updated AI recommendation
-    const aiResponse = await fetch(
-      "https://buck-web-application.onrender.com/ai/saving_tip/",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          category: goalName,
-          user_context: `Attitude: ${attitude}, Target Amount: ${targetAmount}`,
-        }),
-      }
+    const aiRecommendation = await getGoalRecommendation(
+      goalName,
+      targetAmount,
+      attitude
     );
-    let aiRecommendation = "";
-    if (aiResponse.ok) {
-      const data = await aiResponse.json();
-      aiRecommendation = data.tip || "";
-    }
-    await setDoc(
-      doc(db, "goals", user.uid, "userGoals", goalId),
-      {
-        goalName,
-        targetAmount,
-        attitude,
-        targetDate,
-        isActive: false,
-        aiRecommendation,
-        updatedAt: new Date().toISOString().slice(0, 10),
-      },
-      { merge: true }
+    await updateGoalRecord(
+      goalId,
+      goalName,
+      targetAmount,
+      attitude,
+      targetDate,
+      aiRecommendation
     );
+
     return { success: true };
   } catch (error) {
-    return { success: false };
+    console.error("Failed to update goal:", error);
+    return { success: false, message: "Failed to update goal." };
   }
 }

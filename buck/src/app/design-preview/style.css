@@ -1,0 +1,146 @@
+.DP-Page {
+  min-height: 100dvh;
+  padding: clamp(2rem, 6vw, 4rem) clamp(1rem, 5vw, 3rem);
+  color: var(--buck-ink);
+  background: var(--buck-page-background);
+}
+
+.DP-Hero,
+.DP-Grid {
+  width: min(1080px, 100%);
+  margin: 0 auto;
+}
+
+.DP-Hero {
+  display: grid;
+  gap: 1rem;
+}
+
+.DP-Kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  color: var(--buck-orange);
+  font-size: 0.84rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.DP-Hero h1 {
+  max-width: 760px;
+  margin: 0;
+  font-size: clamp(2.35rem, 6vw, 4.5rem);
+  line-height: 0.98;
+}
+
+.DP-Hero p {
+  max-width: 660px;
+  margin: 0;
+  color: var(--buck-muted);
+  font-size: 1.08rem;
+  line-height: 1.65;
+}
+
+.DP-Status {
+  width: fit-content;
+  padding: 0.75rem 1rem;
+  border: 1px solid;
+  border-radius: 8px;
+  font-weight: 850;
+}
+
+.DP-Status--enabled {
+  color: #7b2e1d;
+  background: rgba(255, 197, 71, 0.22);
+  border-color: rgba(244, 117, 54, 0.28);
+}
+
+.DP-Status--disabled {
+  color: #9f2e20;
+  background: rgba(255, 250, 244, 0.7);
+  border-color: rgba(184, 51, 36, 0.28);
+}
+
+.DP-Grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: clamp(2rem, 5vw, 3rem);
+}
+
+.DP-Card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 150px;
+  padding: 1rem;
+  color: inherit;
+  background: rgba(255, 250, 244, 0.82);
+  border: 1px solid rgba(222, 210, 199, 0.9);
+  border-radius: 8px;
+  box-shadow: 0 14px 34px rgba(94, 59, 34, 0.1);
+  text-decoration: none;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.DP-Card strong,
+.DP-Card small {
+  display: block;
+}
+
+.DP-Card strong {
+  font-size: 1.1rem;
+}
+
+.DP-Card small {
+  margin-top: 0.55rem;
+  color: var(--buck-muted);
+  line-height: 1.45;
+}
+
+.DP-Card svg {
+  flex-shrink: 0;
+  color: var(--buck-orange);
+  margin-top: 0.15rem;
+}
+
+.DP-Card:hover {
+  border-color: rgba(239, 138, 87, 0.65);
+  box-shadow: 0 22px 48px rgba(94, 59, 34, 0.16);
+  transform: translateY(-5px);
+}
+
+html[data-buck-theme="dark"] .DP-Card {
+  background: rgba(38, 25, 18, 0.84);
+  border-color: rgba(255, 211, 154, 0.18);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.26);
+}
+
+html[data-buck-theme="dark"] .DP-Status--enabled {
+  color: #ffe7a3;
+  background: rgba(255, 197, 71, 0.12);
+  border-color: rgba(255, 197, 71, 0.2);
+}
+
+html[data-buck-theme="dark"] .DP-Status--disabled {
+  color: #ffc547;
+  background: rgba(244, 117, 54, 0.1);
+  border-color: rgba(244, 117, 54, 0.22);
+}
+
+@media (max-width: 940px) {
+  .DP-Grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .DP-Grid {
+    grid-template-columns: 1fr;
+  }
+}

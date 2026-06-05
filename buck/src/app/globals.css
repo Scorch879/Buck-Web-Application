@@ -40,6 +40,13 @@ html {
 }
 
 html[data-buck-theme="dark"] {
+  --buck-ink: #fff8ed;
+  --buck-muted: #d9c7b6;
+  --buck-paper: #17100c;
+  --buck-surface: rgba(38, 25, 18, 0.86);
+  --buck-line: rgba(255, 211, 154, 0.2);
+  --buck-gold-soft: rgba(255, 197, 71, 0.16);
+  --buck-shadow: 0 18px 45px rgba(0, 0, 0, 0.34);
   --buck-page-background-base: #120d0a;
   --buck-page-background:
     linear-gradient(

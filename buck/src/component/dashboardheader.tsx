@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { FaBars, FaTimes, FaWallet } from "react-icons/fa";
+import { usePathname, useRouter } from "next/navigation";
+import { FaBars, FaMoon, FaSun, FaTimes, FaWallet } from "react-icons/fa";
 import WalletModal from "@/app/dashboard/wallet/WalletModal";
+import { applyDocumentTheme, useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import { signOutUser } from "./authentication";
 import "./dashboard.css";
 
@@ -26,7 +27,22 @@ export default function DashboardHeader({
   const [activeNav, setActiveNav] = useState<DashboardNavId>(initialActiveNav);
   const [menuOpen, setMenuOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
+  const documentThemeIsDark = useAuthPageTheme();
+  const [isDarkTheme, setIsDarkTheme] = useState(documentThemeIsDark);
   const router = useRouter();
+  const pathname = usePathname();
+
+  const currentNav =
+    dashboardNavItems.find((item) => pathname?.startsWith(item.href))?.id ??
+    initialActiveNav;
+
+  useEffect(() => {
+    setActiveNav(currentNav);
+  }, [currentNav]);
+
+  useEffect(() => {
+    setIsDarkTheme(documentThemeIsDark);
+  }, [documentThemeIsDark]);
 
   const playQuack = () => {
     const audio = new Audio("/quack.mp3");
@@ -42,6 +58,21 @@ export default function DashboardHeader({
   const openWallet = () => {
     setWalletOpen(true);
     setMenuOpen(false);
+  };
+
+  const toggleTheme = () => {
+    setIsDarkTheme((currentThemeIsDark) => {
+      const nextTheme = currentThemeIsDark ? "light" : "dark";
+
+      try {
+        window.localStorage.setItem("buck-landing-theme", nextTheme);
+      } catch {
+        // Theme preference is cosmetic, so private storage failures can be ignored.
+      }
+
+      applyDocumentTheme(nextTheme);
+      return !currentThemeIsDark;
+    });
   };
 
   const handleSignOut = async () => {
@@ -98,6 +129,15 @@ export default function DashboardHeader({
         </nav>
 
         <div className="dashboard-header-actions">
+          <button
+            className="nav-button dashboard-theme-toggle"
+            type="button"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${isDarkTheme ? "light" : "dark"} mode`}
+          >
+            {isDarkTheme ? <FaSun aria-hidden="true" /> : <FaMoon aria-hidden="true" />}
+            {isDarkTheme ? "Light" : "Dark"}
+          </button>
           <button className="nav-button" type="button" onClick={openWallet}>
             <FaWallet aria-hidden="true" />
             Wallet
@@ -126,6 +166,17 @@ export default function DashboardHeader({
           aria-label="Mobile dashboard navigation"
         >
           {renderNavItems()}
+          <button
+            className="nav-button dashboard-theme-toggle"
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              toggleTheme();
+            }}
+          >
+            {isDarkTheme ? <FaSun aria-hidden="true" /> : <FaMoon aria-hidden="true" />}
+            {isDarkTheme ? "Light mode" : "Dark mode"}
+          </button>
           <button className="nav-button" type="button" onClick={openWallet}>
             <FaWallet aria-hidden="true" />
             Wallet
