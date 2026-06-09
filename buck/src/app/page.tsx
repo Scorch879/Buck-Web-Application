@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import type { Variants } from "framer-motion";
@@ -116,6 +117,32 @@ const heroWordContainer: Variants = {
   },
 };
 
+const getAnchorVisualGap = () => {
+  if (window.innerWidth <= 600) {
+    return 18;
+  }
+
+  if (window.innerWidth <= 900) {
+    return 24;
+  }
+
+  return 34;
+};
+
+const getHeaderHeight = () =>
+  document.querySelector(".site-header")?.getBoundingClientRect().height ?? 0;
+
+const getSectionAnchor = (section: HTMLElement) =>
+  section.querySelector<HTMLElement>("[data-scroll-anchor]") ?? section;
+
+const getSectionScrollTop = (section: HTMLElement) => {
+  const anchor = getSectionAnchor(section);
+  const anchorTop = anchor.getBoundingClientRect().top + window.scrollY;
+  const preferredAnchorTop = getHeaderHeight() + getAnchorVisualGap();
+
+  return Math.max(anchorTop - preferredAnchorTop, 0);
+};
+
 export default function Home() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -149,18 +176,14 @@ export default function Home() {
     let animationFrameId: number | null = null;
 
     const updateActiveSection = () => {
-      const activationLine = Math.min(window.innerHeight * 0.35, 260);
+      const activationLine = getHeaderHeight() + getAnchorVisualGap() + 8;
       let currentSection = sections[0].id;
 
       setIsHeaderStuck(window.scrollY > 18);
 
       for (const section of sections) {
-        const bounds = section.getBoundingClientRect();
-
-        if (bounds.top <= activationLine && bounds.bottom > activationLine) {
-          currentSection = section.id;
-          break;
-        }
+        const anchor = getSectionAnchor(section);
+        const bounds = anchor.getBoundingClientRect();
 
         if (bounds.top <= activationLine) {
           currentSection = section.id;
@@ -283,7 +306,15 @@ export default function Home() {
 
   const scrollToSection = (targetId: string) => {
     setActiveSection(targetId);
-    document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth" });
+    const targetSection = document.getElementById(targetId);
+
+    if (targetSection) {
+      window.scrollTo({
+        top: targetId === "home" ? 0 : getSectionScrollTop(targetSection),
+        behavior: "smooth",
+      });
+    }
+
     setMenuOpen(false);
   };
 
@@ -461,7 +492,7 @@ export default function Home() {
       <main>
         <section className="hero-section" id="home">
           <div className="hero-content">
-            <div className="hero-copy">
+            <div className="hero-copy" data-scroll-anchor="true">
               <p className="eyebrow">Personal budgeting, minus the mess</p>
               <motion.h1
                 className="hero-title"
@@ -565,7 +596,7 @@ export default function Home() {
 
         <section className="feature-section" id="features">
           <div className="section-inner">
-            <div className="section-heading">
+            <div className="section-heading" data-scroll-anchor="true">
               <p className="eyebrow">What Buck keeps tidy</p>
               <h2>Everything important has a clear place.</h2>
             </div>
@@ -667,7 +698,7 @@ export default function Home() {
 
         <section className="about-band" id="about">
           <div className="about-section">
-            <div className="about-copy">
+            <div className="about-copy" data-scroll-anchor="true">
               <p className="eyebrow">About Buck</p>
               <h2>Budgeting should feel calm, visible, and doable.</h2>
               <p>
@@ -707,22 +738,46 @@ export default function Home() {
       </main>
 
       <footer className="landing-footer">
-        <div>
-          <strong>Buck Budget Tracker</strong>
-          <span>Spend smarter. Save steadier.</span>
+        <div className="landing-footer-main">
+          <div className="landing-footer-brand">
+            <div className="footer-brand-lockup">
+              <span className="footer-brand-mark" aria-hidden="true">
+                <Image
+                  src="/BuckMascot.svg"
+                  alt=""
+                  width={52}
+                  height={62}
+                />
+              </span>
+              <div className="footer-brand-copy">
+                <strong>Buck Budget Tracker</strong>
+                <span>Spend smarter. Save steadier.</span>
+              </div>
+            </div>
+            <p>
+              A friendly personal budget tracker for weekly wallets, savings
+              goals, and calmer money decisions.
+            </p>
+          </div>
+
+          <nav className="footer-links" aria-label="Footer navigation">
+            <button type="button" onClick={goToSignIn}>
+              Log in
+            </button>
+            <Link href="/create-account">Register</Link>
+            <Link href="/terms">Terms</Link>
+            <Link href="/privacy">Privacy</Link>
+          </nav>
         </div>
-        <div className="footer-links">
-          <button type="button" onClick={() => scrollToSection("home")}>
-            Home
-          </button>
-          <button type="button" onClick={() => scrollToSection("features")}>
-            Features
-          </button>
-          <a href="mailto:BuckTheBudgetTracker@gmail.com">
-            BuckTheBudgetTracker@gmail.com
-          </a>
+
+        <div className="landing-footer-divider" />
+
+        <div className="landing-footer-bottom">
+          <p>&copy; 2026 Buck. All rights reserved.</p>
+          <p className="footer-disclaimer">
+            Personal budgeting support. Not financial advice.
+          </p>
         </div>
-        <p>&copy; 2026 Buck. All rights reserved.</p>
       </footer>
     </div>
   );

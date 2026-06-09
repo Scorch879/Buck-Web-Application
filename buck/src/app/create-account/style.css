@@ -396,6 +396,79 @@ html[data-buck-theme="dark"] .CA-Background {
   transform: translateY(-1px);
 }
 
+.CA-PasswordFeedback {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.75rem 0.85rem;
+  color: #ffe1d4;
+  background: rgba(255, 248, 237, 0.07);
+  border: 1px solid rgba(255, 211, 154, 0.16);
+  border-radius: 8px;
+}
+
+.CA-PasswordSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.86rem;
+}
+
+.CA-PasswordSummary strong {
+  color: #fff8ed;
+}
+
+.CA-PasswordSummary span {
+  color: #d9c7b6;
+  font-weight: 800;
+}
+
+.CA-PasswordMeter {
+  height: 7px;
+  overflow: hidden;
+  background: rgba(255, 248, 237, 0.12);
+  border-radius: 999px;
+}
+
+.CA-PasswordMeter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ff3838, #f47536);
+  transition:
+    width 180ms ease,
+    background 180ms ease;
+}
+
+.CA-PasswordFeedback--good .CA-PasswordMeter span,
+.CA-PasswordFeedback--strong .CA-PasswordMeter span {
+  background: linear-gradient(90deg, #ffc547, #5dd87d);
+}
+
+.CA-PasswordFeedback ul,
+.CA-PasswordFeedback p,
+.CA-ConfirmHint {
+  margin: 0;
+  color: #d9c7b6;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.CA-PasswordFeedback ul {
+  display: grid;
+  gap: 0.25rem;
+  padding-left: 1.05rem;
+}
+
+.CA-ConfirmHint {
+  color: #ffd8d8;
+  font-weight: 800;
+}
+
+.CA-ConfirmHint--match {
+  color: #d7f7dc;
+}
+
 .CA-Btn {
   margin-top: 0.55rem;
   color: #ffffff;
@@ -559,6 +632,34 @@ html[data-buck-theme="light"] .CA-Background .CA-Eye-Btn img {
 
 html[data-buck-theme="light"] .CA-Background .CA-Eye-Btn:hover {
   background: rgba(184, 51, 36, 0.1);
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-PasswordFeedback {
+  color: #6f3829;
+  background: rgba(255, 255, 255, 0.56);
+  border-color: rgba(184, 51, 36, 0.16);
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-PasswordSummary strong {
+  color: #2b2523;
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-PasswordSummary span,
+html[data-buck-theme="light"] .CA-Background .CA-PasswordFeedback ul,
+html[data-buck-theme="light"] .CA-Background .CA-PasswordFeedback p {
+  color: #625750;
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-PasswordMeter {
+  background: rgba(117, 109, 104, 0.16);
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-ConfirmHint {
+  color: #b83324;
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-ConfirmHint--match {
+  color: #256a33;
 }
 
 html[data-buck-theme="light"] .CA-Background .CA-Link {

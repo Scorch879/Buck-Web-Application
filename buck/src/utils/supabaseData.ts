@@ -43,6 +43,9 @@ export type BuckWallet = {
 
 type TableName = "wallets" | "categories" | "goals" | "expenses";
 
+const uuidRegex =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const defaultCategoryNames = [
   "Food",
   "Gas Money",
@@ -159,6 +162,18 @@ function toNumber(value: unknown) {
   return Number.isFinite(numberValue) ? numberValue : 0;
 }
 
+function assertUuid(value: string, label: string) {
+  if (!uuidRegex.test(value)) {
+    throw new Error(`Invalid ${label}.`);
+  }
+
+  return value;
+}
+
+function escapeIlikePattern(value: string) {
+  return value.trim().replace(/[\\%_]/g, (match) => `\\${match}`);
+}
+
 function mapCategory(row: Record<string, unknown>): BuckCategory {
   return {
     id: String(row.id),
@@ -221,7 +236,7 @@ async function getCurrentUserId() {
     throw new Error("User not authenticated");
   }
 
-  return data.user.id;
+  return assertUuid(data.user.id, "user session");
 }
 
 export function subscribeUserTable(
@@ -233,16 +248,17 @@ export function subscribeUserTable(
     return () => {};
   }
 
+  const safeUserId = assertUuid(userId, "user id");
   const supabase = getSupabaseClient();
   const channel = supabase
-    .channel(`${table}:${userId}:${Math.random().toString(36).slice(2)}`)
+    .channel(`${table}:${safeUserId}:${Math.random().toString(36).slice(2)}`)
     .on(
       "postgres_changes",
       {
         event: "*",
         schema: "public",
         table,
-        filter: `user_id=eq.${userId}`,
+        filter: `user_id=eq.${safeUserId}`,
       },
       onChange
     )
@@ -258,8 +274,9 @@ export async function ensureDefaultCategories(userId: string) {
     return previewCategories;
   }
 
+  const safeUserId = assertUuid(userId, "user id");
   const supabase = getSupabaseClient();
-  const existingCategories = await listCategories(userId);
+  const existingCategories = await listCategories(safeUserId);
 
   if (existingCategories.length > 0) {
     return existingCategories;
@@ -267,7 +284,7 @@ export async function ensureDefaultCategories(userId: string) {
 
   const { error } = await supabase.from("categories").insert(
     defaultCategoryNames.map((name, index) => ({
-      user_id: userId,
+      user_id: safeUserId,
       name,
       sort_order: (index + 1) * 10,
     }))
@@ -277,7 +294,7 @@ export async function ensureDefaultCategories(userId: string) {
     throw new Error(error.message);
   }
 
-  return listCategories(userId);
+  return listCategories(safeUserId);
 }
 
 export async function listCategories(userId: string) {
@@ -285,11 +302,12 @@ export async function listCategories(userId: string) {
     return previewCategories;
   }
 
+  const safeUserId = assertUuid(userId, "user id");
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("categories")
     .select("id, name, sort_order")
-    .eq("user_id", userId)
+    .eq("user_id", safeUserId)
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
 
@@ -308,10 +326,11 @@ export async function addCategory(userId: string, name: string) {
     };
   }
 
+  const safeUserId = assertUuid(userId, "user id");
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("categories")
-    .insert({ user_id: userId, name: name.trim() })
+    .insert({ user_id: safeUserId, name: name.trim() })
     .select("id, name")
     .single();
 
@@ -331,12 +350,14 @@ export async function updateCategoryName(
     return;
   }
 
+  const safeUserId = assertUuid(userId, "user id");
+  const safeCategoryId = assertUuid(categoryId, "category id");
   const supabase = getSupabaseClient();
   const { error } = await supabase
     .from("categories")
     .update({ name: name.trim() })
-    .eq("id", categoryId)
-    .eq("user_id", userId);
+    .eq("id", safeCategoryId)
+    .eq("user_id", safeUserId);
 
   if (error) {
     throw new Error(error.message);
@@ -348,12 +369,14 @@ export async function deleteCategory(userId: string, categoryId: string) {
     return;
   }
 
+  const safeUserId = assertUuid(userId, "user id");
+  const safeCategoryId = assertUuid(categoryId, "category id");
   const supabase = getSupabaseClient();
   const { error } = await supabase
     .from("categories")
     .delete()
-    .eq("id", categoryId)
-    .eq("user_id", userId);
+    .eq("id", safeCategoryId)
+    .eq("user_id", safeUserId);
 
   if (error) {
     throw new Error(error.message);
@@ -365,13 +388,14 @@ export async function listExpenses(userId: string) {
     return previewExpenses;
   }
 
+  const safeUserId = assertUuid(userId, "user id");
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("expenses")
     .select(
       "id, user_id, wallet_id, goal_id, category_id, category_name, amount, description, spent_on, created_at"
     )
-    .eq("user_id", userId)
+    .eq("user_id", safeUserId)
     .order("spent_on", { ascending: false })
     .order("created_at", { ascending: false });
 
@@ -392,12 +416,13 @@ async function getCategoryByName(userId: string, categoryName: string) {
     );
   }
 
+  const safeUserId = assertUuid(userId, "user id");
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("categories")
     .select("id, name")
-    .eq("user_id", userId)
-    .ilike("name", categoryName)
+    .eq("user_id", safeUserId)
+    .ilike("name", escapeIlikePattern(categoryName))
     .maybeSingle();
 
   if (error) {
@@ -434,19 +459,29 @@ export async function addExpense(
   }
 
   const supabase = getSupabaseClient();
+  const safeUserId = assertUuid(userId, "user id");
+  const safeCategoryId = expense.categoryId
+    ? assertUuid(expense.categoryId, "category id")
+    : null;
+  const safeGoalId = expense.goalId
+    ? assertUuid(expense.goalId, "goal id")
+    : null;
+  const safeWalletId = expense.walletId
+    ? assertUuid(expense.walletId, "wallet id")
+    : null;
   const categoryName = expense.categoryName?.trim() || "Uncategorized";
   const category =
-    expense.categoryId || categoryName === "Uncategorized"
+    safeCategoryId || categoryName === "Uncategorized"
       ? null
-      : await getCategoryByName(userId, categoryName);
+      : await getCategoryByName(safeUserId, categoryName);
 
   const { data, error } = await supabase
     .from("expenses")
     .insert({
-      user_id: userId,
-      wallet_id: expense.walletId ?? null,
-      goal_id: expense.goalId ?? null,
-      category_id: expense.categoryId ?? category?.id ?? null,
+      user_id: safeUserId,
+      wallet_id: safeWalletId,
+      goal_id: safeGoalId,
+      category_id: safeCategoryId ?? category?.id ?? null,
       category_name: category?.name ?? categoryName,
       amount: expense.amount,
       description: expense.description,
@@ -470,11 +505,13 @@ export async function deleteExpense(userId: string, expenseId: string) {
   }
 
   const supabase = getSupabaseClient();
+  const safeUserId = assertUuid(userId, "user id");
+  const safeExpenseId = assertUuid(expenseId, "expense id");
   const { error } = await supabase
     .from("expenses")
     .delete()
-    .eq("id", expenseId)
-    .eq("user_id", userId);
+    .eq("id", safeExpenseId)
+    .eq("user_id", safeUserId);
 
   if (error) {
     throw new Error(error.message);
@@ -487,12 +524,13 @@ export async function listGoals(userId: string) {
   }
 
   const supabase = getSupabaseClient();
+  const safeUserId = assertUuid(userId, "user id");
   const { data, error } = await supabase
     .from("goals")
     .select(
       "id, goal_name, target_amount, current_amount, target_date, created_at, attitude, is_active, completed, ai_recommendation, ai_recommended_budget"
     )
-    .eq("user_id", userId)
+    .eq("user_id", safeUserId)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -556,11 +594,12 @@ export async function deleteGoalRecord(goalId: string) {
   }
 
   const userId = await getCurrentUserId();
+  const safeGoalId = assertUuid(goalId, "goal id");
   const supabase = getSupabaseClient();
   const { error } = await supabase
     .from("goals")
     .delete()
-    .eq("id", goalId)
+    .eq("id", safeGoalId)
     .eq("user_id", userId);
 
   if (error) {
@@ -574,11 +613,12 @@ export async function updateGoalStatusRecord(goalId: string, isActive: boolean) 
   }
 
   const userId = await getCurrentUserId();
+  const safeGoalId = assertUuid(goalId, "goal id");
   const supabase = getSupabaseClient();
   const { error } = await supabase
     .from("goals")
     .update({ is_active: isActive })
-    .eq("id", goalId)
+    .eq("id", safeGoalId)
     .eq("user_id", userId);
 
   if (error) {
@@ -592,6 +632,7 @@ export async function setOnlyGoalActiveRecord(goalId: string) {
   }
 
   const userId = await getCurrentUserId();
+  const safeGoalId = assertUuid(goalId, "goal id");
   const supabase = getSupabaseClient();
   const { error: deactivateError } = await supabase
     .from("goals")
@@ -605,7 +646,7 @@ export async function setOnlyGoalActiveRecord(goalId: string) {
   const { error: activateError } = await supabase
     .from("goals")
     .update({ is_active: true })
-    .eq("id", goalId)
+    .eq("id", safeGoalId)
     .eq("user_id", userId);
 
   if (activateError) {
@@ -626,6 +667,7 @@ export async function updateGoalRecord(
   }
 
   const userId = await getCurrentUserId();
+  const safeGoalId = assertUuid(goalId, "goal id");
   const supabase = getSupabaseClient();
   const { error } = await supabase
     .from("goals")
@@ -636,7 +678,7 @@ export async function updateGoalRecord(
       target_date: targetDate,
       ai_recommendation: aiRecommendation,
     })
-    .eq("id", goalId)
+    .eq("id", safeGoalId)
     .eq("user_id", userId);
 
   if (error) {
@@ -655,14 +697,16 @@ export async function updateGoalProgress(
   }
 
   const supabase = getSupabaseClient();
+  const safeUserId = assertUuid(userId, "user id");
+  const safeGoalId = assertUuid(goalId, "goal id");
   const { error } = await supabase
     .from("goals")
     .update({
       current_amount: currentAmount,
       completed,
     })
-    .eq("id", goalId)
-    .eq("user_id", userId);
+    .eq("id", safeGoalId)
+    .eq("user_id", safeUserId);
 
   if (error) {
     throw new Error(error.message);
@@ -679,11 +723,13 @@ export async function updateGoalAiRecommendedBudget(
   }
 
   const supabase = getSupabaseClient();
+  const safeUserId = assertUuid(userId, "user id");
+  const safeGoalId = assertUuid(goalId, "goal id");
   const { error } = await supabase
     .from("goals")
     .update({ ai_recommended_budget: aiRecommendedBudget })
-    .eq("id", goalId)
-    .eq("user_id", userId);
+    .eq("id", safeGoalId)
+    .eq("user_id", safeUserId);
 
   if (error) {
     throw new Error(error.message);
@@ -696,10 +742,11 @@ export async function listWallets(userId: string) {
   }
 
   const supabase = getSupabaseClient();
+  const safeUserId = assertUuid(userId, "user id");
   const { data, error } = await supabase
     .from("wallets")
     .select("id, name, budget")
-    .eq("user_id", userId)
+    .eq("user_id", safeUserId)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -715,10 +762,11 @@ export async function getActiveWalletId(userId: string) {
   }
 
   const supabase = getSupabaseClient();
+  const safeUserId = assertUuid(userId, "user id");
   const { data, error } = await supabase
     .from("profiles")
     .select("active_wallet_id")
-    .eq("id", userId)
+    .eq("id", safeUserId)
     .maybeSingle();
 
   if (error) {
@@ -734,12 +782,14 @@ export async function setActiveWallet(userId: string, walletId: string | null) {
   }
 
   const supabase = getSupabaseClient();
+  const safeUserId = assertUuid(userId, "user id");
+  const safeWalletId = walletId ? assertUuid(walletId, "wallet id") : null;
   const { error } = await supabase
     .from("profiles")
     .upsert(
       {
-        id: userId,
-        active_wallet_id: walletId,
+        id: safeUserId,
+        active_wallet_id: safeWalletId,
       },
       { onConflict: "id" }
     );
@@ -754,12 +804,13 @@ export async function getActiveWallet(userId: string) {
     return previewWallets[0] ?? null;
   }
 
-  const wallets = await listWallets(userId);
-  let activeWalletId = await getActiveWalletId(userId);
+  const safeUserId = assertUuid(userId, "user id");
+  const wallets = await listWallets(safeUserId);
+  let activeWalletId = await getActiveWalletId(safeUserId);
 
   if (!activeWalletId && wallets.length === 1) {
     activeWalletId = wallets[0].id;
-    await setActiveWallet(userId, activeWalletId);
+    await setActiveWallet(safeUserId, activeWalletId);
   }
 
   if (!activeWalletId) {
@@ -779,10 +830,11 @@ export async function addWallet(userId: string, name: string, budget: number) {
   }
 
   const supabase = getSupabaseClient();
+  const safeUserId = assertUuid(userId, "user id");
   const { data, error } = await supabase
     .from("wallets")
     .insert({
-      user_id: userId,
+      user_id: safeUserId,
       name: name.trim(),
       budget,
     })
@@ -794,10 +846,10 @@ export async function addWallet(userId: string, name: string, budget: number) {
   }
 
   const wallet = mapWallet(data);
-  const wallets = await listWallets(userId);
+  const wallets = await listWallets(safeUserId);
 
   if (wallets.length === 1) {
-    await setActiveWallet(userId, wallet.id);
+    await setActiveWallet(safeUserId, wallet.id);
   }
 
   return wallet;
@@ -813,14 +865,16 @@ export async function updateWallet(
   }
 
   const supabase = getSupabaseClient();
+  const safeUserId = assertUuid(userId, "user id");
+  const safeWalletId = assertUuid(walletId, "wallet id");
   const { error } = await supabase
     .from("wallets")
     .update({
       ...(values.name !== undefined ? { name: values.name.trim() } : {}),
       ...(values.budget !== undefined ? { budget: values.budget } : {}),
     })
-    .eq("id", walletId)
-    .eq("user_id", userId);
+    .eq("id", safeWalletId)
+    .eq("user_id", safeUserId);
 
   if (error) {
     throw new Error(error.message);
@@ -833,11 +887,13 @@ export async function deleteWallet(userId: string, walletId: string) {
   }
 
   const supabase = getSupabaseClient();
+  const safeUserId = assertUuid(userId, "user id");
+  const safeWalletId = assertUuid(walletId, "wallet id");
   const { error } = await supabase
     .from("wallets")
     .delete()
-    .eq("id", walletId)
-    .eq("user_id", userId);
+    .eq("id", safeWalletId)
+    .eq("user_id", safeUserId);
 
   if (error) {
     throw new Error(error.message);

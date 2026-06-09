@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import { getSupabaseClient, isSupabaseConfigured } from "@/utils/supabase";
+import {
+  getSupabaseClient,
+  isSupabaseConfigured,
+  supabaseConfigError,
+} from "@/utils/supabase";
+import { evaluatePasswordPolicy } from "@/utils/passwordPolicy";
 
 type AuthFormData = {
   username: string;
@@ -44,8 +49,7 @@ function getSafeRedirectPath(redirectTo: string) {
 function getConfiguredAuthError(): AuthResult {
   return {
     success: false,
-    message:
-      "Supabase authentication is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+    message: supabaseConfigError,
   };
 }
 
@@ -110,6 +114,15 @@ export async function signUpUser(
   }
 
   try {
+    const passwordPolicy = evaluatePasswordPolicy(password, { email, username });
+
+    if (!passwordPolicy.isValid) {
+      return {
+        success: false,
+        message: `Password is not secure enough: ${passwordPolicy.issues.join(", ")}.`,
+      };
+    }
+
     const supabase = getSupabaseClient();
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
@@ -162,6 +175,33 @@ export async function signInUser(
   }
 }
 
+export async function sendMagicLink(
+  email: string,
+  redirectTo = "/dashboard/home"
+): Promise<AuthResult> {
+  if (!isSupabaseConfigured) {
+    return getConfiguredAuthError();
+  }
+
+  try {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: {
+        emailRedirectTo: `${getSiteUrl()}${getSafeRedirectPath(redirectTo)}`,
+      },
+    });
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+
+    return { success: true, message: "Magic link sent. Check your email." };
+  } catch (error) {
+    return { success: false, message: getErrorMessage(error) };
+  }
+}
+
 export async function signInWithGoogle(
   redirectTo = "/dashboard/home"
 ): Promise<AuthResult> {
@@ -183,6 +223,36 @@ export async function signInWithGoogle(
     }
 
     return { success: true, redirecting: true };
+  } catch (error) {
+    return { success: false, message: getErrorMessage(error) };
+  }
+}
+
+export async function resendSignUpConfirmation(
+  email: string
+): Promise<AuthResult> {
+  if (!isSupabaseConfigured) {
+    return getConfiguredAuthError();
+  }
+
+  try {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: email.trim(),
+      options: {
+        emailRedirectTo: `${getSiteUrl()}/dashboard/home`,
+      },
+    });
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+
+    return {
+      success: true,
+      message: "Confirmation email sent again. Check your inbox.",
+    };
   } catch (error) {
     return { success: false, message: getErrorMessage(error) };
   }
@@ -215,6 +285,15 @@ export async function updatePassword(password: string): Promise<AuthResult> {
   }
 
   try {
+    const passwordPolicy = evaluatePasswordPolicy(password);
+
+    if (!passwordPolicy.isValid) {
+      return {
+        success: false,
+        message: `Password is not secure enough: ${passwordPolicy.issues.join(", ")}.`,
+      };
+    }
+
     const supabase = getSupabaseClient();
     const { error } = await supabase.auth.updateUser({ password });
 
@@ -225,6 +304,33 @@ export async function updatePassword(password: string): Promise<AuthResult> {
     await supabase.auth.signOut();
 
     return { success: true, message: "Password updated successfully." };
+  } catch (error) {
+    return { success: false, message: getErrorMessage(error) };
+  }
+}
+
+export async function updateEmailAddress(email: string): Promise<AuthResult> {
+  if (!isSupabaseConfigured) {
+    return getConfiguredAuthError();
+  }
+
+  try {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.auth.updateUser(
+      { email: email.trim() },
+      {
+        emailRedirectTo: `${getSiteUrl()}/dashboard/home`,
+      }
+    );
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+
+    return {
+      success: true,
+      message: "Email change confirmation sent. Check your inbox.",
+    };
   } catch (error) {
     return { success: false, message: getErrorMessage(error) };
   }

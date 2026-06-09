@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signInWithGoogle, signUpUser } from "@/component/authentication";
 import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
+import { evaluatePasswordPolicy } from "@/utils/passwordPolicy";
 import { motion } from "framer-motion";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 import {
@@ -60,6 +61,17 @@ const CreateAccount = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const isDarkTheme = useAuthPageTheme();
   const createButton = usePointerGradient<HTMLButtonElement>();
+  const passwordPolicy = evaluatePasswordPolicy(form.password, {
+    email: form.email,
+    username: form.username,
+  });
+  const passwordProgress = Math.min(100, Math.max(8, passwordPolicy.score * 20));
+  const confirmStatus =
+    form.confirm.length === 0
+      ? ""
+      : form.password === form.confirm
+        ? "Passwords match."
+        : "Passwords do not match yet.";
   useRedirectIfAuthenticated();
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -87,8 +99,10 @@ const CreateAccount = () => {
       setError("Passwords do not match.");
       return;
     }
-    if (form.password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (!passwordPolicy.isValid) {
+      setError(
+        `Password is not secure enough: ${passwordPolicy.issues.join(", ")}.`
+      );
       return;
     }
     const result = await signUpUser(form.email, form.password, form.username);
@@ -297,6 +311,32 @@ const CreateAccount = () => {
                   />
                 </button>
               </div>
+              {form.password ? (
+                <div
+                  className={`CA-PasswordFeedback CA-PasswordFeedback--${passwordPolicy.strength}`}
+                  aria-live="polite"
+                >
+                  <div className="CA-PasswordSummary">
+                    <strong>{passwordPolicy.label}</strong>
+                    <span>{passwordPolicy.score}/5 checks</span>
+                  </div>
+                  <div
+                    className="CA-PasswordMeter"
+                    aria-hidden="true"
+                  >
+                    <span style={{ width: `${passwordProgress}%` }} />
+                  </div>
+                  {passwordPolicy.issues.length > 0 ? (
+                    <ul>
+                      {passwordPolicy.issues.map((issue) => (
+                        <li key={issue}>{issue}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>Your password meets Buck&apos;s security requirements.</p>
+                  )}
+                </div>
+              ) : null}
 
               <label htmlFor="confirm" className="CA-Label">
                 Confirm password
@@ -326,6 +366,16 @@ const CreateAccount = () => {
                   />
                 </button>
               </div>
+              {confirmStatus ? (
+                <p
+                  className={`CA-ConfirmHint${
+                    form.password === form.confirm ? " CA-ConfirmHint--match" : ""
+                  }`}
+                  aria-live="polite"
+                >
+                  {confirmStatus}
+                </p>
+              ) : null}
 
               <motion.button
                 ref={createButton.ref}

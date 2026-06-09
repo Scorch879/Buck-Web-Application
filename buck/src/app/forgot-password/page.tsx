@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { sendPasswordReset, updatePassword } from "@/component/authentication";
 import { supabase } from "@/utils/supabase";
+import { evaluatePasswordPolicy } from "@/utils/passwordPolicy";
 import { motion } from "framer-motion";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 import {
@@ -58,6 +59,14 @@ const ForgotPassword = () => {
   const [error, setError] = useState("");
   const isDarkTheme = useAuthPageTheme();
   const resetButton = usePointerGradient<HTMLButtonElement>();
+  const passwordPolicy = evaluatePasswordPolicy(newPassword, { email });
+  const passwordProgress = Math.min(100, Math.max(8, passwordPolicy.score * 20));
+  const confirmStatus =
+    confirmPassword.length === 0
+      ? ""
+      : newPassword === confirmPassword
+        ? "Passwords match."
+        : "Passwords do not match yet.";
 
   useEffect(() => {
     const hasRecoveryToken =
@@ -95,8 +104,10 @@ const ForgotPassword = () => {
       return;
     }
 
-    if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (!passwordPolicy.isValid) {
+      setError(
+        `Password is not secure enough: ${passwordPolicy.issues.join(", ")}.`
+      );
       return;
     }
 
@@ -260,6 +271,32 @@ const ForgotPassword = () => {
                     placeholder="Create a new password"
                     autoComplete="new-password"
                   />
+                  {newPassword ? (
+                    <div
+                      className={`FP-PasswordFeedback FP-PasswordFeedback--${passwordPolicy.strength}`}
+                      aria-live="polite"
+                    >
+                      <div className="FP-PasswordSummary">
+                        <strong>{passwordPolicy.label}</strong>
+                        <span>{passwordPolicy.score}/5 checks</span>
+                      </div>
+                      <div className="FP-PasswordMeter" aria-hidden="true">
+                        <span style={{ width: `${passwordProgress}%` }} />
+                      </div>
+                      {passwordPolicy.issues.length > 0 ? (
+                        <ul>
+                          {passwordPolicy.issues.map((issue) => (
+                            <li key={issue}>{issue}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>
+                          Your password meets Buck&apos;s security
+                          requirements.
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
 
                   <label htmlFor="confirm-password" className="FP-Label">
                     Confirm password
@@ -273,6 +310,18 @@ const ForgotPassword = () => {
                     placeholder="Confirm your new password"
                     autoComplete="new-password"
                   />
+                  {confirmStatus ? (
+                    <p
+                      className={`FP-ConfirmHint${
+                        newPassword === confirmPassword
+                          ? " FP-ConfirmHint--match"
+                          : ""
+                      }`}
+                      aria-live="polite"
+                    >
+                      {confirmStatus}
+                    </p>
+                  ) : null}
                 </>
               ) : (
                 <>
