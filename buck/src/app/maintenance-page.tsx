@@ -5,11 +5,29 @@ import Image from "next/image";
 import { FaEnvelope, FaShieldAlt, FaTools } from "react-icons/fa";
 
 const supportEmail = "BuckTheBudgetTracker@gmail.com";
+const supportSubject = "Buck Budget Tracker support";
+const supportBody = "Hello Buck support,";
+
+const gmailComposeUrl = `https://mail.google.com/mail/?view=cm&fs=1&tf=1&to=${encodeURIComponent(
+  supportEmail
+)}&su=${encodeURIComponent(supportSubject)}&body=${encodeURIComponent(
+  supportBody
+)}`;
+
+const mailtoUrl = `mailto:${supportEmail}?subject=${encodeURIComponent(
+  supportSubject
+)}&body=${encodeURIComponent(supportBody)}`;
 
 export default function MaintenancePage() {
-  const [contactStatus, setContactStatus] = useState(supportEmail);
+  const [contactStatus, setContactStatus] = useState("");
 
   const handleContactSupport = async () => {
+    const supportTab = window.open(gmailComposeUrl, "_blank");
+
+    if (supportTab) {
+      supportTab.opener = null;
+    }
+
     let copiedEmail = false;
 
     try {
@@ -22,14 +40,16 @@ export default function MaintenancePage() {
     }
 
     setContactStatus(
-      copiedEmail
-        ? "Support email copied. Opening your email app..."
-        : `Email us at ${supportEmail}`
+      supportTab
+        ? copiedEmail
+          ? "Support email copied. Opening Gmail..."
+          : "Opening Gmail compose..."
+        : `Opening your email app. You can also email us at ${supportEmail}.`
     );
 
-    window.location.href = `mailto:${supportEmail}?subject=${encodeURIComponent(
-      "Buck Budget Tracker support"
-    )}`;
+    if (!supportTab) {
+      window.location.href = mailtoUrl;
+    }
   };
 
   return (
@@ -70,9 +90,11 @@ export default function MaintenancePage() {
                 Contact support
               </button>
             </div>
-            <p className="maintenance-contact-note" role="status">
-              {contactStatus}
-            </p>
+            {contactStatus ? (
+              <p className="maintenance-contact-note" role="status">
+                {contactStatus}
+              </p>
+            ) : null}
           </div>
 
           <aside className="maintenance-status" aria-label="Maintenance status">
@@ -85,7 +107,6 @@ export default function MaintenancePage() {
               <div className="maintenance-loader-track" aria-hidden="true">
                 <span />
               </div>
-              <p>Preparing Buck to come back online...</p>
             </div>
 
             <ul className="maintenance-list">

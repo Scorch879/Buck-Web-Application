@@ -1,0 +1,195 @@
+.CE-Background {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 2rem);
+  color: #2b2523;
+  background: var(--buck-page-background);
+}
+
+.CE-Card {
+  width: min(560px, 100%);
+  padding: clamp(1.25rem, 4vw, 2rem);
+  background: rgba(255, 250, 244, 0.9);
+  border: 1px solid rgba(222, 210, 199, 0.92);
+  border-radius: 8px;
+  box-shadow: 0 22px 60px rgba(94, 59, 34, 0.18);
+  text-align: center;
+}
+
+.CE-Dark .CE-Card {
+  color: #fff8ed;
+  background: rgba(38, 25, 18, 0.9);
+  border-color: rgba(255, 211, 154, 0.2);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.32);
+}
+
+.CE-Brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.CE-BrandMark {
+  display: grid;
+  place-items: end center;
+  width: 54px;
+  height: 54px;
+  overflow: hidden;
+  background: rgba(255, 197, 71, 0.18);
+  border: 1px solid rgba(244, 117, 54, 0.28);
+  border-radius: 999px;
+}
+
+.CE-BrandMascot {
+  width: 42px;
+  height: 58px;
+  object-fit: contain;
+  transform: translateY(8px);
+}
+
+.CE-Brand strong,
+.CE-Brand small {
+  display: block;
+  line-height: 1.05;
+  text-align: left;
+}
+
+.CE-Brand strong {
+  font-size: 1.2rem;
+}
+
+.CE-Brand small {
+  margin-top: 0.2rem;
+  color: #756d68;
+  font-weight: 800;
+}
+
+.CE-Dark .CE-Brand small {
+  color: #d9c7b6;
+}
+
+.CE-Icon {
+  display: grid;
+  width: 68px;
+  height: 68px;
+  margin: 2rem auto 1rem;
+  place-items: center;
+  color: #ff3838;
+  background: rgba(255, 197, 71, 0.2);
+  border: 1px solid rgba(244, 117, 54, 0.3);
+  border-radius: 999px;
+  font-size: 1.7rem;
+}
+
+.CE-Kicker {
+  margin: 0;
+  color: #f47536;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.CE-Card h1 {
+  margin: 0.65rem 0 0;
+  font-size: clamp(2rem, 6vw, 3rem);
+  line-height: 1.04;
+}
+
+.CE-Copy {
+  margin: 1rem auto 0;
+  max-width: 450px;
+  color: #756d68;
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.CE-Dark .CE-Copy {
+  color: #d9c7b6;
+}
+
+.CE-Note {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-top: 1.4rem;
+  padding: 1rem;
+  color: #7b2e1d;
+  background: rgba(255, 197, 71, 0.16);
+  border: 1px solid rgba(244, 117, 54, 0.22);
+  border-radius: 8px;
+  text-align: left;
+  line-height: 1.5;
+}
+
+.CE-Dark .CE-Note {
+  color: #ffe7a3;
+  background: rgba(255, 197, 71, 0.1);
+  border-color: rgba(255, 197, 71, 0.2);
+}
+
+.CE-Actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.CE-PrimaryAction,
+.CE-SecondaryAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0.85rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 900;
+  text-decoration: none;
+  transition:
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.CE-PrimaryAction {
+  gap: 0.55rem;
+  color: #fff;
+  background: linear-gradient(135deg, #f47536, #ff3838);
+  box-shadow: 0 12px 26px rgba(244, 117, 54, 0.22);
+}
+
+.CE-SecondaryAction {
+  color: #9f2e20;
+  background: rgba(255, 250, 244, 0.5);
+  border: 1px solid rgba(184, 51, 36, 0.32);
+}
+
+.CE-Dark .CE-PrimaryAction {
+  color: #241409;
+  background: linear-gradient(135deg, #f47536, #ffc547);
+}
+
+.CE-Dark .CE-SecondaryAction {
+  color: #ffc547;
+  background: rgba(255, 197, 71, 0.08);
+  border-color: rgba(255, 197, 71, 0.24);
+}
+
+.CE-PrimaryAction:hover,
+.CE-SecondaryAction:hover {
+  box-shadow: 0 18px 36px rgba(94, 59, 34, 0.16);
+  transform: translateY(-3px);
+}
+
+@media (max-width: 520px) {
+  .CE-Actions {
+    flex-direction: column;
+  }
+
+  .CE-PrimaryAction,
+  .CE-SecondaryAction {
+    width: 100%;
+  }
+}

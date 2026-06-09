@@ -93,12 +93,15 @@ const CreateAccount = () => {
     }
     const result = await signUpUser(form.email, form.password, form.username);
     if (result.success) {
-      setMessage(
-        result.needsEmailConfirmation
-          ? "Account created! Please check your email to confirm your account."
-          : "Account created! You can now sign in."
-      );
       setForm({ username: "", email: "", password: "", confirm: "" });
+
+      if (result.needsEmailConfirmation) {
+        router.push(`/check-email?email=${encodeURIComponent(form.email)}`);
+        return;
+      }
+
+      setMessage("Account created! Redirecting to your dashboard...");
+      router.push("/dashboard/home");
     } else {
       setError(result.message || "Account creation failed.");
     }
