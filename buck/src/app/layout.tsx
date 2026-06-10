@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import SessionManager from "@/component/SessionManager";
 import "./globals.css";
 import MaintenancePage from "./maintenance-page";
 
@@ -47,7 +48,16 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body>{maintenanceMode ? <MaintenancePage /> : children}</body>
+      <body>
+        {maintenanceMode ? (
+          <MaintenancePage />
+        ) : (
+          <>
+            <SessionManager />
+            {children}
+          </>
+        )}
+      </body>
     </html>
   );
 }

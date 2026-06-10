@@ -1,21 +1,24 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  isSupabaseConfigured,
+  supabaseAnonKey,
+  supabaseConfigError,
+  supabaseCookieOptions,
+  supabaseUrl,
+} from "@/utils/supabaseConfig";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
-export const supabaseConfigError = isSupabaseConfigured
-  ? ""
-  : "Supabase authentication is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your environment, then redeploy.";
+export { isSupabaseConfigured, supabaseConfigError };
 
 export const supabase: SupabaseClient | null = isSupabaseConfigured
-  ? createClient(supabaseUrl!, supabaseAnonKey!, {
+  ? createBrowserClient(supabaseUrl!, supabaseAnonKey!, {
       auth: {
         autoRefreshToken: true,
         detectSessionInUrl: true,
         flowType: "pkce",
         persistSession: true,
       },
+      cookieOptions: supabaseCookieOptions,
     })
   : null;
 

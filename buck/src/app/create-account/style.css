@@ -398,12 +398,12 @@ html[data-buck-theme="dark"] .CA-Background {
 
 .CA-PasswordFeedback {
   display: grid;
-  gap: 0.55rem;
-  padding: 0.75rem 0.85rem;
+  gap: 0.35rem;
+  min-height: 72px;
+  padding: 0.15rem 0 0;
   color: #ffe1d4;
-  background: rgba(255, 248, 237, 0.07);
-  border: 1px solid rgba(255, 211, 154, 0.16);
-  border-radius: 8px;
+  background: transparent;
+  border: 0;
 }
 
 .CA-PasswordSummary {
@@ -411,11 +411,11 @@ html[data-buck-theme="dark"] .CA-Background {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  font-size: 0.86rem;
+  font-size: 0.82rem;
 }
 
 .CA-PasswordSummary strong {
-  color: #fff8ed;
+  color: #ffc547;
 }
 
 .CA-PasswordSummary span {
@@ -426,27 +426,45 @@ html[data-buck-theme="dark"] .CA-Background {
 .CA-PasswordMeter {
   height: 7px;
   overflow: hidden;
-  background: rgba(255, 248, 237, 0.12);
+  background: rgba(255, 248, 237, 0.14);
   border-radius: 999px;
 }
 
 .CA-PasswordMeter span {
   display: block;
   height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #ff3838, #f47536);
+  border-radius: 999px;
+  background: #d9342b;
   transition:
     width 180ms ease,
     background 180ms ease;
 }
 
-.CA-PasswordFeedback--good .CA-PasswordMeter span,
-.CA-PasswordFeedback--strong .CA-PasswordMeter span {
-  background: linear-gradient(90deg, #ffc547, #5dd87d);
+.CA-PasswordFeedback--too-weak .CA-PasswordMeter span {
+  background: linear-gradient(90deg, #d9342b, #ff4a3d);
 }
 
-.CA-PasswordFeedback ul,
-.CA-PasswordFeedback p,
+.CA-PasswordFeedback--weak .CA-PasswordMeter span {
+  background: linear-gradient(90deg, #ff5a2f, #ffb238);
+}
+
+.CA-PasswordFeedback--good .CA-PasswordMeter span {
+  background: linear-gradient(90deg, #f6c445, #8bd957);
+}
+
+.CA-PasswordFeedback--strong .CA-PasswordMeter span {
+  background: linear-gradient(90deg, #6bd957, #2fbf64);
+}
+
+.CA-PasswordFeedback--empty .CA-PasswordMeter span {
+  background: transparent;
+}
+
+.CA-PasswordFeedback--idle {
+  opacity: 0.78;
+}
+
+.CA-PasswordHint,
 .CA-ConfirmHint {
   margin: 0;
   color: #d9c7b6;
@@ -454,15 +472,21 @@ html[data-buck-theme="dark"] .CA-Background {
   line-height: 1.45;
 }
 
-.CA-PasswordFeedback ul {
-  display: grid;
-  gap: 0.25rem;
-  padding-left: 1.05rem;
+.CA-PasswordHint {
+  min-height: 1.2em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .CA-ConfirmHint {
+  min-height: 1.2em;
   color: #ffd8d8;
   font-weight: 800;
+}
+
+.CA-ConfirmHint--empty {
+  visibility: hidden;
 }
 
 .CA-ConfirmHint--match {
@@ -636,22 +660,35 @@ html[data-buck-theme="light"] .CA-Background .CA-Eye-Btn:hover {
 
 html[data-buck-theme="light"] .CA-Background .CA-PasswordFeedback {
   color: #6f3829;
-  background: rgba(255, 255, 255, 0.56);
-  border-color: rgba(184, 51, 36, 0.16);
 }
 
 html[data-buck-theme="light"] .CA-Background .CA-PasswordSummary strong {
-  color: #2b2523;
+  color: #b83324;
 }
 
 html[data-buck-theme="light"] .CA-Background .CA-PasswordSummary span,
-html[data-buck-theme="light"] .CA-Background .CA-PasswordFeedback ul,
-html[data-buck-theme="light"] .CA-Background .CA-PasswordFeedback p {
+html[data-buck-theme="light"] .CA-Background .CA-PasswordHint {
   color: #625750;
 }
 
 html[data-buck-theme="light"] .CA-Background .CA-PasswordMeter {
   background: rgba(117, 109, 104, 0.16);
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-PasswordFeedback--too-weak .CA-PasswordMeter span {
+  background: linear-gradient(90deg, #d9342b, #ff4a3d);
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-PasswordFeedback--weak .CA-PasswordMeter span {
+  background: linear-gradient(90deg, #ff5a2f, #ffb238);
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-PasswordFeedback--good .CA-PasswordMeter span {
+  background: linear-gradient(90deg, #f6c445, #69c94d);
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-PasswordFeedback--strong .CA-PasswordMeter span {
+  background: linear-gradient(90deg, #55c84b, #1f9f55);
 }
 
 html[data-buck-theme="light"] .CA-Background .CA-ConfirmHint {

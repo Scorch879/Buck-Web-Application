@@ -53,6 +53,26 @@ function getSafeRedirectPath(redirectTo: string | null) {
   return redirectTo;
 }
 
+function getAuthNotice(reason: string | null) {
+  switch (reason) {
+    case "session-expired":
+      return "You were signed out after a period of inactivity.";
+    default:
+      return "";
+  }
+}
+
+function getAuthError(error: string | null) {
+  switch (error) {
+    case "supabase-not-configured":
+      return "Supabase authentication is not configured yet.";
+    case "session-security-not-configured":
+      return "Session security is not configured. Add SESSION_COOKIE_SECRET before using protected pages in production.";
+    default:
+      return "";
+  }
+}
+
 const SignIn = () => {
   const router = useRouter();
 
@@ -66,11 +86,12 @@ const SignIn = () => {
   const signInButton = usePointerGradient<HTMLButtonElement>();
 
   useEffect(() => {
-    setRedirectTo(
-      getSafeRedirectPath(
-        new URLSearchParams(window.location.search).get("redirectTo")
-      )
-    );
+    const searchParams = new URLSearchParams(window.location.search);
+
+    setRedirectTo(getSafeRedirectPath(searchParams.get("redirectTo")));
+
+    setMsg(getAuthNotice(searchParams.get("reason")));
+    setError(getAuthError(searchParams.get("error")));
   }, []);
 
   useRedirectIfAuthenticated(redirectTo);

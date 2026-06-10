@@ -28,10 +28,12 @@ In Supabase Dashboard > Authentication > URL Configuration:
 
 The app uses:
 
-- Sign up confirmation redirect: `/dashboard/home`
-- Password reset redirect: `/forgot-password`
-- Magic link redirect: `/dashboard/home`
-- Email change redirect: `/dashboard/home`
+- Sign up confirmation redirect: `/auth/callback?next=/dashboard/home`
+- Password reset redirect: `/auth/callback?next=/forgot-password?type=recovery`
+- Magic link redirect: `/auth/callback?next=/dashboard/home`
+- Email change redirect: `/auth/callback?next=/dashboard/home`
+
+The `/auth/callback` page exchanges Supabase PKCE/OAuth codes before sending users to the requested `next` page. Make sure the redirect allowlist includes `/auth/callback` for local, preview, and production domains.
 
 ## 3. SMTP Setup Plan
 
@@ -115,3 +117,11 @@ on public.expenses for all
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 ```
+
+## 6. Auth Guards And Proxy Note
+
+Buck currently uses client-side Supabase sessions through `@supabase/supabase-js`, with dashboard routes protected by the shared `AuthGuard` in `src/app/dashboard/layout.tsx`.
+
+Do not add a Next.js middleware/proxy that checks cookies yet. The current Supabase client stores the browser session in local storage, so server middleware cannot reliably see whether the user is signed in. A proxy would often redirect valid users back to sign in.
+
+If Buck later needs server-side route protection, migrate auth storage to cookie-based sessions with `@supabase/ssr`, then add middleware/proxy session refresh and dashboard redirects.

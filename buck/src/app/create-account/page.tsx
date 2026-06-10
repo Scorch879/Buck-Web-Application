@@ -65,7 +65,14 @@ const CreateAccount = () => {
     email: form.email,
     username: form.username,
   });
-  const passwordProgress = Math.min(100, Math.max(8, passwordPolicy.score * 20));
+  const passwordScore = Math.min(5, Math.max(0, passwordPolicy.score));
+  const passwordProgress = form.password.length === 0 ? 0 : passwordScore * 20;
+  const passwordHint =
+    form.password.length === 0
+      ? "Use 10+ characters, mixed letters, a number, and a symbol."
+      : passwordPolicy.isValid
+        ? "Your password meets Buck's security requirements."
+        : passwordPolicy.issues[0];
   const confirmStatus =
     form.confirm.length === 0
       ? ""
@@ -311,32 +318,21 @@ const CreateAccount = () => {
                   />
                 </button>
               </div>
-              {form.password ? (
-                <div
-                  className={`CA-PasswordFeedback CA-PasswordFeedback--${passwordPolicy.strength}`}
-                  aria-live="polite"
-                >
-                  <div className="CA-PasswordSummary">
-                    <strong>{passwordPolicy.label}</strong>
-                    <span>{passwordPolicy.score}/5 checks</span>
-                  </div>
-                  <div
-                    className="CA-PasswordMeter"
-                    aria-hidden="true"
-                  >
-                    <span style={{ width: `${passwordProgress}%` }} />
-                  </div>
-                  {passwordPolicy.issues.length > 0 ? (
-                    <ul>
-                      {passwordPolicy.issues.map((issue) => (
-                        <li key={issue}>{issue}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>Your password meets Buck&apos;s security requirements.</p>
-                  )}
+              <div
+                className={`CA-PasswordFeedback CA-PasswordFeedback--${passwordPolicy.strength}${
+                  form.password.length === 0 ? " CA-PasswordFeedback--idle" : ""
+                }`}
+                aria-live="polite"
+              >
+                <div className="CA-PasswordMeter" aria-hidden="true">
+                  <span style={{ width: `${passwordProgress}%` }} />
                 </div>
-              ) : null}
+                <div className="CA-PasswordSummary">
+                  <strong>{passwordPolicy.label}</strong>
+                  <span>{passwordScore}/5 checks</span>
+                </div>
+                <p className="CA-PasswordHint">{passwordHint}</p>
+              </div>
 
               <label htmlFor="confirm" className="CA-Label">
                 Confirm password
@@ -366,16 +362,16 @@ const CreateAccount = () => {
                   />
                 </button>
               </div>
-              {confirmStatus ? (
-                <p
-                  className={`CA-ConfirmHint${
-                    form.password === form.confirm ? " CA-ConfirmHint--match" : ""
-                  }`}
-                  aria-live="polite"
-                >
-                  {confirmStatus}
-                </p>
-              ) : null}
+              <p
+                className={`CA-ConfirmHint${
+                  form.password === form.confirm && confirmStatus
+                    ? " CA-ConfirmHint--match"
+                    : ""
+                }${confirmStatus ? "" : " CA-ConfirmHint--empty"}`}
+                aria-live="polite"
+              >
+                {confirmStatus || "Password confirmation status."}
+              </p>
 
               <motion.button
                 ref={createButton.ref}

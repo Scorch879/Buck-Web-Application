@@ -1,38 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-
-const privacySections = [
-  {
-    title: "Information you provide",
-    body:
-      "Buck uses your account email, optional username, wallet details, expenses, goals, and related budget records so the app can show your personal dashboard and keep your data synced.",
-  },
-  {
-    title: "How Buck uses data",
-    body:
-      "Your information is used to sign you in, protect your session, display budget activity, calculate summaries, and provide relevant budgeting guidance inside the app.",
-  },
-  {
-    title: "Authentication and hosting",
-    body:
-      "Supabase handles authentication and database storage for Buck. Vercel may host the web application. These providers process data only as needed to run the service.",
-  },
-  {
-    title: "Budget privacy",
-    body:
-      "Buck does not sell your email or personal budget records. Budget data should only be available to your account when database row-level security policies are enabled correctly.",
-  },
-  {
-    title: "Emails",
-    body:
-      "Buck may send account emails such as confirmation, password reset, magic link, email change, and security notifications. These emails help protect access to your account.",
-  },
-  {
-    title: "Control and deletion",
-    body:
-      "You can request help with account access, corrections, or deletion through support. Some records may need to be retained for security, abuse prevention, or legal reasons.",
-  },
-];
+import { privacyContent } from "@/constants/legal";
 
 export default function PrivacyPage() {
   return (
@@ -55,20 +23,16 @@ export default function PrivacyPage() {
 
         <article className="legal-card">
           <div className="legal-hero">
-            <p className="legal-eyebrow">Privacy</p>
+            <p className="legal-eyebrow">{privacyContent.eyebrow}</p>
             <h1>
-              Your budget data should stay <span>yours.</span>
+              {privacyContent.title} <span>{privacyContent.accent}</span>
             </h1>
-            <p className="legal-lede">
-              This privacy page explains the main data Buck needs to run user
-              accounts and budget features. It is meant to be easy to scan
-              before creating an account.
-            </p>
-            <p className="legal-updated">Last updated: June 2026</p>
+            <p className="legal-lede">{privacyContent.lede}</p>
+            <p className="legal-updated">{privacyContent.updated}</p>
           </div>
 
           <div className="legal-section-grid">
-            {privacySections.map((section) => (
+            {privacyContent.sections.map((section) => (
               <section className="legal-section" key={section.title}>
                 <h2>{section.title}</h2>
                 <p>{section.body}</p>
@@ -80,7 +44,7 @@ export default function PrivacyPage() {
         <footer className="legal-footer">
           <div>
             <strong>Buck Budget Tracker</strong>
-            <p>Private planning for wallets, expenses, and goals.</p>
+            <p>{privacyContent.footerNote}</p>
           </div>
           <Link href="/terms">Read Terms</Link>
         </footer>

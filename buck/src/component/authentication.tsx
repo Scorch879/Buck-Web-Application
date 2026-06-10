@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
+import type { FormEvent } from "react";
 import {
   getSupabaseClient,
   isSupabaseConfigured,
@@ -22,6 +22,10 @@ type AuthResult = {
   cancelled?: boolean;
   redirecting?: boolean;
   needsEmailConfirmation?: boolean;
+};
+
+type AuthFormInputEvent = {
+  target: HTMLInputElement;
 };
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -46,6 +50,14 @@ function getSafeRedirectPath(redirectTo: string) {
   return redirectTo;
 }
 
+function getAuthCallbackUrl(redirectTo = "/dashboard/home") {
+  const params = new URLSearchParams({
+    next: getSafeRedirectPath(redirectTo),
+  });
+
+  return `${getSiteUrl()}/auth/callback?${params.toString()}`;
+}
+
 function getConfiguredAuthError(): AuthResult {
   return {
     success: false,
@@ -54,14 +66,15 @@ function getConfiguredAuthError(): AuthResult {
 }
 
 export function SignInSignUp() {
-  const [form, setForm] = useState<AuthFormData>({
+  const initialFormState: AuthFormData = {
     username: "",
     pass: "",
     confirm: "",
     email: "",
-  });
+  };
+  const [form, setForm] = useState(initialFormState);
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: AuthFormInputEvent) => {
     setForm({ ...form, [e.target.id]: e.target.value });
   };
 
@@ -108,7 +121,7 @@ export async function signUpUser(
   email: string,
   password: string,
   username: string
-): Promise<AuthResult> {
+) {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
@@ -132,7 +145,7 @@ export async function signUpUser(
           username: username.trim(),
           full_name: username.trim(),
         },
-        emailRedirectTo: `${getSiteUrl()}/dashboard/home`,
+        emailRedirectTo: getAuthCallbackUrl("/dashboard/home"),
       },
     });
 
@@ -153,7 +166,7 @@ export async function signUpUser(
 export async function signInUser(
   email: string,
   password: string
-): Promise<AuthResult> {
+) {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
@@ -178,7 +191,7 @@ export async function signInUser(
 export async function sendMagicLink(
   email: string,
   redirectTo = "/dashboard/home"
-): Promise<AuthResult> {
+) {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
@@ -188,7 +201,7 @@ export async function sendMagicLink(
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: {
-        emailRedirectTo: `${getSiteUrl()}${getSafeRedirectPath(redirectTo)}`,
+        emailRedirectTo: getAuthCallbackUrl(redirectTo),
       },
     });
 
@@ -204,7 +217,7 @@ export async function sendMagicLink(
 
 export async function signInWithGoogle(
   redirectTo = "/dashboard/home"
-): Promise<AuthResult> {
+) {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
@@ -214,7 +227,7 @@ export async function signInWithGoogle(
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${getSiteUrl()}${getSafeRedirectPath(redirectTo)}`,
+        redirectTo: getAuthCallbackUrl(redirectTo),
       },
     });
 
@@ -230,7 +243,7 @@ export async function signInWithGoogle(
 
 export async function resendSignUpConfirmation(
   email: string
-): Promise<AuthResult> {
+) {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
@@ -241,7 +254,7 @@ export async function resendSignUpConfirmation(
       type: "signup",
       email: email.trim(),
       options: {
-        emailRedirectTo: `${getSiteUrl()}/dashboard/home`,
+        emailRedirectTo: getAuthCallbackUrl("/dashboard/home"),
       },
     });
 
@@ -258,7 +271,7 @@ export async function resendSignUpConfirmation(
   }
 }
 
-export async function sendPasswordReset(email: string): Promise<AuthResult> {
+export async function sendPasswordReset(email: string) {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
@@ -266,7 +279,7 @@ export async function sendPasswordReset(email: string): Promise<AuthResult> {
   try {
     const supabase = getSupabaseClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${getSiteUrl()}/forgot-password`,
+      redirectTo: getAuthCallbackUrl("/forgot-password?type=recovery"),
     });
 
     if (error) {
@@ -279,7 +292,7 @@ export async function sendPasswordReset(email: string): Promise<AuthResult> {
   }
 }
 
-export async function updatePassword(password: string): Promise<AuthResult> {
+export async function updatePassword(password: string) {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
@@ -309,7 +322,7 @@ export async function updatePassword(password: string): Promise<AuthResult> {
   }
 }
 
-export async function updateEmailAddress(email: string): Promise<AuthResult> {
+export async function updateEmailAddress(email: string) {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
@@ -319,7 +332,7 @@ export async function updateEmailAddress(email: string): Promise<AuthResult> {
     const { error } = await supabase.auth.updateUser(
       { email: email.trim() },
       {
-        emailRedirectTo: `${getSiteUrl()}/dashboard/home`,
+        emailRedirectTo: getAuthCallbackUrl("/dashboard/home"),
       }
     );
 
@@ -336,7 +349,7 @@ export async function updateEmailAddress(email: string): Promise<AuthResult> {
   }
 }
 
-export async function signOutUser(): Promise<AuthResult> {
+export async function signOutUser() {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
