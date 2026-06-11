@@ -36,7 +36,6 @@ import {
 import { evaluatePasswordPolicy } from "@/utils/passwordPolicy";
 import {
   getAccountDeletionStatus,
-  getUserAvatarSignedUrl,
   getUserProfile,
   removeUserAvatar,
   replaceUserAvatar,
@@ -48,6 +47,22 @@ import { applyDocumentTheme, useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import "./style.css";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const avatarMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const maxAvatarSizeBytes = 2 * 1024 * 1024;
+const fallbackAvatarSource = "/BuckMascot.png";
+const privateAvatarSource = "/api/profile/avatar";
+
+function getAvatarFileValidationError(file: File) {
+  if (!avatarMimeTypes.has(file.type)) {
+    return "Upload a JPG, PNG, or WebP profile picture.";
+  }
+
+  if (file.size > maxAvatarSizeBytes) {
+    return "Profile picture must be 2 MB or smaller.";
+  }
+
+  return "";
+}
 
 function getProviderLabel(providers: string[]) {
   if (providers.includes("google")) {
@@ -116,12 +131,6 @@ export default function SettingsPage() {
   const [displayName, setDisplayName] = useState(
     () => userCache.profile?.username || user.displayName || ""
   );
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(
-    () => userCache.avatarUrl ?? null
-  );
-  const [localAvatarPreview, setLocalAvatarPreview] = useState<string | null>(
-    null
-  );
   const [email, setEmail] = useState(
     () => userCache.profile?.email || user.email || ""
   );
@@ -154,10 +163,11 @@ export default function SettingsPage() {
     username: displayName,
   });
   const passwordProgress = Math.min(100, Math.max(8, passwordPolicy.score * 20));
-  const avatarSource =
-    localAvatarPreview || avatarUrl || "/BuckMascot.png";
+  const avatarSource = profile?.avatarPath
+    ? privateAvatarSource
+    : fallbackAvatarSource;
   const accountEmail = profile?.email || user.email || "";
-  const hasAvatar = Boolean(profile?.avatarPath || localAvatarPreview);
+  const hasAvatar = Boolean(profile?.avatarPath);
   const isBusy =
     savingProfile ||
     savingAvatar ||
