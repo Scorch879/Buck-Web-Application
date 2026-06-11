@@ -4,9 +4,9 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import styles from "./WalletModal.module.css";
 import { motion } from "framer-motion";
+import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 import { formatCurrency } from "@/utils/formatters";
-import { useAuthGuard } from "@/utils/useAuthGuard";
 import {
   addWallet,
   deleteWallet,
@@ -41,7 +41,7 @@ export default function WalletModal({
   const [justActivatedId, setJustActivatedId] = useState<string | null>(null);
   const [portalReady, setPortalReady] = useState(false);
 
-  const { user } = useAuthGuard();
+  const user = useOptionalDashboardUser();
 
   useEffect(() => {
     setPortalReady(true);

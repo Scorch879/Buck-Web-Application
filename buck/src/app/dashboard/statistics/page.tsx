@@ -3,8 +3,8 @@ import React, { useState, useEffect, useRef } from "react";
 import "./style.css";
 import { useRouter } from "next/navigation";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
+import { useDashboardUser } from "@/context/DashboardUserContext";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
-import { useAuthGuard } from "@/utils/useAuthGuard";
 import WeeklySpendingChart from "./weekly-spending";
 import {
   Chart as ChartJS,
@@ -19,7 +19,10 @@ import {
 import ExcessPie from "./excess-pie";
 import SpendingBar from "./spending-bar";
 import { statisticsTestData } from "./testData";
-import { useFinancial } from "@/context/FinancialContext";
+import {
+  mergeDashboardDataCache,
+  useFinancial,
+} from "@/context/FinancialContext";
 import { Line } from "react-chartjs-2";
 import { formatCurrency } from "@/utils/formatters";
 import {
@@ -52,7 +55,15 @@ type Goal = BuckGoal;
 
 const Statistics = () => {
   const router = useRouter();
-  const { user, loading } = useAuthGuard();
+  const { user } = useDashboardUser();
+  const { setTotalSaved, dashboardCache, setDashboardCache } = useFinancial();
+  const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
+  const hasInitialStatisticsData = Boolean(
+    userCache.categories &&
+      userCache.expenses &&
+      userCache.activeWalletBudget !== undefined
+  );
+  const hasInitialGoalsData = Boolean(userCache.goals);
   const isDarkTheme = useAuthPageTheme();
   const chartTextColor = isDarkTheme ? "#fff8ed" : "#2b2523";
   const chartGridColor = isDarkTheme
@@ -70,14 +81,18 @@ const Statistics = () => {
     ? "rgba(255,197,71,0.08)"
     : "rgba(255,250,244,0.74)";
   const [yMax, setYMax] = useState(1000);
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [loadingGoals, setLoadingGoals] = useState(false);
+  const [goals, setGoals] = useState<Goal[]>(() => userCache.goals ?? []);
+  const [loadingGoals, setLoadingGoals] = useState(
+    () => !hasInitialGoalsData
+  );
+  const [loadingStatisticsData, setLoadingStatisticsData] = useState(
+    () => !hasInitialStatisticsData
+  );
   const [selectedMode, setSelectedMode] = useState<
     "week" | "month" | "overall"
   >("week");
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [selectedMonth, setSelectedMonth] = useState(0);
-  const { setTotalSaved } = useFinancial();
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [expenseDate, setExpenseDate] = useState("");
   const [expenseAmount, setExpenseAmount] = useState("");
@@ -94,9 +109,17 @@ const Statistics = () => {
   const prevMode = useRef(selectedMode);
 
   // --- New state for categories, expenses, wallet ---
-  const [categories, setCategories] = useState<BuckCategory[]>([]);
-  const [expenses, setExpenses] = useState<BuckExpense[]>([]);
-  const [wallet, setWallet] = useState<number>(0);
+  const [categories, setCategories] = useState<BuckCategory[]>(
+    () => userCache.categories ?? []
+  );
+  const [expenses, setExpenses] = useState<BuckExpense[]>(
+    () => userCache.expenses ?? []
+  );
+  const [wallet, setWallet] = useState<number>(
+    () => userCache.activeWalletBudget ?? 0
+  );
+  const hadInitialStatisticsData = useRef(hasInitialStatisticsData);
+  const hadInitialGoalsData = useRef(hasInitialGoalsData);
 
   // --- Add Expense Modal logic ---
   const [categorySearch, setCategorySearch] = useState("");
@@ -170,7 +193,13 @@ const Statistics = () => {
         goalId: selectedGoal.id,
       });
       const activeWallet = await getActiveWallet(user.uid);
-      setWallet(activeWallet?.budget ?? 0);
+      const nextWalletBudget = activeWallet?.budget ?? 0;
+      setWallet(nextWalletBudget);
+      setDashboardCache((currentCache) =>
+        mergeDashboardDataCache(currentCache, user.uid, {
+          activeWalletBudget: nextWalletBudget,
+        })
+      );
       setShowExpenseModal(false);
       setExpenseDate("");
       setExpenseAmount("");
@@ -187,7 +216,13 @@ const Statistics = () => {
     try {
       await deleteExpenseAndRestoreWallet(user.uid, expenseId, amount);
       const activeWallet = await getActiveWallet(user.uid);
-      setWallet(activeWallet?.budget ?? 0);
+      const nextWalletBudget = activeWallet?.budget ?? 0;
+      setWallet(nextWalletBudget);
+      setDashboardCache((currentCache) =>
+        mergeDashboardDataCache(currentCache, user.uid, {
+          activeWalletBudget: nextWalletBudget,
+        })
+      );
     } catch (err) {
       // Optionally handle error
     }
@@ -196,47 +231,88 @@ const Statistics = () => {
   // --- Fetch categories, expenses, and wallet on load ---
   useEffect(() => {
     if (!user) return;
+    let active = true;
 
-    const fetchCategories = () => {
-      ensureDefaultCategories(user.uid)
-        .then((cats) =>
-          setCategories([...cats].sort((a, b) => a.name.localeCompare(b.name)))
-        )
-        .catch((error) => console.error("Failed to load categories:", error));
+    const fetchCategories = async () => {
+      const cats = await ensureDefaultCategories(user.uid);
+
+      if (active) {
+        const nextCategories = [...cats].sort((a, b) =>
+          a.name.localeCompare(b.name)
+        );
+        setCategories(nextCategories);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            categories: nextCategories,
+          })
+        );
+      }
     };
-    const fetchExpenses = () => {
-      listExpenses(user.uid)
-        .then(setExpenses)
-        .catch((error) => console.error("Failed to load expenses:", error));
+    const fetchExpenses = async () => {
+      const nextExpenses = await listExpenses(user.uid);
+
+      if (active) {
+        setExpenses(nextExpenses);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            expenses: nextExpenses,
+          })
+        );
+      }
     };
-    const fetchWallet = () => {
-      getActiveWallet(user.uid)
-        .then((activeWallet) => setWallet(activeWallet?.budget ?? 0))
-        .catch((error) => console.error("Failed to load wallet:", error));
+    const fetchWallet = async () => {
+      const activeWallet = await getActiveWallet(user.uid);
+
+      if (active) {
+        const nextWalletBudget = activeWallet?.budget ?? 0;
+        setWallet(nextWalletBudget);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            activeWalletBudget: nextWalletBudget,
+          })
+        );
+      }
     };
 
-    fetchCategories();
-    fetchExpenses();
-    fetchWallet();
+    const fetchInitialStatisticsData = async () => {
+      if (!hadInitialStatisticsData.current) {
+        setLoadingStatisticsData(true);
+      }
+
+      try {
+        await Promise.all([fetchCategories(), fetchExpenses(), fetchWallet()]);
+      } catch (error) {
+        console.error("Failed to load statistics:", error);
+      } finally {
+        if (active) {
+          setLoadingStatisticsData(false);
+        }
+      }
+    };
+
+    void fetchInitialStatisticsData();
 
     const unsubCategories = subscribeUserTable(
       "categories",
       user.uid,
-      fetchCategories
+      () => void fetchCategories()
     );
     const unsubExpenses = subscribeUserTable(
       "expenses",
       user.uid,
-      fetchExpenses
+      () => void fetchExpenses()
     );
-    const unsubWallets = subscribeUserTable("wallets", user.uid, fetchWallet);
+    const unsubWallets = subscribeUserTable("wallets", user.uid, () => {
+      void fetchWallet();
+    });
 
     return () => {
+      active = false;
       unsubCategories();
       unsubExpenses();
       unsubWallets();
     };
-  }, [user]);
+  }, [setDashboardCache, user.uid]);
 
   // Dynamically generate week date ranges from goals (real calendar mapping)
   let weekDateRanges: { start: string; end: string }[] = [];
@@ -298,23 +374,26 @@ const Statistics = () => {
 
   useEffect(() => {
     const fetchGoals = async () => {
-      if (user) {
-        setLoadingGoals(true);
-        try {
-          setGoals(await listGoals(user.uid));
-        } catch (error) {
-          console.error("Failed to load goals:", error);
-        } finally {
-          setLoadingGoals(false);
-        }
+      try {
+        const nextGoals = await listGoals(user.uid);
+        setGoals(nextGoals);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            goals: nextGoals,
+          })
+        );
+      } catch (error) {
+        console.error("Failed to load goals:", error);
+      } finally {
+        setLoadingGoals(false);
       }
     };
 
-    fetchGoals();
-
-    if (!user) {
-      return;
+    if (!hadInitialGoalsData.current) {
+      setLoadingGoals(true);
     }
+
+    void fetchGoals();
 
     const unsubscribeGoals = subscribeUserTable("goals", user.uid, () => {
       void fetchGoals();
@@ -323,7 +402,7 @@ const Statistics = () => {
     return () => {
       unsubscribeGoals();
     };
-  }, [user]);
+  }, [setDashboardCache, user.uid]);
 
   // Calculate totalSaved for the user (use your real calculation here)
   let totalSaved = 0;
@@ -533,7 +612,7 @@ const Statistics = () => {
     }
   }, [forecastData]);
 
-  if (loading || !user || loadingGoals) {
+  if (loadingGoals || loadingStatisticsData) {
     return <DashboardPageSkeleton variant="statistics" />;
   }
 

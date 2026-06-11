@@ -147,6 +147,7 @@
   padding: 0.85rem 1.2rem;
   border-radius: 8px;
   font-weight: 900;
+  font: inherit;
   text-decoration: none;
   transition:
     box-shadow 180ms ease,
@@ -166,6 +167,11 @@
   border: 1px solid rgba(184, 51, 36, 0.32);
 }
 
+.CE-SecondaryAction:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .CE-Dark .CE-PrimaryAction {
   color: #241409;
   background: linear-gradient(135deg, #f47536, #ffc547);
@@ -181,6 +187,43 @@
 .CE-SecondaryAction:hover {
   box-shadow: 0 18px 36px rgba(94, 59, 34, 0.16);
   transform: translateY(-3px);
+}
+
+.CE-SecondaryAction:disabled:hover {
+  box-shadow: none;
+  transform: none;
+}
+
+.CE-Message {
+  margin: 1rem 0 0;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.CE-Message--success {
+  color: #256a33;
+  background: rgba(46, 125, 50, 0.12);
+  border: 1px solid rgba(46, 125, 50, 0.22);
+}
+
+.CE-Message--error {
+  color: #b83324;
+  background: rgba(255, 56, 56, 0.1);
+  border: 1px solid rgba(255, 56, 56, 0.2);
+}
+
+.CE-Dark .CE-Message--success {
+  color: #d7f7dc;
+  background: rgba(46, 125, 50, 0.22);
+  border-color: rgba(165, 214, 167, 0.28);
+}
+
+.CE-Dark .CE-Message--error {
+  color: #ffd8d8;
+  background: rgba(198, 40, 40, 0.22);
+  border-color: rgba(239, 154, 154, 0.28);
 }
 
 @media (max-width: 520px) {

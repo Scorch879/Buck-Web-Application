@@ -1,48 +1,44 @@
-"use client";
-
 import type { ReactNode } from "react";
-import { usePathname } from "next/navigation";
-import AuthGuard from "@/component/AuthGuard";
-import DashboardHeader from "@/component/dashboardheader";
-import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
-import FinancialProvider from "@/context/FinancialProvider";
+import { redirect } from "next/navigation";
+import DashboardClientLayout from "@/component/DashboardClientLayout";
+import { toBuckUser } from "@/utils/authUser";
+import { isDesignPreviewMode } from "@/utils/designPreview";
+import {
+  createSupabaseServerClient,
+  isSupabaseServerConfigured,
+} from "@/utils/supabase/server";
 
-function getSkeletonVariant(pathname: string | null) {
-  if (pathname?.startsWith("/dashboard/goals")) {
-    return "goals";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export default async function DashboardLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  let initialUser = null;
+
+  if (!isDesignPreviewMode) {
+    if (!isSupabaseServerConfigured) {
+      redirect("/sign-in?error=supabase-not-configured");
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error || !user) {
+      redirect("/sign-in?redirectTo=/dashboard/home");
+    }
+
+    initialUser = toBuckUser(user);
   }
 
-  if (pathname?.startsWith("/dashboard/statistics")) {
-    return "statistics";
-  }
-
-  return "home";
-}
-
-function DashboardShell({ children }: { children: ReactNode }) {
   return (
-    <div className="dashboard">
-      <DashboardHeader />
+    <DashboardClientLayout initialUser={initialUser}>
       {children}
-    </div>
-  );
-}
-
-export default function DashboardLayout({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  const skeletonVariant = getSkeletonVariant(pathname);
-
-  return (
-    <AuthGuard
-      fallback={
-        <DashboardShell>
-          <DashboardPageSkeleton variant={skeletonVariant} />
-        </DashboardShell>
-      }
-    >
-      <FinancialProvider>
-        <DashboardShell>{children}</DashboardShell>
-      </FinancialProvider>
-    </AuthGuard>
+    </DashboardClientLayout>
   );
 }

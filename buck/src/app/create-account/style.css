@@ -275,6 +275,19 @@ html[data-buck-theme="dark"] .CA-Background {
   transform: translateY(-2px);
 }
 
+.CA-Google-Btn:disabled,
+.CA-Btn:disabled,
+.CA-Eye-Btn:disabled {
+  opacity: 0.72;
+  pointer-events: none;
+  transform: none;
+}
+
+.CA-Google-Btn:disabled,
+.CA-Btn:disabled {
+  cursor: progress;
+}
+
 .CA-Google-Icon {
   width: 20px;
   height: 20px;
@@ -396,6 +409,103 @@ html[data-buck-theme="dark"] .CA-Background {
   transform: translateY(-1px);
 }
 
+.CA-PasswordFeedback {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 72px;
+  padding: 0.15rem 0 0;
+  color: #ffe1d4;
+  background: transparent;
+  border: 0;
+}
+
+.CA-PasswordSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.82rem;
+}
+
+.CA-PasswordSummary strong {
+  color: #ffc547;
+}
+
+.CA-PasswordSummary span {
+  color: #d9c7b6;
+  font-weight: 800;
+}
+
+.CA-PasswordMeter {
+  height: 7px;
+  overflow: hidden;
+  background: rgba(255, 248, 237, 0.14);
+  border-radius: 999px;
+}
+
+.CA-PasswordMeter span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #d9342b;
+  transition:
+    width 180ms ease,
+    background 180ms ease;
+}
+
+.CA-PasswordFeedback--too-weak .CA-PasswordMeter span {
+  background: linear-gradient(90deg, #d9342b, #ff4a3d);
+}
+
+.CA-PasswordFeedback--weak .CA-PasswordMeter span {
+  background: linear-gradient(90deg, #ff5a2f, #ffb238);
+}
+
+.CA-PasswordFeedback--good .CA-PasswordMeter span {
+  background: linear-gradient(90deg, #f6c445, #8bd957);
+}
+
+.CA-PasswordFeedback--strong .CA-PasswordMeter span {
+  background: linear-gradient(90deg, #6bd957, #2fbf64);
+}
+
+.CA-PasswordFeedback--empty .CA-PasswordMeter span {
+  background: transparent;
+}
+
+.CA-PasswordFeedback--idle {
+  opacity: 0.78;
+}
+
+.CA-PasswordHint,
+.CA-ConfirmHint {
+  margin: 0;
+  color: #d9c7b6;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.CA-PasswordHint {
+  min-height: 1.2em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.CA-ConfirmHint {
+  min-height: 1.2em;
+  color: #ffd8d8;
+  font-weight: 800;
+}
+
+.CA-ConfirmHint--empty {
+  visibility: hidden;
+}
+
+.CA-ConfirmHint--match {
+  color: #d7f7dc;
+}
+
 .CA-Btn {
   margin-top: 0.55rem;
   color: #ffffff;
@@ -409,6 +519,10 @@ html[data-buck-theme="dark"] .CA-Background .CA-Btn {
 
 .CA-Btn:hover {
   box-shadow: 0 18px 38px rgba(255, 197, 71, 0.18);
+}
+
+.CA-Input:disabled {
+  opacity: 0.78;
 }
 
 .CA-Link {
@@ -559,6 +673,47 @@ html[data-buck-theme="light"] .CA-Background .CA-Eye-Btn img {
 
 html[data-buck-theme="light"] .CA-Background .CA-Eye-Btn:hover {
   background: rgba(184, 51, 36, 0.1);
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-PasswordFeedback {
+  color: #6f3829;
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-PasswordSummary strong {
+  color: #b83324;
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-PasswordSummary span,
+html[data-buck-theme="light"] .CA-Background .CA-PasswordHint {
+  color: #625750;
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-PasswordMeter {
+  background: rgba(117, 109, 104, 0.16);
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-PasswordFeedback--too-weak .CA-PasswordMeter span {
+  background: linear-gradient(90deg, #d9342b, #ff4a3d);
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-PasswordFeedback--weak .CA-PasswordMeter span {
+  background: linear-gradient(90deg, #ff5a2f, #ffb238);
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-PasswordFeedback--good .CA-PasswordMeter span {
+  background: linear-gradient(90deg, #f6c445, #69c94d);
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-PasswordFeedback--strong .CA-PasswordMeter span {
+  background: linear-gradient(90deg, #55c84b, #1f9f55);
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-ConfirmHint {
+  color: #b83324;
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-ConfirmHint--match {
+  color: #256a33;
 }
 
 html[data-buck-theme="light"] .CA-Background .CA-Link {

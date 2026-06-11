@@ -275,6 +275,19 @@ html[data-buck-theme="dark"] .SI-Background {
   transform: translateY(-2px);
 }
 
+.SI-Google-Btn:disabled,
+.SI-Btn:disabled,
+.SI-Eye-Btn:disabled {
+  opacity: 0.72;
+  pointer-events: none;
+  transform: none;
+}
+
+.SI-Google-Btn:disabled,
+.SI-Btn:disabled {
+  cursor: progress;
+}
+
 .SI-Google-Icon {
   width: 20px;
   height: 20px;
@@ -418,6 +431,10 @@ html[data-buck-theme="dark"] .SI-Background .SI-Btn {
 
 .SI-Btn:hover {
   box-shadow: 0 18px 38px rgba(255, 197, 71, 0.18);
+}
+
+.SI-Input:disabled {
+  opacity: 0.78;
 }
 
 .SI-Link {

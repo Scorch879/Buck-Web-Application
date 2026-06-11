@@ -3,37 +3,14 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { toBuckUser, type BuckUser } from "@/utils/authUser";
 import {
   designPreviewUserId,
   isDesignPreviewMode,
 } from "@/utils/designPreview";
 import { isSupabaseConfigured, supabase } from "@/utils/supabase";
 
-export type BuckUser = SupabaseUser & {
-  uid: string;
-  displayName: string | null;
-};
-
-function toBuckUser(user: SupabaseUser | null): BuckUser | null {
-  if (!user) {
-    return null;
-  }
-
-  const displayName =
-    typeof user.user_metadata?.username === "string"
-      ? user.user_metadata.username
-      : typeof user.user_metadata?.full_name === "string"
-        ? user.user_metadata.full_name
-        : typeof user.user_metadata?.name === "string"
-          ? user.user_metadata.name
-          : null;
-
-  return {
-    ...user,
-    uid: user.id,
-    displayName,
-  };
-}
+export type { BuckUser };
 
 function getSignInPath(pathname: string | null) {
   if (!pathname || pathname === "/dashboard/home") {
@@ -77,7 +54,10 @@ function getDesignPreviewUser(): BuckUser {
     created_at: now,
     displayName: "Design Preview",
     email: "preview@buck.local",
+    authProviders: ["email"],
     identities: [],
+    isGoogleOnlyUser: false,
+    isPasswordUser: true,
     role: "authenticated",
     updated_at: now,
     user_metadata: {
@@ -87,11 +67,11 @@ function getDesignPreviewUser(): BuckUser {
   } as BuckUser;
 }
 
-export function useAuthGuard() {
+export function useAuthGuard(initialUser: BuckUser | null = null) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<BuckUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<BuckUser | null>(initialUser);
+  const [loading, setLoading] = useState(!initialUser);
 
   useEffect(() => {
     if (isDesignPreviewMode) {
@@ -107,6 +87,7 @@ export function useAuthGuard() {
       return;
     }
 
+    const activeSupabase = supabase;
     let mounted = true;
 
     const setSessionUser = (sessionUser: SupabaseUser | null) => {
@@ -123,7 +104,60 @@ export function useAuthGuard() {
       }
     };
 
-    supabase.auth
+    if (initialUser) {
+      setSessionUser(initialUser);
+
+      const verifyCurrentSession = async () => {
+        try {
+          const { data, error } = await activeSupabase.auth.getUser();
+
+          if (error || !data.user) {
+            await clearBrokenLocalSession();
+            setSessionUser(null);
+            return;
+          }
+
+          setSessionUser(data.user);
+        } catch (error) {
+          if (isInvalidRefreshTokenError(error)) {
+            await clearBrokenLocalSession();
+          } else {
+            console.warn("Failed to verify auth session:", error);
+          }
+
+          setSessionUser(null);
+        }
+      };
+
+      void verifyCurrentSession();
+
+      const handlePageShow = (event: PageTransitionEvent) => {
+        if (event.persisted) {
+          void verifyCurrentSession();
+        }
+      };
+
+      window.addEventListener("pageshow", handlePageShow);
+
+      const {
+        data: { subscription },
+      } = activeSupabase.auth.onAuthStateChange((event, session) => {
+        if (event === "SIGNED_OUT") {
+          setSessionUser(null);
+          return;
+        }
+
+        setSessionUser(session?.user ?? initialUser);
+      });
+
+      return () => {
+        mounted = false;
+        window.removeEventListener("pageshow", handlePageShow);
+        subscription.unsubscribe();
+      };
+    }
+
+    activeSupabase.auth
       .getUser()
       .then(async ({ data, error }) => {
         if (error) {
@@ -146,7 +180,7 @@ export function useAuthGuard() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = activeSupabase.auth.onAuthStateChange((_event, session) => {
       setSessionUser(session?.user ?? null);
     });
 
@@ -154,7 +188,7 @@ export function useAuthGuard() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [pathname, router]);
+  }, [initialUser, pathname, router]);
 
   return { user, loading };
 }
