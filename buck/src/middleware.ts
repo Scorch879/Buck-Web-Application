@@ -86,6 +86,33 @@ function createDashboardRedirect(request: NextRequest) {
   return redirectUrl;
 }
 
+function isRootAuthReturn(request: NextRequest) {
+  if (request.nextUrl.pathname !== "/") {
+    return false;
+  }
+
+  const params = request.nextUrl.searchParams;
+
+  return (
+    params.has("code") ||
+    params.has("error") ||
+    params.has("error_code") ||
+    params.has("error_description")
+  );
+}
+
+function createAuthCallbackRedirect(request: NextRequest) {
+  const redirectUrl = request.nextUrl.clone();
+
+  redirectUrl.pathname = "/auth/callback";
+
+  if (!redirectUrl.searchParams.has("next")) {
+    redirectUrl.searchParams.set("next", "/dashboard/home");
+  }
+
+  return redirectUrl;
+}
+
 function copyResponseCookies(source: NextResponse, target: NextResponse) {
   source.cookies.getAll().forEach((cookie) => {
     target.cookies.set(cookie);
@@ -250,6 +277,15 @@ export async function middleware(request: NextRequest) {
   const sessionCookieSecret = getSessionCookieSecret();
   const shouldEnforceServerIdle = Boolean(sessionCookieSecret);
   let response = NextResponse.next({ request });
+
+  if (isRootAuthReturn(request)) {
+    const redirectResponse = NextResponse.redirect(
+      createAuthCallbackRedirect(request)
+    );
+    setNoStoreHeaders(redirectResponse);
+
+    return redirectResponse;
+  }
 
   if (!isProtectedRoute && !isAuthRoute) {
     return response;

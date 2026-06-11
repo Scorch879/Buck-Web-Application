@@ -9,20 +9,33 @@ import {
   FaChartLine,
   FaCog,
   FaHome,
-  FaMoon,
+  FaReceipt,
+  FaRobot,
   FaSignOutAlt,
-  FaSun,
   FaTimes,
   FaWallet,
 } from "react-icons/fa";
 import WalletModal from "@/app/dashboard/wallet/WalletModal";
+import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial } from "@/context/FinancialContext";
-import { applyDocumentTheme, useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import { signOutUser } from "./authentication";
 import "./dashboard.css";
 
 const dashboardNavItems = [
   { id: "home", label: "Home", href: "/dashboard/home", icon: FaHome },
+  {
+    id: "expenses",
+    label: "Expenses",
+    href: "/dashboard/expenses",
+    icon: FaReceipt,
+  },
+  { id: "wallet", label: "Wallet", action: "wallet", icon: FaWallet },
+  {
+    id: "advisor",
+    label: "Financial Advisor",
+    href: "/dashboard/financial-advisor",
+    icon: FaRobot,
+  },
   {
     id: "statistics",
     label: "Statistics",
@@ -34,6 +47,7 @@ const dashboardNavItems = [
 ] as const;
 
 type DashboardNavId = (typeof dashboardNavItems)[number]["id"];
+type DashboardNavItem = (typeof dashboardNavItems)[number];
 
 type DashboardHeaderProps = {
   initialActiveNav?: DashboardNavId;
@@ -46,14 +60,21 @@ export default function DashboardHeader({
   const [menuOpen, setMenuOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const documentThemeIsDark = useAuthPageTheme();
-  const [isDarkTheme, setIsDarkTheme] = useState(documentThemeIsDark);
   const router = useRouter();
   const pathname = usePathname();
-  const { setDashboardCache } = useFinancial();
+  const user = useOptionalDashboardUser();
+  const { dashboardCache, setDashboardCache } = useFinancial();
+  const userCache = dashboardCache.userId === user?.uid ? dashboardCache : {};
+  const displayName =
+    userCache.profile?.username ||
+    user?.displayName ||
+    user?.email?.split("@")[0] ||
+    "Buck user";
 
   const currentNav =
-    dashboardNavItems.find((item) => pathname?.startsWith(item.href))?.id ??
+    dashboardNavItems.find(
+      (item) => "href" in item && pathname?.startsWith(item.href)
+    )?.id ??
     initialActiveNav;
 
   useEffect(() => {
@@ -61,12 +82,10 @@ export default function DashboardHeader({
   }, [currentNav]);
 
   useEffect(() => {
-    setIsDarkTheme(documentThemeIsDark);
-  }, [documentThemeIsDark]);
-
-  useEffect(() => {
     dashboardNavItems.forEach((item) => {
-      router.prefetch(item.href);
+      if ("href" in item) {
+        router.prefetch(item.href);
+      }
     });
   }, [router]);
 
@@ -75,35 +94,24 @@ export default function DashboardHeader({
     void audio.play();
   };
 
-  const navigateTo = (item: (typeof dashboardNavItems)[number]) => {
+  const navigateTo = (item: DashboardNavItem) => {
     setActiveNav(item.id);
     setMenuOpen(false);
+
+    if ("action" in item && item.action === "wallet") {
+      setWalletOpen(true);
+      return;
+    }
+
+    if (!("href" in item)) {
+      return;
+    }
 
     if (pathname?.startsWith(item.href)) {
       return;
     }
 
     router.push(item.href);
-  };
-
-  const openWallet = () => {
-    setWalletOpen(true);
-    setMenuOpen(false);
-  };
-
-  const toggleTheme = () => {
-    setIsDarkTheme((currentThemeIsDark) => {
-      const nextTheme = currentThemeIsDark ? "light" : "dark";
-
-      try {
-        window.localStorage.setItem("buck-landing-theme", nextTheme);
-      } catch {
-        // Theme preference is cosmetic, so private storage failures can be ignored.
-      }
-
-      applyDocumentTheme(nextTheme);
-      return !currentThemeIsDark;
-    });
   };
 
   const handleSignOut = async () => {
@@ -135,8 +143,16 @@ export default function DashboardHeader({
           className={`nav-button ${activeNav === item.id ? "active" : ""}`}
           type="button"
           onClick={() => navigateTo(item)}
-          onFocus={() => router.prefetch(item.href)}
-          onMouseEnter={() => router.prefetch(item.href)}
+          onFocus={() => {
+            if ("href" in item) {
+              router.prefetch(item.href);
+            }
+          }}
+          onMouseEnter={() => {
+            if ("href" in item) {
+              router.prefetch(item.href);
+            }
+          }}
         >
           <Icon aria-hidden="true" />
           {item.label}
@@ -167,7 +183,15 @@ export default function DashboardHeader({
               }}
             />
           </span>
-          <span className="dashboard-title">Buck</span>
+          <span className="dashboard-brand-copy">
+            <span className="dashboard-title">Buck</span>
+            <span className="dashboard-tagline">Go Buck yourself</span>
+            {user ? (
+              <span className="dashboard-user-greeting">
+                Welcome back, <strong>{displayName}</strong>
+              </span>
+            ) : null}
+          </span>
         </button>
 
         <nav className="dashboard-nav" aria-label="Dashboard navigation">
@@ -175,19 +199,6 @@ export default function DashboardHeader({
         </nav>
 
         <div className="dashboard-header-actions">
-          <button
-            className="nav-button dashboard-theme-toggle"
-            type="button"
-            onClick={toggleTheme}
-            aria-label={`Switch to ${isDarkTheme ? "light" : "dark"} mode`}
-          >
-            {isDarkTheme ? <FaSun aria-hidden="true" /> : <FaMoon aria-hidden="true" />}
-            {isDarkTheme ? "Light" : "Dark"}
-          </button>
-          <button className="nav-button" type="button" onClick={openWallet}>
-            <FaWallet aria-hidden="true" />
-            Wallet
-          </button>
           <button
             className="nav-button dashboard-signout-button"
             type="button"
@@ -200,7 +211,7 @@ export default function DashboardHeader({
             ) : (
               <FaSignOutAlt aria-hidden="true" />
             )}
-            {isSigningOut ? "Signing out..." : "Sign Out"}
+            <span>{isSigningOut ? "Signing out..." : "Sign Out"}</span>
           </button>
         </div>
 
@@ -224,21 +235,6 @@ export default function DashboardHeader({
         >
           {renderNavItems()}
           <button
-            className="nav-button dashboard-theme-toggle"
-            type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              toggleTheme();
-            }}
-          >
-            {isDarkTheme ? <FaSun aria-hidden="true" /> : <FaMoon aria-hidden="true" />}
-            {isDarkTheme ? "Light mode" : "Dark mode"}
-          </button>
-          <button className="nav-button" type="button" onClick={openWallet}>
-            <FaWallet aria-hidden="true" />
-            Wallet
-          </button>
-          <button
             className="nav-button dashboard-signout-button"
             type="button"
             disabled={isSigningOut}
@@ -253,12 +249,18 @@ export default function DashboardHeader({
             ) : (
               <FaSignOutAlt aria-hidden="true" />
             )}
-            {isSigningOut ? "Signing out..." : "Sign Out"}
+            <span>{isSigningOut ? "Signing out..." : "Sign Out"}</span>
           </button>
         </nav>
       )}
 
-      <WalletModal open={walletOpen} onClose={() => setWalletOpen(false)} />
+      <WalletModal
+        open={walletOpen}
+        onClose={() => {
+          setWalletOpen(false);
+          setActiveNav(currentNav);
+        }}
+      />
     </header>
   );
 }

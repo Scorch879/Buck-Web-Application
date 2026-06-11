@@ -25,6 +25,27 @@
   box-shadow: var(--buck-shadow);
 }
 
+.dashboard-page-heading {
+  display: grid;
+  gap: 0.28rem;
+  max-width: 760px;
+}
+
+.dashboard-page-heading h2 {
+  margin: 0;
+  color: var(--buck-ink);
+  font-size: clamp(1.35rem, 3vw, 1.95rem);
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.dashboard-page-heading span {
+  max-width: 620px;
+  color: var(--buck-muted);
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
 .dashboard-welcome-card {
   display: flex;
   align-items: center;
@@ -320,10 +341,6 @@ html[data-buck-theme="dark"] .summary-item {
 }
 
 @media (max-width: 560px) {
-  .dashboard-welcome-card {
-    align-items: flex-start;
-  }
-
   .graph-card,
   .summary-card,
   .spending-card {

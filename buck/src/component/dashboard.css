@@ -10,6 +10,8 @@
 
 .dashboard-main {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .dashboard-header {
@@ -44,11 +46,11 @@ html[data-buck-theme="dark"] .dashboard-header {
 
 .dashboard-brand {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.72rem;
   width: 100%;
   min-width: 0;
-  padding: 0.35rem;
+  padding: 0.42rem;
   color: var(--buck-ink);
   background: transparent;
   border: 0;
@@ -103,6 +105,84 @@ html[data-buck-theme="dark"] .dashboard-mascot {
   font-weight: 900;
   letter-spacing: 0;
   white-space: nowrap;
+}
+
+.dashboard-brand-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.08rem;
+  padding-top: 0.2rem;
+}
+
+.dashboard-tagline {
+  color: var(--buck-orange);
+  font-size: 0.76rem;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.dashboard-user-greeting {
+  margin-top: 0.3rem;
+  color: var(--buck-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.28;
+}
+
+.dashboard-user-greeting strong {
+  display: block;
+  color: var(--buck-ink);
+  font-size: 0.88rem;
+  word-break: break-word;
+}
+
+.dashboard-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 76px;
+  padding: clamp(0.8rem, 1.6vw, 1rem) clamp(1rem, 2.6vw, 1.6rem);
+  color: var(--buck-ink);
+  background: rgba(255, 250, 244, 0.82);
+  border-bottom: 1px solid var(--buck-line);
+  backdrop-filter: blur(18px);
+}
+
+html[data-buck-theme="dark"] .dashboard-topbar {
+  background: rgba(23, 16, 12, 0.82);
+}
+
+.dashboard-topbar p,
+.dashboard-topbar h1,
+.dashboard-topbar span {
+  margin: 0;
+}
+
+.dashboard-topbar p {
+  color: var(--buck-orange);
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.dashboard-topbar h1 {
+  margin-top: 0.12rem;
+  color: var(--buck-ink);
+  font-size: clamp(1.18rem, 2.2vw, 1.5rem);
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.dashboard-topbar > span {
+  max-width: 460px;
+  color: var(--buck-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  text-align: right;
 }
 
 .dashboard-nav,
@@ -199,6 +279,7 @@ html[data-buck-theme="dark"] .nav-button.active {
 }
 
 .dashboard-signout-button {
+  isolation: isolate;
   min-width: 0;
   color: #fffaf4;
   background: linear-gradient(135deg, var(--buck-orange), var(--buck-coral));
@@ -219,10 +300,11 @@ html[data-buck-theme="dark"] .dashboard-signout-button {
 .dashboard-signout-button::before {
   position: absolute;
   inset: 0;
+  z-index: 0;
   content: "";
   background:
-    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.42), transparent 34%),
-    linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.22) 45%, transparent 70%);
+    radial-gradient(circle at 34% 35%, rgba(255, 197, 71, 0.28), transparent 38%),
+    linear-gradient(120deg, transparent 0%, rgba(255, 244, 215, 0.16) 45%, transparent 72%);
   opacity: 0;
   transform: translateX(-34%);
   transition:
@@ -241,8 +323,19 @@ html[data-buck-theme="dark"] .dashboard-signout-button {
 
 .dashboard-signout-button:hover::before,
 .dashboard-signout-button:focus-visible::before {
-  opacity: 1;
+  opacity: 0.78;
   transform: translateX(16%);
+}
+
+.dashboard-signout-button:disabled {
+  color: rgba(36, 20, 9, 0.78);
+  background: linear-gradient(135deg, rgba(255, 197, 71, 0.82), rgba(255, 122, 51, 0.82));
+  opacity: 1;
+}
+
+html[data-buck-theme="dark"] .dashboard-signout-button:disabled {
+  color: rgba(36, 20, 9, 0.82);
+  background: linear-gradient(135deg, rgba(255, 197, 71, 0.86), rgba(255, 122, 51, 0.84));
 }
 
 .dashboard-signout-button > svg,
@@ -668,6 +761,21 @@ html[data-buck-theme="dark"] .dashboard-skeleton-bars span {
     min-width: 0;
   }
 
+  .dashboard-topbar {
+    position: relative;
+    top: auto;
+    min-height: auto;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.85rem 1rem;
+  }
+
+  .dashboard-topbar > span {
+    max-width: none;
+    text-align: left;
+  }
+
   .dashboard-header {
     position: sticky;
     top: 0;
@@ -690,6 +798,10 @@ html[data-buck-theme="dark"] .dashboard-skeleton-bars span {
   .dashboard-brand {
     width: auto;
     padding: 0;
+  }
+
+  .dashboard-user-greeting {
+    display: none;
   }
 
   .dashboard-skeleton.GoalsPage,
@@ -749,5 +861,13 @@ html[data-buck-theme="dark"] .dashboard-skeleton-bars span {
 
   .dashboard-title {
     font-size: 1.12rem;
+  }
+
+  .dashboard-tagline {
+    display: none;
+  }
+
+  .dashboard-topbar {
+    padding: 0.75rem;
   }
 }

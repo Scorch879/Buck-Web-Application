@@ -87,6 +87,7 @@ export function useAuthGuard(initialUser: BuckUser | null = null) {
       return;
     }
 
+    const activeSupabase = supabase;
     let mounted = true;
 
     const setSessionUser = (sessionUser: SupabaseUser | null) => {
@@ -106,9 +107,41 @@ export function useAuthGuard(initialUser: BuckUser | null = null) {
     if (initialUser) {
       setSessionUser(initialUser);
 
+      const verifyCurrentSession = async () => {
+        try {
+          const { data, error } = await activeSupabase.auth.getUser();
+
+          if (error || !data.user) {
+            await clearBrokenLocalSession();
+            setSessionUser(null);
+            return;
+          }
+
+          setSessionUser(data.user);
+        } catch (error) {
+          if (isInvalidRefreshTokenError(error)) {
+            await clearBrokenLocalSession();
+          } else {
+            console.warn("Failed to verify auth session:", error);
+          }
+
+          setSessionUser(null);
+        }
+      };
+
+      void verifyCurrentSession();
+
+      const handlePageShow = (event: PageTransitionEvent) => {
+        if (event.persisted) {
+          void verifyCurrentSession();
+        }
+      };
+
+      window.addEventListener("pageshow", handlePageShow);
+
       const {
         data: { subscription },
-      } = supabase.auth.onAuthStateChange((event, session) => {
+      } = activeSupabase.auth.onAuthStateChange((event, session) => {
         if (event === "SIGNED_OUT") {
           setSessionUser(null);
           return;
@@ -119,11 +152,12 @@ export function useAuthGuard(initialUser: BuckUser | null = null) {
 
       return () => {
         mounted = false;
+        window.removeEventListener("pageshow", handlePageShow);
         subscription.unsubscribe();
       };
     }
 
-    supabase.auth
+    activeSupabase.auth
       .getUser()
       .then(async ({ data, error }) => {
         if (error) {
@@ -146,7 +180,7 @@ export function useAuthGuard(initialUser: BuckUser | null = null) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = activeSupabase.auth.onAuthStateChange((_event, session) => {
       setSessionUser(session?.user ?? null);
     });
 

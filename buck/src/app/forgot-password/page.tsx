@@ -160,8 +160,7 @@ const ForgotPassword = () => {
 
     if (result.success) {
       setMessage(
-        result.message ||
-          "If that email is registered with Buck, a password reset link will arrive shortly."
+        result.message || "Password reset link sent. Check your email."
       );
       setIsSubmitting(false);
     } else {

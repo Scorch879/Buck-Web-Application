@@ -14,7 +14,10 @@ import {
   FaExclamationTriangle,
   FaGoogle,
   FaLock,
+  FaMoon,
   FaShieldAlt,
+  FaSun,
+  FaTimes,
   FaTrash,
   FaUndo,
   FaUser,
@@ -41,6 +44,7 @@ import {
   type AccountDeletionStatus,
   type BuckProfile,
 } from "@/utils/supabaseData";
+import { applyDocumentTheme, useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import "./style.css";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -98,6 +102,7 @@ function formatSettingsDate(value: string | null | undefined) {
 export default function SettingsPage() {
   const { user } = useDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
+  const documentThemeIsDark = useAuthPageTheme();
   const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
   const hasInitialSettingsData = Boolean(userCache.profile);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
@@ -133,6 +138,9 @@ export default function SettingsPage() {
   const [savingPassword, setSavingPassword] = useState(false);
   const [requestingDeletion, setRequestingDeletion] = useState(false);
   const [recoveringAccount, setRecoveringAccount] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [isDarkTheme, setIsDarkTheme] = useState(documentThemeIsDark);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [deletePassword, setDeletePassword] = useState("");
@@ -233,6 +241,10 @@ export default function SettingsPage() {
   }, [setDashboardCache, user.displayName, user.email, user.uid]);
 
   useEffect(() => {
+    setIsDarkTheme(documentThemeIsDark);
+  }, [documentThemeIsDark]);
+
+  useEffect(() => {
     return () => {
       if (localAvatarPreview) {
         URL.revokeObjectURL(localAvatarPreview);
@@ -243,6 +255,53 @@ export default function SettingsPage() {
   const clearMessages = () => {
     setNotice("");
     setError("");
+  };
+
+  const updateThemePreference = (nextTheme: "dark" | "light") => {
+    try {
+      window.localStorage.setItem("buck-landing-theme", nextTheme);
+    } catch {
+      // Theme preference is cosmetic, so private storage failures can be ignored.
+    }
+
+    applyDocumentTheme(nextTheme);
+    setIsDarkTheme(nextTheme === "dark");
+  };
+
+  const openEmailModal = () => {
+    clearMessages();
+    setEmail(profile?.email || user.email || "");
+    setEmailPassword("");
+    setEmailModalOpen(true);
+  };
+
+  const closeEmailModal = () => {
+    if (savingEmail) {
+      return;
+    }
+
+    setEmailModalOpen(false);
+    setEmail(profile?.email || user.email || "");
+    setEmailPassword("");
+  };
+
+  const openPasswordModal = () => {
+    clearMessages();
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordModalOpen(true);
+  };
+
+  const closePasswordModal = () => {
+    if (savingPassword) {
+      return;
+    }
+
+    setPasswordModalOpen(false);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
   };
 
   const handleProfileSubmit = async (event: FormEvent) => {
@@ -392,6 +451,7 @@ export default function SettingsPage() {
       }
 
       setEmailPassword("");
+      setEmailModalOpen(false);
       setNotice(
         result.message ||
           "Email change confirmation sent. Check your inbox to finish."
@@ -439,6 +499,10 @@ export default function SettingsPage() {
         return;
       }
 
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordModalOpen(false);
       setNotice("Password updated. Buck will ask you to sign in again.");
     } finally {
       setSavingPassword(false);
@@ -652,6 +716,41 @@ export default function SettingsPage() {
               </form>
             </section>
 
+            <section className="settings-section settings-section--appearance">
+              <div className="settings-section-heading">
+                {isDarkTheme ? (
+                  <FaMoon aria-hidden="true" />
+                ) : (
+                  <FaSun aria-hidden="true" />
+                )}
+                <div>
+                  <p className="settings-eyebrow">Appearance</p>
+                  <h3>Theme</h3>
+                </div>
+              </div>
+
+              <div className="settings-theme-control" role="group" aria-label="Dashboard theme">
+                <button
+                  className={`settings-theme-option${!isDarkTheme ? " settings-theme-option--active" : ""}`}
+                  type="button"
+                  onClick={() => updateThemePreference("light")}
+                  aria-pressed={!isDarkTheme}
+                >
+                  <FaSun aria-hidden="true" />
+                  Light
+                </button>
+                <button
+                  className={`settings-theme-option${isDarkTheme ? " settings-theme-option--active" : ""}`}
+                  type="button"
+                  onClick={() => updateThemePreference("dark")}
+                  aria-pressed={isDarkTheme}
+                >
+                  <FaMoon aria-hidden="true" />
+                  Dark
+                </button>
+              </div>
+            </section>
+
             <section className="settings-section settings-section--status">
               <div className="settings-section-heading">
                 <FaShieldAlt aria-hidden="true" />
@@ -699,39 +798,20 @@ export default function SettingsPage() {
               </div>
 
               {canManageCredentials ? (
-                <form className="settings-form" onSubmit={handleEmailSubmit}>
-                  <div className="settings-field">
-                    <label htmlFor="settings-email">New email address</label>
-                    <input
-                      id="settings-email"
-                      type="email"
-                      value={email}
-                      onChange={(event) => setEmail(event.target.value)}
-                      disabled={isBusy}
-                    />
-                  </div>
-                  <div className="settings-field">
-                    <label htmlFor="settings-email-password">
-                      Current password
-                    </label>
-                    <input
-                      id="settings-email-password"
-                      type="password"
-                      value={emailPassword}
-                      onChange={(event) => setEmailPassword(event.target.value)}
-                      autoComplete="current-password"
-                      placeholder="Confirm before changing email"
-                      disabled={isBusy}
-                    />
+                <div className="settings-action-panel">
+                  <div>
+                    <strong>{accountEmail || "No email on file"}</strong>
+                    <p>Change requests require your current password.</p>
                   </div>
                   <button
                     className="settings-button settings-button--primary"
-                    type="submit"
+                    type="button"
+                    onClick={openEmailModal}
                     disabled={isBusy}
                   >
-                    {savingEmail ? "Sending confirmation..." : "Change email"}
+                    Change email
                   </button>
-                </form>
+                </div>
               ) : (
                 <div className="settings-provider-note">
                   <FaGoogle aria-hidden="true" />
@@ -757,91 +837,20 @@ export default function SettingsPage() {
               </div>
 
               {canManageCredentials ? (
-                <form className="settings-form" onSubmit={handlePasswordSubmit}>
-                  <div className="settings-field-row">
-                    <div className="settings-field">
-                      <label htmlFor="settings-current-password">
-                        Current password
-                      </label>
-                      <input
-                        id="settings-current-password"
-                        type="password"
-                        value={currentPassword}
-                        onChange={(event) =>
-                          setCurrentPassword(event.target.value)
-                        }
-                        autoComplete="current-password"
-                        disabled={isBusy}
-                      />
-                    </div>
-                    <div className="settings-field">
-                      <label htmlFor="settings-new-password">New password</label>
-                      <input
-                        id="settings-new-password"
-                        type="password"
-                        value={newPassword}
-                        onChange={(event) => setNewPassword(event.target.value)}
-                        autoComplete="new-password"
-                        disabled={isBusy}
-                      />
-                    </div>
-                    <div className="settings-field">
-                      <label htmlFor="settings-confirm-password">
-                        Confirm password
-                      </label>
-                      <input
-                        id="settings-confirm-password"
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(event) =>
-                          setConfirmPassword(event.target.value)
-                        }
-                        autoComplete="new-password"
-                        disabled={isBusy}
-                      />
-                    </div>
+                <div className="settings-action-panel">
+                  <div>
+                    <strong>Password protected</strong>
+                    <p>Open a focused dialog when you need to update it.</p>
                   </div>
-                  {newPassword ? (
-                    <div
-                      className={`settings-password-feedback settings-password-feedback--${passwordPolicy.strength}`}
-                      aria-live="polite"
-                    >
-                      <div className="settings-password-summary">
-                        <strong>{passwordPolicy.label}</strong>
-                        <span>{passwordPolicy.score}/5 checks</span>
-                      </div>
-                      <div
-                        className="settings-password-meter"
-                        aria-hidden="true"
-                      >
-                        <span style={{ width: `${passwordProgress}%` }} />
-                      </div>
-                      {passwordPolicy.issues.length ? (
-                        <p>{passwordPolicy.issues.join(", ")}</p>
-                      ) : (
-                        <p>Your password meets Buck&apos;s requirements.</p>
-                      )}
-                    </div>
-                  ) : null}
-                  {passwordConfirmMessage ? (
-                    <p
-                      className={`settings-confirm-hint${
-                        newPassword === confirmPassword
-                          ? " settings-confirm-hint--match"
-                          : ""
-                      }`}
-                    >
-                      {passwordConfirmMessage}
-                    </p>
-                  ) : null}
                   <button
                     className="settings-button settings-button--primary"
-                    type="submit"
+                    type="button"
+                    onClick={openPasswordModal}
                     disabled={isBusy}
                   >
-                    {savingPassword ? "Updating..." : "Update password"}
+                    Change password
                   </button>
-                </form>
+                </div>
               ) : (
                 <div className="settings-provider-note">
                   <FaGoogle aria-hidden="true" />
@@ -949,6 +958,211 @@ export default function SettingsPage() {
           </div>
         </article>
       </section>
+
+      {emailModalOpen ? (
+        <div
+          className="settings-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeEmailModal();
+            }
+          }}
+        >
+          <section
+            className="settings-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-email-modal-title"
+          >
+            <div className="settings-modal-heading">
+              <div>
+                <p className="settings-eyebrow">Email security</p>
+                <h2 id="settings-email-modal-title">Change email address</h2>
+                <p>
+                  Buck will send a confirmation email before this change is
+                  applied.
+                </p>
+              </div>
+              <button
+                className="settings-modal-close"
+                type="button"
+                onClick={closeEmailModal}
+                disabled={savingEmail}
+                aria-label="Close email dialog"
+              >
+                <FaTimes aria-hidden="true" />
+              </button>
+            </div>
+
+            <form
+              className="settings-form settings-modal-form"
+              onSubmit={handleEmailSubmit}
+            >
+              <div className="settings-field">
+                <label htmlFor="settings-email">New email address</label>
+                <input
+                  id="settings-email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  disabled={isBusy}
+                />
+              </div>
+              <div className="settings-field">
+                <label htmlFor="settings-email-password">
+                  Current password
+                </label>
+                <input
+                  id="settings-email-password"
+                  type="password"
+                  value={emailPassword}
+                  onChange={(event) => setEmailPassword(event.target.value)}
+                  autoComplete="current-password"
+                  placeholder="Confirm before changing email"
+                  disabled={isBusy}
+                />
+                <a className="settings-modal-help-link" href="/forgot-password">
+                  Forgot current password?
+                </a>
+              </div>
+              <button
+                className="settings-button settings-button--primary"
+                type="submit"
+                disabled={isBusy}
+              >
+                {savingEmail ? "Sending confirmation..." : "Send confirmation"}
+              </button>
+            </form>
+          </section>
+        </div>
+      ) : null}
+
+      {passwordModalOpen ? (
+        <div
+          className="settings-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closePasswordModal();
+            }
+          }}
+        >
+          <section
+            className="settings-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-password-modal-title"
+          >
+            <div className="settings-modal-heading">
+              <div>
+                <p className="settings-eyebrow">Password security</p>
+                <h2 id="settings-password-modal-title">Change password</h2>
+                <p>
+                  Enter your current password first, then choose a stronger new
+                  password.
+                </p>
+              </div>
+              <button
+                className="settings-modal-close"
+                type="button"
+                onClick={closePasswordModal}
+                disabled={savingPassword}
+                aria-label="Close password dialog"
+              >
+                <FaTimes aria-hidden="true" />
+              </button>
+            </div>
+
+            <form
+              className="settings-form settings-modal-form"
+              onSubmit={handlePasswordSubmit}
+            >
+              <div className="settings-field">
+                <label htmlFor="settings-current-password">
+                  Current password
+                </label>
+                <input
+                  id="settings-current-password"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(event) =>
+                    setCurrentPassword(event.target.value)
+                  }
+                  autoComplete="current-password"
+                  disabled={isBusy}
+                />
+                <a className="settings-modal-help-link" href="/forgot-password">
+                  Forgot current password?
+                </a>
+              </div>
+              <div className="settings-field">
+                <label htmlFor="settings-new-password">New password</label>
+                <input
+                  id="settings-new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  autoComplete="new-password"
+                  disabled={isBusy}
+                />
+              </div>
+              <div className="settings-field">
+                <label htmlFor="settings-confirm-password">
+                  Confirm password
+                </label>
+                <input
+                  id="settings-confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(event) =>
+                    setConfirmPassword(event.target.value)
+                  }
+                  autoComplete="new-password"
+                  disabled={isBusy}
+                />
+              </div>
+              {newPassword ? (
+                <div
+                  className={`settings-password-feedback settings-password-feedback--${passwordPolicy.strength}`}
+                  aria-live="polite"
+                >
+                  <div className="settings-password-summary">
+                    <strong>{passwordPolicy.label}</strong>
+                    <span>{passwordPolicy.score}/5 checks</span>
+                  </div>
+                  <div className="settings-password-meter" aria-hidden="true">
+                    <span style={{ width: `${passwordProgress}%` }} />
+                  </div>
+                  {passwordPolicy.issues.length ? (
+                    <p>{passwordPolicy.issues.join(", ")}</p>
+                  ) : (
+                    <p>Your password meets Buck&apos;s requirements.</p>
+                  )}
+                </div>
+              ) : null}
+              {passwordConfirmMessage ? (
+                <p
+                  className={`settings-confirm-hint${
+                    newPassword === confirmPassword
+                      ? " settings-confirm-hint--match"
+                      : ""
+                  }`}
+                >
+                  {passwordConfirmMessage}
+                </p>
+              ) : null}
+              <button
+                className="settings-button settings-button--primary"
+                type="submit"
+                disabled={isBusy}
+              >
+                {savingPassword ? "Updating..." : "Update password"}
+              </button>
+            </form>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }

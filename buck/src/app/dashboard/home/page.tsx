@@ -2,7 +2,6 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useDashboardUser } from "@/context/DashboardUserContext";
 import {
@@ -12,7 +11,6 @@ import {
 import { formatCurrency, toNumber } from "@/utils/formatters";
 import {
   ensureDefaultCategories,
-  getUserAvatarSignedUrl,
   getUserProfile,
   listExpenses,
   subscribeUserTable,
@@ -176,9 +174,6 @@ export default function Dashboard() {
   const [profile, setProfile] = useState<BuckProfile | null>(
     () => userCache.profile ?? null
   );
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(
-    () => userCache.avatarUrl ?? null
-  );
   const [loadingDashboardData, setLoadingDashboardData] = useState(
     () => !hasInitialDashboardData
   );
@@ -189,17 +184,12 @@ export default function Dashboard() {
 
     const loadProfile = async () => {
       const loadedProfile = await getUserProfile(user.uid);
-      const signedAvatarUrl = await getUserAvatarSignedUrl(
-        loadedProfile.avatarPath
-      );
 
       if (active) {
         setProfile(loadedProfile);
-        setAvatarUrl(signedAvatarUrl);
         setDashboardCache((currentCache) =>
           mergeDashboardDataCache(currentCache, user.uid, {
             profile: loadedProfile,
-            avatarUrl: signedAvatarUrl,
           })
         );
       }
@@ -300,23 +290,13 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-container">
-        <section className="dashboard-welcome-card">
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="" className="dashboard-welcome-avatar" />
-          ) : (
-            <Image
-              src="/BuckMascot.png"
-              alt=""
-              width={64}
-              height={64}
-              className="dashboard-welcome-avatar dashboard-welcome-avatar--fallback"
-              priority
-            />
-          )}
-          <div>
-            <p className="dashboard-welcome-kicker">Welcome back</p>
-            <h1 className="dashboard-welcome-greeting">{displayName}</h1>
-          </div>
+        <section className="dashboard-page-heading">
+          <p className="dashboard-welcome-kicker">Welcome back, {displayName}</p>
+          <h2>Here&apos;s what Buck sees this week.</h2>
+          <span>
+            Keep an eye on daily spending, category pressure, and the small
+            choices that move your wallet.
+          </span>
         </section>
 
         <section className="dashboard-content" aria-label="Weekly overview">

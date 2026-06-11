@@ -6,14 +6,19 @@ import {
   supabaseConfigError,
   supabaseUrl,
 } from "@/utils/supabaseConfig";
+import {
+  createSupabaseAdminClient,
+  isSupabaseAdminConfigured,
+} from "@/utils/supabase/admin";
 
 type PasswordResetRequest = {
   email?: unknown;
 };
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const resetRequestMessage =
-  "If that email is registered with Buck, a password reset link will arrive shortly.";
+const accountNotFoundMessage =
+  "No Buck account exists for that email address.";
+const resetRequestMessage = "Password reset link sent. Check your email.";
 
 function normalizeOrigin(value: string) {
   const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
@@ -63,6 +68,23 @@ async function readRequestBody(request: Request) {
   }
 }
 
+async function findBuckAccountByEmail(email: string) {
+  const supabaseAdmin = createSupabaseAdminClient();
+  const normalizedEmail = email.toLowerCase();
+  const emailCandidates = Array.from(new Set([email, normalizedEmail]));
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .in("email", emailCandidates)
+    .limit(1);
+
+  if (error) {
+    throw error;
+  }
+
+  return Boolean(data?.length);
+}
+
 export async function POST(request: Request) {
   if (!isSupabaseConfigured) {
     return NextResponse.json(
@@ -78,6 +100,39 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { success: false, message: "Please enter a valid email address." },
       { status: 400 }
+    );
+  }
+
+  if (!isSupabaseAdminConfigured) {
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "Password reset lookup is not configured. Add SUPABASE_SERVICE_ROLE_KEY to the server environment.",
+      },
+      { status: 500 }
+    );
+  }
+
+  try {
+    const accountExists = await findBuckAccountByEmail(email);
+
+    if (!accountExists) {
+      return NextResponse.json(
+        { success: false, message: accountNotFoundMessage },
+        { status: 404 }
+      );
+    }
+  } catch (error) {
+    console.error("Password reset account lookup failed:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "Buck could not verify that email right now. Please try again later.",
+      },
+      { status: 502 }
     );
   }
 
