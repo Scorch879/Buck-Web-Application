@@ -59,8 +59,11 @@ const CreateAccount = () => {
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const isDarkTheme = useAuthPageTheme();
   const createButton = usePointerGradient<HTMLButtonElement>();
+  const isAuthBusy = isCreatingAccount || isGoogleLoading;
   const passwordPolicy = evaluatePasswordPolicy(form.password, {
     email: form.email,
     username: form.username,
@@ -86,8 +89,13 @@ const CreateAccount = () => {
   };
 
   const handleCreateAccount = async () => {
+    if (isAuthBusy) {
+      return;
+    }
+
     setError("");
     setMessage("");
+
     if (
       !form.username.trim() ||
       !form.email.trim() ||
@@ -112,7 +120,12 @@ const CreateAccount = () => {
       );
       return;
     }
+
+    setIsCreatingAccount(true);
+    setMessage("Creating your Buck account...");
+
     const result = await signUpUser(form.email, form.password, form.username);
+
     if (result.success) {
       setForm({ username: "", email: "", password: "", confirm: "" });
 
@@ -125,19 +138,33 @@ const CreateAccount = () => {
       router.push("/dashboard/home");
     } else {
       setError(result.message || "Account creation failed.");
+      setMessage("");
+      setIsCreatingAccount(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
+    if (isAuthBusy) {
+      return;
+    }
+
+    setError("");
+    setMessage("Opening Google sign in...");
+    setIsGoogleLoading(true);
+
     const result = await signInWithGoogle();
+
     if (result.success) {
       if (!result.redirecting) {
         router.push("/dashboard/home");
       }
     } else if (result.cancelled) {
-      // Do nothing, user cancelled
+      setMessage("");
+      setIsGoogleLoading(false);
     } else {
-      alert(result.message || "Google Sign-In failed.");
+      setError(result.message || "Google Sign-In failed.");
+      setMessage("");
+      setIsGoogleLoading(false);
     }
   };
 
@@ -242,15 +269,21 @@ const CreateAccount = () => {
               className="CA-Google-Btn"
               type="button"
               onClick={handleGoogleSignIn}
+              disabled={isAuthBusy}
+              aria-busy={isGoogleLoading}
             >
-              <Image
-                src="/Google.png"
-                alt=""
-                width={20}
-                height={20}
-                className="CA-Google-Icon"
-              />
-              Continue with Google
+              {isGoogleLoading ? (
+                <span className="auth-button-spinner" aria-hidden="true" />
+              ) : (
+                <Image
+                  src="/Google.png"
+                  alt=""
+                  width={20}
+                  height={20}
+                  className="CA-Google-Icon"
+                />
+              )}
+              {isGoogleLoading ? "Opening Google..." : "Continue with Google"}
             </button>
 
             <div className="CA-Divider">
@@ -275,6 +308,7 @@ const CreateAccount = () => {
                 value={form.username}
                 onChange={handleChange}
                 autoComplete="username"
+                disabled={isAuthBusy}
               />
 
               <label htmlFor="email" className="CA-Label">
@@ -288,6 +322,7 @@ const CreateAccount = () => {
                 value={form.email}
                 onChange={handleChange}
                 autoComplete="email"
+                disabled={isAuthBusy}
               />
 
               <label htmlFor="password" className="CA-Label">
@@ -302,6 +337,7 @@ const CreateAccount = () => {
                   value={form.password}
                   onChange={handleChange}
                   autoComplete="new-password"
+                  disabled={isAuthBusy}
                 />
                 <button
                   type="button"
@@ -309,6 +345,7 @@ const CreateAccount = () => {
                   tabIndex={-1}
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
+                  disabled={isAuthBusy}
                 >
                   <Image
                     src={showPassword ? "/duck-eye.png" : "/duck-eye-closed.png"}
@@ -346,6 +383,7 @@ const CreateAccount = () => {
                   value={form.confirm}
                   onChange={handleChange}
                   autoComplete="new-password"
+                  disabled={isAuthBusy}
                 />
                 <button
                   type="button"
@@ -353,6 +391,7 @@ const CreateAccount = () => {
                   tabIndex={-1}
                   onClick={() => setShowConfirm((v) => !v)}
                   aria-label={showConfirm ? "Hide password" : "Show password"}
+                  disabled={isAuthBusy}
                 >
                   <Image
                     src={showConfirm ? "/duck-eye.png" : "/duck-eye-closed.png"}
@@ -380,12 +419,21 @@ const CreateAccount = () => {
                 onMouseMove={createButton.handlePointerMove}
                 onMouseLeave={createButton.handlePointerLeave}
                 style={createButtonStyle}
-                whileHover={{
-                  scale: 1.02,
-                }}
+                whileHover={isAuthBusy ? undefined : { scale: 1.02 }}
+                disabled={isAuthBusy}
+                aria-busy={isCreatingAccount}
               >
-                Create Account
-                <FaArrowRight aria-hidden="true" />
+                {isCreatingAccount ? (
+                  <>
+                    <span className="auth-button-spinner" aria-hidden="true" />
+                    Creating account...
+                  </>
+                ) : (
+                  <>
+                    Create Account
+                    <FaArrowRight aria-hidden="true" />
+                  </>
+                )}
               </motion.button>
 
               {message && <div className="success-message">{message}</div>}

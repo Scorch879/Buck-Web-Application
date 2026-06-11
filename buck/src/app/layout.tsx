@@ -46,9 +46,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: themeInitScript }}
+        />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         {maintenanceMode ? (
           <MaintenancePage />
         ) : (

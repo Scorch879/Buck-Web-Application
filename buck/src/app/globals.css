@@ -107,6 +107,27 @@ button {
   cursor: pointer;
 }
 
+button:disabled,
+input:disabled {
+  cursor: not-allowed;
+}
+
+.auth-button-spinner {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  animation: auth-button-spinner-rotate 700ms linear infinite;
+}
+
+@keyframes auth-button-spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 img {
   max-width: 100%;
 }
@@ -458,7 +479,7 @@ main {
   position: relative;
   display: flex;
   align-items: center;
-  min-height: min(760px, calc(100dvh - 90px));
+  min-height: calc(100dvh - 78px);
   padding: var(--landing-section-space) clamp(1rem, 4vw, 1.5rem);
   scroll-margin-top: 0;
 }
@@ -1710,7 +1731,7 @@ main {
   }
 
   .hero-section {
-    min-height: clamp(360px, 31vh, 540px);
+    min-height: calc(100dvh - 78px);
     border-bottom: 1px solid rgba(120, 92, 70, 0.16);
   }
 
@@ -1852,11 +1873,23 @@ main {
   align-items: center;
 }
 
+.landing-footer-bottom p {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
 .footer-disclaimer {
-  color: var(--buck-muted);
+  color: rgba(106, 92, 83, 0.72);
   font-size: 0.78rem;
   font-weight: 900;
+  letter-spacing: 0.14em;
+  line-height: 1.5;
   text-align: right;
+  text-transform: uppercase;
+}
+
+.landing-page--dark .footer-disclaimer {
+  color: rgba(217, 199, 182, 0.58);
 }
 
 .legal-modal-backdrop {
@@ -2423,7 +2456,7 @@ html[data-buck-theme="dark"] .session-timeout-actions button:last-child {
   }
 
   .hero-section {
-    min-height: 0;
+    min-height: calc(100dvh - 68px);
     padding: var(--landing-section-space) 1rem;
   }
 

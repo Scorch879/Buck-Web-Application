@@ -111,7 +111,7 @@ html[data-buck-theme="dark"] .empty-goals-popup:hover {
 
 .empty-goals-popup {
   position: relative;
-  max-width: 500px;
+  width: min(640px, 100%);
   padding: clamp(1.5rem, 5vw, 3rem) clamp(1rem, 4vw, 2rem);
   overflow: hidden;
   text-align: center;
@@ -128,9 +128,9 @@ html[data-buck-theme="dark"] .empty-goals-popup:hover {
   min-height: 44px;
   margin: 1.5rem auto 0;
   padding: 0.78rem 1.3rem;
-  color: var(--buck-orange);
-  background: rgba(255, 240, 200, 0.52);
-  border: 1px solid rgba(244, 117, 54, 0.34);
+  color: #241409;
+  background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
+  border: 0;
   border-radius: 8px;
   font-size: 1rem;
   font-weight: 900;
@@ -145,20 +145,23 @@ html[data-buck-theme="dark"] .empty-goals-popup:hover {
 }
 
 html[data-buck-theme="dark"] .create-goal-button {
-  background: rgba(255, 197, 71, 0.1);
+  color: #241409;
+  background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
 }
 
-.create-goal-button:hover {
-  color: #fffaf4;
+.create-goal-button:hover,
+.create-goal-button:focus-visible {
+  color: #241409;
   background: linear-gradient(135deg, var(--buck-orange), var(--buck-coral));
   border-color: transparent;
-  box-shadow: 0 14px 26px rgba(255, 56, 56, 0.18);
+  box-shadow: 0 14px 26px rgba(255, 122, 51, 0.2);
   transform: translateY(-2px);
 }
 
-html[data-buck-theme="dark"] .create-goal-button:hover {
+html[data-buck-theme="dark"] .create-goal-button:hover,
+html[data-buck-theme="dark"] .create-goal-button:focus-visible {
   color: #241409;
-  background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
+  background: linear-gradient(135deg, #ffd36c, var(--buck-orange));
 }
 
 .statistics-panels-container {

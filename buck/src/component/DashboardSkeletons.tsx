@@ -1,6 +1,6 @@
 "use client";
 
-type DashboardSkeletonVariant = "home" | "goals" | "statistics";
+type DashboardSkeletonVariant = "home" | "goals" | "statistics" | "settings";
 
 function SkeletonBlock({
   className = "",
@@ -89,24 +89,56 @@ function GoalsSkeleton() {
 
 function StatisticsSkeleton() {
   return (
-    <div className="dashboard-container dashboard-skeleton" aria-label="Loading statistics">
-      <section className="graph-panel dashboard-skeleton-card">
+    <div
+      className="dashboard-container dashboard-skeleton statistics-skeleton"
+      aria-label="Loading statistics"
+    >
+      <section className="statistics-mode-skeleton dashboard-skeleton-card">
+        <SkeletonBlock className="dashboard-skeleton-short" />
+      </section>
+
+      <section className="empty-goals-popup statistics-empty-skeleton dashboard-skeleton-card">
+        <SkeletonBlock className="dashboard-skeleton-heading" rows={3} />
+        <SkeletonBlock className="dashboard-skeleton-button" />
+      </section>
+
+      <section className="graph-panel statistics-chart-skeleton dashboard-skeleton-card">
         <SkeletonBlock className="dashboard-skeleton-heading" rows={2} />
-        <div className="dashboard-skeleton-bars dashboard-skeleton-bars--wide" aria-hidden="true">
-          {Array.from({ length: 10 }, (_, index) => (
-            <span key={index} style={{ height: `${28 + ((index * 13) % 54)}%` }} />
+        <div
+          className="dashboard-skeleton-bars dashboard-skeleton-bars--wide"
+          aria-hidden="true"
+        >
+          {Array.from({ length: 7 }, (_, index) => (
+            <span
+              key={index}
+              style={{ height: `${32 + ((index * 17) % 48)}%` }}
+            />
           ))}
         </div>
       </section>
+    </div>
+  );
+}
 
-      <section className="statistics-panels-container">
-        <article className="graph-panel dashboard-skeleton-card">
-          <SkeletonBlock rows={5} />
+function SettingsSkeleton() {
+  return (
+    <div className="settings-page dashboard-skeleton" aria-label="Loading settings">
+      <section className="settings-hero dashboard-skeleton-card">
+        <SkeletonBlock className="dashboard-skeleton-heading" rows={3} />
+        <SkeletonBlock className="dashboard-skeleton-short" rows={2} />
+      </section>
+
+      <section className="settings-grid">
+        <article className="settings-card settings-card--profile dashboard-skeleton-card">
+          <span className="dashboard-skeleton-avatar" />
+          <SkeletonBlock rows={3} />
         </article>
-        <article className="graph-panel dashboard-skeleton-card">
-          <span className="dashboard-skeleton-circle" />
-          <SkeletonBlock rows={2} />
-        </article>
+        {Array.from({ length: 4 }, (_, index) => (
+          <article key={index} className="settings-card dashboard-skeleton-card">
+            <SkeletonBlock className="dashboard-skeleton-heading" rows={2} />
+            <SkeletonBlock rows={4} />
+          </article>
+        ))}
       </section>
     </div>
   );
@@ -117,6 +149,10 @@ export function DashboardPageSkeleton({
 }: {
   variant?: DashboardSkeletonVariant;
 }) {
+  if (variant === "settings") {
+    return <SettingsSkeleton />;
+  }
+
   if (variant === "goals") {
     return <GoalsSkeleton />;
   }

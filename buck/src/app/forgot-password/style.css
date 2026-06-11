@@ -403,6 +403,17 @@ html[data-buck-theme="dark"] .FP-Background .FP-Btn {
   box-shadow: 0 18px 38px rgba(255, 197, 71, 0.18);
 }
 
+.FP-Btn:disabled {
+  cursor: progress;
+  opacity: 0.72;
+  pointer-events: none;
+  transform: none;
+}
+
+.FP-Input:disabled {
+  opacity: 0.78;
+}
+
 .forgot-message-card {
   display: flex;
   align-items: center;

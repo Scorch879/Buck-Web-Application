@@ -4,8 +4,8 @@ import "./style.css";
 import "./progress-bar.css";
 import { useRouter } from "next/navigation";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
+import { useDashboardUser } from "@/context/DashboardUserContext";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
-import { useAuthGuard } from "@/utils/useAuthGuard";
 import CreateGoalModal from "./CreateGoalModal";
 import {
   deleteGoal,
@@ -52,7 +52,7 @@ type Goal = BuckGoal;
 
 const GoalsPage = () => {
   const router = useRouter();
-  const { user, loading } = useAuthGuard();
+  const { user } = useDashboardUser();
   const isDarkTheme = useAuthPageTheme();
   const chartTextColor = isDarkTheme ? "#fff8ed" : "#2b2523";
   const chartGridColor = isDarkTheme
@@ -70,7 +70,7 @@ const GoalsPage = () => {
     ? "rgba(255,197,71,0.08)"
     : "rgba(255,250,244,0.74)";
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [loadingGoals, setLoadingGoals] = useState(false);
+  const [loadingGoals, setLoadingGoals] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [aiRecommendation, setAIRecommendation] = useState<string | null>(null);
@@ -343,23 +343,16 @@ const GoalsPage = () => {
 
   useEffect(() => {
     const fetchGoals = async () => {
-      if (user) {
-        setLoadingGoals(true);
-        try {
-          setGoals(await listGoals(user.uid));
-        } catch (error) {
-          console.error("Failed to load goals:", error);
-        } finally {
-          setLoadingGoals(false);
-        }
+      try {
+        setGoals(await listGoals(user.uid));
+      } catch (error) {
+        console.error("Failed to load goals:", error);
+      } finally {
+        setLoadingGoals(false);
       }
     };
 
-    fetchGoals();
-
-    if (!user) {
-      return;
-    }
+    void fetchGoals();
 
     const unsubscribeGoals = subscribeUserTable("goals", user.uid, () => {
       void fetchGoals();
@@ -636,7 +629,7 @@ const GoalsPage = () => {
 
   const chartRef = useRef<any>(null);
 
-  if (loading || !user || loadingGoals) {
+  if (loadingGoals) {
     return <DashboardPageSkeleton variant="goals" />;
   }
 
@@ -652,7 +645,8 @@ const GoalsPage = () => {
               Would you like to create one?
             </h2>
             <button
-              className="nav-button goals-create-btn"
+              className="goals-create-btn"
+              type="button"
               onClick={() => setShowModal(true)}
             >
               Create Goal
@@ -699,7 +693,15 @@ const GoalsPage = () => {
                   selectedGoal?.id === goal.id ? "selected" : ""
                 }`}
                 key={goal.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => setSelectedGoal(goal)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setSelectedGoal(goal);
+                  }
+                }}
                 style={{ cursor: "pointer" }}
               >
                 <h3>{goal.goalName}</h3>

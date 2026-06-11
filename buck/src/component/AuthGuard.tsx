@@ -1,15 +1,22 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { DashboardUserProvider } from "@/context/DashboardUserContext";
+import type { BuckUser } from "@/utils/authUser";
 import { useAuthGuard } from "@/utils/useAuthGuard";
 
 type AuthGuardProps = {
   children: ReactNode;
   fallback?: ReactNode;
+  initialUser?: BuckUser | null;
 };
 
-export default function AuthGuard({ children, fallback }: AuthGuardProps) {
-  const { user, loading } = useAuthGuard();
+export default function AuthGuard({
+  children,
+  fallback,
+  initialUser = null,
+}: AuthGuardProps) {
+  const { user, loading } = useAuthGuard(initialUser);
 
   if (loading || !user) {
     if (fallback) {
@@ -24,5 +31,5 @@ export default function AuthGuard({ children, fallback }: AuthGuardProps) {
     );
   }
 
-  return <>{children}</>;
+  return <DashboardUserProvider user={user}>{children}</DashboardUserProvider>;
 }

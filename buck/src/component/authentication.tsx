@@ -277,16 +277,25 @@ export async function sendPasswordReset(email: string) {
   }
 
   try {
-    const supabase = getSupabaseClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: getAuthCallbackUrl("/forgot-password?type=recovery"),
+    const response = await fetch("/api/auth/password-reset", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email: email.trim() }),
     });
+    const result = (await response.json().catch(() => null)) as AuthResult | null;
 
-    if (error) {
-      return { success: false, message: error.message };
+    if (!response.ok || !result?.success) {
+      return {
+        success: false,
+        message:
+          result?.message ||
+          "Failed to send password reset link. Please try again later.",
+      };
     }
 
-    return { success: true, message: "Password reset email sent!" };
+    return { success: true, message: result.message };
   } catch (error) {
     return { success: false, message: getErrorMessage(error) };
   }
@@ -317,6 +326,47 @@ export async function updatePassword(password: string) {
     await supabase.auth.signOut();
 
     return { success: true, message: "Password updated successfully." };
+  } catch (error) {
+    return { success: false, message: getErrorMessage(error) };
+  }
+}
+
+export async function verifyCurrentPassword(currentPassword: string) {
+  if (!isSupabaseConfigured) {
+    return getConfiguredAuthError();
+  }
+
+  if (!currentPassword) {
+    return { success: false, message: "Enter your current password first." };
+  }
+
+  try {
+    const supabase = getSupabaseClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user?.email) {
+      return {
+        success: false,
+        message: "Buck could not verify your current session.",
+      };
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+
+    if (error) {
+      return {
+        success: false,
+        message: "Current password is incorrect.",
+      };
+    }
+
+    return { success: true };
   } catch (error) {
     return { success: false, message: getErrorMessage(error) };
   }

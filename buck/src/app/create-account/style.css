@@ -275,6 +275,19 @@ html[data-buck-theme="dark"] .CA-Background {
   transform: translateY(-2px);
 }
 
+.CA-Google-Btn:disabled,
+.CA-Btn:disabled,
+.CA-Eye-Btn:disabled {
+  opacity: 0.72;
+  pointer-events: none;
+  transform: none;
+}
+
+.CA-Google-Btn:disabled,
+.CA-Btn:disabled {
+  cursor: progress;
+}
+
 .CA-Google-Icon {
   width: 20px;
   height: 20px;
@@ -506,6 +519,10 @@ html[data-buck-theme="dark"] .CA-Background .CA-Btn {
 
 .CA-Btn:hover {
   box-shadow: 0 18px 38px rgba(255, 197, 71, 0.18);
+}
+
+.CA-Input:disabled {
+  opacity: 0.78;
 }
 
 .CA-Link {

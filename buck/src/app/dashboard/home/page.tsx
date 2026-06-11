@@ -4,14 +4,17 @@ import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
-import { useAuthGuard } from "@/utils/useAuthGuard";
+import { useDashboardUser } from "@/context/DashboardUserContext";
 import { formatCurrency, toNumber } from "@/utils/formatters";
 import {
   ensureDefaultCategories,
+  getUserAvatarSignedUrl,
+  getUserProfile,
   listExpenses,
   subscribeUserTable,
   type BuckCategory,
   type BuckExpense,
+  type BuckProfile,
 } from "@/utils/supabaseData";
 import "./style.css";
 
@@ -154,41 +157,81 @@ function WeeklyBarChart({ data }: { data: WeeklyDatum[] }) {
 }
 
 export default function Dashboard() {
-  const { user, loading } = useAuthGuard();
+  const { user } = useDashboardUser();
   const [categories, setCategories] = useState<Category[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [profile, setProfile] = useState<BuckProfile | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [loadingDashboardData, setLoadingDashboardData] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    let active = true;
 
-    const loadCategories = () => {
-      ensureDefaultCategories(user.uid)
-        .then(setCategories)
-        .catch((error) => console.error("Failed to load categories:", error));
-    };
-    const loadExpenses = () => {
-      listExpenses(user.uid)
-        .then(setExpenses)
-        .catch((error) => console.error("Failed to load expenses:", error));
+    const loadProfile = async () => {
+      const loadedProfile = await getUserProfile(user.uid);
+      const signedAvatarUrl = await getUserAvatarSignedUrl(
+        loadedProfile.avatarPath
+      );
+
+      if (active) {
+        setProfile(loadedProfile);
+        setAvatarUrl(signedAvatarUrl);
+      }
     };
 
-    loadCategories();
-    loadExpenses();
+    const loadCategories = async () => {
+      const nextCategories = await ensureDefaultCategories(user.uid);
+
+      if (active) {
+        setCategories(nextCategories);
+      }
+    };
+
+    const loadExpenses = async () => {
+      const nextExpenses = await listExpenses(user.uid);
+
+      if (active) {
+        setExpenses(nextExpenses);
+      }
+    };
+
+    const loadInitialData = async () => {
+      setLoadingDashboardData(true);
+
+      try {
+        await Promise.all([loadProfile(), loadCategories(), loadExpenses()]);
+      } catch (error) {
+        console.error("Failed to load dashboard:", error);
+      } finally {
+        if (active) {
+          setLoadingDashboardData(false);
+        }
+      }
+    };
+
+    void loadInitialData();
 
     const unsubscribeCategories = subscribeUserTable(
       "categories",
       user.uid,
-      loadCategories
+      () => void loadCategories()
     );
     const unsubscribeExpenses = subscribeUserTable(
       "expenses",
       user.uid,
-      loadExpenses
+      () => void loadExpenses()
+    );
+    const unsubscribeProfile = subscribeUserTable(
+      "profiles",
+      user.uid,
+      () => void loadProfile()
     );
 
     return () => {
+      active = false;
       unsubscribeCategories();
       unsubscribeExpenses();
+      unsubscribeProfile();
     };
   }, [user]);
 
@@ -210,23 +253,28 @@ export default function Dashboard() {
     [categories, expenses]
   );
 
-  if (loading || !user) {
+  if (loadingDashboardData) {
     return <DashboardPageSkeleton variant="home" />;
   }
 
-  const displayName = user.displayName || user.email || "friend";
+  const displayName =
+    profile?.username || user.displayName || user.email || "friend";
 
   return (
     <div className="dashboard-container">
         <section className="dashboard-welcome-card">
-          <Image
-            src="/BuckMascot.png"
-            alt=""
-            width={64}
-            height={64}
-            className="dashboard-welcome-avatar"
-            priority
-          />
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="" className="dashboard-welcome-avatar" />
+          ) : (
+            <Image
+              src="/BuckMascot.png"
+              alt=""
+              width={64}
+              height={64}
+              className="dashboard-welcome-avatar dashboard-welcome-avatar--fallback"
+              priority
+            />
+          )}
           <div>
             <p className="dashboard-welcome-kicker">Welcome back</p>
             <h1 className="dashboard-welcome-greeting">{displayName}</h1>

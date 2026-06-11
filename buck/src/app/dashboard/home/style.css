@@ -39,10 +39,15 @@
   width: 64px;
   height: 64px;
   flex-shrink: 0;
-  object-fit: contain;
+  object-fit: cover;
   border: 1px solid rgba(244, 117, 54, 0.24);
   border-radius: 50%;
   background: linear-gradient(145deg, var(--buck-gold-soft), #ffd78a);
+}
+
+.dashboard-welcome-avatar--fallback {
+  object-fit: contain;
+  padding: 0.42rem;
 }
 
 .dashboard-welcome-kicker,
@@ -165,10 +170,15 @@ html[data-buck-theme="dark"] .summary-item:hover {
   width: 200px;
   height: 200px;
   background:
-    radial-gradient(circle, rgba(255, 250, 244, 0.88) 0%, rgba(255, 197, 71, 0.16) 72%);
+    radial-gradient(circle, rgba(255, 197, 71, 0.2) 0%, rgba(244, 117, 54, 0.12) 58%, rgba(255, 56, 56, 0.08) 100%);
   border: 3px solid var(--buck-orange);
   border-radius: 50%;
   box-shadow: inset 0 0 0 10px rgba(244, 117, 54, 0.08);
+}
+
+html[data-buck-theme="dark"] .spending-circle {
+  background:
+    radial-gradient(circle, rgba(255, 197, 71, 0.18) 0%, rgba(244, 117, 54, 0.12) 58%, rgba(28, 16, 10, 0.18) 100%);
 }
 
 .spending-amount {

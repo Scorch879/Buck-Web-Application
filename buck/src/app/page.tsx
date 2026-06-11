@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import type { Variants } from "framer-motion";
+import type { TargetAndTransition, Variants } from "framer-motion";
 import { FaArrowRight, FaBars, FaMoon, FaSun, FaTimes } from "react-icons/fa";
 import {
   legalContentByType,
@@ -28,10 +28,15 @@ import {
   applyDocumentTheme,
   resolveLandingTheme,
 } from "@/hooks/useAuthPageTheme";
+import { isSupabaseConfigured, supabase } from "@/utils/supabase";
 
 const heroWords = ["Buck", "Budget", "Tracker"];
 const adviserRotationDelay = 6800;
 const revealViewport = { once: true, amount: 0.2 };
+const cardLiftHover: TargetAndTransition = {
+  y: -8,
+  transition: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
+};
 
 const weeklyPreviewSnapshots = [
   {
@@ -248,11 +253,13 @@ function Reveal({
   children,
   className,
   delay = 0,
+  hoverLift = false,
   scrollAnchor = false,
 }: {
   children: ReactNode;
   className?: string;
   delay?: number;
+  hoverLift?: boolean;
   scrollAnchor?: boolean;
 }) {
   return (
@@ -262,6 +269,7 @@ function Reveal({
       variants={revealVariants}
       initial="hidden"
       whileInView="visible"
+      whileHover={hoverLift ? cardLiftHover : undefined}
       viewport={revealViewport}
       transition={{ delay }}
     >
@@ -319,6 +327,74 @@ export default function Home() {
 
   useEffect(() => {
     router.prefetch("/sign-in");
+    router.prefetch("/dashboard/home");
+  }, [router]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      return;
+    }
+
+    let isMounted = true;
+    const authClient = supabase;
+
+    const redirectAuthenticatedUser = async () => {
+      const currentUrl = new URL(window.location.href);
+      const hashParams = new URLSearchParams(
+        currentUrl.hash.startsWith("#")
+          ? currentUrl.hash.slice(1)
+          : currentUrl.hash
+      );
+      const code = currentUrl.searchParams.get("code");
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+
+      try {
+        const { data: existingSession } = await authClient.auth.getSession();
+
+        if (!existingSession.session && code) {
+          await authClient.auth.exchangeCodeForSession(code);
+        }
+
+        if (!existingSession.session && accessToken && refreshToken) {
+          await authClient.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+        }
+
+        const {
+          data: { user },
+        } = await authClient.auth.getUser();
+
+        if (!isMounted || !user) {
+          return;
+        }
+
+        if (code || accessToken || currentUrl.hash) {
+          window.history.replaceState(null, "", "/");
+        }
+
+        router.replace("/dashboard/home");
+      } catch (error) {
+        console.warn("Landing auth redirect failed:", error);
+      }
+    };
+
+    void redirectAuthenticatedUser();
+
+    const {
+      data: { subscription },
+    } = authClient.auth.onAuthStateChange((event, session) => {
+      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session?.user) {
+        router.replace("/dashboard/home");
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [router]);
 
   useEffect(() => {
@@ -737,6 +813,7 @@ export default function Home() {
                     className="hero-stat"
                     key={stat.label}
                     variants={revealCardVariants}
+                    whileHover={cardLiftHover}
                   >
                     <strong>{stat.value}</strong>
                     <span>{stat.label}</span>
@@ -818,6 +895,7 @@ export default function Home() {
                     className="feature-card"
                     key={feature.title}
                     variants={revealCardVariants}
+                    whileHover={cardLiftHover}
                   >
                     <div className="feature-icon">
                       <FeatureIcon aria-hidden="true" />
@@ -854,6 +932,7 @@ export default function Home() {
               variants={revealVariants}
               initial="hidden"
               whileInView="visible"
+              whileHover={cardLiftHover}
               viewport={revealViewport}
             >
               <div className="adviser-card-header">
@@ -1026,6 +1105,7 @@ export default function Home() {
                       className="rhythm-card"
                       key={item.title}
                       variants={revealCardVariants}
+                      whileHover={cardLiftHover}
                     >
                       <span>
                         <RhythmIcon aria-hidden="true" />
@@ -1066,6 +1146,7 @@ export default function Home() {
                     className="trust-card"
                     key={item.title}
                     variants={revealCardVariants}
+                    whileHover={cardLiftHover}
                   >
                     <span>
                       <SecurityIcon aria-hidden="true" />
@@ -1102,6 +1183,7 @@ export default function Home() {
                     className="principle-card"
                     key={principle.title}
                     variants={revealCardVariants}
+                    whileHover={cardLiftHover}
                   >
                     <h3>{principle.title}</h3>
                     <p>{principle.description}</p>
@@ -1110,7 +1192,7 @@ export default function Home() {
               </motion.div>
             </Reveal>
 
-            <Reveal className="workflow-panel">
+            <Reveal className="workflow-panel" hoverLift>
               <h3>How it flows</h3>
               <ol>
                 {landingSteps.map((step) => (
@@ -1172,7 +1254,7 @@ export default function Home() {
         <div className="landing-footer-bottom">
           <p>&copy; 2026 Buck. All rights reserved.</p>
           <p className="footer-disclaimer">
-            Personal budgeting support. Not financial advice.
+            NOT AFFILIATE TO ANY BANKS OR GOVERNMENT ENTITIES.
           </p>
         </div>
       </footer>

@@ -3,8 +3,8 @@ import React, { useState, useEffect, useRef } from "react";
 import "./style.css";
 import { useRouter } from "next/navigation";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
+import { useDashboardUser } from "@/context/DashboardUserContext";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
-import { useAuthGuard } from "@/utils/useAuthGuard";
 import WeeklySpendingChart from "./weekly-spending";
 import {
   Chart as ChartJS,
@@ -52,7 +52,7 @@ type Goal = BuckGoal;
 
 const Statistics = () => {
   const router = useRouter();
-  const { user, loading } = useAuthGuard();
+  const { user } = useDashboardUser();
   const isDarkTheme = useAuthPageTheme();
   const chartTextColor = isDarkTheme ? "#fff8ed" : "#2b2523";
   const chartGridColor = isDarkTheme
@@ -71,7 +71,8 @@ const Statistics = () => {
     : "rgba(255,250,244,0.74)";
   const [yMax, setYMax] = useState(1000);
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [loadingGoals, setLoadingGoals] = useState(false);
+  const [loadingGoals, setLoadingGoals] = useState(true);
+  const [loadingStatisticsData, setLoadingStatisticsData] = useState(true);
   const [selectedMode, setSelectedMode] = useState<
     "week" | "month" | "overall"
   >("week");
@@ -196,42 +197,62 @@ const Statistics = () => {
   // --- Fetch categories, expenses, and wallet on load ---
   useEffect(() => {
     if (!user) return;
+    let active = true;
 
-    const fetchCategories = () => {
-      ensureDefaultCategories(user.uid)
-        .then((cats) =>
-          setCategories([...cats].sort((a, b) => a.name.localeCompare(b.name)))
-        )
-        .catch((error) => console.error("Failed to load categories:", error));
+    const fetchCategories = async () => {
+      const cats = await ensureDefaultCategories(user.uid);
+
+      if (active) {
+        setCategories([...cats].sort((a, b) => a.name.localeCompare(b.name)));
+      }
     };
-    const fetchExpenses = () => {
-      listExpenses(user.uid)
-        .then(setExpenses)
-        .catch((error) => console.error("Failed to load expenses:", error));
+    const fetchExpenses = async () => {
+      const nextExpenses = await listExpenses(user.uid);
+
+      if (active) {
+        setExpenses(nextExpenses);
+      }
     };
-    const fetchWallet = () => {
-      getActiveWallet(user.uid)
-        .then((activeWallet) => setWallet(activeWallet?.budget ?? 0))
-        .catch((error) => console.error("Failed to load wallet:", error));
+    const fetchWallet = async () => {
+      const activeWallet = await getActiveWallet(user.uid);
+
+      if (active) {
+        setWallet(activeWallet?.budget ?? 0);
+      }
     };
 
-    fetchCategories();
-    fetchExpenses();
-    fetchWallet();
+    const fetchInitialStatisticsData = async () => {
+      setLoadingStatisticsData(true);
+
+      try {
+        await Promise.all([fetchCategories(), fetchExpenses(), fetchWallet()]);
+      } catch (error) {
+        console.error("Failed to load statistics:", error);
+      } finally {
+        if (active) {
+          setLoadingStatisticsData(false);
+        }
+      }
+    };
+
+    void fetchInitialStatisticsData();
 
     const unsubCategories = subscribeUserTable(
       "categories",
       user.uid,
-      fetchCategories
+      () => void fetchCategories()
     );
     const unsubExpenses = subscribeUserTable(
       "expenses",
       user.uid,
-      fetchExpenses
+      () => void fetchExpenses()
     );
-    const unsubWallets = subscribeUserTable("wallets", user.uid, fetchWallet);
+    const unsubWallets = subscribeUserTable("wallets", user.uid, () => {
+      void fetchWallet();
+    });
 
     return () => {
+      active = false;
       unsubCategories();
       unsubExpenses();
       unsubWallets();
@@ -298,23 +319,16 @@ const Statistics = () => {
 
   useEffect(() => {
     const fetchGoals = async () => {
-      if (user) {
-        setLoadingGoals(true);
-        try {
-          setGoals(await listGoals(user.uid));
-        } catch (error) {
-          console.error("Failed to load goals:", error);
-        } finally {
-          setLoadingGoals(false);
-        }
+      try {
+        setGoals(await listGoals(user.uid));
+      } catch (error) {
+        console.error("Failed to load goals:", error);
+      } finally {
+        setLoadingGoals(false);
       }
     };
 
-    fetchGoals();
-
-    if (!user) {
-      return;
-    }
+    void fetchGoals();
 
     const unsubscribeGoals = subscribeUserTable("goals", user.uid, () => {
       void fetchGoals();
@@ -533,7 +547,7 @@ const Statistics = () => {
     }
   }, [forecastData]);
 
-  if (loading || !user || loadingGoals) {
+  if (loadingGoals || loadingStatisticsData) {
     return <DashboardPageSkeleton variant="statistics" />;
   }
 

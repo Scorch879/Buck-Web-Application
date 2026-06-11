@@ -57,6 +57,7 @@ const ForgotPassword = () => {
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const isDarkTheme = useAuthPageTheme();
   const resetButton = usePointerGradient<HTMLButtonElement>();
   const passwordPolicy = evaluatePasswordPolicy(newPassword, { email });
@@ -96,6 +97,10 @@ const ForgotPassword = () => {
   };
 
   const handleUpdatePassword = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
     setMessage("");
     setError("");
 
@@ -116,6 +121,9 @@ const ForgotPassword = () => {
       return;
     }
 
+    setIsSubmitting(true);
+    setMessage("Updating your password...");
+
     const result = await updatePassword(newPassword);
 
     if (result.success) {
@@ -125,9 +133,15 @@ const ForgotPassword = () => {
     }
 
     setError(result.message || "Failed to update password.");
+    setMessage("");
+    setIsSubmitting(false);
   };
 
   const handleResetPassword = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
     setMessage("");
     setError("");
     if (!email) {
@@ -138,14 +152,24 @@ const ForgotPassword = () => {
       setError("Please enter a valid email address.");
       return;
     }
+
+    setIsSubmitting(true);
+    setMessage("Sending reset link...");
+
     const result = await sendPasswordReset(email);
 
     if (result.success) {
-      setMessage("Password reset email sent! Check your inbox.");
+      setMessage(
+        result.message ||
+          "If that email is registered with Buck, a password reset link will arrive shortly."
+      );
+      setIsSubmitting(false);
     } else {
       setError(
         result.message || "Failed to send password reset link. Please try again later."
       );
+      setMessage("");
+      setIsSubmitting(false);
     }
   };
 
@@ -270,6 +294,7 @@ const ForgotPassword = () => {
                     className="FP-Input"
                     placeholder="Create a new password"
                     autoComplete="new-password"
+                    disabled={isSubmitting}
                   />
                   {newPassword ? (
                     <div
@@ -309,6 +334,7 @@ const ForgotPassword = () => {
                     className="FP-Input"
                     placeholder="Confirm your new password"
                     autoComplete="new-password"
+                    disabled={isSubmitting}
                   />
                   {confirmStatus ? (
                     <p
@@ -336,6 +362,7 @@ const ForgotPassword = () => {
                     className="FP-Input"
                     placeholder="you@example.com"
                     autoComplete="email"
+                    disabled={isSubmitting}
                   />
                 </>
               )}
@@ -347,12 +374,21 @@ const ForgotPassword = () => {
                 onMouseMove={resetButton.handlePointerMove}
                 onMouseLeave={resetButton.handlePointerLeave}
                 style={resetButtonStyle}
-                whileHover={{
-                  scale: 1.02,
-                }}
+                whileHover={isSubmitting ? undefined : { scale: 1.02 }}
+                disabled={isSubmitting}
+                aria-busy={isSubmitting}
               >
-                {isRecoveryMode ? "Update Password" : "Send Reset Link"}
-                <FaArrowRight aria-hidden="true" />
+                {isSubmitting ? (
+                  <>
+                    <span className="auth-button-spinner" aria-hidden="true" />
+                    {isRecoveryMode ? "Updating password..." : "Sending link..."}
+                  </>
+                ) : (
+                  <>
+                    {isRecoveryMode ? "Update Password" : "Send Reset Link"}
+                    <FaArrowRight aria-hidden="true" />
+                  </>
+                )}
               </motion.button>
 
               {message && (

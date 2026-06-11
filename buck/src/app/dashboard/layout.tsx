@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import DashboardClientLayout from "@/component/DashboardClientLayout";
+import { toBuckUser } from "@/utils/authUser";
 import { isDesignPreviewMode } from "@/utils/designPreview";
 import {
   createSupabaseServerClient,
@@ -12,6 +13,8 @@ export default async function DashboardLayout({
 }: {
   children: ReactNode;
 }) {
+  let initialUser = null;
+
   if (!isDesignPreviewMode) {
     if (!isSupabaseServerConfigured) {
       redirect("/sign-in?error=supabase-not-configured");
@@ -26,7 +29,13 @@ export default async function DashboardLayout({
     if (error || !user) {
       redirect("/sign-in?redirectTo=/dashboard/home");
     }
+
+    initialUser = toBuckUser(user);
   }
 
-  return <DashboardClientLayout>{children}</DashboardClientLayout>;
+  return (
+    <DashboardClientLayout initialUser={initialUser}>
+      {children}
+    </DashboardClientLayout>
+  );
 }

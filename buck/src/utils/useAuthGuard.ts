@@ -3,37 +3,14 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { toBuckUser, type BuckUser } from "@/utils/authUser";
 import {
   designPreviewUserId,
   isDesignPreviewMode,
 } from "@/utils/designPreview";
 import { isSupabaseConfigured, supabase } from "@/utils/supabase";
 
-export type BuckUser = SupabaseUser & {
-  uid: string;
-  displayName: string | null;
-};
-
-function toBuckUser(user: SupabaseUser | null): BuckUser | null {
-  if (!user) {
-    return null;
-  }
-
-  const displayName =
-    typeof user.user_metadata?.username === "string"
-      ? user.user_metadata.username
-      : typeof user.user_metadata?.full_name === "string"
-        ? user.user_metadata.full_name
-        : typeof user.user_metadata?.name === "string"
-          ? user.user_metadata.name
-          : null;
-
-  return {
-    ...user,
-    uid: user.id,
-    displayName,
-  };
-}
+export type { BuckUser };
 
 function getSignInPath(pathname: string | null) {
   if (!pathname || pathname === "/dashboard/home") {
@@ -77,7 +54,10 @@ function getDesignPreviewUser(): BuckUser {
     created_at: now,
     displayName: "Design Preview",
     email: "preview@buck.local",
+    authProviders: ["email"],
     identities: [],
+    isGoogleOnlyUser: false,
+    isPasswordUser: true,
     role: "authenticated",
     updated_at: now,
     user_metadata: {
@@ -87,11 +67,11 @@ function getDesignPreviewUser(): BuckUser {
   } as BuckUser;
 }
 
-export function useAuthGuard() {
+export function useAuthGuard(initialUser: BuckUser | null = null) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<BuckUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<BuckUser | null>(initialUser);
+  const [loading, setLoading] = useState(!initialUser);
 
   useEffect(() => {
     if (isDesignPreviewMode) {
@@ -122,6 +102,26 @@ export function useAuthGuard() {
         router.replace(getSignInPath(pathname));
       }
     };
+
+    if (initialUser) {
+      setSessionUser(initialUser);
+
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === "SIGNED_OUT") {
+          setSessionUser(null);
+          return;
+        }
+
+        setSessionUser(session?.user ?? initialUser);
+      });
+
+      return () => {
+        mounted = false;
+        subscription.unsubscribe();
+      };
+    }
 
     supabase.auth
       .getUser()
@@ -154,7 +154,7 @@ export function useAuthGuard() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [pathname, router]);
+  }, [initialUser, pathname, router]);
 
   return { user, loading };
 }

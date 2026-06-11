@@ -41,7 +41,23 @@ export type BuckWallet = {
   budget: number;
 };
 
-type TableName = "wallets" | "categories" | "goals" | "expenses";
+export type BuckProfile = {
+  id: string;
+  username: string;
+  email: string;
+  avatarPath: string | null;
+  avatarUpdatedAt: string | null;
+};
+
+type TableName = "wallets" | "categories" | "goals" | "expenses" | "profiles";
+
+const avatarBucketName = "profile-avatars";
+const maxAvatarSizeBytes = 2 * 1024 * 1024;
+const avatarMimeExtensions: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
 
 const uuidRegex =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -224,6 +240,42 @@ function mapWallet(row: Record<string, unknown>): BuckWallet {
   };
 }
 
+function mapProfile(row: Record<string, unknown>): BuckProfile {
+  return {
+    id: String(row.id),
+    username: String(row.username || ""),
+    email: String(row.email || ""),
+    avatarPath: row.avatar_path ? String(row.avatar_path) : null,
+    avatarUpdatedAt: row.avatar_updated_at
+      ? String(row.avatar_updated_at)
+      : null,
+  };
+}
+
+function assertAvatarFile(file: File) {
+  const extension = avatarMimeExtensions[file.type];
+
+  if (!extension) {
+    throw new Error("Upload a JPG, PNG, or WebP profile picture.");
+  }
+
+  if (file.size > maxAvatarSizeBytes) {
+    throw new Error("Profile picture must be 2 MB or smaller.");
+  }
+
+  return extension;
+}
+
+function assertUserAvatarPath(userId: string, avatarPath: string) {
+  const safeUserId = assertUuid(userId, "user id");
+
+  if (!avatarPath.startsWith(`${safeUserId}/`)) {
+    throw new Error("Avatar path does not belong to this user.");
+  }
+
+  return avatarPath;
+}
+
 async function getCurrentUserId() {
   if (isDesignPreviewMode) {
     return designPreviewUserId;
@@ -239,6 +291,235 @@ async function getCurrentUserId() {
   return assertUuid(data.user.id, "user session");
 }
 
+export async function getUserProfile(userId: string) {
+  if (isDesignPreviewMode) {
+    return {
+      id: designPreviewUserId,
+      username: "Design Preview",
+      email: "preview@buck.local",
+      avatarPath: null,
+      avatarUpdatedAt: null,
+    } satisfies BuckProfile;
+  }
+
+  const supabase = getSupabaseClient();
+  const safeUserId = assertUuid(userId, "user id");
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, username, email, avatar_path, avatar_updated_at")
+    .eq("id", safeUserId)
+    .maybeSingle();
+
+  if (error) {
+    if (
+      error.message.includes("avatar_path") ||
+      error.message.includes("avatar_updated_at")
+    ) {
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from("profiles")
+        .select("id, username, email")
+        .eq("id", safeUserId)
+        .maybeSingle();
+
+      if (fallbackError) {
+        throw new Error(fallbackError.message);
+      }
+
+      if (fallbackData) {
+        return {
+          ...mapProfile(fallbackData),
+          avatarPath: null,
+          avatarUpdatedAt: null,
+        };
+      }
+    }
+
+    throw new Error(error.message);
+  }
+
+  if (!data) {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      throw new Error("User not authenticated");
+    }
+
+    return {
+      id: safeUserId,
+      username:
+        typeof user.user_metadata?.username === "string"
+          ? user.user_metadata.username
+          : "",
+      email: user.email ?? "",
+      avatarPath: null,
+      avatarUpdatedAt: null,
+    };
+  }
+
+  return mapProfile(data);
+}
+
+export async function updateUserProfileName(userId: string, username: string) {
+  if (isDesignPreviewMode) {
+    return {
+      id: designPreviewUserId,
+      username: username.trim(),
+      email: "preview@buck.local",
+      avatarPath: null,
+      avatarUpdatedAt: null,
+    } satisfies BuckProfile;
+  }
+
+  const trimmedUsername = username.trim();
+
+  if (trimmedUsername.length < 2) {
+    throw new Error("Display name must be at least 2 characters.");
+  }
+
+  if (trimmedUsername.length > 60) {
+    throw new Error("Display name must be 60 characters or fewer.");
+  }
+
+  const supabase = getSupabaseClient();
+  const safeUserId = assertUuid(userId, "user id");
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .upsert(
+      {
+        id: safeUserId,
+        username: trimmedUsername,
+      },
+      { onConflict: "id" }
+    );
+
+  if (profileError) {
+    throw new Error(profileError.message);
+  }
+
+  const { error: authError } = await supabase.auth.updateUser({
+    data: {
+      full_name: trimmedUsername,
+      username: trimmedUsername,
+    },
+  });
+
+  if (authError) {
+    throw new Error(authError.message);
+  }
+
+  return getUserProfile(safeUserId);
+}
+
+export async function getUserAvatarSignedUrl(
+  avatarPath: string | null | undefined,
+  expiresInSeconds = 3600
+) {
+  if (!avatarPath || isDesignPreviewMode) {
+    return null;
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.storage
+    .from(avatarBucketName)
+    .createSignedUrl(avatarPath, expiresInSeconds);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data.signedUrl;
+}
+
+export async function replaceUserAvatar(
+  userId: string,
+  file: File,
+  previousAvatarPath?: string | null
+) {
+  if (isDesignPreviewMode) {
+    return getUserProfile(designPreviewUserId);
+  }
+
+  const safeUserId = assertUuid(userId, "user id");
+  const extension = assertAvatarFile(file);
+  const supabase = getSupabaseClient();
+  const avatarPath = `${safeUserId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(avatarBucketName)
+    .upload(avatarPath, file, {
+      cacheControl: "3600",
+      contentType: file.type,
+      upsert: false,
+    });
+
+  if (uploadError) {
+    throw new Error(uploadError.message);
+  }
+
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .upsert(
+      {
+        id: safeUserId,
+        avatar_path: avatarPath,
+        avatar_updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id" }
+    );
+
+  if (profileError) {
+    await supabase.storage.from(avatarBucketName).remove([avatarPath]);
+    throw new Error(profileError.message);
+  }
+
+  if (previousAvatarPath && previousAvatarPath !== avatarPath) {
+    try {
+      await supabase.storage
+        .from(avatarBucketName)
+        .remove([assertUserAvatarPath(safeUserId, previousAvatarPath)]);
+    } catch (error) {
+      console.warn("Failed to remove previous avatar:", error);
+    }
+  }
+
+  return getUserProfile(safeUserId);
+}
+
+export async function removeUserAvatar(userId: string, avatarPath: string | null) {
+  if (isDesignPreviewMode) {
+    return getUserProfile(designPreviewUserId);
+  }
+
+  const safeUserId = assertUuid(userId, "user id");
+  const supabase = getSupabaseClient();
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({
+      avatar_path: null,
+      avatar_updated_at: new Date().toISOString(),
+    })
+    .eq("id", safeUserId);
+
+  if (profileError) {
+    throw new Error(profileError.message);
+  }
+
+  if (avatarPath) {
+    const { error: storageError } = await supabase.storage
+      .from(avatarBucketName)
+      .remove([assertUserAvatarPath(safeUserId, avatarPath)]);
+
+    if (storageError) {
+      throw new Error(storageError.message);
+    }
+  }
+
+  return getUserProfile(safeUserId);
+}
+
 export function subscribeUserTable(
   table: TableName,
   userId: string,
@@ -250,6 +531,7 @@ export function subscribeUserTable(
 
   const safeUserId = assertUuid(userId, "user id");
   const supabase = getSupabaseClient();
+  const userColumn = table === "profiles" ? "id" : "user_id";
   const channel = supabase
     .channel(`${table}:${safeUserId}:${Math.random().toString(36).slice(2)}`)
     .on(
@@ -258,7 +540,7 @@ export function subscribeUserTable(
         event: "*",
         schema: "public",
         table,
-        filter: `user_id=eq.${safeUserId}`,
+        filter: `${userColumn}=eq.${safeUserId}`,
       },
       onChange
     )

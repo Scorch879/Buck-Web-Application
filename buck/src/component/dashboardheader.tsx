@@ -3,16 +3,32 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { FaBars, FaMoon, FaSun, FaTimes, FaWallet } from "react-icons/fa";
+import {
+  FaBars,
+  FaBullseye,
+  FaChartLine,
+  FaCog,
+  FaHome,
+  FaMoon,
+  FaSun,
+  FaTimes,
+  FaWallet,
+} from "react-icons/fa";
 import WalletModal from "@/app/dashboard/wallet/WalletModal";
 import { applyDocumentTheme, useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import { signOutUser } from "./authentication";
 import "./dashboard.css";
 
 const dashboardNavItems = [
-  { id: "home", label: "Home", href: "/dashboard/home" },
-  { id: "statistics", label: "Statistics", href: "/dashboard/statistics" },
-  { id: "goals", label: "Goals", href: "/dashboard/goals" },
+  { id: "home", label: "Home", href: "/dashboard/home", icon: FaHome },
+  {
+    id: "statistics",
+    label: "Statistics",
+    href: "/dashboard/statistics",
+    icon: FaChartLine,
+  },
+  { id: "goals", label: "Goals", href: "/dashboard/goals", icon: FaBullseye },
+  { id: "settings", label: "Settings", href: "/dashboard/settings", icon: FaCog },
 ] as const;
 
 type DashboardNavId = (typeof dashboardNavItems)[number]["id"];
@@ -87,16 +103,21 @@ export default function DashboardHeader({
   };
 
   const renderNavItems = () =>
-    dashboardNavItems.map((item) => (
-      <button
-        key={item.id}
-        className={`nav-button ${activeNav === item.id ? "active" : ""}`}
-        type="button"
-        onClick={() => navigateTo(item)}
-      >
-        {item.label}
-      </button>
-    ));
+    dashboardNavItems.map((item) => {
+      const Icon = item.icon;
+
+      return (
+        <button
+          key={item.id}
+          className={`nav-button ${activeNav === item.id ? "active" : ""}`}
+          type="button"
+          onClick={() => navigateTo(item)}
+        >
+          <Icon aria-hidden="true" />
+          {item.label}
+        </button>
+      );
+    });
 
   return (
     <header className="dashboard-header">
