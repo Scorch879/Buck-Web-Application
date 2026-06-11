@@ -151,6 +151,15 @@ html[data-buck-theme="dark"] .dashboard-mascot {
     transform 180ms ease;
 }
 
+.nav-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.nav-button:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
 .nav-button::after {
   position: absolute;
   right: 0.7rem;
@@ -189,7 +198,7 @@ html[data-buck-theme="dark"] .nav-button.active {
   transform: scaleX(1);
 }
 
-.dashboard-header-actions .nav-button:last-child {
+.dashboard-signout-button {
   min-width: 0;
   color: #fffaf4;
   background: linear-gradient(135deg, var(--buck-orange), var(--buck-coral));
@@ -197,14 +206,58 @@ html[data-buck-theme="dark"] .nav-button.active {
   box-shadow: 0 12px 24px rgba(255, 56, 56, 0.18);
 }
 
-html[data-buck-theme="dark"] .dashboard-header-actions .nav-button:last-child {
+html[data-buck-theme="dark"] .dashboard-signout-button {
   color: #241409;
   background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
   box-shadow: 0 12px 26px rgba(255, 197, 71, 0.16);
 }
 
-.dashboard-header-actions .nav-button:last-child::after {
+.dashboard-signout-button::after {
   display: none;
+}
+
+.dashboard-signout-button::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.42), transparent 34%),
+    linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.22) 45%, transparent 70%);
+  opacity: 0;
+  transform: translateX(-34%);
+  transition:
+    opacity 180ms ease,
+    transform 260ms ease;
+}
+
+.dashboard-signout-button:hover:not(:disabled),
+.dashboard-signout-button:focus-visible:not(:disabled) {
+  color: #241409;
+  background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
+  border-color: rgba(255, 197, 71, 0.4);
+  box-shadow: 0 18px 34px rgba(255, 122, 51, 0.28);
+  transform: translateY(-2px);
+}
+
+.dashboard-signout-button:hover::before,
+.dashboard-signout-button:focus-visible::before {
+  opacity: 1;
+  transform: translateX(16%);
+}
+
+.dashboard-signout-button > svg,
+.dashboard-signout-button > span {
+  position: relative;
+  z-index: 1;
+}
+
+.dashboard-button-spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: dashboard-button-spin 700ms linear infinite;
 }
 
 .dashboard-theme-toggle {
@@ -341,12 +394,56 @@ html[data-buck-theme="dark"] .mobile-dropdown {
 
 .dashboard-skeleton .settings-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(0.85rem, 1.6vw, 1.1rem);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: clamp(0.65rem, 1.2vw, 0.85rem);
 }
 
-.dashboard-skeleton .settings-card--profile {
-  grid-column: auto;
+.dashboard-skeleton .settings-grid--single {
+  grid-template-columns: 1fr;
+}
+
+.dashboard-skeleton .settings-card--account {
+  grid-column: 1 / -1;
+}
+
+.dashboard-skeleton .settings-account-layout {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: clamp(0.58rem, 1.1vw, 0.78rem);
+}
+
+.dashboard-skeleton .settings-section {
+  display: grid;
+  gap: 0.58rem;
+  padding: 0.72rem;
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+}
+
+.dashboard-skeleton .settings-card--avatar,
+.dashboard-skeleton .settings-card--identity,
+.dashboard-skeleton .settings-card--email {
+  grid-column: span 2;
+}
+
+.dashboard-skeleton .settings-card--security {
+  grid-column: span 4;
+}
+
+.dashboard-skeleton .settings-card--status {
+  grid-column: span 2;
+}
+
+.dashboard-skeleton .settings-section--status {
+  grid-column: span 4;
+}
+
+.dashboard-skeleton .settings-section--email {
+  grid-column: span 6;
+}
+
+.dashboard-skeleton .settings-section--danger {
+  grid-column: 1 / -1;
 }
 
 .dashboard-skeleton .GoalsCard,
@@ -521,6 +618,12 @@ html[data-buck-theme="dark"] .dashboard-skeleton-bars span {
   }
 }
 
+@keyframes dashboard-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .dashboard-skeleton-line,
   .dashboard-skeleton-avatar,
@@ -528,11 +631,31 @@ html[data-buck-theme="dark"] .dashboard-skeleton-bars span {
   .dashboard-skeleton-bars span {
     animation: none;
   }
+
+  .dashboard-button-spinner {
+    animation: none;
+  }
 }
 
 @media (max-width: 1180px) {
   .dashboard-skeleton .settings-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-skeleton .settings-card--avatar,
+  .dashboard-skeleton .settings-card--identity,
+  .dashboard-skeleton .settings-card--email,
+  .dashboard-skeleton .settings-card--status {
+    grid-column: auto;
+  }
+
+  .dashboard-skeleton .settings-card--security {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard-skeleton .settings-section--status,
+  .dashboard-skeleton .settings-section--email {
+    grid-column: span 6;
   }
 }
 
@@ -573,6 +696,20 @@ html[data-buck-theme="dark"] .dashboard-skeleton-bars span {
   .dashboard-skeleton .dashboard-content,
   .dashboard-skeleton .settings-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-skeleton .settings-card--security {
+    grid-column: auto;
+  }
+
+  .dashboard-skeleton .settings-account-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-skeleton .settings-section--status,
+  .dashboard-skeleton .settings-section--email,
+  .dashboard-skeleton .settings-section--danger {
+    grid-column: auto;
   }
 
   .dashboard-nav,

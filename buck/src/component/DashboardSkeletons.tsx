@@ -128,17 +128,27 @@ function SettingsSkeleton() {
         <SkeletonBlock className="dashboard-skeleton-short" rows={2} />
       </section>
 
-      <section className="settings-grid">
-        <article className="settings-card settings-card--profile dashboard-skeleton-card">
-          <span className="dashboard-skeleton-avatar" />
-          <SkeletonBlock rows={3} />
+      <section className="settings-grid settings-grid--single">
+        <article className="settings-card settings-card--account dashboard-skeleton-card">
+          <SkeletonBlock className="dashboard-skeleton-heading" rows={2} />
+          <div className="settings-account-layout">
+            {Array.from({ length: 6 }, (_, index) => (
+              <section
+                key={index}
+                className={`settings-section dashboard-skeleton-card ${
+                  index === 3 || index === 4
+                    ? "settings-section--email"
+                    : index === 5
+                      ? "settings-section--danger"
+                      : "settings-section--status"
+                }`}
+              >
+                {index === 0 ? <span className="dashboard-skeleton-avatar" /> : null}
+                <SkeletonBlock rows={index === 5 ? 2 : 3} />
+              </section>
+            ))}
+          </div>
         </article>
-        {Array.from({ length: 4 }, (_, index) => (
-          <article key={index} className="settings-card dashboard-skeleton-card">
-            <SkeletonBlock className="dashboard-skeleton-heading" rows={2} />
-            <SkeletonBlock rows={4} />
-          </article>
-        ))}
       </section>
     </div>
   );

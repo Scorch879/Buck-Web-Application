@@ -19,7 +19,10 @@ import {
 import ExcessPie from "./excess-pie";
 import SpendingBar from "./spending-bar";
 import { statisticsTestData } from "./testData";
-import { useFinancial } from "@/context/FinancialContext";
+import {
+  mergeDashboardDataCache,
+  useFinancial,
+} from "@/context/FinancialContext";
 import { Line } from "react-chartjs-2";
 import { formatCurrency } from "@/utils/formatters";
 import {
@@ -53,6 +56,14 @@ type Goal = BuckGoal;
 const Statistics = () => {
   const router = useRouter();
   const { user } = useDashboardUser();
+  const { setTotalSaved, dashboardCache, setDashboardCache } = useFinancial();
+  const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
+  const hasInitialStatisticsData = Boolean(
+    userCache.categories &&
+      userCache.expenses &&
+      userCache.activeWalletBudget !== undefined
+  );
+  const hasInitialGoalsData = Boolean(userCache.goals);
   const isDarkTheme = useAuthPageTheme();
   const chartTextColor = isDarkTheme ? "#fff8ed" : "#2b2523";
   const chartGridColor = isDarkTheme
@@ -70,15 +81,18 @@ const Statistics = () => {
     ? "rgba(255,197,71,0.08)"
     : "rgba(255,250,244,0.74)";
   const [yMax, setYMax] = useState(1000);
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [loadingGoals, setLoadingGoals] = useState(true);
-  const [loadingStatisticsData, setLoadingStatisticsData] = useState(true);
+  const [goals, setGoals] = useState<Goal[]>(() => userCache.goals ?? []);
+  const [loadingGoals, setLoadingGoals] = useState(
+    () => !hasInitialGoalsData
+  );
+  const [loadingStatisticsData, setLoadingStatisticsData] = useState(
+    () => !hasInitialStatisticsData
+  );
   const [selectedMode, setSelectedMode] = useState<
     "week" | "month" | "overall"
   >("week");
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [selectedMonth, setSelectedMonth] = useState(0);
-  const { setTotalSaved } = useFinancial();
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [expenseDate, setExpenseDate] = useState("");
   const [expenseAmount, setExpenseAmount] = useState("");
@@ -95,9 +109,17 @@ const Statistics = () => {
   const prevMode = useRef(selectedMode);
 
   // --- New state for categories, expenses, wallet ---
-  const [categories, setCategories] = useState<BuckCategory[]>([]);
-  const [expenses, setExpenses] = useState<BuckExpense[]>([]);
-  const [wallet, setWallet] = useState<number>(0);
+  const [categories, setCategories] = useState<BuckCategory[]>(
+    () => userCache.categories ?? []
+  );
+  const [expenses, setExpenses] = useState<BuckExpense[]>(
+    () => userCache.expenses ?? []
+  );
+  const [wallet, setWallet] = useState<number>(
+    () => userCache.activeWalletBudget ?? 0
+  );
+  const hadInitialStatisticsData = useRef(hasInitialStatisticsData);
+  const hadInitialGoalsData = useRef(hasInitialGoalsData);
 
   // --- Add Expense Modal logic ---
   const [categorySearch, setCategorySearch] = useState("");
@@ -171,7 +193,13 @@ const Statistics = () => {
         goalId: selectedGoal.id,
       });
       const activeWallet = await getActiveWallet(user.uid);
-      setWallet(activeWallet?.budget ?? 0);
+      const nextWalletBudget = activeWallet?.budget ?? 0;
+      setWallet(nextWalletBudget);
+      setDashboardCache((currentCache) =>
+        mergeDashboardDataCache(currentCache, user.uid, {
+          activeWalletBudget: nextWalletBudget,
+        })
+      );
       setShowExpenseModal(false);
       setExpenseDate("");
       setExpenseAmount("");
@@ -188,7 +216,13 @@ const Statistics = () => {
     try {
       await deleteExpenseAndRestoreWallet(user.uid, expenseId, amount);
       const activeWallet = await getActiveWallet(user.uid);
-      setWallet(activeWallet?.budget ?? 0);
+      const nextWalletBudget = activeWallet?.budget ?? 0;
+      setWallet(nextWalletBudget);
+      setDashboardCache((currentCache) =>
+        mergeDashboardDataCache(currentCache, user.uid, {
+          activeWalletBudget: nextWalletBudget,
+        })
+      );
     } catch (err) {
       // Optionally handle error
     }
@@ -203,7 +237,15 @@ const Statistics = () => {
       const cats = await ensureDefaultCategories(user.uid);
 
       if (active) {
-        setCategories([...cats].sort((a, b) => a.name.localeCompare(b.name)));
+        const nextCategories = [...cats].sort((a, b) =>
+          a.name.localeCompare(b.name)
+        );
+        setCategories(nextCategories);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            categories: nextCategories,
+          })
+        );
       }
     };
     const fetchExpenses = async () => {
@@ -211,18 +253,31 @@ const Statistics = () => {
 
       if (active) {
         setExpenses(nextExpenses);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            expenses: nextExpenses,
+          })
+        );
       }
     };
     const fetchWallet = async () => {
       const activeWallet = await getActiveWallet(user.uid);
 
       if (active) {
-        setWallet(activeWallet?.budget ?? 0);
+        const nextWalletBudget = activeWallet?.budget ?? 0;
+        setWallet(nextWalletBudget);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            activeWalletBudget: nextWalletBudget,
+          })
+        );
       }
     };
 
     const fetchInitialStatisticsData = async () => {
-      setLoadingStatisticsData(true);
+      if (!hadInitialStatisticsData.current) {
+        setLoadingStatisticsData(true);
+      }
 
       try {
         await Promise.all([fetchCategories(), fetchExpenses(), fetchWallet()]);
@@ -257,7 +312,7 @@ const Statistics = () => {
       unsubExpenses();
       unsubWallets();
     };
-  }, [user]);
+  }, [setDashboardCache, user.uid]);
 
   // Dynamically generate week date ranges from goals (real calendar mapping)
   let weekDateRanges: { start: string; end: string }[] = [];
@@ -320,13 +375,23 @@ const Statistics = () => {
   useEffect(() => {
     const fetchGoals = async () => {
       try {
-        setGoals(await listGoals(user.uid));
+        const nextGoals = await listGoals(user.uid);
+        setGoals(nextGoals);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            goals: nextGoals,
+          })
+        );
       } catch (error) {
         console.error("Failed to load goals:", error);
       } finally {
         setLoadingGoals(false);
       }
     };
+
+    if (!hadInitialGoalsData.current) {
+      setLoadingGoals(true);
+    }
 
     void fetchGoals();
 
@@ -337,7 +402,7 @@ const Statistics = () => {
     return () => {
       unsubscribeGoals();
     };
-  }, [user]);
+  }, [setDashboardCache, user.uid]);
 
   // Calculate totalSaved for the user (use your real calculation here)
   let totalSaved = 0;

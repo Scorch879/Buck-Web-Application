@@ -5,6 +5,10 @@ import "./progress-bar.css";
 import { useRouter } from "next/navigation";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useDashboardUser } from "@/context/DashboardUserContext";
+import {
+  mergeDashboardDataCache,
+  useFinancial,
+} from "@/context/FinancialContext";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import CreateGoalModal from "./CreateGoalModal";
 import {
@@ -53,6 +57,9 @@ type Goal = BuckGoal;
 const GoalsPage = () => {
   const router = useRouter();
   const { user } = useDashboardUser();
+  const { dashboardCache, setDashboardCache } = useFinancial();
+  const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
+  const hasInitialGoalsData = Boolean(userCache.goals);
   const isDarkTheme = useAuthPageTheme();
   const chartTextColor = isDarkTheme ? "#fff8ed" : "#2b2523";
   const chartGridColor = isDarkTheme
@@ -69,12 +76,16 @@ const GoalsPage = () => {
   const fieldBackground = isDarkTheme
     ? "rgba(255,197,71,0.08)"
     : "rgba(255,250,244,0.74)";
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [loadingGoals, setLoadingGoals] = useState(true);
+  const [goals, setGoals] = useState<Goal[]>(() => userCache.goals ?? []);
+  const [loadingGoals, setLoadingGoals] = useState(
+    () => !hasInitialGoalsData
+  );
   const [showModal, setShowModal] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [aiRecommendation, setAIRecommendation] = useState<string | null>(null);
-  const [walletBudget, setWalletBudget] = useState<number | null>(null);
+  const [walletBudget, setWalletBudget] = useState<number | null>(
+    () => userCache.activeWalletBudget ?? null
+  );
   
   // Progress modal state
   const [showProgressModal, setShowProgressModal] = useState(false);
@@ -96,7 +107,10 @@ const GoalsPage = () => {
   const [expenseError, setExpenseError] = useState("");
 
   // Add state for expenses
-  const [expenses, setExpenses] = useState<BuckExpense[]>([]);
+  const [expenses, setExpenses] = useState<BuckExpense[]>(
+    () => userCache.expenses ?? []
+  );
+  const hadInitialGoalsData = useRef(hasInitialGoalsData);
 
   // --- AI category suggestion for goals page ---
   async function getSuggestedCategory(
@@ -176,7 +190,13 @@ const GoalsPage = () => {
 
     const result = await deleteGoal(selectedGoal.id);
     if (result.success) {
-      setGoals(goals.filter((goal) => goal.id !== selectedGoal.id));
+      const nextGoals = goals.filter((goal) => goal.id !== selectedGoal.id);
+      setGoals(nextGoals);
+      setDashboardCache((currentCache) =>
+        mergeDashboardDataCache(currentCache, user.uid, {
+          goals: nextGoals,
+        })
+      );
       setSelectedGoal(null);
     } else {
       alert(result.message || "Failed to delete goal.");
@@ -189,10 +209,14 @@ const GoalsPage = () => {
       // Deactivate the goal
       const result = await updateGoalStatus(selectedGoal.id, false);
       if (result.success) {
-        setGoals(
-          goals.map((goal) =>
-            goal.id === selectedGoal.id ? { ...goal, isActive: false } : goal
-          )
+        const nextGoals = goals.map((goal) =>
+          goal.id === selectedGoal.id ? { ...goal, isActive: false } : goal
+        );
+        setGoals(nextGoals);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            goals: nextGoals,
+          })
         );
         setSelectedGoal({ ...selectedGoal, isActive: false });
       } else {
@@ -203,12 +227,16 @@ const GoalsPage = () => {
       const result = await setOnlyGoalActive(selectedGoal.id);
       if (result.success) {
         // No wallet allocation to goal! Just set active status.
-        setGoals(
-          goals.map((goal) =>
-            goal.id === selectedGoal.id
-              ? { ...goal, isActive: true }
-              : { ...goal, isActive: false }
-          )
+        const nextGoals = goals.map((goal) =>
+          goal.id === selectedGoal.id
+            ? { ...goal, isActive: true }
+            : { ...goal, isActive: false }
+        );
+        setGoals(nextGoals);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            goals: nextGoals,
+          })
         );
         setSelectedGoal({ ...selectedGoal, isActive: true });
       } else {
@@ -242,13 +270,19 @@ const GoalsPage = () => {
         isCompleted
       );
       // Update local state
-      setGoals((goals) =>
-        goals.map((goal) =>
+      setGoals((currentGoals) => {
+        const nextGoals = currentGoals.map((goal) =>
           goal.id === progressGoal.id
             ? { ...goal, currentAmount: newAmount, completed: isCompleted }
             : goal
-        )
-      );
+        );
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            goals: nextGoals,
+          })
+        );
+        return nextGoals;
+      });
       // If the selected goal is the one updated, update it too
       if (selectedGoal && selectedGoal.id === progressGoal.id) {
         setSelectedGoal({
@@ -344,13 +378,23 @@ const GoalsPage = () => {
   useEffect(() => {
     const fetchGoals = async () => {
       try {
-        setGoals(await listGoals(user.uid));
+        const nextGoals = await listGoals(user.uid);
+        setGoals(nextGoals);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            goals: nextGoals,
+          })
+        );
       } catch (error) {
         console.error("Failed to load goals:", error);
       } finally {
         setLoadingGoals(false);
       }
     };
+
+    if (!hadInitialGoalsData.current) {
+      setLoadingGoals(true);
+    }
 
     void fetchGoals();
 
@@ -361,7 +405,7 @@ const GoalsPage = () => {
     return () => {
       unsubscribeGoals();
     };
-  }, [user]);
+  }, [setDashboardCache, user.uid]);
 
   useEffect(() => {
     let didCancel = false;
@@ -427,7 +471,13 @@ const GoalsPage = () => {
     const fetchWalletBudget = async () => {
       if (!user) return;
       const activeWallet = await getActiveWallet(user.uid);
-      setWalletBudget(activeWallet?.budget ?? null);
+      const nextWalletBudget = activeWallet?.budget ?? null;
+      setWalletBudget(nextWalletBudget);
+      setDashboardCache((currentCache) =>
+        mergeDashboardDataCache(currentCache, user.uid, {
+          activeWalletBudget: nextWalletBudget,
+        })
+      );
     };
 
     fetchWalletBudget();
@@ -443,7 +493,7 @@ const GoalsPage = () => {
     return () => {
       unsubscribeWallets();
     };
-  }, [user]);
+  }, [setDashboardCache, user.uid]);
 
   useEffect(() => {
     if (!forecastModalOpen || !selectedGoal || !user) return;
@@ -606,11 +656,16 @@ const GoalsPage = () => {
 
     const fetchExpenses = () => {
       listExpenses(user.uid)
-        .then((allExpenses) =>
+        .then((allExpenses) => {
+          setDashboardCache((currentCache) =>
+            mergeDashboardDataCache(currentCache, user.uid, {
+              expenses: allExpenses,
+            })
+          );
           setExpenses(
             allExpenses.filter((expense) => expense.goalId === selectedGoal.id)
-          )
-        )
+          );
+        })
         .catch((error) => console.error("Failed to load expenses:", error));
     };
 
@@ -625,7 +680,7 @@ const GoalsPage = () => {
     return () => {
       unsubscribeExpenses();
     };
-  }, [user, selectedGoal]);
+  }, [setDashboardCache, selectedGoal, user.uid]);
 
   const chartRef = useRef<any>(null);
 

@@ -10,11 +10,13 @@ import {
   FaCog,
   FaHome,
   FaMoon,
+  FaSignOutAlt,
   FaSun,
   FaTimes,
   FaWallet,
 } from "react-icons/fa";
 import WalletModal from "@/app/dashboard/wallet/WalletModal";
+import { useFinancial } from "@/context/FinancialContext";
 import { applyDocumentTheme, useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import { signOutUser } from "./authentication";
 import "./dashboard.css";
@@ -43,10 +45,12 @@ export default function DashboardHeader({
   const [activeNav, setActiveNav] = useState<DashboardNavId>(initialActiveNav);
   const [menuOpen, setMenuOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const documentThemeIsDark = useAuthPageTheme();
   const [isDarkTheme, setIsDarkTheme] = useState(documentThemeIsDark);
   const router = useRouter();
   const pathname = usePathname();
+  const { setDashboardCache } = useFinancial();
 
   const currentNav =
     dashboardNavItems.find((item) => pathname?.startsWith(item.href))?.id ??
@@ -60,6 +64,12 @@ export default function DashboardHeader({
     setIsDarkTheme(documentThemeIsDark);
   }, [documentThemeIsDark]);
 
+  useEffect(() => {
+    dashboardNavItems.forEach((item) => {
+      router.prefetch(item.href);
+    });
+  }, [router]);
+
   const playQuack = () => {
     const audio = new Audio("/quack.mp3");
     void audio.play();
@@ -68,6 +78,11 @@ export default function DashboardHeader({
   const navigateTo = (item: (typeof dashboardNavItems)[number]) => {
     setActiveNav(item.id);
     setMenuOpen(false);
+
+    if (pathname?.startsWith(item.href)) {
+      return;
+    }
+
     router.push(item.href);
   };
 
@@ -92,13 +107,21 @@ export default function DashboardHeader({
   };
 
   const handleSignOut = async () => {
-    const result = await signOutUser();
-
-    if (result.success) {
-      router.push("/");
+    if (isSigningOut) {
       return;
     }
 
+    setIsSigningOut(true);
+    const result = await signOutUser();
+
+    if (result.success) {
+      setDashboardCache({});
+      router.replace("/");
+      router.refresh();
+      return;
+    }
+
+    setIsSigningOut(false);
     alert(result.message || "Sign out failed.");
   };
 
@@ -112,6 +135,8 @@ export default function DashboardHeader({
           className={`nav-button ${activeNav === item.id ? "active" : ""}`}
           type="button"
           onClick={() => navigateTo(item)}
+          onFocus={() => router.prefetch(item.href)}
+          onMouseEnter={() => router.prefetch(item.href)}
         >
           <Icon aria-hidden="true" />
           {item.label}
@@ -163,8 +188,19 @@ export default function DashboardHeader({
             <FaWallet aria-hidden="true" />
             Wallet
           </button>
-          <button className="nav-button" type="button" onClick={handleSignOut}>
-            Sign Out
+          <button
+            className="nav-button dashboard-signout-button"
+            type="button"
+            onClick={handleSignOut}
+            disabled={isSigningOut}
+            aria-busy={isSigningOut}
+          >
+            {isSigningOut ? (
+              <span className="dashboard-button-spinner" aria-hidden="true" />
+            ) : (
+              <FaSignOutAlt aria-hidden="true" />
+            )}
+            {isSigningOut ? "Signing out..." : "Sign Out"}
           </button>
         </div>
 
@@ -203,14 +239,21 @@ export default function DashboardHeader({
             Wallet
           </button>
           <button
-            className="nav-button"
+            className="nav-button dashboard-signout-button"
             type="button"
+            disabled={isSigningOut}
+            aria-busy={isSigningOut}
             onClick={() => {
               setMenuOpen(false);
               void handleSignOut();
             }}
           >
-            Sign Out
+            {isSigningOut ? (
+              <span className="dashboard-button-spinner" aria-hidden="true" />
+            ) : (
+              <FaSignOutAlt aria-hidden="true" />
+            )}
+            {isSigningOut ? "Signing out..." : "Sign Out"}
           </button>
         </nav>
       )}

@@ -49,6 +49,15 @@ export type BuckProfile = {
   avatarUpdatedAt: string | null;
 };
 
+export type AccountDeletionStatus = {
+  id: string;
+  requestedAt: string;
+  confirmationExpiresAt: string | null;
+  confirmedAt: string | null;
+  recoveryUntil: string | null;
+  canceledAt: string | null;
+};
+
 type TableName = "wallets" | "categories" | "goals" | "expenses" | "profiles";
 
 const avatarBucketName = "profile-avatars";
@@ -252,6 +261,21 @@ function mapProfile(row: Record<string, unknown>): BuckProfile {
   };
 }
 
+function mapAccountDeletionStatus(
+  row: Record<string, unknown>
+): AccountDeletionStatus {
+  return {
+    id: String(row.id),
+    requestedAt: String(row.requested_at || ""),
+    confirmationExpiresAt: row.confirmation_expires_at
+      ? String(row.confirmation_expires_at)
+      : null,
+    confirmedAt: row.confirmed_at ? String(row.confirmed_at) : null,
+    recoveryUntil: row.recovery_until ? String(row.recovery_until) : null,
+    canceledAt: row.canceled_at ? String(row.canceled_at) : null,
+  };
+}
+
 function assertAvatarFile(file: File) {
   const extension = avatarMimeExtensions[file.type];
 
@@ -360,6 +384,39 @@ export async function getUserProfile(userId: string) {
   }
 
   return mapProfile(data);
+}
+
+export async function getAccountDeletionStatus(userId: string) {
+  if (isDesignPreviewMode) {
+    return null;
+  }
+
+  const supabase = getSupabaseClient();
+  const safeUserId = assertUuid(userId, "user id");
+  const { data, error } = await supabase
+    .from("account_deletion_requests")
+    .select(
+      "id, requested_at, confirmation_expires_at, confirmed_at, recovery_until, canceled_at"
+    )
+    .eq("user_id", safeUserId)
+    .is("canceled_at", null)
+    .is("purge_started_at", null)
+    .order("requested_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    if (
+      error.message.includes("account_deletion_requests") ||
+      error.message.includes("schema cache")
+    ) {
+      return null;
+    }
+
+    throw new Error(error.message);
+  }
+
+  return data ? mapAccountDeletionStatus(data) : null;
 }
 
 export async function updateUserProfileName(userId: string, username: string) {

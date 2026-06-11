@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { signOutUser } from "@/component/authentication";
 import { isSupabaseConfigured, supabase } from "@/utils/supabase";
 
 const LAST_ACTIVITY_KEY = "buck-session-last-activity";
@@ -163,9 +164,9 @@ export default function SessionManager() {
       }
 
       try {
-        const { error } = await supabase.auth.signOut();
+        const result = await signOutUser();
 
-        if (error) {
+        if (!result.success) {
           await supabase.auth.signOut({ scope: "local" });
         }
       } catch {

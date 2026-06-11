@@ -1,10 +1,14 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useDashboardUser } from "@/context/DashboardUserContext";
+import {
+  mergeDashboardDataCache,
+  useFinancial,
+} from "@/context/FinancialContext";
 import { formatCurrency, toNumber } from "@/utils/formatters";
 import {
   ensureDefaultCategories,
@@ -158,11 +162,27 @@ function WeeklyBarChart({ data }: { data: WeeklyDatum[] }) {
 
 export default function Dashboard() {
   const { user } = useDashboardUser();
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [profile, setProfile] = useState<BuckProfile | null>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [loadingDashboardData, setLoadingDashboardData] = useState(true);
+  const { dashboardCache, setDashboardCache } = useFinancial();
+  const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
+  const hasInitialDashboardData = Boolean(
+    userCache.profile && userCache.categories && userCache.expenses
+  );
+  const [categories, setCategories] = useState<Category[]>(
+    () => userCache.categories ?? []
+  );
+  const [expenses, setExpenses] = useState<Expense[]>(
+    () => userCache.expenses ?? []
+  );
+  const [profile, setProfile] = useState<BuckProfile | null>(
+    () => userCache.profile ?? null
+  );
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(
+    () => userCache.avatarUrl ?? null
+  );
+  const [loadingDashboardData, setLoadingDashboardData] = useState(
+    () => !hasInitialDashboardData
+  );
+  const hadInitialDashboardData = useRef(hasInitialDashboardData);
 
   useEffect(() => {
     let active = true;
@@ -176,6 +196,12 @@ export default function Dashboard() {
       if (active) {
         setProfile(loadedProfile);
         setAvatarUrl(signedAvatarUrl);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            profile: loadedProfile,
+            avatarUrl: signedAvatarUrl,
+          })
+        );
       }
     };
 
@@ -184,6 +210,11 @@ export default function Dashboard() {
 
       if (active) {
         setCategories(nextCategories);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            categories: nextCategories,
+          })
+        );
       }
     };
 
@@ -192,11 +223,18 @@ export default function Dashboard() {
 
       if (active) {
         setExpenses(nextExpenses);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            expenses: nextExpenses,
+          })
+        );
       }
     };
 
     const loadInitialData = async () => {
-      setLoadingDashboardData(true);
+      if (!hadInitialDashboardData.current) {
+        setLoadingDashboardData(true);
+      }
 
       try {
         await Promise.all([loadProfile(), loadCategories(), loadExpenses()]);
@@ -233,7 +271,7 @@ export default function Dashboard() {
       unsubscribeExpenses();
       unsubscribeProfile();
     };
-  }, [user]);
+  }, [setDashboardCache, user.uid]);
 
   const weeklyExpenses = useMemo(() => getWeeklyExpenses(expenses), [expenses]);
   const weeklyData = useMemo(

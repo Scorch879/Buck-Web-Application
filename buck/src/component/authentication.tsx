@@ -406,14 +406,41 @@ export async function signOutUser() {
 
   try {
     const supabase = getSupabaseClient();
-    const { error } = await supabase.auth.signOut();
+    const response = await fetch("/api/auth/sign-out", {
+      method: "POST",
+      cache: "no-store",
+      credentials: "include",
+    });
 
-    if (error) {
-      return { success: false, message: error.message };
+    if (!response.ok) {
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        return { success: false, message: error.message };
+      }
+
+      return { success: true };
+    }
+
+    try {
+      await supabase.auth.signOut({ scope: "local" });
+    } catch {
+      // Server cookies were already cleared; local cleanup is best-effort.
     }
 
     return { success: true };
   } catch (error) {
-    return { success: false, message: getErrorMessage(error) };
+    try {
+      const supabase = getSupabaseClient();
+      const { error: signOutError } = await supabase.auth.signOut();
+
+      if (signOutError) {
+        return { success: false, message: signOutError.message };
+      }
+
+      return { success: true };
+    } catch {
+      return { success: false, message: getErrorMessage(error) };
+    }
   }
 }

@@ -100,6 +100,12 @@ function copyResponseCookies(source: NextResponse, target: NextResponse) {
   });
 }
 
+function setNoStoreHeaders(response: NextResponse) {
+  response.headers.set("Cache-Control", "no-store, max-age=0");
+  response.headers.set("Pragma", "no-cache");
+  response.headers.set("Expires", "0");
+}
+
 function getCookieOptions() {
   return {
     httpOnly: true,
@@ -249,11 +255,16 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  setNoStoreHeaders(response);
+
   if (!isSupabaseConfigured) {
     if (isProtectedRoute) {
-      return NextResponse.redirect(
+      const redirectResponse = NextResponse.redirect(
         createSignInUrl(request, { error: "supabase-not-configured" })
       );
+      setNoStoreHeaders(redirectResponse);
+
+      return redirectResponse;
     }
 
     return response;
@@ -264,9 +275,12 @@ export async function middleware(request: NextRequest) {
     isProtectedRoute &&
     !shouldEnforceServerIdle
   ) {
-    return NextResponse.redirect(
+    const redirectResponse = NextResponse.redirect(
       createSignInUrl(request, { error: "session-security-not-configured" })
     );
+    setNoStoreHeaders(redirectResponse);
+
+    return redirectResponse;
   }
 
   const supabase = createServerClient(supabaseUrl!, supabaseAnonKey!, {
@@ -299,6 +313,7 @@ export async function middleware(request: NextRequest) {
       createProtectedRedirect(request)
     );
     copyResponseCookies(response, redirectResponse);
+    setNoStoreHeaders(redirectResponse);
 
     return redirectResponse;
   }
@@ -320,6 +335,7 @@ export async function middleware(request: NextRequest) {
         // The redirect still clears Buck's server-side activity cookie.
       }
       clearActivityCookie(response);
+      setNoStoreHeaders(response);
 
       return response;
     }
@@ -333,6 +349,7 @@ export async function middleware(request: NextRequest) {
     );
     copyResponseCookies(response, redirectResponse);
     await refreshActivityCookie(redirectResponse, user.id);
+    setNoStoreHeaders(redirectResponse);
 
     return redirectResponse;
   }
