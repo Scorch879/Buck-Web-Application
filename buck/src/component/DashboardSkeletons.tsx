@@ -21,11 +21,6 @@ function SkeletonBlock({
 function HomeSkeleton() {
   return (
     <div className="dashboard-container dashboard-skeleton">
-      <section className="dashboard-welcome-card dashboard-skeleton-card">
-        <span className="dashboard-skeleton-avatar" />
-        <SkeletonBlock className="dashboard-skeleton-copy" rows={2} />
-      </section>
-
       <section className="dashboard-content" aria-label="Loading dashboard">
         <article className="spending-card dashboard-skeleton-card">
           <SkeletonBlock className="dashboard-skeleton-kicker" />
@@ -128,23 +123,25 @@ function SettingsSkeleton() {
         <SkeletonBlock className="dashboard-skeleton-short" rows={2} />
       </section>
 
-      <section className="settings-grid settings-grid--single">
-        <article className="settings-card settings-card--account dashboard-skeleton-card">
+      <section className="settings-shell">
+        <nav className="settings-tabs dashboard-skeleton-card" aria-hidden="true">
+          {Array.from({ length: 4 }, (_, index) => (
+            <SkeletonBlock key={index} className="dashboard-skeleton-short" />
+          ))}
+        </nav>
+
+        <article className="settings-card settings-card--panel dashboard-skeleton-card">
           <SkeletonBlock className="dashboard-skeleton-heading" rows={2} />
-          <div className="settings-account-layout">
-            {Array.from({ length: 6 }, (_, index) => (
+          <div className="settings-tab-panel">
+            {Array.from({ length: 3 }, (_, index) => (
               <section
                 key={index}
                 className={`settings-section dashboard-skeleton-card ${
-                  index === 3 || index === 4
-                    ? "settings-section--email"
-                    : index === 5
-                      ? "settings-section--danger"
-                      : "settings-section--status"
+                  index === 0 ? "settings-section--avatar" : "settings-section--status"
                 }`}
               >
                 {index === 0 ? <span className="dashboard-skeleton-avatar" /> : null}
-                <SkeletonBlock rows={index === 5 ? 2 : 3} />
+                <SkeletonBlock rows={3} />
               </section>
             ))}
           </div>

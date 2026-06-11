@@ -34,6 +34,7 @@ import {
   useFinancial,
 } from "@/context/FinancialContext";
 import { evaluatePasswordPolicy } from "@/utils/passwordPolicy";
+import { getEmailValidationMessage } from "@/utils/emailValidation";
 import {
   getAccountDeletionStatus,
   getUserProfile,
@@ -46,11 +47,38 @@ import {
 import { applyDocumentTheme, useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import "./style.css";
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const avatarMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxAvatarSizeBytes = 2 * 1024 * 1024;
 const fallbackAvatarSource = "/BuckMascot.png";
 const privateAvatarSource = "/api/profile/avatar";
+const settingsTabs = [
+  {
+    id: "profile",
+    label: "Profile & Account",
+    description: "Avatar, display name, and account status.",
+    icon: FaUser,
+  },
+  {
+    id: "security",
+    label: "Security",
+    description: "Email and password controls.",
+    icon: FaLock,
+  },
+  {
+    id: "appearance",
+    label: "Appearance",
+    description: "Light and dark dashboard theme.",
+    icon: FaSun,
+  },
+  {
+    id: "danger",
+    label: "Danger Zone",
+    description: "Deletion request and recovery status.",
+    icon: FaExclamationTriangle,
+  },
+] as const;
+
+type SettingsTabId = (typeof settingsTabs)[number]["id"];
 
 function getAvatarFileValidationError(file: File) {
   if (!avatarMimeTypes.has(file.type)) {
@@ -149,6 +177,8 @@ export default function SettingsPage() {
   const [recoveringAccount, setRecoveringAccount] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [activeSettingsTab, setActiveSettingsTab] =
+    useState<SettingsTabId>("profile");
   const [isDarkTheme, setIsDarkTheme] = useState(documentThemeIsDark);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -182,6 +212,9 @@ export default function SettingsPage() {
   const confirmationExpiresLabel = formatSettingsDate(
     deletionStatus?.confirmationExpiresAt
   );
+  const activeSettingsTabDetails =
+    settingsTabs.find((tab) => tab.id === activeSettingsTab) ?? settingsTabs[0];
+  const ActiveSettingsIcon = activeSettingsTabDetails.icon;
 
   const passwordConfirmMessage = useMemo(() => {
     if (!confirmPassword) {
@@ -405,8 +438,9 @@ export default function SettingsPage() {
 
     clearMessages();
 
-    if (!emailRegex.test(email)) {
-      setError("Enter a valid email address.");
+    const emailValidationMessage = getEmailValidationMessage(email);
+    if (emailValidationMessage) {
+      setError(emailValidationMessage);
       return;
     }
 
@@ -607,332 +641,364 @@ export default function SettingsPage() {
         <div className="settings-message settings-message--error">{error}</div>
       ) : null}
 
-      <section className="settings-grid settings-grid--single">
-        <article className="settings-card settings-card--account">
+      <section className="settings-shell">
+        <nav className="settings-tabs" aria-label="Settings sections">
+          {settingsTabs.map((tab) => {
+            const TabIcon = tab.icon;
+            const isActive = activeSettingsTab === tab.id;
+
+            return (
+              <button
+                key={tab.id}
+                className={`settings-tab${isActive ? " settings-tab--active" : ""}`}
+                type="button"
+                onClick={() => setActiveSettingsTab(tab.id)}
+                aria-pressed={isActive}
+              >
+                <TabIcon aria-hidden="true" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        <article className="settings-card settings-card--panel">
           <div className="settings-card-heading settings-card-heading--wide">
             <span aria-hidden="true">
-              <FaShieldAlt />
+              <ActiveSettingsIcon />
             </span>
             <div>
-              <p className="settings-eyebrow">Account controls</p>
-              <h2>Profile, security, and recovery</h2>
+              <p className="settings-eyebrow">{activeSettingsTabDetails.label}</p>
+              <h2>{activeSettingsTabDetails.description}</h2>
             </div>
           </div>
 
-          <div className="settings-account-layout">
-            <section className="settings-section settings-section--avatar">
-              <div className="settings-section-heading">
-                <FaCamera aria-hidden="true" />
-                <div>
-                  <p className="settings-eyebrow">Profile picture</p>
-                  <h3>Avatar</h3>
-                </div>
-              </div>
-
-              <div className="settings-avatar-panel">
-                <img
-                  key={profile?.avatarUpdatedAt || profile?.avatarPath || "fallback"}
-                  src={hasAvatar ? privateAvatarSource : fallbackAvatarSource}
-                  alt=""
-                  className={`settings-avatar${hasAvatar ? "" : " settings-avatar--fallback"}`}
-                />
-                <div>
-                  <strong>{displayName || "Buck user"}</strong>
-                  <p>JPG, PNG, or WebP. Maximum size is 2 MB.</p>
-                  <div className="settings-avatar-actions">
-                    <label className="settings-button settings-button--secondary">
-                      <input
-                        ref={avatarInputRef}
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        onChange={handleAvatarChange}
-                        disabled={isBusy}
-                      />
-                      {savingAvatar ? "Uploading..." : "Upload image"}
-                    </label>
-                    <button
-                      className="settings-button settings-button--ghost"
-                      type="button"
-                      onClick={handleRemoveAvatar}
-                      disabled={!profile?.avatarPath || isBusy}
-                    >
-                      <FaTrash aria-hidden="true" />
-                      Remove
-                    </button>
+          <div className="settings-tab-panel">
+            {activeSettingsTab === "profile" ? (
+              <>
+                <section className="settings-section settings-section--avatar">
+                  <div className="settings-section-heading">
+                    <FaCamera aria-hidden="true" />
+                    <div>
+                      <p className="settings-eyebrow">Profile picture</p>
+                      <h3>Avatar</h3>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </section>
 
-            <section className="settings-section settings-section--identity">
-              <div className="settings-section-heading">
-                <FaUser aria-hidden="true" />
-                <div>
-                  <p className="settings-eyebrow">Profile</p>
-                  <h3>Display information</h3>
-                </div>
-              </div>
-
-              <form className="settings-form" onSubmit={handleProfileSubmit}>
-                <div className="settings-field">
-                  <label htmlFor="settings-display-name">Display name</label>
-                  <input
-                    id="settings-display-name"
-                    value={displayName}
-                    onChange={(event) => setDisplayName(event.target.value)}
-                    placeholder="Your name"
-                    disabled={isBusy}
-                  />
-                </div>
-                <button
-                  className="settings-button settings-button--primary"
-                  type="submit"
-                  disabled={isBusy}
-                >
-                  {savingProfile ? "Saving..." : "Save profile"}
-                </button>
-              </form>
-            </section>
-
-            <section className="settings-section settings-section--appearance">
-              <div className="settings-section-heading">
-                {isDarkTheme ? (
-                  <FaMoon aria-hidden="true" />
-                ) : (
-                  <FaSun aria-hidden="true" />
-                )}
-                <div>
-                  <p className="settings-eyebrow">Appearance</p>
-                  <h3>Theme</h3>
-                </div>
-              </div>
-
-              <div className="settings-theme-control" role="group" aria-label="Dashboard theme">
-                <button
-                  className={`settings-theme-option${!isDarkTheme ? " settings-theme-option--active" : ""}`}
-                  type="button"
-                  onClick={() => updateThemePreference("light")}
-                  aria-pressed={!isDarkTheme}
-                >
-                  <FaSun aria-hidden="true" />
-                  Light
-                </button>
-                <button
-                  className={`settings-theme-option${isDarkTheme ? " settings-theme-option--active" : ""}`}
-                  type="button"
-                  onClick={() => updateThemePreference("dark")}
-                  aria-pressed={isDarkTheme}
-                >
-                  <FaMoon aria-hidden="true" />
-                  Dark
-                </button>
-              </div>
-            </section>
-
-            <section className="settings-section settings-section--status">
-              <div className="settings-section-heading">
-                <FaShieldAlt aria-hidden="true" />
-                <div>
-                  <p className="settings-eyebrow">Status</p>
-                  <h3>Security summary</h3>
-                </div>
-              </div>
-
-              <dl className="settings-status-list">
-                <div>
-                  <dt>Provider</dt>
-                  <dd>{providerLabel}</dd>
-                </div>
-                <div>
-                  <dt>Email confirmation</dt>
-                  <dd>{user.email_confirmed_at ? "Confirmed" : "Pending"}</dd>
-                </div>
-                <div>
-                  <dt>Profile storage</dt>
-                  <dd>
-                    {profile?.avatarPath ? "Private avatar" : "Default avatar"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Deletion</dt>
-                  <dd>
-                    {deletionConfirmed
-                      ? "Recovery window active"
-                      : deletionPendingConfirmation
-                        ? "Email pending"
-                        : "Not scheduled"}
-                  </dd>
-                </div>
-              </dl>
-            </section>
-
-            <section className="settings-section settings-section--email">
-              <div className="settings-section-heading">
-                <FaEnvelope aria-hidden="true" />
-                <div>
-                  <p className="settings-eyebrow">Email</p>
-                  <h3>Email address</h3>
-                </div>
-              </div>
-
-              {canManageCredentials ? (
-                <div className="settings-action-panel">
-                  <div>
-                    <strong>{accountEmail || "No email on file"}</strong>
-                    <p>Change requests require your current password.</p>
-                  </div>
-                  <button
-                    className="settings-button settings-button--primary"
-                    type="button"
-                    onClick={openEmailModal}
-                    disabled={isBusy}
-                  >
-                    Change email
-                  </button>
-                </div>
-              ) : (
-                <div className="settings-provider-note">
-                  <FaGoogle aria-hidden="true" />
-                  <div>
-                    <strong>Email is managed by Google.</strong>
-                    <p>
-                      Sign in with Google controls this account email. Buck keeps
-                      your dashboard data tied to the authenticated Google
-                      account.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </section>
-
-            <section className="settings-section settings-section--security">
-              <div className="settings-section-heading">
-                <FaLock aria-hidden="true" />
-                <div>
-                  <p className="settings-eyebrow">Security</p>
-                  <h3>Password</h3>
-                </div>
-              </div>
-
-              {canManageCredentials ? (
-                <div className="settings-action-panel">
-                  <div>
-                    <strong>Password protected</strong>
-                    <p>Open a focused dialog when you need to update it.</p>
-                  </div>
-                  <button
-                    className="settings-button settings-button--primary"
-                    type="button"
-                    onClick={openPasswordModal}
-                    disabled={isBusy}
-                  >
-                    Change password
-                  </button>
-                </div>
-              ) : (
-                <div className="settings-provider-note">
-                  <FaGoogle aria-hidden="true" />
-                  <div>
-                    <strong>Password is managed by Google.</strong>
-                    <p>
-                      Use your Google account settings to manage password and
-                      sign-in security for this Buck account.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </section>
-
-            <section className="settings-section settings-section--danger">
-              <div className="settings-section-heading">
-                <FaExclamationTriangle aria-hidden="true" />
-                <div>
-                  <p className="settings-eyebrow">Danger zone</p>
-                  <h3>Delete account</h3>
-                </div>
-              </div>
-
-              {deletionConfirmed ? (
-                <div className="settings-recovery-panel">
-                  <div>
-                    <strong>Account deletion is scheduled.</strong>
-                    <p>
-                      You can recover this account until {recoveryUntilLabel}.
-                      After that, Buck can permanently erase the account and
-                      budget data.
-                    </p>
-                  </div>
-                  <button
-                    className="settings-button settings-button--secondary"
-                    type="button"
-                    onClick={handleRecoverAccount}
-                    disabled={isBusy}
-                  >
-                    <FaUndo aria-hidden="true" />
-                    {recoveringAccount ? "Recovering..." : "Recover account"}
-                  </button>
-                </div>
-              ) : (
-                <form
-                  className="settings-form settings-delete-form"
-                  onSubmit={handleDeletionRequest}
-                >
-                  <p>
-                    Buck sends a confirmation email first. After confirmation,
-                    your account enters a 10-day recovery window before the
-                    scheduled purge can permanently erase it.
-                  </p>
-                  {deletionPendingConfirmation ? (
-                    <p className="settings-confirm-hint">
-                      A deletion confirmation email is pending until{" "}
-                      {confirmationExpiresLabel}.
-                    </p>
-                  ) : null}
-                  <div className="settings-field-row settings-field-row--delete">
-                    {canManageCredentials ? (
-                      <div className="settings-field">
-                        <label htmlFor="settings-delete-password">
-                          Current password
+                  <div className="settings-avatar-panel">
+                    <img
+                      key={profile?.avatarUpdatedAt || profile?.avatarPath || "fallback"}
+                      src={hasAvatar ? privateAvatarSource : fallbackAvatarSource}
+                      alt=""
+                      className={`settings-avatar${hasAvatar ? "" : " settings-avatar--fallback"}`}
+                    />
+                    <div>
+                      <strong>{displayName || "Buck user"}</strong>
+                      <p>JPG, PNG, or WebP. Maximum size is 2 MB.</p>
+                      <div className="settings-avatar-actions">
+                        <label className="settings-button settings-button--secondary">
+                          <input
+                            ref={avatarInputRef}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            onChange={handleAvatarChange}
+                            disabled={isBusy}
+                          />
+                          {savingAvatar ? "Uploading..." : "Upload image"}
                         </label>
-                        <input
-                          id="settings-delete-password"
-                          type="password"
-                          value={deletePassword}
-                          onChange={(event) =>
-                            setDeletePassword(event.target.value)
-                          }
-                          autoComplete="current-password"
-                          disabled={isBusy}
-                        />
+                        <button
+                          className="settings-button settings-button--ghost"
+                          type="button"
+                          onClick={handleRemoveAvatar}
+                          disabled={!profile?.avatarPath || isBusy}
+                        >
+                          <FaTrash aria-hidden="true" />
+                          Remove
+                        </button>
                       </div>
-                    ) : null}
+                    </div>
+                  </div>
+                </section>
+
+                <section className="settings-section settings-section--identity">
+                  <div className="settings-section-heading">
+                    <FaUser aria-hidden="true" />
+                    <div>
+                      <p className="settings-eyebrow">Profile</p>
+                      <h3>Display information</h3>
+                    </div>
+                  </div>
+
+                  <form className="settings-form" onSubmit={handleProfileSubmit}>
                     <div className="settings-field">
-                      <label htmlFor="settings-delete-confirm">
-                        Type DELETE
-                      </label>
+                      <label htmlFor="settings-display-name">Display name</label>
                       <input
-                        id="settings-delete-confirm"
-                        value={deleteConfirmText}
-                        onChange={(event) =>
-                          setDeleteConfirmText(event.target.value)
-                        }
-                        placeholder="DELETE"
+                        id="settings-display-name"
+                        value={displayName}
+                        onChange={(event) => setDisplayName(event.target.value)}
+                        placeholder="Your name"
                         disabled={isBusy}
                       />
                     </div>
                     <button
-                      className="settings-button settings-button--danger"
+                      className="settings-button settings-button--primary"
                       type="submit"
                       disabled={isBusy}
                     >
-                      {requestingDeletion
-                        ? "Sending confirmation..."
-                        : "Request deletion"}
+                      {savingProfile ? "Saving..." : "Save profile"}
+                    </button>
+                  </form>
+                </section>
+
+                <section className="settings-section settings-section--status">
+                  <div className="settings-section-heading">
+                    <FaShieldAlt aria-hidden="true" />
+                    <div>
+                      <p className="settings-eyebrow">Status</p>
+                      <h3>Security summary</h3>
+                    </div>
+                  </div>
+
+                  <dl className="settings-status-list">
+                    <div>
+                      <dt>Provider</dt>
+                      <dd>{providerLabel}</dd>
+                    </div>
+                    <div>
+                      <dt>Email confirmation</dt>
+                      <dd>{user.email_confirmed_at ? "Confirmed" : "Pending"}</dd>
+                    </div>
+                    <div>
+                      <dt>Profile storage</dt>
+                      <dd>
+                        {profile?.avatarPath ? "Private avatar" : "Default avatar"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Deletion</dt>
+                      <dd>
+                        {deletionConfirmed
+                          ? "Recovery window active"
+                          : deletionPendingConfirmation
+                            ? "Email pending"
+                            : "Not scheduled"}
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
+              </>
+            ) : null}
+
+            {activeSettingsTab === "security" ? (
+              <>
+                <section className="settings-section settings-section--email">
+                  <div className="settings-section-heading">
+                    <FaEnvelope aria-hidden="true" />
+                    <div>
+                      <p className="settings-eyebrow">Email</p>
+                      <h3>Email address</h3>
+                    </div>
+                  </div>
+
+                  {canManageCredentials ? (
+                    <div className="settings-action-panel">
+                      <div>
+                        <strong>{accountEmail || "No email on file"}</strong>
+                        <p>Change requests require your current password.</p>
+                      </div>
+                      <button
+                        className="settings-button settings-button--primary"
+                        type="button"
+                        onClick={openEmailModal}
+                        disabled={isBusy}
+                      >
+                        Change email
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="settings-provider-note">
+                      <FaGoogle aria-hidden="true" />
+                      <div>
+                        <strong>Email is managed by Google.</strong>
+                        <p>
+                          Sign in with Google controls this account email. Buck
+                          keeps your dashboard data tied to the authenticated
+                          Google account.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                <section className="settings-section settings-section--security">
+                  <div className="settings-section-heading">
+                    <FaLock aria-hidden="true" />
+                    <div>
+                      <p className="settings-eyebrow">Security</p>
+                      <h3>Password</h3>
+                    </div>
+                  </div>
+
+                  {canManageCredentials ? (
+                    <div className="settings-action-panel">
+                      <div>
+                        <strong>Password protected</strong>
+                        <p>Open a focused dialog when you need to update it.</p>
+                      </div>
+                      <button
+                        className="settings-button settings-button--primary"
+                        type="button"
+                        onClick={openPasswordModal}
+                        disabled={isBusy}
+                      >
+                        Change password
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="settings-provider-note">
+                      <FaGoogle aria-hidden="true" />
+                      <div>
+                        <strong>Password is managed by Google.</strong>
+                        <p>
+                          Use your Google account settings to manage password and
+                          sign-in security for this Buck account.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              </>
+            ) : null}
+
+            {activeSettingsTab === "appearance" ? (
+              <section className="settings-section settings-section--appearance">
+                <div className="settings-section-heading">
+                  {isDarkTheme ? (
+                    <FaMoon aria-hidden="true" />
+                  ) : (
+                    <FaSun aria-hidden="true" />
+                  )}
+                  <div>
+                    <p className="settings-eyebrow">Appearance</p>
+                    <h3>Theme</h3>
+                  </div>
+                </div>
+
+                <div className="settings-theme-control" role="group" aria-label="Dashboard theme">
+                  <button
+                    className={`settings-theme-option${!isDarkTheme ? " settings-theme-option--active" : ""}`}
+                    type="button"
+                    onClick={() => updateThemePreference("light")}
+                    aria-pressed={!isDarkTheme}
+                  >
+                    <FaSun aria-hidden="true" />
+                    Light
+                  </button>
+                  <button
+                    className={`settings-theme-option${isDarkTheme ? " settings-theme-option--active" : ""}`}
+                    type="button"
+                    onClick={() => updateThemePreference("dark")}
+                    aria-pressed={isDarkTheme}
+                  >
+                    <FaMoon aria-hidden="true" />
+                    Dark
+                  </button>
+                </div>
+              </section>
+            ) : null}
+
+            {activeSettingsTab === "danger" ? (
+              <section className="settings-section settings-section--danger">
+                <div className="settings-section-heading">
+                  <FaExclamationTriangle aria-hidden="true" />
+                  <div>
+                    <p className="settings-eyebrow">Danger zone</p>
+                    <h3>Delete account</h3>
+                  </div>
+                </div>
+
+                {deletionConfirmed ? (
+                  <div className="settings-recovery-panel">
+                    <div>
+                      <strong>Account deletion is scheduled.</strong>
+                      <p>
+                        You can recover this account until {recoveryUntilLabel}.
+                        After that, Buck can permanently erase the account and
+                        budget data.
+                      </p>
+                    </div>
+                    <button
+                      className="settings-button settings-button--secondary"
+                      type="button"
+                      onClick={handleRecoverAccount}
+                      disabled={isBusy}
+                    >
+                      <FaUndo aria-hidden="true" />
+                      {recoveringAccount ? "Recovering..." : "Recover account"}
                     </button>
                   </div>
-                </form>
-              )}
-            </section>
+                ) : (
+                  <form
+                    className="settings-form settings-delete-form"
+                    onSubmit={handleDeletionRequest}
+                  >
+                    <p>
+                      Buck sends a confirmation email first. After confirmation,
+                      your account enters a 10-day recovery window before the
+                      scheduled purge can permanently erase it.
+                    </p>
+                    {deletionPendingConfirmation ? (
+                      <p className="settings-confirm-hint">
+                        A deletion confirmation email is pending until{" "}
+                        {confirmationExpiresLabel}.
+                      </p>
+                    ) : null}
+                    <div className="settings-field-row settings-field-row--delete">
+                      {canManageCredentials ? (
+                        <div className="settings-field">
+                          <label htmlFor="settings-delete-password">
+                            Current password
+                          </label>
+                          <input
+                            id="settings-delete-password"
+                            type="password"
+                            value={deletePassword}
+                            onChange={(event) =>
+                              setDeletePassword(event.target.value)
+                            }
+                            autoComplete="current-password"
+                            disabled={isBusy}
+                          />
+                        </div>
+                      ) : null}
+                      <div className="settings-field">
+                        <label htmlFor="settings-delete-confirm">
+                          Type DELETE
+                        </label>
+                        <input
+                          id="settings-delete-confirm"
+                          value={deleteConfirmText}
+                          onChange={(event) =>
+                            setDeleteConfirmText(event.target.value)
+                          }
+                          placeholder="DELETE"
+                          disabled={isBusy}
+                        />
+                      </div>
+                      <button
+                        className="settings-button settings-button--danger"
+                        type="submit"
+                        disabled={isBusy}
+                      >
+                        {requestingDeletion
+                          ? "Sending confirmation..."
+                          : "Request deletion"}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </section>
+            ) : null}
           </div>
         </article>
       </section>

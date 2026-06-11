@@ -53,6 +53,23 @@ type DashboardHeaderProps = {
   initialActiveNav?: DashboardNavId;
 };
 
+function getInitials(value: string) {
+  const parts = value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return "BU";
+  }
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
 export default function DashboardHeader({
   initialActiveNav = "home",
 }: DashboardHeaderProps) {
@@ -70,6 +87,7 @@ export default function DashboardHeader({
     user?.displayName ||
     user?.email?.split("@")[0] ||
     "Buck user";
+  const accountSubtitle = user?.email || "Signed in";
 
   const currentNav =
     dashboardNavItems.find(
@@ -186,11 +204,6 @@ export default function DashboardHeader({
           <span className="dashboard-brand-copy">
             <span className="dashboard-title">Buck</span>
             <span className="dashboard-tagline">Go Buck yourself</span>
-            {user ? (
-              <span className="dashboard-user-greeting">
-                Welcome back, <strong>{displayName}</strong>
-              </span>
-            ) : null}
           </span>
         </button>
 
@@ -200,18 +213,27 @@ export default function DashboardHeader({
 
         <div className="dashboard-header-actions">
           <button
-            className="nav-button dashboard-signout-button"
+            className="dashboard-account-tray"
             type="button"
             onClick={handleSignOut}
             disabled={isSigningOut}
             aria-busy={isSigningOut}
+            aria-label={isSigningOut ? "Signing out" : "Sign out"}
           >
-            {isSigningOut ? (
-              <span className="dashboard-button-spinner" aria-hidden="true" />
-            ) : (
-              <FaSignOutAlt aria-hidden="true" />
-            )}
-            <span>{isSigningOut ? "Signing out..." : "Sign Out"}</span>
+            <span className="dashboard-account-avatar" aria-hidden="true">
+              {getInitials(displayName)}
+            </span>
+            <span className="dashboard-account-copy">
+              <strong>{displayName}</strong>
+              <span>{isSigningOut ? "Signing out..." : accountSubtitle}</span>
+            </span>
+            <span className="dashboard-account-action" aria-hidden="true">
+              {isSigningOut ? (
+                <span className="dashboard-button-spinner" />
+              ) : (
+                <FaSignOutAlt />
+              )}
+            </span>
           </button>
         </div>
 
@@ -235,21 +257,30 @@ export default function DashboardHeader({
         >
           {renderNavItems()}
           <button
-            className="nav-button dashboard-signout-button"
+            className="dashboard-account-tray dashboard-account-tray--mobile"
             type="button"
             disabled={isSigningOut}
             aria-busy={isSigningOut}
+            aria-label={isSigningOut ? "Signing out" : "Sign out"}
             onClick={() => {
               setMenuOpen(false);
               void handleSignOut();
             }}
           >
-            {isSigningOut ? (
-              <span className="dashboard-button-spinner" aria-hidden="true" />
-            ) : (
-              <FaSignOutAlt aria-hidden="true" />
-            )}
-            <span>{isSigningOut ? "Signing out..." : "Sign Out"}</span>
+            <span className="dashboard-account-avatar" aria-hidden="true">
+              {getInitials(displayName)}
+            </span>
+            <span className="dashboard-account-copy">
+              <strong>{displayName}</strong>
+              <span>{isSigningOut ? "Signing out..." : accountSubtitle}</span>
+            </span>
+            <span className="dashboard-account-action" aria-hidden="true">
+              {isSigningOut ? (
+                <span className="dashboard-button-spinner" />
+              ) : (
+                <FaSignOutAlt />
+              )}
+            </span>
           </button>
         </nav>
       )}

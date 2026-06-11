@@ -16,7 +16,6 @@ import {
   subscribeUserTable,
   type BuckCategory,
   type BuckExpense,
-  type BuckProfile,
 } from "@/utils/supabaseData";
 import "./style.css";
 
@@ -171,9 +170,6 @@ export default function Dashboard() {
   const [expenses, setExpenses] = useState<Expense[]>(
     () => userCache.expenses ?? []
   );
-  const [profile, setProfile] = useState<BuckProfile | null>(
-    () => userCache.profile ?? null
-  );
   const [loadingDashboardData, setLoadingDashboardData] = useState(
     () => !hasInitialDashboardData
   );
@@ -186,7 +182,6 @@ export default function Dashboard() {
       const loadedProfile = await getUserProfile(user.uid);
 
       if (active) {
-        setProfile(loadedProfile);
         setDashboardCache((currentCache) =>
           mergeDashboardDataCache(currentCache, user.uid, {
             profile: loadedProfile,
@@ -227,7 +222,25 @@ export default function Dashboard() {
       }
 
       try {
-        await Promise.all([loadProfile(), loadCategories(), loadExpenses()]);
+        const [loadedProfile, nextCategories, nextExpenses] = await Promise.all([
+          getUserProfile(user.uid),
+          ensureDefaultCategories(user.uid),
+          listExpenses(user.uid),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        setCategories(nextCategories);
+        setExpenses(nextExpenses);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            profile: loadedProfile,
+            categories: nextCategories,
+            expenses: nextExpenses,
+          })
+        );
       } catch (error) {
         console.error("Failed to load dashboard:", error);
       } finally {
@@ -285,20 +298,8 @@ export default function Dashboard() {
     return <DashboardPageSkeleton variant="home" />;
   }
 
-  const displayName =
-    profile?.username || user.displayName || user.email || "friend";
-
   return (
     <div className="dashboard-container">
-        <section className="dashboard-page-heading">
-          <p className="dashboard-welcome-kicker">Welcome back, {displayName}</p>
-          <h2>Here&apos;s what Buck sees this week.</h2>
-          <span>
-            Keep an eye on daily spending, category pressure, and the small
-            choices that move your wallet.
-          </span>
-        </section>
-
         <section className="dashboard-content" aria-label="Weekly overview">
           <article className="spending-card">
             <p className="card-eyebrow">Weekly Spending</p>

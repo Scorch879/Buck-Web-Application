@@ -12,6 +12,10 @@ import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/utils/supabase/admin";
+import {
+  getEmailValidationMessage,
+  normalizeEmailAddress,
+} from "@/utils/emailValidation";
 
 type PasswordResetRequest = {
   email?: unknown;
@@ -34,7 +38,6 @@ type RateLimitDecision =
   | { limited: false }
   | { limited: true; message: string; retryAfterSeconds: number };
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const accountNotFoundMessage =
   "No Buck account exists for that email address.";
 const resetRequestMessage = "Password reset link sent. Check your email.";
@@ -149,7 +152,7 @@ function getPasswordResetSecurityContext(
   request: Request,
   email: string
 ): PasswordResetSecurityContext {
-  const normalizedEmail = email.toLowerCase();
+  const normalizedEmail = normalizeEmailAddress(email);
 
   return {
     normalizedEmail,
@@ -308,7 +311,7 @@ async function findBuckAccountByEmail(
   supabaseAdmin: SupabaseClient,
   email: string
 ) {
-  const normalizedEmail = email.toLowerCase();
+  const normalizedEmail = normalizeEmailAddress(email);
   const emailCandidates = Array.from(new Set([email, normalizedEmail]));
   const { data, error } = await supabaseAdmin
     .from("profiles")
@@ -333,10 +336,11 @@ export async function POST(request: Request) {
 
   const body = await readRequestBody(request);
   const email = typeof body?.email === "string" ? body.email.trim() : "";
+  const emailValidationMessage = getEmailValidationMessage(email);
 
-  if (!emailRegex.test(email)) {
+  if (emailValidationMessage) {
     return createPasswordResetResponse(
-      { success: false, message: "Please enter a valid email address." },
+      { success: false, message: emailValidationMessage },
       { status: 400 }
     );
   }

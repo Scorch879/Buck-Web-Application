@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import AuthGuard from "@/component/AuthGuard";
 import DashboardHeader from "@/component/dashboardheader";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
+import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
+import { useFinancial } from "@/context/FinancialContext";
 import FinancialProvider from "@/context/FinancialProvider";
 import type { BuckUser } from "@/utils/authUser";
 
@@ -83,15 +85,28 @@ function getPageChrome(pathname: string | null) {
 function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const pageChrome = getPageChrome(pathname);
+  const user = useOptionalDashboardUser();
+  const { dashboardCache } = useFinancial();
+  const userCache = dashboardCache.userId === user?.uid ? dashboardCache : {};
+  const displayName =
+    userCache.profile?.username ||
+    user?.displayName ||
+    user?.email?.split("@")[0] ||
+    "Buck user";
+  const isHomePage = pathname?.startsWith("/dashboard/home") ?? true;
+  const topbarTitle = isHomePage
+    ? `Welcome back, ${displayName}`
+    : pageChrome.title;
+  const topbarEyebrow = isHomePage ? "Home" : pageChrome.eyebrow;
 
   return (
     <div className="dashboard">
       <DashboardHeader />
       <main className="dashboard-main">
-        <header className="dashboard-topbar">
+        <header className={`dashboard-topbar${isHomePage ? " dashboard-topbar--welcome" : ""}`}>
           <div>
-            <p>{pageChrome.eyebrow}</p>
-            <h1>{pageChrome.title}</h1>
+            <p>{topbarEyebrow}</p>
+            <h1>{topbarTitle}</h1>
           </div>
           <span>{pageChrome.description}</span>
         </header>

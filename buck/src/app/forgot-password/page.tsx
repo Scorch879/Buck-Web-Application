@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { sendPasswordReset, updatePassword } from "@/component/authentication";
 import { supabase } from "@/utils/supabase";
 import { evaluatePasswordPolicy } from "@/utils/passwordPolicy";
+import { getEmailValidationMessage } from "@/utils/emailValidation";
 import { motion } from "framer-motion";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 import {
@@ -46,8 +47,6 @@ const forgotPasswordHighlights: ForgotPasswordHighlight[] = [
     description: "Get back to the weekly wallet once your password is reset.",
   },
 ];
-
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const ForgotPassword = () => {
   const router = useRouter();
@@ -148,8 +147,9 @@ const ForgotPassword = () => {
       setError("Please enter your email address.");
       return;
     }
-    if (!emailRegex.test(email)) {
-      setError("Please enter a valid email address.");
+    const emailValidationMessage = getEmailValidationMessage(email);
+    if (emailValidationMessage) {
+      setError(emailValidationMessage);
       return;
     }
 
