@@ -8,6 +8,10 @@ import { useRouter } from "next/navigation";
 import { signInWithGoogle, signUpUser } from "@/component/authentication";
 import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
 import { evaluatePasswordPolicy } from "@/utils/passwordPolicy";
+import {
+  getEmailValidationMessage,
+  normalizeEmailAddress,
+} from "@/utils/emailValidation";
 import { motion } from "framer-motion";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 import {
@@ -105,9 +109,9 @@ const CreateAccount = () => {
       setError("Please fill in all fields.");
       return;
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(form.email)) {
-      setError("Please enter a valid email address.");
+    const emailValidationMessage = getEmailValidationMessage(form.email);
+    if (emailValidationMessage) {
+      setError(emailValidationMessage);
       return;
     }
     if (form.password !== form.confirm) {
@@ -124,13 +128,18 @@ const CreateAccount = () => {
     setIsCreatingAccount(true);
     setMessage("Creating your Buck account...");
 
-    const result = await signUpUser(form.email, form.password, form.username);
+    const normalizedEmail = normalizeEmailAddress(form.email);
+    const result = await signUpUser(
+      normalizedEmail,
+      form.password,
+      form.username
+    );
 
     if (result.success) {
       setForm({ username: "", email: "", password: "", confirm: "" });
 
       if (result.needsEmailConfirmation) {
-        router.push(`/check-email?email=${encodeURIComponent(form.email)}`);
+        router.push(`/check-email?email=${encodeURIComponent(normalizedEmail)}`);
         return;
       }
 

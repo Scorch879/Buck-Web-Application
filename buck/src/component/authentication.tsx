@@ -8,6 +8,10 @@ import {
   supabaseConfigError,
 } from "@/utils/supabase";
 import { evaluatePasswordPolicy } from "@/utils/passwordPolicy";
+import {
+  getEmailValidationMessage,
+  normalizeEmailAddress,
+} from "@/utils/emailValidation";
 
 type AuthFormData = {
   username: string;
@@ -27,8 +31,6 @@ type AuthResult = {
 type AuthFormInputEvent = {
   target: HTMLInputElement;
 };
-
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong.";
@@ -91,12 +93,17 @@ export function SignInSignUp() {
       return;
     }
 
-    if (!emailRegex.test(form.email)) {
-      alert("Please enter a valid email address");
+    const emailValidationMessage = getEmailValidationMessage(form.email);
+    if (emailValidationMessage) {
+      alert(emailValidationMessage);
       return;
     }
 
-    const result = await signUpUser(form.email, form.pass, form.username);
+    const result = await signUpUser(
+      normalizeEmailAddress(form.email),
+      form.pass,
+      form.username
+    );
 
     if (!result.success) {
       alert(result.message || "Sign up failed.");
@@ -127,7 +134,17 @@ export async function signUpUser(
   }
 
   try {
-    const passwordPolicy = evaluatePasswordPolicy(password, { email, username });
+    const normalizedEmail = normalizeEmailAddress(email);
+    const emailValidationMessage = getEmailValidationMessage(normalizedEmail);
+
+    if (emailValidationMessage) {
+      return { success: false, message: emailValidationMessage };
+    }
+
+    const passwordPolicy = evaluatePasswordPolicy(password, {
+      email: normalizedEmail,
+      username,
+    });
 
     if (!passwordPolicy.isValid) {
       return {
@@ -138,7 +155,7 @@ export async function signUpUser(
 
     const supabase = getSupabaseClient();
     const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
+      email: normalizedEmail,
       password,
       options: {
         data: {
@@ -172,9 +189,16 @@ export async function signInUser(
   }
 
   try {
+    const normalizedEmail = normalizeEmailAddress(email);
+    const emailValidationMessage = getEmailValidationMessage(normalizedEmail);
+
+    if (emailValidationMessage) {
+      return { success: false, message: emailValidationMessage };
+    }
+
     const supabase = getSupabaseClient();
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: normalizedEmail,
       password,
     });
 
@@ -197,9 +221,16 @@ export async function sendMagicLink(
   }
 
   try {
+    const normalizedEmail = normalizeEmailAddress(email);
+    const emailValidationMessage = getEmailValidationMessage(normalizedEmail);
+
+    if (emailValidationMessage) {
+      return { success: false, message: emailValidationMessage };
+    }
+
     const supabase = getSupabaseClient();
     const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
+      email: normalizedEmail,
       options: {
         emailRedirectTo: getAuthCallbackUrl(redirectTo),
       },
@@ -249,10 +280,17 @@ export async function resendSignUpConfirmation(
   }
 
   try {
+    const normalizedEmail = normalizeEmailAddress(email);
+    const emailValidationMessage = getEmailValidationMessage(normalizedEmail);
+
+    if (emailValidationMessage) {
+      return { success: false, message: emailValidationMessage };
+    }
+
     const supabase = getSupabaseClient();
     const { error } = await supabase.auth.resend({
       type: "signup",
-      email: email.trim(),
+      email: normalizedEmail,
       options: {
         emailRedirectTo: getAuthCallbackUrl("/dashboard/home"),
       },
@@ -277,12 +315,19 @@ export async function sendPasswordReset(email: string) {
   }
 
   try {
+    const normalizedEmail = normalizeEmailAddress(email);
+    const emailValidationMessage = getEmailValidationMessage(normalizedEmail);
+
+    if (emailValidationMessage) {
+      return { success: false, message: emailValidationMessage };
+    }
+
     const response = await fetch("/api/auth/password-reset", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email: email.trim() }),
+      body: JSON.stringify({ email: normalizedEmail }),
     });
     const result = (await response.json().catch(() => null)) as AuthResult | null;
 
@@ -378,9 +423,16 @@ export async function updateEmailAddress(email: string) {
   }
 
   try {
+    const normalizedEmail = normalizeEmailAddress(email);
+    const emailValidationMessage = getEmailValidationMessage(normalizedEmail);
+
+    if (emailValidationMessage) {
+      return { success: false, message: emailValidationMessage };
+    }
+
     const supabase = getSupabaseClient();
     const { error } = await supabase.auth.updateUser(
-      { email: email.trim() },
+      { email: normalizedEmail },
       {
         emailRedirectTo: getAuthCallbackUrl("/dashboard/home"),
       }

@@ -10,7 +10,6 @@ import type {
 export type DashboardDataCache = {
   userId?: string;
   profile?: BuckProfile;
-  avatarUrl?: string | null;
   accountDeletionStatus?: AccountDeletionStatus | null;
   categories?: BuckCategory[];
   expenses?: BuckExpense[];

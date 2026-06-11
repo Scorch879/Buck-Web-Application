@@ -163,9 +163,6 @@ export default function SettingsPage() {
     username: displayName,
   });
   const passwordProgress = Math.min(100, Math.max(8, passwordPolicy.score * 20));
-  const avatarSource = profile?.avatarPath
-    ? privateAvatarSource
-    : fallbackAvatarSource;
   const accountEmail = profile?.email || user.email || "";
   const hasAvatar = Boolean(profile?.avatarPath);
   const isBusy =
@@ -210,9 +207,6 @@ export default function SettingsPage() {
           getUserProfile(user.uid),
           getAccountDeletionStatus(user.uid),
         ]);
-        const signedAvatarUrl = await getUserAvatarSignedUrl(
-          loadedProfile.avatarPath
-        );
 
         if (!active) {
           return;
@@ -221,12 +215,10 @@ export default function SettingsPage() {
         setProfile(loadedProfile);
         setDisplayName(loadedProfile.username || user.displayName || "");
         setEmail(loadedProfile.email || user.email || "");
-        setAvatarUrl(signedAvatarUrl);
         setDeletionStatus(loadedDeletionStatus);
         setDashboardCache((currentCache) =>
           mergeDashboardDataCache(currentCache, user.uid, {
             profile: loadedProfile,
-            avatarUrl: signedAvatarUrl,
             accountDeletionStatus: loadedDeletionStatus,
           })
         );
@@ -253,14 +245,6 @@ export default function SettingsPage() {
   useEffect(() => {
     setIsDarkTheme(documentThemeIsDark);
   }, [documentThemeIsDark]);
-
-  useEffect(() => {
-    return () => {
-      if (localAvatarPreview) {
-        URL.revokeObjectURL(localAvatarPreview);
-      }
-    };
-  }, [localAvatarPreview]);
 
   const clearMessages = () => {
     setNotice("");
@@ -349,15 +333,18 @@ export default function SettingsPage() {
     }
 
     clearMessages();
-    const previewUrl = URL.createObjectURL(file);
+    const validationError = getAvatarFileValidationError(file);
 
-    setLocalAvatarPreview((currentPreview) => {
-      if (currentPreview) {
-        URL.revokeObjectURL(currentPreview);
+    if (validationError) {
+      setError(validationError);
+
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = "";
       }
 
-      return previewUrl;
-    });
+      return;
+    }
+
     setSavingAvatar(true);
 
     try {
@@ -366,32 +353,15 @@ export default function SettingsPage() {
         file,
         profile?.avatarPath
       );
-      const signedAvatarUrl = await getUserAvatarSignedUrl(nextProfile.avatarPath);
 
       setProfile(nextProfile);
-      setAvatarUrl(signedAvatarUrl);
       setDashboardCache((currentCache) =>
         mergeDashboardDataCache(currentCache, user.uid, {
           profile: nextProfile,
-          avatarUrl: signedAvatarUrl,
         })
       );
-      setLocalAvatarPreview((currentPreview) => {
-        if (currentPreview) {
-          URL.revokeObjectURL(currentPreview);
-        }
-
-        return null;
-      });
       setNotice("Profile picture updated.");
     } catch (avatarError) {
-      setLocalAvatarPreview((currentPreview) => {
-        if (currentPreview) {
-          URL.revokeObjectURL(currentPreview);
-        }
-
-        return null;
-      });
       setError(getSettingsErrorMessage(avatarError));
     } finally {
       setSavingAvatar(false);
@@ -413,12 +383,9 @@ export default function SettingsPage() {
     try {
       const nextProfile = await removeUserAvatar(user.uid, profile.avatarPath);
       setProfile(nextProfile);
-      setAvatarUrl(null);
-      setLocalAvatarPreview(null);
       setDashboardCache((currentCache) =>
         mergeDashboardDataCache(currentCache, user.uid, {
           profile: nextProfile,
-          avatarUrl: null,
         })
       );
       setNotice("Profile picture removed.");
@@ -664,7 +631,8 @@ export default function SettingsPage() {
 
               <div className="settings-avatar-panel">
                 <img
-                  src={avatarSource}
+                  key={profile?.avatarUpdatedAt || profile?.avatarPath || "fallback"}
+                  src={hasAvatar ? privateAvatarSource : fallbackAvatarSource}
                   alt=""
                   className={`settings-avatar${hasAvatar ? "" : " settings-avatar--fallback"}`}
                 />

@@ -6,6 +6,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signInUser, signInWithGoogle } from "@/component/authentication";
 import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
+import {
+  getEmailValidationMessage,
+  normalizeEmailAddress,
+} from "@/utils/emailValidation";
 import { motion } from "framer-motion";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 import {
@@ -103,10 +107,6 @@ const SignIn = () => {
 
   useRedirectIfAuthenticated(redirectTo);
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
   const handleSignIn = async (e: FormEvent) => {
     e.preventDefault();
     if (isAuthBusy) {
@@ -115,13 +115,15 @@ const SignIn = () => {
 
     setError("");
     setMsg("");
+    const normalizedEmail = normalizeEmailAddress(email);
 
-    if (!email || !pass) {
+    if (!normalizedEmail || !pass) {
       setError("Please enter both email and password.");
       return;
     }
-    if (!validateEmail(email)) {
-      setError("Please enter a valid email address.");
+    const emailValidationMessage = getEmailValidationMessage(email);
+    if (emailValidationMessage) {
+      setError(emailValidationMessage);
       return;
     }
     if (pass.length < 6) {
@@ -132,7 +134,7 @@ const SignIn = () => {
     setIsSigningIn(true);
     setMsg("Checking your account...");
 
-    const result = await signInUser(email, pass);
+    const result = await signInUser(normalizedEmail, pass);
 
     if (result.success) {
       setMsg("Sign in successful. Opening your dashboard...");
