@@ -1,6 +1,10 @@
+/* ============================================================
+   Goal Progress Card — SVG Ring Layout
+   ============================================================ */
+
 .progress-card {
   position: relative;
-  padding: 1rem;
+  padding: 1rem 1.2rem;
   margin-bottom: 1rem;
   overflow: hidden;
   color: var(--buck-ink);
@@ -10,8 +14,7 @@
   box-shadow: var(--buck-shadow);
   transition:
     border-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms ease;
+    box-shadow 180ms ease;
 }
 
 .progress-card::before {
@@ -30,96 +33,129 @@
     transform 180ms ease;
 }
 
-.progress-card:hover {
-  border-color: rgba(244, 117, 54, 0.48);
-  box-shadow: 0 22px 48px rgba(94, 59, 34, 0.14);
-  transform: translateY(-3px);
-}
-
-html[data-buck-theme="dark"] .progress-card:hover {
-  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.32);
-}
-
 .progress-card:hover::before {
   opacity: 1;
   transform: scaleX(1);
 }
 
-.progress-header {
+/* Ring + text layout */
+.progress-ring-layout {
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
   align-items: center;
-  margin-bottom: 1rem;
+  gap: 1.4rem;
+}
+
+/* SVG wrapper with centered label */
+.progress-ring-wrapper {
+  position: relative;
+  flex-shrink: 0;
+  width: 120px;
+  height: 120px;
+}
+
+.progress-ring-svg {
+  display: block;
+  /* rotate handled per-element with transform attribute */
+}
+
+.progress-ring-arc {
+  transition: stroke-dashoffset 0.9s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.5s ease;
+}
+
+.progress-ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.progress-ring-pct {
+  color: var(--buck-ink);
+  font-size: 1.25rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.progress-ring-label {
+  color: var(--buck-muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 0.18rem;
+}
+
+/* Info panel beside ring */
+.progress-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
 }
 
 .progress-title {
   margin: 0;
   color: var(--buck-ink);
-  font-size: 1.2rem;
+  font-size: 1.05rem;
   font-weight: 900;
-}
-
-.progress-percentage {
-  color: var(--buck-orange);
-  font-size: 1.1rem;
-  font-weight: 900;
-}
-
-.progress-bar-container {
-  position: relative;
-  width: 100%;
-  height: 12px;
-  margin-bottom: 0.6rem;
-  overflow: hidden;
-  background: rgba(244, 117, 54, 0.12);
-  border-radius: 999px;
-}
-
-.progress-bar-fill {
-  position: relative;
-  height: 100%;
-  background: linear-gradient(90deg, var(--buck-gold), var(--buck-orange), var(--buck-coral));
-  border-radius: inherit;
-  transition: width 0.8s ease-in-out;
-}
-
-.progress-bar-fill::after {
-  position: absolute;
-  inset: 0;
-  content: "";
-  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.34) 50%, transparent 100%);
-  animation: shimmer 2s infinite;
-}
-
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(100%);
-  }
 }
 
 .progress-stats {
   display: flex;
-  justify-content: space-between;
-  gap: 0.8rem;
-  align-items: center;
+  flex-direction: column;
+  gap: 0.3rem;
   color: var(--buck-muted);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
 
-.progress-amount {
+.progress-amount strong,
+.progress-remaining strong,
+.progress-target strong {
   color: var(--buck-ink);
   font-weight: 850;
+  margin-left: 0.25rem;
 }
 
-.progress-remaining {
+.progress-remaining strong {
   color: var(--buck-coral);
-  font-weight: 850;
 }
+
+.progress-target strong {
+  color: var(--buck-orange);
+}
+
+/* Add Progress button */
+.progress-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  margin-top: 0.35rem;
+  padding: 0.52rem 0.9rem;
+  color: #241409;
+  background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
+  border: 0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 900;
+  cursor: pointer;
+  transition:
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+html[data-buck-theme="dark"] .progress-add-btn {
+  color: #241409;
+  background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
+}
+
+/* ============================================================
+   Add Progress Modal (shared with goals/page.tsx)
+   ============================================================ */
 
 .modal-backdrop {
   position: fixed;
@@ -130,6 +166,7 @@ html[data-buck-theme="dark"] .progress-card:hover {
   justify-content: center;
   padding: 1rem;
   background: rgba(18, 13, 10, 0.48);
+  backdrop-filter: blur(6px);
 }
 
 .modal {
@@ -162,22 +199,32 @@ html[data-buck-theme="dark"] .progress-card:hover {
   border-radius: 8px;
   font-size: 1rem;
   outline: none;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
 html[data-buck-theme="dark"] .modal input[type="number"] {
   background: rgba(255, 197, 71, 0.08);
 }
 
-.modal button,
-.addProgress-btn,
-.addProgress-btns {
+.modal input[type="number"]:focus {
+  border-color: var(--buck-orange);
+  box-shadow: 0 0 0 3px rgba(244, 117, 54, 0.18);
+}
+
+/* Primary modal button */
+.addProgress-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 42px;
   padding: 0.66rem 1rem;
-  color: #fffaf4;
-  background: linear-gradient(135deg, var(--buck-orange), var(--buck-coral));
+  color: #241409;
+  background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
   border: 0;
   border-radius: 8px;
-  font-weight: 850;
+  font-weight: 900;
   cursor: pointer;
   transition:
     box-shadow 180ms ease,
@@ -185,45 +232,67 @@ html[data-buck-theme="dark"] .modal input[type="number"] {
     opacity 180ms ease;
 }
 
-html[data-buck-theme="dark"] .modal button,
-html[data-buck-theme="dark"] .addProgress-btn,
-html[data-buck-theme="dark"] .addProgress-btns {
+html[data-buck-theme="dark"] .addProgress-btn {
   color: #241409;
   background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
 }
 
-.modal button:hover,
-.addProgress-btn:hover,
-.addProgress-btns:hover {
-  transform: translateY(-2px);
-}
-
-.modal button:disabled {
+.addProgress-btn:disabled {
   cursor: not-allowed;
   opacity: 0.65;
 }
 
-.modal button:last-child {
-  color: var(--buck-ink);
-  background: rgba(255, 240, 200, 0.45);
-  border: 1px solid var(--buck-line);
-}
-
-html[data-buck-theme="dark"] .modal button:last-child {
-  background: rgba(255, 197, 71, 0.1);
-}
-
+/* Cancel button inside modal (last-child) */
 .ProgressModal-btns {
   display: flex;
   justify-content: center;
   gap: 0.7rem;
 }
 
+.ProgressModal-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0.66rem 1rem;
+  color: var(--buck-muted);
+  background: rgba(255, 240, 200, 0.45);
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+  font-weight: 850;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+
+html[data-buck-theme="dark"] .ProgressModal-cancel-btn {
+  background: rgba(255, 197, 71, 0.1);
+  color: var(--buck-ink);
+}
+
+.ProgressModal-cancel-btn:hover {
+  background: rgba(255, 197, 71, 0.2);
+  border-color: rgba(244, 117, 54, 0.38);
+  transform: translateY(-1px);
+}
+
 @media (max-width: 520px) {
-  .progress-header,
-  .progress-stats,
+  .progress-ring-layout {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .progress-stats {
+    align-items: center;
+  }
+
   .ProgressModal-btns {
     flex-direction: column;
     align-items: stretch;
   }
 }
+
+.progress-liquid-container { position: relative; width: 140px; height: 140px; border-radius: 50%; border: 4px solid rgba(244,117,54,0.15); overflow: hidden; background: var(--buck-surface); flex-shrink: 0; box-shadow: inset 0 0 10px rgba(0,0,0,0.05); } .progress-liquid-fill { position: absolute; bottom: 0; left: 0; width: 100%; transition: height 1s cubic-bezier(0.4, 0, 0.2, 1); background: radial-gradient(circle at 50% 10%, #ffc547 0%, #f47536 50%, #ff3838 100%); } .progress-liquid-fill::before { content: ''; position: absolute; top: -10px; left: -50%; width: 200%; height: 20px; background: inherit; border-radius: 50%; opacity: 0.8; } .progress-liquid-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2; text-shadow: 0 1px 3px rgba(255,255,255,0.8); } .progress-liquid-title { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.2rem; } .progress-liquid-pct { font-size: 2.2rem; font-weight: 900; line-height: 1; } html[data-buck-theme='dark'] .progress-liquid-text { text-shadow: 0 2px 4px rgba(0,0,0,0.8); }

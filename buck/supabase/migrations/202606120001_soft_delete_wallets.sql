@@ -1,0 +1,1 @@
+ALTER TABLE "public"."wallets" ADD COLUMN "deleted_at" TIMESTAMPTZ DEFAULT NULL;

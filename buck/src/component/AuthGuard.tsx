@@ -19,14 +19,18 @@ export default function AuthGuard({
   const { user, loading } = useAuthGuard(initialUser);
 
   if (loading || !user) {
-    if (fallback) {
+    const isRedirectingOut = !loading && !user;
+
+    if (fallback && !isRedirectingOut) {
       return <>{fallback}</>;
     }
 
     return (
-      <div className="loading-spinner">
+      <div className="loading-spinner" style={isRedirectingOut ? { minHeight: "100vh" } : undefined}>
         <div className="spinner" />
-        <div className="loading-text">Loading Buck...</div>
+        <div className="loading-text">
+          {isRedirectingOut ? "Redirecting..." : "Loading Buck..."}
+        </div>
       </div>
     );
   }

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   FaBars,
   FaBullseye,
+  FaChartArea,
   FaChartLine,
   FaCog,
   FaHome,
@@ -29,12 +30,18 @@ const dashboardNavItems = [
     href: "/dashboard/expenses",
     icon: FaReceipt,
   },
-  { id: "wallet", label: "Wallet", action: "wallet", icon: FaWallet },
+  { id: "wallet", label: "Wallet", href: "/dashboard/wallet", icon: FaWallet },
   {
     id: "advisor",
     label: "Financial Advisor",
     href: "/dashboard/financial-advisor",
     icon: FaRobot,
+  },
+  {
+    id: "forecast",
+    label: "Forecast",
+    href: "/dashboard/forecast",
+    icon: FaChartArea,
   },
   {
     id: "statistics",
@@ -43,6 +50,7 @@ const dashboardNavItems = [
     icon: FaChartLine,
   },
   { id: "goals", label: "Goals", href: "/dashboard/goals", icon: FaBullseye },
+  { id: "admin", label: "Admin", href: "/dashboard/admin", icon: FaRobot, adminOnly: true },
   { id: "settings", label: "Settings", href: "/dashboard/settings", icon: FaCog },
 ] as const;
 
@@ -77,6 +85,7 @@ export default function DashboardHeader({
   const [menuOpen, setMenuOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const user = useOptionalDashboardUser();
@@ -88,6 +97,10 @@ export default function DashboardHeader({
     user?.email?.split("@")[0] ||
     "Buck user";
   const accountSubtitle = user?.email || "Signed in";
+  
+  const avatarSource = userCache.profile?.avatarPath
+    ? `/api/profile/avatar${userCache.profile.avatarUpdatedAt ? `?v=${userCache.profile.avatarUpdatedAt}` : ""}`
+    : null;
 
   const currentNav =
     dashboardNavItems.find(
@@ -98,6 +111,10 @@ export default function DashboardHeader({
   useEffect(() => {
     setActiveNav(currentNav);
   }, [currentNav]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     dashboardNavItems.forEach((item) => {
@@ -112,14 +129,21 @@ export default function DashboardHeader({
     void audio.play();
   };
 
+  useEffect(() => {
+    const handleOpenWallet = () => {
+      setActiveNav("wallet");
+      setWalletOpen(true);
+    };
+
+    window.addEventListener("open-wallet-modal", handleOpenWallet);
+    return () => {
+      window.removeEventListener("open-wallet-modal", handleOpenWallet);
+    };
+  }, []);
+
   const navigateTo = (item: DashboardNavItem) => {
     setActiveNav(item.id);
     setMenuOpen(false);
-
-    if ("action" in item && item.action === "wallet") {
-      setWalletOpen(true);
-      return;
-    }
 
     if (!("href" in item)) {
       return;
@@ -142,7 +166,7 @@ export default function DashboardHeader({
 
     if (result.success) {
       setDashboardCache({});
-      window.location.replace("/");
+      router.replace("/");
       return;
     }
 
@@ -151,31 +175,38 @@ export default function DashboardHeader({
   };
 
   const renderNavItems = () =>
-    dashboardNavItems.map((item) => {
-      const Icon = item.icon;
+    dashboardNavItems
+      .filter((item) => {
+        if ('adminOnly' in item && item.adminOnly) {
+          return user?.email === "buckthebudgettracker@gmail.com";
+        }
+        return true;
+      })
+      .map((item) => {
+        const Icon = item.icon;
 
-      return (
-        <button
-          key={item.id}
-          className={`nav-button ${activeNav === item.id ? "active" : ""}`}
-          type="button"
-          onClick={() => navigateTo(item)}
-          onFocus={() => {
-            if ("href" in item) {
-              router.prefetch(item.href);
-            }
-          }}
-          onMouseEnter={() => {
-            if ("href" in item) {
-              router.prefetch(item.href);
-            }
-          }}
-        >
-          <Icon aria-hidden="true" />
-          {item.label}
-        </button>
-      );
-    });
+        return (
+          <button
+            key={item.id}
+            className={`nav-button ${activeNav === item.id ? "active" : ""}`}
+            type="button"
+            onClick={() => navigateTo(item)}
+            onFocus={() => {
+              if ("href" in item) {
+                router.prefetch(item.href);
+              }
+            }}
+            onMouseEnter={() => {
+              if ("href" in item) {
+                router.prefetch(item.href);
+              }
+            }}
+          >
+            <Icon aria-hidden="true" />
+            {item.label}
+          </button>
+        );
+      });
 
   return (
     <header className="dashboard-header">
@@ -220,7 +251,16 @@ export default function DashboardHeader({
             aria-label={isSigningOut ? "Signing out" : "Sign out"}
           >
             <span className="dashboard-account-avatar" aria-hidden="true">
-              {getInitials(displayName)}
+              {mounted && avatarSource ? (
+                <img
+                  src={avatarSource}
+                  alt=""
+                  className="dashboard-avatar-img"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                getInitials(displayName)
+              )}
             </span>
             <span className="dashboard-account-copy">
               <strong>{displayName}</strong>
@@ -266,8 +306,18 @@ export default function DashboardHeader({
               void handleSignOut();
             }}
           >
-            <span className="dashboard-account-avatar" aria-hidden="true">
-              {getInitials(displayName)}
+            <span className="dashboard-account-avatar" aria-hidden="true" suppressHydrationWarning>
+              {avatarSource ? (
+                <img
+                  src={avatarSource}
+                  alt=""
+                  className="dashboard-avatar-img"
+                  referrerPolicy="no-referrer"
+                  suppressHydrationWarning
+                />
+              ) : (
+                getInitials(displayName)
+              )}
             </span>
             <span className="dashboard-account-copy">
               <strong>{displayName}</strong>

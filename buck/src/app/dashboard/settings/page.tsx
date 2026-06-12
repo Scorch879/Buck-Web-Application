@@ -13,8 +13,10 @@ import {
   FaEnvelope,
   FaExclamationTriangle,
   FaGoogle,
+  FaLightbulb,
   FaLock,
   FaMoon,
+  FaPaperPlane,
   FaShieldAlt,
   FaSun,
   FaTimes,
@@ -41,6 +43,7 @@ import {
   removeUserAvatar,
   replaceUserAvatar,
   updateUserProfileName,
+  submitFeedback,
   type AccountDeletionStatus,
   type BuckProfile,
 } from "@/utils/supabaseData";
@@ -75,6 +78,12 @@ const settingsTabs = [
     label: "Danger Zone",
     description: "Deletion request and recovery status.",
     icon: FaExclamationTriangle,
+  },
+  {
+    id: "feedback",
+    label: "Feedback",
+    description: "Share a suggestion or report a bug.",
+    icon: FaEnvelope,
   },
 ] as const;
 
@@ -184,6 +193,10 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [feedbackCategory, setFeedbackCategory] = useState("feature");
+  const [feedbackTitle, setFeedbackTitle] = useState("");
+  const [feedbackDetails, setFeedbackDetails] = useState("");
+  const [sendingFeedback, setSendingFeedback] = useState(false);
   const hadInitialSettingsData = useRef(hasInitialSettingsData);
 
   const providerLabel = getProviderLabel(user.authProviders);
@@ -606,31 +619,33 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSendFeedback = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (sendingFeedback || !feedbackTitle.trim() || !feedbackDetails.trim()) {
+      return;
+    }
+
+    clearMessages();
+    setSendingFeedback(true);
+
+    try {
+      await submitFeedback(accountEmail, feedbackCategory, feedbackTitle, feedbackDetails);
+      setNotice("Thank you! Your feedback has been submitted successfully.");
+      setFeedbackTitle("");
+      setFeedbackDetails("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to submit feedback");
+    } finally {
+      setSendingFeedback(false);
+    }
+  };
+
   if (loadingProfile) {
     return <DashboardPageSkeleton variant="settings" />;
   }
 
   return (
     <main className="settings-page">
-      <section className="settings-hero">
-        <div>
-          <p className="settings-eyebrow">Account settings</p>
-          <h1>Keep your Buck profile tidy.</h1>
-          <p>
-            Manage your display name, profile picture, email, and account
-            security from one protected place.
-          </p>
-        </div>
-        <div className="settings-account-card">
-          <span className="settings-account-icon" aria-hidden="true">
-            <FaShieldAlt />
-          </span>
-          <div>
-            <strong>{providerLabel}</strong>
-            <span>{accountEmail || "No email on file"}</span>
-          </div>
-        </div>
-      </section>
 
       {notice ? (
         <div className="settings-message settings-message--success">
@@ -662,8 +677,23 @@ export default function SettingsPage() {
           })}
         </nav>
 
-        <article className="settings-card settings-card--panel">
-          <div className="settings-card-heading settings-card-heading--wide">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(0.7rem, 1.4vw, 0.95rem)' }}>
+          <div className="settings-account-card">
+            <img
+              key={profile?.avatarUpdatedAt || profile?.avatarPath || "fallback"}
+              src={hasAvatar ? privateAvatarSource : fallbackAvatarSource}
+              alt=""
+              className={`settings-account-icon${hasAvatar ? "" : " settings-avatar--fallback"}`}
+              style={hasAvatar ? { objectFit: 'cover' } : {}}
+            />
+            <div>
+              <strong>{providerLabel}</strong>
+              <span>{accountEmail || "No email on file"}</span>
+            </div>
+          </div>
+
+          <article className="settings-card settings-card--panel">
+            <div className="settings-card-heading settings-card-heading--wide">
             <span aria-hidden="true">
               <ActiveSettingsIcon />
             </span>
@@ -999,9 +1029,84 @@ export default function SettingsPage() {
                 )}
               </section>
             ) : null}
+
+            {activeSettingsTab === "feedback" ? (
+              <div style={{ paddingTop: '0.5rem', gridColumn: '1 / -1' }}>
+                <p style={{ color: 'var(--buck-muted)', fontSize: '0.92rem', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+                  Spotted a bug, have a feature idea, or want to flag a question? Tell us — the team reads every note.
+                </p>
+
+                <form className="settings-form" onSubmit={handleSendFeedback}>
+                  <div className="settings-field">
+                    <label style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--buck-muted)', letterSpacing: '0.05em' }}>What's this about?</label>
+                    <div className="feedback-category-grid" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.2rem' }}>
+                      {[
+                        { id: 'feature', title: 'Feature idea', desc: "Something new you'd love to see" },
+                        { id: 'bug', title: 'Bug report', desc: "Something isn't working right" },
+                        { id: 'question', title: 'Question issue', desc: "A problem with the question bank" },
+                        { id: 'general', title: 'General feedback', desc: "Anything else on your mind" }
+                      ].map(cat => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          className={`feedback-category-card ${feedbackCategory === cat.id ? 'active' : ''}`}
+                          onClick={() => setFeedbackCategory(cat.id)}
+                          style={{ flex: '1 1 calc(50% - 0.5rem)', padding: '1rem', minWidth: '200px' }}
+                        >
+                          <strong>{cat.title}</strong>
+                          <span style={{ fontSize: '0.85rem' }}>{cat.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="settings-field" style={{ marginTop: '0.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                      <label htmlFor="feedback-title" style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--buck-muted)', letterSpacing: '0.05em' }}>Title</label>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--buck-muted)' }}>{feedbackTitle.length}/120</span>
+                    </div>
+                    <input
+                      id="feedback-title"
+                      value={feedbackTitle}
+                      onChange={(e) => setFeedbackTitle(e.target.value.slice(0, 120))}
+                      placeholder="A short summary"
+                      disabled={sendingFeedback}
+                    />
+                  </div>
+
+                  <div className="settings-field" style={{ marginTop: '0.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                      <label htmlFor="feedback-details" style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--buck-muted)', letterSpacing: '0.05em' }}>Details</label>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--buck-muted)' }}>{feedbackDetails.length}/2000</span>
+                    </div>
+                    <textarea
+                      id="feedback-details"
+                      value={feedbackDetails}
+                      onChange={(e) => setFeedbackDetails(e.target.value.slice(0, 2000))}
+                      placeholder="Tell us what you'd change, what happened, or what you'd like to see..."
+                      rows={6}
+                      disabled={sendingFeedback}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                    <button
+                      className="settings-button settings-button--primary"
+                      type="submit"
+                      disabled={sendingFeedback || !feedbackTitle.trim() || !feedbackDetails.trim()}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+                    >
+                      <FaPaperPlane aria-hidden="true" />
+                      {sendingFeedback ? "Sending..." : "Send feedback"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : null}
           </div>
         </article>
-      </section>
+      </div>
+    </section>
 
       {emailModalOpen ? (
         <div

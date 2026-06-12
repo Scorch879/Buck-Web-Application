@@ -13,6 +13,8 @@ import {
   ensureDefaultCategories,
   getUserProfile,
   listExpenses,
+  listWallets,
+  getActiveWalletId,
   subscribeUserTable,
   type BuckCategory,
   type BuckExpense,
@@ -161,9 +163,11 @@ export default function Dashboard() {
   const { user } = useDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
   const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
-  const hasInitialDashboardData = Boolean(
-    userCache.profile && userCache.categories && userCache.expenses
-  );
+  const hasInitialDashboardData = 
+    userCache.profile !== undefined && 
+    userCache.categories !== undefined && 
+    userCache.expenses !== undefined && 
+    userCache.wallets !== undefined;
   const [categories, setCategories] = useState<Category[]>(
     () => userCache.categories ?? []
   );
@@ -222,11 +226,21 @@ export default function Dashboard() {
       }
 
       try {
-        const [loadedProfile, nextCategories, nextExpenses] = await Promise.all([
+        const [loadedProfile, nextCategories, nextExpenses, loadedWallets, activeWalletId] = await Promise.all([
           getUserProfile(user.uid),
           ensureDefaultCategories(user.uid),
           listExpenses(user.uid),
+          listWallets(user.uid),
+          getActiveWalletId(user.uid),
         ]);
+        
+        let activeWalletBudget = null;
+        if (activeWalletId && loadedWallets) {
+          const activeWallet = loadedWallets.find((w) => w.id === activeWalletId);
+          if (activeWallet) {
+            activeWalletBudget = Number(activeWallet.budget);
+          }
+        }
 
         if (!active) {
           return;
@@ -239,6 +253,9 @@ export default function Dashboard() {
             profile: loadedProfile,
             categories: nextCategories,
             expenses: nextExpenses,
+            wallets: loadedWallets,
+            activeWalletId,
+            activeWalletBudget,
           })
         );
       } catch (error) {

@@ -2349,7 +2349,7 @@ html[data-buck-theme="dark"] .session-timeout-actions button:last-child {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--buck-page-background);
 }
 
 .spinner {

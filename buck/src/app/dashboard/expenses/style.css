@@ -1,8 +1,8 @@
 .expenses-page {
   display: grid;
   gap: clamp(1rem, 2vw, 1.25rem);
-  width: min(1180px, 100%);
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   padding: clamp(1rem, 2.6vw, 1.6rem);
 }
 
@@ -42,14 +42,14 @@
 
 .expenses-stats article:hover,
 .expenses-card:hover {
-  border-color: rgba(244, 117, 54, 0.44);
-  box-shadow: 0 22px 48px rgba(94, 59, 34, 0.14);
-  transform: translateY(-3px);
+  border-color: rgba(244, 117, 54, 0.38);
+  box-shadow: 0 16px 36px rgba(255, 122, 51, 0.12);
+  transform: translateY(-2px);
 }
 
 html[data-buck-theme="dark"] .expenses-stats article:hover,
 html[data-buck-theme="dark"] .expenses-card:hover {
-  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
 }
 
 .expenses-stats svg {
@@ -95,7 +95,17 @@ html[data-buck-theme="dark"] .expenses-card:hover {
   content: "";
   background: linear-gradient(90deg, var(--buck-orange), var(--buck-coral));
   border-radius: 0 0 8px 8px;
-  opacity: 0.72;
+  opacity: 0;
+  transform: scaleX(0.72);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.expenses-card:hover::before,
+.expenses-card:focus-within::before {
+  opacity: 1;
+  transform: scaleX(1);
 }
 
 .expenses-eyebrow {
@@ -141,6 +151,16 @@ html[data-buck-theme="dark"] .expenses-form select {
 .expenses-form select:focus {
   border-color: rgba(244, 117, 54, 0.62);
   box-shadow: 0 0 0 4px rgba(244, 117, 54, 0.14);
+}
+
+.expenses-form select option {
+  color: #241409;
+  background-color: #fffaf6;
+}
+
+html[data-buck-theme="dark"] .expenses-form select option {
+  color: #fff8ed;
+  background-color: #17100c;
 }
 
 .expenses-primary-button {

@@ -39,6 +39,8 @@ export type BuckWallet = {
   id: string;
   name: string;
   budget: number;
+  createdAt: string;
+  deletedAt: string | null;
 };
 
 export type BuckProfile = {
@@ -58,7 +60,16 @@ export type AccountDeletionStatus = {
   canceledAt: string | null;
 };
 
-type TableName = "wallets" | "categories" | "goals" | "expenses" | "profiles";
+export type BuckFeedback = {
+  id: string;
+  user_email: string;
+  category: string;
+  title: string;
+  details: string;
+  created_at: string;
+};
+
+type TableName = "wallets" | "categories" | "goals" | "expenses" | "profiles" | "feedback";
 
 const avatarBucketName = "profile-avatars";
 const maxAvatarSizeBytes = 2 * 1024 * 1024;
@@ -100,8 +111,8 @@ const previewCategories: BuckCategory[] = [
 ];
 
 const previewWallets: BuckWallet[] = [
-  { id: "preview-wallet-main", name: "Weekly Wallet", budget: 4280 },
-  { id: "preview-wallet-savings", name: "Savings Buffer", budget: 1850 },
+  { id: "preview-wallet-main", name: "Weekly Wallet", budget: 4280, createdAt: "2026-06-01T00:00:00.000Z", deletedAt: null },
+  { id: "preview-wallet-savings", name: "Savings Buffer", budget: 1850, createdAt: "2026-06-01T00:00:00.000Z", deletedAt: null },
 ];
 
 const previewGoals: BuckGoal[] = [
@@ -246,6 +257,8 @@ function mapWallet(row: Record<string, unknown>): BuckWallet {
     id: String(row.id),
     name: String(row.name || "Wallet"),
     budget: toNumber(row.budget),
+    createdAt: row.created_at ? String(row.created_at) : new Date().toISOString(),
+    deletedAt: row.deleted_at ? String(row.deleted_at) : null,
   };
 }
 
@@ -1084,7 +1097,7 @@ export async function listWallets(userId: string) {
   const safeUserId = assertUuid(userId, "user id");
   const { data, error } = await supabase
     .from("wallets")
-    .select("id, name, budget")
+    .select("id, name, budget, created_at, deleted_at")
     .eq("user_id", safeUserId)
     .order("created_at", { ascending: false });
 
@@ -1230,7 +1243,7 @@ export async function deleteWallet(userId: string, walletId: string) {
   const safeWalletId = assertUuid(walletId, "wallet id");
   const { error } = await supabase
     .from("wallets")
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq("id", safeWalletId)
     .eq("user_id", safeUserId);
 
@@ -1313,4 +1326,47 @@ export async function deleteExpenseAndRestoreWallet(
       budget: wallet.budget + amount,
     });
   }
+}
+
+export async function submitFeedback(
+  userEmail: string,
+  category: string,
+  title: string,
+  details: string
+) {
+  if (isDesignPreviewMode) {
+    return;
+  }
+
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.from("feedback").insert({
+    user_email: userEmail,
+    category,
+    title,
+    details,
+  });
+
+  if (error) {
+    console.error("Failed to submit feedback:", error);
+    throw new Error("Could not submit feedback");
+  }
+}
+
+export async function getAdminFeedback(): Promise<BuckFeedback[]> {
+  if (isDesignPreviewMode) {
+    return [];
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("feedback")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Failed to fetch feedback:", error);
+    throw new Error("Could not fetch feedback");
+  }
+
+  return data as BuckFeedback[];
 }

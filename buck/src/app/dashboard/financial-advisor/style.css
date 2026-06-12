@@ -1,8 +1,8 @@
 .advisor-page {
   display: grid;
   gap: clamp(1rem, 2vw, 1.25rem);
-  width: min(1180px, 100%);
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   padding: clamp(1rem, 2.6vw, 1.6rem);
 }
 
@@ -187,5 +187,18 @@ html[data-buck-theme="dark"] .advisor-card:focus-within {
   .advisor-score {
     width: 108px;
     height: 108px;
+  }
+}
+
+.advisor-ai-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(1rem, 2vw, 1.25rem);
+  margin-top: 1rem;
+}
+
+@media (min-width: 768px) {
+  .advisor-ai-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }
