@@ -13,8 +13,10 @@ import {
   FaEnvelope,
   FaExclamationTriangle,
   FaGoogle,
+  FaLightbulb,
   FaLock,
   FaMoon,
+  FaPaperPlane,
   FaShieldAlt,
   FaSun,
   FaTimes,
@@ -75,6 +77,12 @@ const settingsTabs = [
     label: "Danger Zone",
     description: "Deletion request and recovery status.",
     icon: FaExclamationTriangle,
+  },
+  {
+    id: "feedback",
+    label: "Feedback",
+    description: "Share a suggestion or report a bug.",
+    icon: FaEnvelope,
   },
 ] as const;
 
@@ -184,6 +192,10 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [feedbackCategory, setFeedbackCategory] = useState("feature");
+  const [feedbackTitle, setFeedbackTitle] = useState("");
+  const [feedbackDetails, setFeedbackDetails] = useState("");
+  const [sendingFeedback, setSendingFeedback] = useState(false);
   const hadInitialSettingsData = useRef(hasInitialSettingsData);
 
   const providerLabel = getProviderLabel(user.authProviders);
@@ -989,6 +1001,85 @@ export default function SettingsPage() {
                     </div>
                   </form>
                 )}
+              </section>
+            ) : null}
+
+            {activeSettingsTab === "feedback" ? (
+              <section className="settings-section settings-section--feedback">
+                <div className="settings-section-heading">
+                  <FaLightbulb aria-hidden="true" style={{ color: 'var(--buck-blue)' }} />
+                  <div>
+                    <h3 style={{ fontSize: '1.4rem' }}>Share a suggestion</h3>
+                    <p style={{ marginTop: '0.4rem' }}>Spotted a bug, have a feature idea, or want to flag a question? Tell us — the team reads every note.</p>
+                  </div>
+                </div>
+
+                <form className="settings-form" onSubmit={handleSendFeedback} style={{ background: 'var(--buck-surface)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--buck-line)', marginTop: '1rem' }}>
+                  <div className="settings-field">
+                    <label style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--buck-muted)', letterSpacing: '0.05em' }}>What's this about?</label>
+                    <div className="feedback-category-grid">
+                      {[
+                        { id: 'feature', title: 'Feature idea', desc: "Something new you'd love to see" },
+                        { id: 'bug', title: 'Bug report', desc: "Something isn't working right" },
+                        { id: 'question', title: 'Question issue', desc: "A problem with the question bank" },
+                        { id: 'general', title: 'General feedback', desc: "Anything else on your mind" }
+                      ].map(cat => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          className={`feedback-category-card ${feedbackCategory === cat.id ? 'active' : ''}`}
+                          onClick={() => setFeedbackCategory(cat.id)}
+                        >
+                          <strong>{cat.title}</strong>
+                          <span>{cat.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="settings-field" style={{ marginTop: '1.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                      <label htmlFor="feedback-title" style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--buck-muted)', letterSpacing: '0.05em' }}>Title</label>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--buck-muted)' }}>{feedbackTitle.length}/120</span>
+                    </div>
+                    <input
+                      id="feedback-title"
+                      value={feedbackTitle}
+                      onChange={(e) => setFeedbackTitle(e.target.value.slice(0, 120))}
+                      placeholder="A short summary"
+                      style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid var(--buck-line)' }}
+                      disabled={sendingFeedback}
+                    />
+                  </div>
+
+                  <div className="settings-field" style={{ marginTop: '1.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                      <label htmlFor="feedback-details" style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--buck-muted)', letterSpacing: '0.05em' }}>Details</label>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--buck-muted)' }}>{feedbackDetails.length}/2000</span>
+                    </div>
+                    <textarea
+                      id="feedback-details"
+                      value={feedbackDetails}
+                      onChange={(e) => setFeedbackDetails(e.target.value.slice(0, 2000))}
+                      placeholder="Tell us what you'd change, what happened, or what you'd like to see..."
+                      rows={6}
+                      style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid var(--buck-line)', resize: 'vertical', width: '100%', padding: '0.8rem', borderRadius: '8px', color: 'var(--buck-ink)', fontFamily: 'inherit' }}
+                      disabled={sendingFeedback}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                    <button
+                      className="settings-button"
+                      type="submit"
+                      disabled={sendingFeedback || !feedbackTitle.trim() || !feedbackDetails.trim()}
+                      style={{ background: 'rgba(255, 197, 71, 0.15)', color: 'var(--buck-orange)', border: '1px solid rgba(244, 117, 54, 0.2)', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', borderRadius: '8px', fontWeight: 700 }}
+                    >
+                      <FaPaperPlane aria-hidden="true" />
+                      {sendingFeedback ? "Sending..." : "Send feedback"}
+                    </button>
+                  </div>
+                </form>
               </section>
             ) : null}
           </div>

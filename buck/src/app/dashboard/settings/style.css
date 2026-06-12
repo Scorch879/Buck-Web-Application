@@ -1337,6 +1337,54 @@ html[data-buck-theme="dark"] .settings-button:focus-visible:not(:disabled) {
   }
 }
 
+.feedback-category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 0.8rem;
+}
+
+.feedback-category-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 1rem;
+  background: transparent;
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  color: var(--buck-ink);
+}
+
+.feedback-category-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--buck-orange);
+}
+
+.feedback-category-card.active {
+  background: rgba(255, 197, 71, 0.1);
+  border-color: var(--buck-orange);
+}
+
+html[data-buck-theme="dark"] .feedback-category-card.active {
+  background: rgba(255, 197, 71, 0.15);
+}
+
+.feedback-category-card strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 800;
+  margin-bottom: 0.2rem;
+}
+
+.feedback-category-card span {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--buck-muted);
+}
+
 @media (max-width: 900px) {
   .settings-shell {
     grid-template-columns: 1fr;

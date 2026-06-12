@@ -140,7 +140,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
             >
               <FaWallet aria-hidden="true" />
               <strong>Wallet</strong>
-              <span>
+              <span suppressHydrationWarning>
                 {new Intl.NumberFormat("en-PH", {
                   style: "currency",
                   currency: "PHP",

@@ -63,7 +63,7 @@ html[data-buck-theme="dark"] .dashboard-header {
 }
 
 .dashboard-brand:hover {
-  background: rgba(255, 197, 71, 0.1);
+  /* Removed highlight per user request */
 }
 
 .dashboard-mascot {
@@ -356,13 +356,15 @@ html[data-buck-theme="dark"] .nav-button.active {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.62rem;
-  width: 100%;
-  margin: 0;
+  width: calc(100% + 2 * clamp(0.85rem, 1.5vw, 1.15rem));
+  margin: 0 calc(-1 * clamp(0.85rem, 1.5vw, 1.15rem)) calc(-1 * clamp(0.85rem, 1.5vw, 1.15rem));
   min-height: 58px;
-  padding: 0.65rem 0.85rem;
+  padding: 0.85rem clamp(0.85rem, 1.5vw, 1.15rem);
   color: var(--buck-ink);
   background: transparent;
   border: none;
+  border-top: 1px solid var(--buck-line);
+  border-radius: 0;
   cursor: pointer;
   isolation: isolate;
   overflow: hidden;
@@ -375,6 +377,7 @@ html[data-buck-theme="dark"] .nav-button.active {
 
 html[data-buck-theme="dark"] .dashboard-account-tray {
   background: transparent;
+  border-top-color: rgba(255, 211, 154, 0.14);
 }
 
 .dashboard-account-tray:hover:not(:disabled),
