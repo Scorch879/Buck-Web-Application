@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { signInUser, signInWithGoogle } from "@/component/authentication";
 import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
 import {
@@ -82,8 +81,6 @@ function getAuthError(error: string | null) {
 }
 
 const SignIn = () => {
-  const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [message, setMsg] = useState("");
@@ -95,6 +92,10 @@ const SignIn = () => {
   const isDarkTheme = useAuthPageTheme();
   const signInButton = usePointerGradient<HTMLButtonElement>();
   const isAuthBusy = isSigningIn || isGoogleLoading;
+
+  const openAuthRedirect = (path: string) => {
+    window.location.assign(path);
+  };
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -138,7 +139,7 @@ const SignIn = () => {
 
     if (result.success) {
       setMsg("Sign in successful. Opening your dashboard...");
-      router.push(redirectTo);
+      openAuthRedirect(redirectTo);
       return;
     } else {
       setError(result.message || "Sign in failed.");
@@ -162,7 +163,7 @@ const SignIn = () => {
       setMsg("Redirecting to Google...");
 
       if (!result.redirecting) {
-        router.push(redirectTo);
+        openAuthRedirect(redirectTo);
       }
     } else if (result.cancelled) {
       setMsg("");

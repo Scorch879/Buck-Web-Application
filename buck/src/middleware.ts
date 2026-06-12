@@ -270,6 +270,26 @@ function clearActivityCookie(response: NextResponse) {
   });
 }
 
+function clearCookie(response: NextResponse, name: string) {
+  response.cookies.set(name, "", {
+    ...getCookieOptions(),
+    maxAge: 0,
+  });
+}
+
+function clearSupabaseAuthCookies(request: NextRequest, response: NextResponse) {
+  clearActivityCookie(response);
+
+  request.cookies.getAll().forEach(({ name }) => {
+    const isSupabaseAuthCookie =
+      name.startsWith("sb-") && name.includes("auth-token");
+
+    if (isSupabaseAuthCookie) {
+      clearCookie(response, name);
+    }
+  });
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isProtectedRoute = pathname.startsWith("/dashboard");
@@ -314,6 +334,7 @@ export async function middleware(request: NextRequest) {
     const redirectResponse = NextResponse.redirect(
       createSignInUrl(request, { error: "session-security-not-configured" })
     );
+    clearSupabaseAuthCookies(request, redirectResponse);
     setNoStoreHeaders(redirectResponse);
 
     return redirectResponse;

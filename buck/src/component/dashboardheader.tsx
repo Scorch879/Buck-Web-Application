@@ -142,8 +142,7 @@ export default function DashboardHeader({
 
     if (result.success) {
       setDashboardCache({});
-      router.replace("/");
-      router.refresh();
+      window.location.replace("/");
       return;
     }
 

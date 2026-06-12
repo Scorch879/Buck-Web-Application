@@ -32,8 +32,35 @@ type AuthFormInputEvent = {
   target: HTMLInputElement;
 };
 
+const CLIENT_AUTH_STORAGE_KEYS = [
+  "buck-dashboard-cache-v1",
+  "buck-session-last-activity",
+  "buck-session-force-signout",
+  "selectedGoalId",
+];
+
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong.";
+}
+
+function clearClientAuthStorage() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  CLIENT_AUTH_STORAGE_KEYS.forEach((key) => {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // Local storage cleanup is best-effort.
+    }
+
+    try {
+      window.sessionStorage.removeItem(key);
+    } catch {
+      // Session storage cleanup is best-effort.
+    }
+  });
 }
 
 function getSiteUrl() {
@@ -453,11 +480,14 @@ export async function updateEmailAddress(email: string) {
 
 export async function signOutUser() {
   if (!isSupabaseConfigured) {
+    clearClientAuthStorage();
     return getConfiguredAuthError();
   }
 
   try {
     const supabase = getSupabaseClient();
+    clearClientAuthStorage();
+
     const response = await fetch("/api/auth/sign-out", {
       method: "POST",
       cache: "no-store",
@@ -480,10 +510,13 @@ export async function signOutUser() {
       // Server cookies were already cleared; local cleanup is best-effort.
     }
 
+    clearClientAuthStorage();
+
     return { success: true };
   } catch (error) {
     try {
       const supabase = getSupabaseClient();
+      clearClientAuthStorage();
       const { error: signOutError } = await supabase.auth.signOut();
 
       if (signOutError) {
@@ -492,6 +525,7 @@ export async function signOutUser() {
 
       return { success: true };
     } catch {
+      clearClientAuthStorage();
       return { success: false, message: getErrorMessage(error) };
     }
   }
