@@ -43,6 +43,7 @@ import {
   removeUserAvatar,
   replaceUserAvatar,
   updateUserProfileName,
+  submitFeedback,
   type AccountDeletionStatus,
   type BuckProfile,
 } from "@/utils/supabaseData";
@@ -627,13 +628,16 @@ export default function SettingsPage() {
     clearMessages();
     setSendingFeedback(true);
 
-    // Simulate sending delay since we don't have a backend yet
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    setSendingFeedback(false);
-    setNotice("Thank you! Your feedback has been submitted successfully.");
-    setFeedbackTitle("");
-    setFeedbackDetails("");
+    try {
+      await submitFeedback(accountEmail, feedbackCategory, feedbackTitle, feedbackDetails);
+      setNotice("Thank you! Your feedback has been submitted successfully.");
+      setFeedbackTitle("");
+      setFeedbackDetails("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to submit feedback");
+    } finally {
+      setSendingFeedback(false);
+    }
   };
 
   if (loadingProfile) {
@@ -675,9 +679,13 @@ export default function SettingsPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(0.7rem, 1.4vw, 0.95rem)' }}>
           <div className="settings-account-card">
-            <span className="settings-account-icon" aria-hidden="true">
-              <FaShieldAlt />
-            </span>
+            <img
+              key={profile?.avatarUpdatedAt || profile?.avatarPath || "fallback"}
+              src={hasAvatar ? privateAvatarSource : fallbackAvatarSource}
+              alt=""
+              className={`settings-account-icon${hasAvatar ? "" : " settings-avatar--fallback"}`}
+              style={hasAvatar ? { objectFit: 'cover' } : {}}
+            />
             <div>
               <strong>{providerLabel}</strong>
               <span>{accountEmail || "No email on file"}</span>
@@ -1023,19 +1031,15 @@ export default function SettingsPage() {
             ) : null}
 
             {activeSettingsTab === "feedback" ? (
-              <section className="settings-section settings-section--feedback">
-                <div className="settings-section-heading">
-                  <FaLightbulb aria-hidden="true" style={{ color: 'var(--buck-blue)' }} />
-                  <div>
-                    <h3 style={{ fontSize: '1.4rem' }}>Share a suggestion</h3>
-                    <p style={{ marginTop: '0.4rem' }}>Spotted a bug, have a feature idea, or want to flag a question? Tell us — the team reads every note.</p>
-                  </div>
-                </div>
+              <div style={{ paddingTop: '0.5rem', gridColumn: '1 / -1' }}>
+                <p style={{ color: 'var(--buck-muted)', fontSize: '0.92rem', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+                  Spotted a bug, have a feature idea, or want to flag a question? Tell us — the team reads every note.
+                </p>
 
-                <form className="settings-form" onSubmit={handleSendFeedback} style={{ background: 'var(--buck-surface)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--buck-line)', marginTop: '1rem' }}>
+                <form className="settings-form" onSubmit={handleSendFeedback}>
                   <div className="settings-field">
                     <label style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--buck-muted)', letterSpacing: '0.05em' }}>What's this about?</label>
-                    <div className="feedback-category-grid">
+                    <div className="feedback-category-grid" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.2rem' }}>
                       {[
                         { id: 'feature', title: 'Feature idea', desc: "Something new you'd love to see" },
                         { id: 'bug', title: 'Bug report', desc: "Something isn't working right" },
@@ -1047,15 +1051,16 @@ export default function SettingsPage() {
                           type="button"
                           className={`feedback-category-card ${feedbackCategory === cat.id ? 'active' : ''}`}
                           onClick={() => setFeedbackCategory(cat.id)}
+                          style={{ flex: '1 1 calc(50% - 0.5rem)', padding: '1rem', minWidth: '200px' }}
                         >
                           <strong>{cat.title}</strong>
-                          <span>{cat.desc}</span>
+                          <span style={{ fontSize: '0.85rem' }}>{cat.desc}</span>
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  <div className="settings-field" style={{ marginTop: '1.5rem' }}>
+                  <div className="settings-field" style={{ marginTop: '0.5rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                       <label htmlFor="feedback-title" style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--buck-muted)', letterSpacing: '0.05em' }}>Title</label>
                       <span style={{ fontSize: '0.75rem', color: 'var(--buck-muted)' }}>{feedbackTitle.length}/120</span>
@@ -1065,12 +1070,11 @@ export default function SettingsPage() {
                       value={feedbackTitle}
                       onChange={(e) => setFeedbackTitle(e.target.value.slice(0, 120))}
                       placeholder="A short summary"
-                      style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid var(--buck-line)' }}
                       disabled={sendingFeedback}
                     />
                   </div>
 
-                  <div className="settings-field" style={{ marginTop: '1.5rem' }}>
+                  <div className="settings-field" style={{ marginTop: '0.5rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                       <label htmlFor="feedback-details" style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--buck-muted)', letterSpacing: '0.05em' }}>Details</label>
                       <span style={{ fontSize: '0.75rem', color: 'var(--buck-muted)' }}>{feedbackDetails.length}/2000</span>
@@ -1081,24 +1085,23 @@ export default function SettingsPage() {
                       onChange={(e) => setFeedbackDetails(e.target.value.slice(0, 2000))}
                       placeholder="Tell us what you'd change, what happened, or what you'd like to see..."
                       rows={6}
-                      style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid var(--buck-line)', resize: 'vertical', width: '100%', padding: '0.8rem', borderRadius: '8px', color: 'var(--buck-ink)', fontFamily: 'inherit' }}
                       disabled={sendingFeedback}
                     />
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
                     <button
-                      className="settings-button"
+                      className="settings-button settings-button--primary"
                       type="submit"
                       disabled={sendingFeedback || !feedbackTitle.trim() || !feedbackDetails.trim()}
-                      style={{ background: 'rgba(255, 197, 71, 0.15)', color: 'var(--buck-orange)', border: '1px solid rgba(244, 117, 54, 0.2)', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', borderRadius: '8px', fontWeight: 700 }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
                     >
                       <FaPaperPlane aria-hidden="true" />
                       {sendingFeedback ? "Sending..." : "Send feedback"}
                     </button>
                   </div>
                 </form>
-              </section>
+              </div>
             ) : null}
           </div>
         </article>

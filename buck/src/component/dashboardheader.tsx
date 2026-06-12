@@ -50,6 +50,7 @@ const dashboardNavItems = [
     icon: FaChartLine,
   },
   { id: "goals", label: "Goals", href: "/dashboard/goals", icon: FaBullseye },
+  { id: "admin", label: "Admin", href: "/dashboard/admin", icon: FaRobot, adminOnly: true },
   { id: "settings", label: "Settings", href: "/dashboard/settings", icon: FaCog },
 ] as const;
 
@@ -174,31 +175,38 @@ export default function DashboardHeader({
   };
 
   const renderNavItems = () =>
-    dashboardNavItems.map((item) => {
-      const Icon = item.icon;
+    dashboardNavItems
+      .filter((item) => {
+        if ('adminOnly' in item && item.adminOnly) {
+          return user?.email === "buckthebudgettracker@gmail.com";
+        }
+        return true;
+      })
+      .map((item) => {
+        const Icon = item.icon;
 
-      return (
-        <button
-          key={item.id}
-          className={`nav-button ${activeNav === item.id ? "active" : ""}`}
-          type="button"
-          onClick={() => navigateTo(item)}
-          onFocus={() => {
-            if ("href" in item) {
-              router.prefetch(item.href);
-            }
-          }}
-          onMouseEnter={() => {
-            if ("href" in item) {
-              router.prefetch(item.href);
-            }
-          }}
-        >
-          <Icon aria-hidden="true" />
-          {item.label}
-        </button>
-      );
-    });
+        return (
+          <button
+            key={item.id}
+            className={`nav-button ${activeNav === item.id ? "active" : ""}`}
+            type="button"
+            onClick={() => navigateTo(item)}
+            onFocus={() => {
+              if ("href" in item) {
+                router.prefetch(item.href);
+              }
+            }}
+            onMouseEnter={() => {
+              if ("href" in item) {
+                router.prefetch(item.href);
+              }
+            }}
+          >
+            <Icon aria-hidden="true" />
+            {item.label}
+          </button>
+        );
+      });
 
   return (
     <header className="dashboard-header">

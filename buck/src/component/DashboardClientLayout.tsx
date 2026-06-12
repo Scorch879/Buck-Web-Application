@@ -97,6 +97,14 @@ function getPageChrome(pathname: string | null) {
     };
   }
 
+  if (pathname?.startsWith("/dashboard/admin")) {
+    return {
+      title: "SuperAdmin Dashboard",
+      eyebrow: "Admin tools",
+      description: "Monitor feedback, logs, and deployments for Buck.",
+    };
+  }
+
   return {
     title: "Dashboard",
     eyebrow: "Home",
