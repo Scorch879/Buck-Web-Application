@@ -56,13 +56,15 @@ function normalizeOrigin(value: string) {
 }
 
 function getSiteOrigin(request: Request) {
-  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (process.env.NODE_ENV !== "development") {
+    const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
 
-  if (configuredSiteUrl) {
-    try {
-      return normalizeOrigin(configuredSiteUrl);
-    } catch {
-      console.warn("NEXT_PUBLIC_SITE_URL is not a valid URL.");
+    if (configuredSiteUrl) {
+      try {
+        return normalizeOrigin(configuredSiteUrl);
+      } catch {
+        console.warn("NEXT_PUBLIC_SITE_URL is not a valid URL.");
+      }
     }
   }
 

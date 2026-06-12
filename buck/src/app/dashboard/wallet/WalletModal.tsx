@@ -170,13 +170,14 @@ export default function WalletModal({
     setTimeout(() => setJustActivatedId(null), 900);
   };
 
-  const totalBudget = wallets.reduce(
+  const activeWallets = wallets.filter(w => !w.deletedAt);
+  const totalBudget = activeWallets.reduce(
     (sum, w) => sum + (Number(w.budget) || 0),
     0
   );
   const sortedWallets = [
-    ...wallets.filter((w) => w.id === activeWalletId),
-    ...wallets.filter((w) => w.id !== activeWalletId),
+    ...activeWallets.filter((w) => w.id === activeWalletId),
+    ...activeWallets.filter((w) => w.id !== activeWalletId),
   ];
 
   if (!open || !portalReady) return null;
@@ -223,9 +224,9 @@ export default function WalletModal({
         </form>
         <div className={styles.listSection}>
           {loading ? (
-            <div>Loading...</div>
-          ) : wallets.length === 0 ? (
-            <div>No wallets yet.</div>
+            <div className={styles.emptyState}>Loading...</div>
+          ) : activeWallets.length === 0 ? (
+            <div className={styles.emptyState}>No active wallets yet.</div>
           ) : (
             <ul className={styles.list}>
               {sortedWallets.map((w) => (

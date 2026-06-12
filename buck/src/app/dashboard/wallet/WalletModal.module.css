@@ -41,7 +41,7 @@
   color: var(--buck-orange);
   font-size: clamp(1.35rem, 4vw, 1.7rem);
   font-weight: 900;
-  text-align: center;
+  text-align: left;
 }
 
 .totalBudget {
@@ -49,7 +49,7 @@
   color: var(--buck-muted);
   font-size: 1rem;
   font-weight: 800;
-  text-align: center;
+  text-align: left;
 }
 
 .totalBudget span {
@@ -261,20 +261,23 @@ html[data-buck-theme="dark"] .listItem.active {
 
 .cancelBtn,
 .closeBtn {
-  color: var(--buck-ink);
-  background: rgba(255, 240, 200, 0.45);
-  border: 1px solid var(--buck-line);
+  color: #c62828;
+  background: rgba(255, 56, 56, 0.08);
+  border: 1px solid rgba(255, 56, 56, 0.28);
 }
 
 html[data-buck-theme="dark"] .cancelBtn,
 html[data-buck-theme="dark"] .closeBtn {
-  background: rgba(255, 197, 71, 0.1);
+  color: #ff8a80;
+  background: rgba(255, 56, 56, 0.12);
 }
 
 .cancelBtn:hover,
 .closeBtn:hover {
-  border-color: rgba(244, 117, 54, 0.46);
+  background: rgba(255, 56, 56, 0.18);
+  border-color: rgba(255, 56, 56, 0.46);
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 56, 56, 0.15);
 }
 
 .editInput {
@@ -285,6 +288,21 @@ html[data-buck-theme="dark"] .closeBtn {
 .closeBtn {
   margin-top: 1rem;
   padding: 0.7rem 1rem;
+}
+
+.emptyState {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--buck-muted);
+  font-size: 1.05rem;
+  font-weight: 700;
+  background: rgba(255, 250, 244, 0.4);
+  border: 1px dashed rgba(244, 117, 54, 0.3);
+  border-radius: 8px;
+}
+
+html[data-buck-theme="dark"] .emptyState {
+  background: rgba(255, 197, 71, 0.05);
 }
 
 .confirmText {

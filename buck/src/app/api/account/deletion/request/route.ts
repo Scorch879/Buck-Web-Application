@@ -18,7 +18,10 @@ function hashToken(token: string) {
 }
 
 function getOrigin(request: NextRequest) {
-  return process.env.NEXT_PUBLIC_SITE_URL?.trim() || request.nextUrl.origin;
+  if (process.env.NODE_ENV !== "development") {
+    return process.env.NEXT_PUBLIC_SITE_URL?.trim() || request.nextUrl.origin;
+  }
+  return request.nextUrl.origin;
 }
 
 function getDeletionErrorMessage(error: unknown) {

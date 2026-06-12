@@ -17,6 +17,7 @@ import {
   type BuckExpense,
   type BuckGoal,
 } from "@/utils/supabaseData";
+import { fetchAIAdvisorInsights, type AIAdvisorInsights } from "@/utils/advisorApi";
 import "./style.css";
 
 function getCurrentWeekStart() {
@@ -69,6 +70,9 @@ export default function FinancialAdvisorPage() {
   const [loading, setLoading] = useState(() => !hasInitialAdvisorData);
   const [error, setError] = useState("");
   const hadInitialAdvisorData = useRef(hasInitialAdvisorData);
+
+  const [aiInsights, setAiInsights] = useState<AIAdvisorInsights | null>(null);
+  const [loadingAi, setLoadingAi] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -139,7 +143,25 @@ export default function FinancialAdvisorPage() {
       }
     };
 
+    const loadAI = async () => {
+      try {
+        setLoadingAi(true);
+        // We will eventually pass the user context here
+        const insights = await fetchAIAdvisorInsights({});
+        if (active) {
+          setAiInsights(insights);
+        }
+      } catch (err) {
+        console.error("Failed to fetch AI insights:", err);
+      } finally {
+        if (active) {
+          setLoadingAi(false);
+        }
+      }
+    };
+
     void loadData();
+    void loadAI();
 
     const unsubscribeExpenses = subscribeUserTable(
       "expenses",
@@ -246,23 +268,33 @@ export default function FinancialAdvisorPage() {
         </article>
       </section>
 
-      <section className="advisor-card advisor-card--wide">
-        <span className="advisor-icon">
-          <FaLightbulb aria-hidden="true" />
-        </span>
-        <div>
-          <p className="advisor-eyebrow">Buck recommends</p>
-          <h3>
-            {walletBudget > 0
-              ? `Keep at least ${formatCurrency(Math.max(walletBudget * 0.25, 100))} untouched until the weekend.`
-              : "Start with a wallet budget before adding heavier forecasts."}
-          </h3>
-          <p>
-            This is a planning suggestion, not financial advice. Use it as a
-            reminder to review the numbers before making money decisions.
-          </p>
-        </div>
-      </section>
+      <div className="advisor-ai-grid">
+        <section className="advisor-card advisor-card--wide" style={{ display: 'flex', flexDirection: 'column' }}>
+          <span className="advisor-icon">
+            <FaLightbulb aria-hidden="true" />
+          </span>
+          <div>
+            <p className="advisor-eyebrow">AI Suggestion</p>
+            <h3>What to do next</h3>
+            <p style={{ minHeight: '80px', marginTop: '1rem' }}>
+              {loadingAi ? "Analyzing your financial data..." : aiInsights?.suggestion}
+            </p>
+          </div>
+        </section>
+
+        <section className="advisor-card advisor-card--wide" style={{ display: 'flex', flexDirection: 'column' }}>
+          <span className="advisor-icon" style={{ background: 'var(--buck-gold)', color: 'var(--buck-ink)' }}>
+            <FaReceipt aria-hidden="true" />
+          </span>
+          <div>
+            <p className="advisor-eyebrow" style={{ color: 'var(--buck-gold)' }}>AI Advice</p>
+            <h3>Detailed Analysis</h3>
+            <p style={{ minHeight: '80px', marginTop: '1rem' }}>
+              {loadingAi ? "Generating deep-dive analysis..." : aiInsights?.advice}
+            </p>
+          </div>
+        </section>
+      </div>
     </main>
   );
 }

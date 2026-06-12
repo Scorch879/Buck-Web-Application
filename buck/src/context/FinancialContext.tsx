@@ -14,6 +14,8 @@ export type DashboardDataCache = {
   categories?: BuckCategory[];
   expenses?: BuckExpense[];
   goals?: BuckGoal[];
+  wallets?: import("@/utils/supabaseData").BuckWallet[];
+  activeWalletId?: string | null;
   activeWalletBudget?: number | null;
   updatedAt?: number;
 };

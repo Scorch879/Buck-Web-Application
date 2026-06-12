@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import type { TargetAndTransition, Variants } from "framer-motion";
-import { FaArrowRight, FaBars, FaMoon, FaSun, FaTimes } from "react-icons/fa";
+import { FaArrowRight, FaBars, FaChevronRight, FaMoon, FaSun, FaTimes, FaEnvelope } from "react-icons/fa";
 import {
   legalContentByType,
   type LegalModalType,
@@ -316,6 +316,7 @@ export default function Home() {
   const [adviserIndex, setAdviserIndex] = useState(0);
   const [rhythmIndex, setRhythmIndex] = useState(0);
   const [legalModal, setLegalModal] = useState<LegalModalType | null>(null);
+  const [contactModal, setContactModal] = useState(false);
   const previewSnapshot = weeklyPreviewSnapshots[previewIndex];
   const adviserSnapshot = adviserSnapshots[adviserIndex];
   const rhythmSnapshot = weeklyRhythmSnapshots[rhythmIndex];
@@ -526,7 +527,7 @@ export default function Home() {
   }, [adviserSnapshot.advice]);
 
   useEffect(() => {
-    if (!legalModal) {
+    if (!legalModal && !contactModal) {
       return;
     }
 
@@ -535,6 +536,7 @@ export default function Home() {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setLegalModal(null);
+        setContactModal(false);
       }
     };
 
@@ -545,7 +547,7 @@ export default function Home() {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [legalModal]);
+  }, [legalModal, contactModal]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia?.("(prefers-color-scheme: dark)");
@@ -589,6 +591,12 @@ export default function Home() {
   const goToSignIn = () => {
     setMenuOpen(false);
     router.push("/sign-in");
+  };
+
+  const handleContactClick = () => {
+    navigator.clipboard.writeText("buckthebudgettracker@gmail.com");
+    setContactModal(true);
+    setMenuOpen(false);
   };
 
   const toggleTheme = () => {
@@ -687,6 +695,13 @@ export default function Home() {
               </button>
             ))}
             <button
+              className="nav-link-button"
+              type="button"
+              onClick={handleContactClick}
+            >
+              Contact Us
+            </button>
+            <button
               className="theme-toggle"
               type="button"
               aria-label={themeLabel}
@@ -737,6 +752,13 @@ export default function Home() {
               </button>
             ))}
             <button
+              className="nav-link-button"
+              type="button"
+              onClick={handleContactClick}
+            >
+              Contact Us
+            </button>
+            <button
               className="theme-toggle theme-toggle--mobile"
               type="button"
               aria-label={themeLabel}
@@ -751,7 +773,7 @@ export default function Home() {
               <span>{isDarkTheme ? "Light mode" : "Dark mode"}</span>
             </button>
             <button className="nav-cta" type="button" onClick={goToSignIn}>
-              Sign In / Sign Up
+              Sign In
             </button>
           </nav>
         )}
@@ -1240,6 +1262,9 @@ export default function Home() {
               Log in
             </button>
             <Link href="/create-account">Register</Link>
+            <button type="button" onClick={handleContactClick}>
+              Contact Us
+            </button>
             <button type="button" onClick={() => setLegalModal("terms")}>
               Terms
             </button>
@@ -1315,6 +1340,54 @@ export default function Home() {
                   </section>
                 ))}
               </div>
+            </motion.article>
+          </motion.div>
+        )}
+        {contactModal && (
+          <motion.div
+            className="legal-modal-backdrop"
+            role="presentation"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setContactModal(false)}
+          >
+            <motion.article
+              className="legal-modal-card"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="contact-modal-title"
+              initial={{ opacity: 0, y: 28, scale: 0.94, filter: "blur(8px)" }}
+              animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: 18, scale: 0.96, filter: "blur(6px)" }}
+              transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+              onClick={(event) => event.stopPropagation()}
+              style={{ maxWidth: '420px', textAlign: 'center', padding: '2.5rem 1.5rem' }}
+            >
+              <button
+                className="legal-modal-close"
+                type="button"
+                onClick={() => setContactModal(false)}
+                aria-label="Close contact modal"
+              >
+                <FaTimes aria-hidden="true" />
+              </button>
+
+              <div style={{ marginBottom: '1rem' }}>
+                <span style={{ display: 'inline-flex', padding: '1rem', borderRadius: '50%', background: 'rgba(244, 117, 54, 0.1)', color: 'var(--buck-orange)', fontSize: '1.5rem' }}>
+                  <FaEnvelope />
+                </span>
+              </div>
+              <h2 id="contact-modal-title" style={{ fontSize: '1.5rem', marginBottom: '0.8rem', color: 'var(--buck-ink)' }}>
+                Email Copied!
+              </h2>
+              <p style={{ color: 'var(--buck-muted)', lineHeight: '1.6', marginBottom: '1.5rem' }}>
+                If you have any questions or queries, feel free to contact us at <strong style={{ color: 'var(--buck-orange)' }}>buckthebudgettracker@gmail.com</strong>
+              </p>
+              <button className="nav-cta" onClick={() => setContactModal(false)} style={{ width: '100%', padding: '0.8rem' }}>
+                Got it
+              </button>
             </motion.article>
           </motion.div>
         )}

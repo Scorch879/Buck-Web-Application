@@ -65,7 +65,10 @@ function clearClientAuthStorage() {
 
 function getSiteUrl() {
   if (typeof window === "undefined") {
-    return process.env.NEXT_PUBLIC_SITE_URL ?? "";
+    if (process.env.NODE_ENV !== "development") {
+      return process.env.NEXT_PUBLIC_SITE_URL ?? "";
+    }
+    return "http://localhost:3000";
   }
 
   return window.location.origin;
