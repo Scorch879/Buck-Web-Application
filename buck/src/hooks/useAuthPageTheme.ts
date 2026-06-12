@@ -49,7 +49,11 @@ export const applyDocumentTheme = (theme: LandingTheme) => {
 };
 
 export function useAuthPageTheme() {
-  const [isDarkTheme, setIsDarkTheme] = useState(false);
+  const [isDarkTheme, setIsDarkTheme] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const mediaQuery = window.matchMedia?.("(prefers-color-scheme: dark)");
+    return resolveLandingTheme(mediaQuery) === "dark";
+  });
 
   useEffect(() => {
     const mediaQuery = window.matchMedia?.("(prefers-color-scheme: dark)");

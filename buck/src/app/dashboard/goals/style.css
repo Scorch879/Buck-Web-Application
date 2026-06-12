@@ -10,8 +10,8 @@
   display: grid;
   grid-template-columns: minmax(320px, 0.36fr) minmax(0, 1fr);
   gap: clamp(1rem, 2.4vw, 1.4rem);
-  width: min(1180px, 100%);
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   padding: clamp(1rem, 2.6vw, 1.6rem);
   color: var(--buck-ink);
 }

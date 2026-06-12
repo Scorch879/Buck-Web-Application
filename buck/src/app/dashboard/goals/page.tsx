@@ -846,13 +846,7 @@ const GoalsPage = () => {
                   </p>
                 </div>
                 <ProgressBarCard
-                  goal={{
-                    ...selectedGoal,
-                    currentAmount: Math.min(
-                      walletBudget || 0,
-                      selectedGoal.targetAmount
-                    ),
-                  }}
+                  goal={selectedGoal}
                   onAddProgress={() => handleOpenProgressModal(selectedGoal)}
                 />
                 {aiRecommendation && (

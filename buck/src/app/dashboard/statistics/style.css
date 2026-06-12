@@ -18,7 +18,7 @@
 
 .graph-panel {
   position: relative;
-  width: min(1100px, 100%);
+  width: 100%;
   margin-bottom: 2rem;
   padding: clamp(1rem, 3vw, 2rem);
   overflow: hidden;

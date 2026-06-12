@@ -612,25 +612,6 @@ export default function SettingsPage() {
 
   return (
     <main className="settings-page">
-      <section className="settings-hero">
-        <div>
-          <p className="settings-eyebrow">Account settings</p>
-          <h1>Keep your Buck profile tidy.</h1>
-          <p>
-            Manage your display name, profile picture, email, and account
-            security from one protected place.
-          </p>
-        </div>
-        <div className="settings-account-card">
-          <span className="settings-account-icon" aria-hidden="true">
-            <FaShieldAlt />
-          </span>
-          <div>
-            <strong>{providerLabel}</strong>
-            <span>{accountEmail || "No email on file"}</span>
-          </div>
-        </div>
-      </section>
 
       {notice ? (
         <div className="settings-message settings-message--success">
@@ -662,8 +643,19 @@ export default function SettingsPage() {
           })}
         </nav>
 
-        <article className="settings-card settings-card--panel">
-          <div className="settings-card-heading settings-card-heading--wide">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(0.7rem, 1.4vw, 0.95rem)' }}>
+          <div className="settings-account-card">
+            <span className="settings-account-icon" aria-hidden="true">
+              <FaShieldAlt />
+            </span>
+            <div>
+              <strong>{providerLabel}</strong>
+              <span>{accountEmail || "No email on file"}</span>
+            </div>
+          </div>
+
+          <article className="settings-card settings-card--panel">
+            <div className="settings-card-heading settings-card-heading--wide">
             <span aria-hidden="true">
               <ActiveSettingsIcon />
             </span>
@@ -1001,7 +993,8 @@ export default function SettingsPage() {
             ) : null}
           </div>
         </article>
-      </section>
+      </div>
+    </section>
 
       {emailModalOpen ? (
         <div

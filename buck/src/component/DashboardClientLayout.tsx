@@ -8,10 +8,16 @@ import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial } from "@/context/FinancialContext";
 import FinancialProvider from "@/context/FinancialProvider";
+import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
+import { FaWallet } from "react-icons/fa";
 import type { BuckUser } from "@/utils/authUser";
 
 function getSkeletonVariant(pathname: string | null) {
   if (pathname?.startsWith("/dashboard/settings")) {
+    return "settings";
+  }
+
+  if (pathname?.startsWith("/dashboard/wallet")) {
     return "settings";
   }
 
@@ -35,6 +41,14 @@ function getSkeletonVariant(pathname: string | null) {
 }
 
 function getPageChrome(pathname: string | null) {
+  if (pathname?.startsWith("/dashboard/wallet")) {
+    return {
+      title: "Wallets",
+      eyebrow: "Wallet management",
+      description: "Manage your active wallets and total budget.",
+    };
+  }
+
   if (pathname?.startsWith("/dashboard/expenses")) {
     return {
       title: "Expenses",
@@ -48,6 +62,14 @@ function getPageChrome(pathname: string | null) {
       title: "Financial Advisor",
       eyebrow: "Buck's next-step notes",
       description: "Readable suggestions from your wallet, goals, and spending rhythm.",
+    };
+  }
+
+  if (pathname?.startsWith("/dashboard/forecast")) {
+    return {
+      title: "Forecast",
+      eyebrow: "Future planning",
+      description: "Predict your financial future based on your current habits.",
     };
   }
 
@@ -69,9 +91,9 @@ function getPageChrome(pathname: string | null) {
 
   if (pathname?.startsWith("/dashboard/settings")) {
     return {
-      title: "Settings",
-      eyebrow: "Account control",
-      description: "Profile, security, appearance, and account recovery options.",
+      title: "Keep your Buck profile tidy.",
+      eyebrow: "Account settings",
+      description: "Manage your display name, profile picture, email, and account security from one protected place.",
     };
   }
 
@@ -108,7 +130,24 @@ function DashboardShell({ children }: { children: ReactNode }) {
             <p>{topbarEyebrow}</p>
             <h1>{topbarTitle}</h1>
           </div>
-          <span>{pageChrome.description}</span>
+          <div className="dashboard-topbar-actions">
+            <span>{pageChrome.description}</span>
+            <button
+              className="dashboard-wallet-pill"
+              onClick={() => window.dispatchEvent(new Event("open-wallet-modal"))}
+              aria-label="Open wallet"
+              type="button"
+            >
+              <FaWallet aria-hidden="true" />
+              <strong>Wallet</strong>
+              <span>
+                {new Intl.NumberFormat("en-PH", {
+                  style: "currency",
+                  currency: "PHP",
+                }).format(userCache.activeWalletBudget || 0)}
+              </span>
+            </button>
+          </div>
         </header>
         {children}
       </main>
@@ -125,6 +164,7 @@ export default function DashboardClientLayout({
 }) {
   const pathname = usePathname();
   const skeletonVariant = getSkeletonVariant(pathname);
+  useAuthPageTheme();
 
   return (
     <AuthGuard
