@@ -102,8 +102,8 @@ const previewCategories: BuckCategory[] = [
 ];
 
 const previewWallets: BuckWallet[] = [
-  { id: "preview-wallet-main", name: "Weekly Wallet", budget: 4280 },
-  { id: "preview-wallet-savings", name: "Savings Buffer", budget: 1850 },
+  { id: "preview-wallet-main", name: "Weekly Wallet", budget: 4280, createdAt: "2026-06-01T00:00:00.000Z", deletedAt: null },
+  { id: "preview-wallet-savings", name: "Savings Buffer", budget: 1850, createdAt: "2026-06-01T00:00:00.000Z", deletedAt: null },
 ];
 
 const previewGoals: BuckGoal[] = [
