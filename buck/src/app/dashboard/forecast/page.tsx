@@ -1,26 +1,43 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaChartArea, FaExclamationTriangle, FaMagic } from "react-icons/fa";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
+import { useDashboardUser } from "@/context/DashboardUserContext";
+import { mergeDashboardDataCache, useFinancial } from "@/context/FinancialContext";
 import { fetchAIForecastInsights, type AIForecastInsights } from "@/utils/forecastApi";
 import "./style.css";
 
 export default function ForecastPage() {
-  const [insights, setInsights] = useState<AIForecastInsights | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user } = useDashboardUser();
+  const { dashboardCache, setDashboardCache } = useFinancial();
+  const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
+  const hasInitialForecastData = Boolean(userCache.forecastInsights);
+  
+  const [insights, setInsights] = useState<AIForecastInsights | null>(
+    () => userCache.forecastInsights ?? null
+  );
+  const [loading, setLoading] = useState(() => !hasInitialForecastData);
   const [error, setError] = useState("");
+  const hadInitialForecastData = useRef(hasInitialForecastData);
 
   useEffect(() => {
     let active = true;
 
     const loadForecast = async () => {
-      try {
+      if (!hadInitialForecastData.current) {
         setLoading(true);
+      }
+      try {
         // Pass context if needed in the future
         const data = await fetchAIForecastInsights({});
         if (active) {
           setInsights(data);
+          setDashboardCache((currentCache) =>
+            mergeDashboardDataCache(currentCache, user.uid, {
+              forecastInsights: data,
+            })
+          );
         }
       } catch (err) {
         if (active) {
@@ -39,7 +56,7 @@ export default function ForecastPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [setDashboardCache, user.uid]);
 
   if (loading) {
     return <DashboardPageSkeleton variant="home" />;

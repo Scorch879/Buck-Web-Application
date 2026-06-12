@@ -60,7 +60,16 @@ export type AccountDeletionStatus = {
   canceledAt: string | null;
 };
 
-type TableName = "wallets" | "categories" | "goals" | "expenses" | "profiles";
+export type BuckFeedback = {
+  id: string;
+  user_email: string;
+  category: string;
+  title: string;
+  details: string;
+  created_at: string;
+};
+
+type TableName = "wallets" | "categories" | "goals" | "expenses" | "profiles" | "feedback";
 
 const avatarBucketName = "profile-avatars";
 const maxAvatarSizeBytes = 2 * 1024 * 1024;
@@ -1317,4 +1326,47 @@ export async function deleteExpenseAndRestoreWallet(
       budget: wallet.budget + amount,
     });
   }
+}
+
+export async function submitFeedback(
+  userEmail: string,
+  category: string,
+  title: string,
+  details: string
+) {
+  if (isDesignPreviewMode) {
+    return;
+  }
+
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.from("feedback").insert({
+    user_email: userEmail,
+    category,
+    title,
+    details,
+  });
+
+  if (error) {
+    console.error("Failed to submit feedback:", error);
+    throw new Error("Could not submit feedback");
+  }
+}
+
+export async function getAdminFeedback(): Promise<BuckFeedback[]> {
+  if (isDesignPreviewMode) {
+    return [];
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("feedback")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Failed to fetch feedback:", error);
+    throw new Error("Could not fetch feedback");
+  }
+
+  return data as BuckFeedback[];
 }

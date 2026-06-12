@@ -163,9 +163,11 @@ export default function Dashboard() {
   const { user } = useDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
   const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
-  const hasInitialDashboardData = Boolean(
-    userCache.profile && userCache.categories && userCache.expenses && userCache.wallets
-  );
+  const hasInitialDashboardData = 
+    userCache.profile !== undefined && 
+    userCache.categories !== undefined && 
+    userCache.expenses !== undefined && 
+    userCache.wallets !== undefined;
   const [categories, setCategories] = useState<Category[]>(
     () => userCache.categories ?? []
   );

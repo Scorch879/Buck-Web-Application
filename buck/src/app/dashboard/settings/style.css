@@ -1,5 +1,6 @@
 .settings-page {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: clamp(0.65rem, 1.2vw, 0.9rem);
   width: 100%;
   margin: 0;
@@ -128,7 +129,7 @@
   word-break: break-word;
 }
 
-.settings-account-icon,
+.settings-account-card .settings-account-icon,
 .settings-card-heading > span {
   display: inline-flex;
   align-items: center;
@@ -140,6 +141,7 @@
   background: rgba(255, 197, 71, 0.14);
   border: 1px solid rgba(244, 117, 54, 0.24);
   border-radius: 8px;
+  font-size: 1.25rem;
   transition:
     background 180ms ease,
     border-color 180ms ease,
@@ -382,7 +384,8 @@ html[data-buck-theme="dark"] .settings-section--danger {
   font-weight: 900;
 }
 
-.settings-form input {
+.settings-form input,
+.settings-form textarea {
   width: 100%;
   min-height: 40px;
   padding: 0.58rem 0.72rem;
@@ -395,13 +398,21 @@ html[data-buck-theme="dark"] .settings-section--danger {
     border-color 180ms ease,
     box-shadow 180ms ease,
     background 180ms ease;
+  font-family: inherit;
 }
 
-html[data-buck-theme="dark"] .settings-form input {
+.settings-form textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+html[data-buck-theme="dark"] .settings-form input,
+html[data-buck-theme="dark"] .settings-form textarea {
   background: rgba(255, 197, 71, 0.08);
 }
 
-.settings-form input:focus {
+.settings-form input:focus,
+.settings-form textarea:focus {
   border-color: rgba(244, 117, 54, 0.62);
   box-shadow: 0 0 0 4px rgba(244, 117, 54, 0.14);
 }
