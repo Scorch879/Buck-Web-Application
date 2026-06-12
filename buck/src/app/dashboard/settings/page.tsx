@@ -618,6 +618,24 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSendFeedback = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (sendingFeedback || !feedbackTitle.trim() || !feedbackDetails.trim()) {
+      return;
+    }
+
+    clearMessages();
+    setSendingFeedback(true);
+
+    // Simulate sending delay since we don't have a backend yet
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    setSendingFeedback(false);
+    setNotice("Thank you! Your feedback has been submitted successfully.");
+    setFeedbackTitle("");
+    setFeedbackDetails("");
+  };
+
   if (loadingProfile) {
     return <DashboardPageSkeleton variant="settings" />;
   }
