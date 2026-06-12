@@ -7,6 +7,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signInWithGoogle, signUpUser } from "@/component/authentication";
 import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
+import { evaluatePasswordPolicy } from "@/utils/passwordPolicy";
+import {
+  getEmailValidationMessage,
+  normalizeEmailAddress,
+} from "@/utils/emailValidation";
 import { motion } from "framer-motion";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 import {
@@ -58,8 +63,29 @@ const CreateAccount = () => {
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const isDarkTheme = useAuthPageTheme();
   const createButton = usePointerGradient<HTMLButtonElement>();
+  const isAuthBusy = isCreatingAccount || isGoogleLoading;
+  const passwordPolicy = evaluatePasswordPolicy(form.password, {
+    email: form.email,
+    username: form.username,
+  });
+  const passwordScore = Math.min(5, Math.max(0, passwordPolicy.score));
+  const passwordProgress = form.password.length === 0 ? 0 : passwordScore * 20;
+  const passwordHint =
+    form.password.length === 0
+      ? "Use 10+ characters, mixed letters, a number, and a symbol."
+      : passwordPolicy.isValid
+        ? "Your password meets Buck's security requirements."
+        : passwordPolicy.issues[0];
+  const confirmStatus =
+    form.confirm.length === 0
+      ? ""
+      : form.password === form.confirm
+        ? "Passwords match."
+        : "Passwords do not match yet.";
   useRedirectIfAuthenticated();
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -67,8 +93,13 @@ const CreateAccount = () => {
   };
 
   const handleCreateAccount = async () => {
+    if (isAuthBusy) {
+      return;
+    }
+
     setError("");
     setMessage("");
+
     if (
       !form.username.trim() ||
       !form.email.trim() ||
@@ -78,25 +109,37 @@ const CreateAccount = () => {
       setError("Please fill in all fields.");
       return;
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(form.email)) {
-      setError("Please enter a valid email address.");
+    const emailValidationMessage = getEmailValidationMessage(form.email);
+    if (emailValidationMessage) {
+      setError(emailValidationMessage);
       return;
     }
     if (form.password !== form.confirm) {
       setError("Passwords do not match.");
       return;
     }
-    if (form.password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (!passwordPolicy.isValid) {
+      setError(
+        `Password is not secure enough: ${passwordPolicy.issues.join(", ")}.`
+      );
       return;
     }
-    const result = await signUpUser(form.email, form.password, form.username);
+
+    setIsCreatingAccount(true);
+    setMessage("Creating your Buck account...");
+
+    const normalizedEmail = normalizeEmailAddress(form.email);
+    const result = await signUpUser(
+      normalizedEmail,
+      form.password,
+      form.username
+    );
+
     if (result.success) {
       setForm({ username: "", email: "", password: "", confirm: "" });
 
       if (result.needsEmailConfirmation) {
-        router.push(`/check-email?email=${encodeURIComponent(form.email)}`);
+        router.push(`/check-email?email=${encodeURIComponent(normalizedEmail)}`);
         return;
       }
 
@@ -104,19 +147,33 @@ const CreateAccount = () => {
       router.push("/dashboard/home");
     } else {
       setError(result.message || "Account creation failed.");
+      setMessage("");
+      setIsCreatingAccount(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
+    if (isAuthBusy) {
+      return;
+    }
+
+    setError("");
+    setMessage("Opening Google sign in...");
+    setIsGoogleLoading(true);
+
     const result = await signInWithGoogle();
+
     if (result.success) {
       if (!result.redirecting) {
         router.push("/dashboard/home");
       }
     } else if (result.cancelled) {
-      // Do nothing, user cancelled
+      setMessage("");
+      setIsGoogleLoading(false);
     } else {
-      alert(result.message || "Google Sign-In failed.");
+      setError(result.message || "Google Sign-In failed.");
+      setMessage("");
+      setIsGoogleLoading(false);
     }
   };
 
@@ -221,15 +278,21 @@ const CreateAccount = () => {
               className="CA-Google-Btn"
               type="button"
               onClick={handleGoogleSignIn}
+              disabled={isAuthBusy}
+              aria-busy={isGoogleLoading}
             >
-              <Image
-                src="/Google.png"
-                alt=""
-                width={20}
-                height={20}
-                className="CA-Google-Icon"
-              />
-              Continue with Google
+              {isGoogleLoading ? (
+                <span className="auth-button-spinner" aria-hidden="true" />
+              ) : (
+                <Image
+                  src="/Google.png"
+                  alt=""
+                  width={20}
+                  height={20}
+                  className="CA-Google-Icon"
+                />
+              )}
+              {isGoogleLoading ? "Opening Google..." : "Continue with Google"}
             </button>
 
             <div className="CA-Divider">
@@ -254,6 +317,7 @@ const CreateAccount = () => {
                 value={form.username}
                 onChange={handleChange}
                 autoComplete="username"
+                disabled={isAuthBusy}
               />
 
               <label htmlFor="email" className="CA-Label">
@@ -267,6 +331,7 @@ const CreateAccount = () => {
                 value={form.email}
                 onChange={handleChange}
                 autoComplete="email"
+                disabled={isAuthBusy}
               />
 
               <label htmlFor="password" className="CA-Label">
@@ -281,6 +346,7 @@ const CreateAccount = () => {
                   value={form.password}
                   onChange={handleChange}
                   autoComplete="new-password"
+                  disabled={isAuthBusy}
                 />
                 <button
                   type="button"
@@ -288,6 +354,7 @@ const CreateAccount = () => {
                   tabIndex={-1}
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
+                  disabled={isAuthBusy}
                 >
                   <Image
                     src={showPassword ? "/duck-eye.png" : "/duck-eye-closed.png"}
@@ -296,6 +363,21 @@ const CreateAccount = () => {
                     height={24}
                   />
                 </button>
+              </div>
+              <div
+                className={`CA-PasswordFeedback CA-PasswordFeedback--${passwordPolicy.strength}${
+                  form.password.length === 0 ? " CA-PasswordFeedback--idle" : ""
+                }`}
+                aria-live="polite"
+              >
+                <div className="CA-PasswordMeter" aria-hidden="true">
+                  <span style={{ width: `${passwordProgress}%` }} />
+                </div>
+                <div className="CA-PasswordSummary">
+                  <strong>{passwordPolicy.label}</strong>
+                  <span>{passwordScore}/5 checks</span>
+                </div>
+                <p className="CA-PasswordHint">{passwordHint}</p>
               </div>
 
               <label htmlFor="confirm" className="CA-Label">
@@ -310,6 +392,7 @@ const CreateAccount = () => {
                   value={form.confirm}
                   onChange={handleChange}
                   autoComplete="new-password"
+                  disabled={isAuthBusy}
                 />
                 <button
                   type="button"
@@ -317,6 +400,7 @@ const CreateAccount = () => {
                   tabIndex={-1}
                   onClick={() => setShowConfirm((v) => !v)}
                   aria-label={showConfirm ? "Hide password" : "Show password"}
+                  disabled={isAuthBusy}
                 >
                   <Image
                     src={showConfirm ? "/duck-eye.png" : "/duck-eye-closed.png"}
@@ -326,6 +410,16 @@ const CreateAccount = () => {
                   />
                 </button>
               </div>
+              <p
+                className={`CA-ConfirmHint${
+                  form.password === form.confirm && confirmStatus
+                    ? " CA-ConfirmHint--match"
+                    : ""
+                }${confirmStatus ? "" : " CA-ConfirmHint--empty"}`}
+                aria-live="polite"
+              >
+                {confirmStatus || "Password confirmation status."}
+              </p>
 
               <motion.button
                 ref={createButton.ref}
@@ -334,12 +428,21 @@ const CreateAccount = () => {
                 onMouseMove={createButton.handlePointerMove}
                 onMouseLeave={createButton.handlePointerLeave}
                 style={createButtonStyle}
-                whileHover={{
-                  scale: 1.02,
-                }}
+                whileHover={isAuthBusy ? undefined : { scale: 1.02 }}
+                disabled={isAuthBusy}
+                aria-busy={isCreatingAccount}
               >
-                Create Account
-                <FaArrowRight aria-hidden="true" />
+                {isCreatingAccount ? (
+                  <>
+                    <span className="auth-button-spinner" aria-hidden="true" />
+                    Creating account...
+                  </>
+                ) : (
+                  <>
+                    Create Account
+                    <FaArrowRight aria-hidden="true" />
+                  </>
+                )}
               </motion.button>
 
               {message && <div className="success-message">{message}</div>}

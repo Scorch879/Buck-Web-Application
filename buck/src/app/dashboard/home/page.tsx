@@ -1,13 +1,17 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
-import { useAuthGuard } from "@/utils/useAuthGuard";
+import { useDashboardUser } from "@/context/DashboardUserContext";
+import {
+  mergeDashboardDataCache,
+  useFinancial,
+} from "@/context/FinancialContext";
 import { formatCurrency, toNumber } from "@/utils/formatters";
 import {
   ensureDefaultCategories,
+  getUserProfile,
   listExpenses,
   subscribeUserTable,
   type BuckCategory,
@@ -154,43 +158,123 @@ function WeeklyBarChart({ data }: { data: WeeklyDatum[] }) {
 }
 
 export default function Dashboard() {
-  const { user, loading } = useAuthGuard();
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const { user } = useDashboardUser();
+  const { dashboardCache, setDashboardCache } = useFinancial();
+  const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
+  const hasInitialDashboardData = Boolean(
+    userCache.profile && userCache.categories && userCache.expenses
+  );
+  const [categories, setCategories] = useState<Category[]>(
+    () => userCache.categories ?? []
+  );
+  const [expenses, setExpenses] = useState<Expense[]>(
+    () => userCache.expenses ?? []
+  );
+  const [loadingDashboardData, setLoadingDashboardData] = useState(
+    () => !hasInitialDashboardData
+  );
+  const hadInitialDashboardData = useRef(hasInitialDashboardData);
 
   useEffect(() => {
-    if (!user) return;
+    let active = true;
 
-    const loadCategories = () => {
-      ensureDefaultCategories(user.uid)
-        .then(setCategories)
-        .catch((error) => console.error("Failed to load categories:", error));
-    };
-    const loadExpenses = () => {
-      listExpenses(user.uid)
-        .then(setExpenses)
-        .catch((error) => console.error("Failed to load expenses:", error));
+    const loadProfile = async () => {
+      const loadedProfile = await getUserProfile(user.uid);
+
+      if (active) {
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            profile: loadedProfile,
+          })
+        );
+      }
     };
 
-    loadCategories();
-    loadExpenses();
+    const loadCategories = async () => {
+      const nextCategories = await ensureDefaultCategories(user.uid);
+
+      if (active) {
+        setCategories(nextCategories);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            categories: nextCategories,
+          })
+        );
+      }
+    };
+
+    const loadExpenses = async () => {
+      const nextExpenses = await listExpenses(user.uid);
+
+      if (active) {
+        setExpenses(nextExpenses);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            expenses: nextExpenses,
+          })
+        );
+      }
+    };
+
+    const loadInitialData = async () => {
+      if (!hadInitialDashboardData.current) {
+        setLoadingDashboardData(true);
+      }
+
+      try {
+        const [loadedProfile, nextCategories, nextExpenses] = await Promise.all([
+          getUserProfile(user.uid),
+          ensureDefaultCategories(user.uid),
+          listExpenses(user.uid),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        setCategories(nextCategories);
+        setExpenses(nextExpenses);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            profile: loadedProfile,
+            categories: nextCategories,
+            expenses: nextExpenses,
+          })
+        );
+      } catch (error) {
+        console.error("Failed to load dashboard:", error);
+      } finally {
+        if (active) {
+          setLoadingDashboardData(false);
+        }
+      }
+    };
+
+    void loadInitialData();
 
     const unsubscribeCategories = subscribeUserTable(
       "categories",
       user.uid,
-      loadCategories
+      () => void loadCategories()
     );
     const unsubscribeExpenses = subscribeUserTable(
       "expenses",
       user.uid,
-      loadExpenses
+      () => void loadExpenses()
+    );
+    const unsubscribeProfile = subscribeUserTable(
+      "profiles",
+      user.uid,
+      () => void loadProfile()
     );
 
     return () => {
+      active = false;
       unsubscribeCategories();
       unsubscribeExpenses();
+      unsubscribeProfile();
     };
-  }, [user]);
+  }, [setDashboardCache, user.uid]);
 
   const weeklyExpenses = useMemo(() => getWeeklyExpenses(expenses), [expenses]);
   const weeklyData = useMemo(
@@ -210,29 +294,12 @@ export default function Dashboard() {
     [categories, expenses]
   );
 
-  if (loading || !user) {
+  if (loadingDashboardData) {
     return <DashboardPageSkeleton variant="home" />;
   }
 
-  const displayName = user.displayName || user.email || "friend";
-
   return (
     <div className="dashboard-container">
-        <section className="dashboard-welcome-card">
-          <Image
-            src="/BuckMascot.png"
-            alt=""
-            width={64}
-            height={64}
-            className="dashboard-welcome-avatar"
-            priority
-          />
-          <div>
-            <p className="dashboard-welcome-kicker">Welcome back</p>
-            <h1 className="dashboard-welcome-greeting">{displayName}</h1>
-          </div>
-        </section>
-
         <section className="dashboard-content" aria-label="Weekly overview">
           <article className="spending-card">
             <p className="card-eyebrow">Weekly Spending</p>

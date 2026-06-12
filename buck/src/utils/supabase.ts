@@ -1,12 +1,25 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  isSupabaseConfigured,
+  supabaseAnonKey,
+  supabaseConfigError,
+  supabaseCookieOptions,
+  supabaseUrl,
+} from "@/utils/supabaseConfig";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+export { isSupabaseConfigured, supabaseConfigError };
 
 export const supabase: SupabaseClient | null = isSupabaseConfigured
-  ? createClient(supabaseUrl!, supabaseAnonKey!)
+  ? createBrowserClient(supabaseUrl!, supabaseAnonKey!, {
+      auth: {
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        flowType: "pkce",
+        persistSession: true,
+      },
+      cookieOptions: supabaseCookieOptions,
+    })
   : null;
 
 export function getSupabaseClient() {

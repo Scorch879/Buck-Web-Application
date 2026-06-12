@@ -3,23 +3,72 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { FaBars, FaMoon, FaSun, FaTimes, FaWallet } from "react-icons/fa";
+import {
+  FaBars,
+  FaBullseye,
+  FaChartLine,
+  FaCog,
+  FaHome,
+  FaReceipt,
+  FaRobot,
+  FaSignOutAlt,
+  FaTimes,
+  FaWallet,
+} from "react-icons/fa";
 import WalletModal from "@/app/dashboard/wallet/WalletModal";
-import { applyDocumentTheme, useAuthPageTheme } from "@/hooks/useAuthPageTheme";
+import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
+import { useFinancial } from "@/context/FinancialContext";
 import { signOutUser } from "./authentication";
 import "./dashboard.css";
 
 const dashboardNavItems = [
-  { id: "home", label: "Home", href: "/dashboard/home" },
-  { id: "statistics", label: "Statistics", href: "/dashboard/statistics" },
-  { id: "goals", label: "Goals", href: "/dashboard/goals" },
+  { id: "home", label: "Home", href: "/dashboard/home", icon: FaHome },
+  {
+    id: "expenses",
+    label: "Expenses",
+    href: "/dashboard/expenses",
+    icon: FaReceipt,
+  },
+  { id: "wallet", label: "Wallet", action: "wallet", icon: FaWallet },
+  {
+    id: "advisor",
+    label: "Financial Advisor",
+    href: "/dashboard/financial-advisor",
+    icon: FaRobot,
+  },
+  {
+    id: "statistics",
+    label: "Statistics",
+    href: "/dashboard/statistics",
+    icon: FaChartLine,
+  },
+  { id: "goals", label: "Goals", href: "/dashboard/goals", icon: FaBullseye },
+  { id: "settings", label: "Settings", href: "/dashboard/settings", icon: FaCog },
 ] as const;
 
 type DashboardNavId = (typeof dashboardNavItems)[number]["id"];
+type DashboardNavItem = (typeof dashboardNavItems)[number];
 
 type DashboardHeaderProps = {
   initialActiveNav?: DashboardNavId;
 };
+
+function getInitials(value: string) {
+  const parts = value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return "BU";
+  }
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
 
 export default function DashboardHeader({
   initialActiveNav = "home",
@@ -27,13 +76,23 @@ export default function DashboardHeader({
   const [activeNav, setActiveNav] = useState<DashboardNavId>(initialActiveNav);
   const [menuOpen, setMenuOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
-  const documentThemeIsDark = useAuthPageTheme();
-  const [isDarkTheme, setIsDarkTheme] = useState(documentThemeIsDark);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const user = useOptionalDashboardUser();
+  const { dashboardCache, setDashboardCache } = useFinancial();
+  const userCache = dashboardCache.userId === user?.uid ? dashboardCache : {};
+  const displayName =
+    userCache.profile?.username ||
+    user?.displayName ||
+    user?.email?.split("@")[0] ||
+    "Buck user";
+  const accountSubtitle = user?.email || "Signed in";
 
   const currentNav =
-    dashboardNavItems.find((item) => pathname?.startsWith(item.href))?.id ??
+    dashboardNavItems.find(
+      (item) => "href" in item && pathname?.startsWith(item.href)
+    )?.id ??
     initialActiveNav;
 
   useEffect(() => {
@@ -41,62 +100,82 @@ export default function DashboardHeader({
   }, [currentNav]);
 
   useEffect(() => {
-    setIsDarkTheme(documentThemeIsDark);
-  }, [documentThemeIsDark]);
+    dashboardNavItems.forEach((item) => {
+      if ("href" in item) {
+        router.prefetch(item.href);
+      }
+    });
+  }, [router]);
 
   const playQuack = () => {
     const audio = new Audio("/quack.mp3");
     void audio.play();
   };
 
-  const navigateTo = (item: (typeof dashboardNavItems)[number]) => {
+  const navigateTo = (item: DashboardNavItem) => {
     setActiveNav(item.id);
     setMenuOpen(false);
-    router.push(item.href);
-  };
 
-  const openWallet = () => {
-    setWalletOpen(true);
-    setMenuOpen(false);
-  };
-
-  const toggleTheme = () => {
-    setIsDarkTheme((currentThemeIsDark) => {
-      const nextTheme = currentThemeIsDark ? "light" : "dark";
-
-      try {
-        window.localStorage.setItem("buck-landing-theme", nextTheme);
-      } catch {
-        // Theme preference is cosmetic, so private storage failures can be ignored.
-      }
-
-      applyDocumentTheme(nextTheme);
-      return !currentThemeIsDark;
-    });
-  };
-
-  const handleSignOut = async () => {
-    const result = await signOutUser();
-
-    if (result.success) {
-      router.push("/");
+    if ("action" in item && item.action === "wallet") {
+      setWalletOpen(true);
       return;
     }
 
+    if (!("href" in item)) {
+      return;
+    }
+
+    if (pathname?.startsWith(item.href)) {
+      return;
+    }
+
+    router.push(item.href);
+  };
+
+  const handleSignOut = async () => {
+    if (isSigningOut) {
+      return;
+    }
+
+    setIsSigningOut(true);
+    const result = await signOutUser();
+
+    if (result.success) {
+      setDashboardCache({});
+      window.location.replace("/");
+      return;
+    }
+
+    setIsSigningOut(false);
     alert(result.message || "Sign out failed.");
   };
 
   const renderNavItems = () =>
-    dashboardNavItems.map((item) => (
-      <button
-        key={item.id}
-        className={`nav-button ${activeNav === item.id ? "active" : ""}`}
-        type="button"
-        onClick={() => navigateTo(item)}
-      >
-        {item.label}
-      </button>
-    ));
+    dashboardNavItems.map((item) => {
+      const Icon = item.icon;
+
+      return (
+        <button
+          key={item.id}
+          className={`nav-button ${activeNav === item.id ? "active" : ""}`}
+          type="button"
+          onClick={() => navigateTo(item)}
+          onFocus={() => {
+            if ("href" in item) {
+              router.prefetch(item.href);
+            }
+          }}
+          onMouseEnter={() => {
+            if ("href" in item) {
+              router.prefetch(item.href);
+            }
+          }}
+        >
+          <Icon aria-hidden="true" />
+          {item.label}
+        </button>
+      );
+    });
 
   return (
     <header className="dashboard-header">
@@ -121,7 +200,10 @@ export default function DashboardHeader({
               }}
             />
           </span>
-          <span className="dashboard-title">Buck</span>
+          <span className="dashboard-brand-copy">
+            <span className="dashboard-title">Buck</span>
+            <span className="dashboard-tagline">Go Buck yourself</span>
+          </span>
         </button>
 
         <nav className="dashboard-nav" aria-label="Dashboard navigation">
@@ -130,20 +212,27 @@ export default function DashboardHeader({
 
         <div className="dashboard-header-actions">
           <button
-            className="nav-button dashboard-theme-toggle"
+            className="dashboard-account-tray"
             type="button"
-            onClick={toggleTheme}
-            aria-label={`Switch to ${isDarkTheme ? "light" : "dark"} mode`}
+            onClick={handleSignOut}
+            disabled={isSigningOut}
+            aria-busy={isSigningOut}
+            aria-label={isSigningOut ? "Signing out" : "Sign out"}
           >
-            {isDarkTheme ? <FaSun aria-hidden="true" /> : <FaMoon aria-hidden="true" />}
-            {isDarkTheme ? "Light" : "Dark"}
-          </button>
-          <button className="nav-button" type="button" onClick={openWallet}>
-            <FaWallet aria-hidden="true" />
-            Wallet
-          </button>
-          <button className="nav-button" type="button" onClick={handleSignOut}>
-            Sign Out
+            <span className="dashboard-account-avatar" aria-hidden="true">
+              {getInitials(displayName)}
+            </span>
+            <span className="dashboard-account-copy">
+              <strong>{displayName}</strong>
+              <span>{isSigningOut ? "Signing out..." : accountSubtitle}</span>
+            </span>
+            <span className="dashboard-account-action" aria-hidden="true">
+              {isSigningOut ? (
+                <span className="dashboard-button-spinner" />
+              ) : (
+                <FaSignOutAlt />
+              )}
+            </span>
           </button>
         </div>
 
@@ -167,34 +256,41 @@ export default function DashboardHeader({
         >
           {renderNavItems()}
           <button
-            className="nav-button dashboard-theme-toggle"
+            className="dashboard-account-tray dashboard-account-tray--mobile"
             type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              toggleTheme();
-            }}
-          >
-            {isDarkTheme ? <FaSun aria-hidden="true" /> : <FaMoon aria-hidden="true" />}
-            {isDarkTheme ? "Light mode" : "Dark mode"}
-          </button>
-          <button className="nav-button" type="button" onClick={openWallet}>
-            <FaWallet aria-hidden="true" />
-            Wallet
-          </button>
-          <button
-            className="nav-button"
-            type="button"
+            disabled={isSigningOut}
+            aria-busy={isSigningOut}
+            aria-label={isSigningOut ? "Signing out" : "Sign out"}
             onClick={() => {
               setMenuOpen(false);
               void handleSignOut();
             }}
           >
-            Sign Out
+            <span className="dashboard-account-avatar" aria-hidden="true">
+              {getInitials(displayName)}
+            </span>
+            <span className="dashboard-account-copy">
+              <strong>{displayName}</strong>
+              <span>{isSigningOut ? "Signing out..." : accountSubtitle}</span>
+            </span>
+            <span className="dashboard-account-action" aria-hidden="true">
+              {isSigningOut ? (
+                <span className="dashboard-button-spinner" />
+              ) : (
+                <FaSignOutAlt />
+              )}
+            </span>
           </button>
         </nav>
       )}
 
-      <WalletModal open={walletOpen} onClose={() => setWalletOpen(false)} />
+      <WalletModal
+        open={walletOpen}
+        onClose={() => {
+          setWalletOpen(false);
+          setActiveNav(currentNav);
+        }}
+      />
     </header>
   );
 }

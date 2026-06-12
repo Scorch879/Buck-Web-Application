@@ -1,8 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
-import { getSupabaseClient, isSupabaseConfigured } from "@/utils/supabase";
+import type { FormEvent } from "react";
+import {
+  getSupabaseClient,
+  isSupabaseConfigured,
+  supabaseConfigError,
+} from "@/utils/supabase";
+import { evaluatePasswordPolicy } from "@/utils/passwordPolicy";
+import {
+  getEmailValidationMessage,
+  normalizeEmailAddress,
+} from "@/utils/emailValidation";
 
 type AuthFormData = {
   username: string;
@@ -19,10 +28,39 @@ type AuthResult = {
   needsEmailConfirmation?: boolean;
 };
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+type AuthFormInputEvent = {
+  target: HTMLInputElement;
+};
+
+const CLIENT_AUTH_STORAGE_KEYS = [
+  "buck-dashboard-cache-v1",
+  "buck-session-last-activity",
+  "buck-session-force-signout",
+  "selectedGoalId",
+];
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong.";
+}
+
+function clearClientAuthStorage() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  CLIENT_AUTH_STORAGE_KEYS.forEach((key) => {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // Local storage cleanup is best-effort.
+    }
+
+    try {
+      window.sessionStorage.removeItem(key);
+    } catch {
+      // Session storage cleanup is best-effort.
+    }
+  });
 }
 
 function getSiteUrl() {
@@ -41,23 +79,31 @@ function getSafeRedirectPath(redirectTo: string) {
   return redirectTo;
 }
 
+function getAuthCallbackUrl(redirectTo = "/dashboard/home") {
+  const params = new URLSearchParams({
+    next: getSafeRedirectPath(redirectTo),
+  });
+
+  return `${getSiteUrl()}/auth/callback?${params.toString()}`;
+}
+
 function getConfiguredAuthError(): AuthResult {
   return {
     success: false,
-    message:
-      "Supabase authentication is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+    message: supabaseConfigError,
   };
 }
 
 export function SignInSignUp() {
-  const [form, setForm] = useState<AuthFormData>({
+  const initialFormState: AuthFormData = {
     username: "",
     pass: "",
     confirm: "",
     email: "",
-  });
+  };
+  const [form, setForm] = useState(initialFormState);
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: AuthFormInputEvent) => {
     setForm({ ...form, [e.target.id]: e.target.value });
   };
 
@@ -74,12 +120,17 @@ export function SignInSignUp() {
       return;
     }
 
-    if (!emailRegex.test(form.email)) {
-      alert("Please enter a valid email address");
+    const emailValidationMessage = getEmailValidationMessage(form.email);
+    if (emailValidationMessage) {
+      alert(emailValidationMessage);
       return;
     }
 
-    const result = await signUpUser(form.email, form.pass, form.username);
+    const result = await signUpUser(
+      normalizeEmailAddress(form.email),
+      form.pass,
+      form.username
+    );
 
     if (!result.success) {
       alert(result.message || "Sign up failed.");
@@ -104,22 +155,41 @@ export async function signUpUser(
   email: string,
   password: string,
   username: string
-): Promise<AuthResult> {
+) {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
 
   try {
+    const normalizedEmail = normalizeEmailAddress(email);
+    const emailValidationMessage = getEmailValidationMessage(normalizedEmail);
+
+    if (emailValidationMessage) {
+      return { success: false, message: emailValidationMessage };
+    }
+
+    const passwordPolicy = evaluatePasswordPolicy(password, {
+      email: normalizedEmail,
+      username,
+    });
+
+    if (!passwordPolicy.isValid) {
+      return {
+        success: false,
+        message: `Password is not secure enough: ${passwordPolicy.issues.join(", ")}.`,
+      };
+    }
+
     const supabase = getSupabaseClient();
     const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
+      email: normalizedEmail,
       password,
       options: {
         data: {
           username: username.trim(),
           full_name: username.trim(),
         },
-        emailRedirectTo: `${getSiteUrl()}/dashboard/home`,
+        emailRedirectTo: getAuthCallbackUrl("/dashboard/home"),
       },
     });
 
@@ -140,15 +210,22 @@ export async function signUpUser(
 export async function signInUser(
   email: string,
   password: string
-): Promise<AuthResult> {
+) {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
 
   try {
+    const normalizedEmail = normalizeEmailAddress(email);
+    const emailValidationMessage = getEmailValidationMessage(normalizedEmail);
+
+    if (emailValidationMessage) {
+      return { success: false, message: emailValidationMessage };
+    }
+
     const supabase = getSupabaseClient();
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: normalizedEmail,
       password,
     });
 
@@ -162,9 +239,43 @@ export async function signInUser(
   }
 }
 
+export async function sendMagicLink(
+  email: string,
+  redirectTo = "/dashboard/home"
+) {
+  if (!isSupabaseConfigured) {
+    return getConfiguredAuthError();
+  }
+
+  try {
+    const normalizedEmail = normalizeEmailAddress(email);
+    const emailValidationMessage = getEmailValidationMessage(normalizedEmail);
+
+    if (emailValidationMessage) {
+      return { success: false, message: emailValidationMessage };
+    }
+
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.auth.signInWithOtp({
+      email: normalizedEmail,
+      options: {
+        emailRedirectTo: getAuthCallbackUrl(redirectTo),
+      },
+    });
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+
+    return { success: true, message: "Magic link sent. Check your email." };
+  } catch (error) {
+    return { success: false, message: getErrorMessage(error) };
+  }
+}
+
 export async function signInWithGoogle(
   redirectTo = "/dashboard/home"
-): Promise<AuthResult> {
+) {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
@@ -174,7 +285,7 @@ export async function signInWithGoogle(
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${getSiteUrl()}${getSafeRedirectPath(redirectTo)}`,
+        redirectTo: getAuthCallbackUrl(redirectTo),
       },
     });
 
@@ -188,33 +299,95 @@ export async function signInWithGoogle(
   }
 }
 
-export async function sendPasswordReset(email: string): Promise<AuthResult> {
+export async function resendSignUpConfirmation(
+  email: string
+) {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
 
   try {
+    const normalizedEmail = normalizeEmailAddress(email);
+    const emailValidationMessage = getEmailValidationMessage(normalizedEmail);
+
+    if (emailValidationMessage) {
+      return { success: false, message: emailValidationMessage };
+    }
+
     const supabase = getSupabaseClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${getSiteUrl()}/forgot-password`,
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: normalizedEmail,
+      options: {
+        emailRedirectTo: getAuthCallbackUrl("/dashboard/home"),
+      },
     });
 
     if (error) {
       return { success: false, message: error.message };
     }
 
-    return { success: true, message: "Password reset email sent!" };
+    return {
+      success: true,
+      message: "Confirmation email sent again. Check your inbox.",
+    };
   } catch (error) {
     return { success: false, message: getErrorMessage(error) };
   }
 }
 
-export async function updatePassword(password: string): Promise<AuthResult> {
+export async function sendPasswordReset(email: string) {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
 
   try {
+    const normalizedEmail = normalizeEmailAddress(email);
+    const emailValidationMessage = getEmailValidationMessage(normalizedEmail);
+
+    if (emailValidationMessage) {
+      return { success: false, message: emailValidationMessage };
+    }
+
+    const response = await fetch("/api/auth/password-reset", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email: normalizedEmail }),
+    });
+    const result = (await response.json().catch(() => null)) as AuthResult | null;
+
+    if (!response.ok || !result?.success) {
+      return {
+        success: false,
+        message:
+          result?.message ||
+          "Failed to send password reset link. Please try again later.",
+      };
+    }
+
+    return { success: true, message: result.message };
+  } catch (error) {
+    return { success: false, message: getErrorMessage(error) };
+  }
+}
+
+export async function updatePassword(password: string) {
+  if (!isSupabaseConfigured) {
+    return getConfiguredAuthError();
+  }
+
+  try {
+    const passwordPolicy = evaluatePasswordPolicy(password);
+
+    if (!passwordPolicy.isValid) {
+      return {
+        success: false,
+        message: `Password is not secure enough: ${passwordPolicy.issues.join(", ")}.`,
+      };
+    }
+
     const supabase = getSupabaseClient();
     const { error } = await supabase.auth.updateUser({ password });
 
@@ -230,21 +403,130 @@ export async function updatePassword(password: string): Promise<AuthResult> {
   }
 }
 
-export async function signOutUser(): Promise<AuthResult> {
+export async function verifyCurrentPassword(currentPassword: string) {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
 
+  if (!currentPassword) {
+    return { success: false, message: "Enter your current password first." };
+  }
+
   try {
     const supabase = getSupabaseClient();
-    const { error } = await supabase.auth.signOut();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user?.email) {
+      return {
+        success: false,
+        message: "Buck could not verify your current session.",
+      };
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
 
     if (error) {
-      return { success: false, message: error.message };
+      return {
+        success: false,
+        message: "Current password is incorrect.",
+      };
     }
 
     return { success: true };
   } catch (error) {
     return { success: false, message: getErrorMessage(error) };
+  }
+}
+
+export async function updateEmailAddress(email: string) {
+  if (!isSupabaseConfigured) {
+    return getConfiguredAuthError();
+  }
+
+  try {
+    const normalizedEmail = normalizeEmailAddress(email);
+    const emailValidationMessage = getEmailValidationMessage(normalizedEmail);
+
+    if (emailValidationMessage) {
+      return { success: false, message: emailValidationMessage };
+    }
+
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.auth.updateUser(
+      { email: normalizedEmail },
+      {
+        emailRedirectTo: getAuthCallbackUrl("/dashboard/home"),
+      }
+    );
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+
+    return {
+      success: true,
+      message: "Email change confirmation sent. Check your inbox.",
+    };
+  } catch (error) {
+    return { success: false, message: getErrorMessage(error) };
+  }
+}
+
+export async function signOutUser() {
+  if (!isSupabaseConfigured) {
+    clearClientAuthStorage();
+    return getConfiguredAuthError();
+  }
+
+  try {
+    const supabase = getSupabaseClient();
+    clearClientAuthStorage();
+
+    const response = await fetch("/api/auth/sign-out", {
+      method: "POST",
+      cache: "no-store",
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        return { success: false, message: error.message };
+      }
+
+      return { success: true };
+    }
+
+    try {
+      await supabase.auth.signOut({ scope: "local" });
+    } catch {
+      // Server cookies were already cleared; local cleanup is best-effort.
+    }
+
+    clearClientAuthStorage();
+
+    return { success: true };
+  } catch (error) {
+    try {
+      const supabase = getSupabaseClient();
+      clearClientAuthStorage();
+      const { error: signOutError } = await supabase.auth.signOut();
+
+      if (signOutError) {
+        return { success: false, message: signOutError.message };
+      }
+
+      return { success: true };
+    } catch {
+      clearClientAuthStorage();
+      return { success: false, message: getErrorMessage(error) };
+    }
   }
 }

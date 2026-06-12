@@ -8,7 +8,7 @@
 
 .GoalsPage {
   display: grid;
-  grid-template-columns: minmax(260px, 0.34fr) minmax(0, 1fr);
+  grid-template-columns: minmax(320px, 0.36fr) minmax(0, 1fr);
   gap: clamp(1rem, 2.4vw, 1.4rem);
   width: min(1180px, 100%);
   margin: 0 auto;
@@ -42,10 +42,32 @@
 .emptyContainer {
   display: grid;
   place-items: center;
-  width: min(760px, 100%);
-  min-height: calc(100dvh - 128px);
+  width: min(860px, 100%);
+  min-height: calc(100dvh - 3rem);
   margin: 0 auto;
-  padding: 1rem;
+  padding: clamp(1rem, 4vw, 2rem);
+}
+
+.emptyContainer .goals-card {
+  display: grid;
+  gap: 1.2rem;
+  width: 100%;
+  max-width: 760px;
+  min-height: 190px;
+  align-content: center;
+  padding: clamp(1.25rem, 3vw, 1.6rem);
+  cursor: default;
+}
+
+.emptyContainer .goals-title {
+  margin: 0;
+  font-size: clamp(1.28rem, 2.7vw, 1.85rem);
+  line-height: 1.2;
+  text-align: left;
+}
+
+.emptyContainer .goals-create-btn {
+  width: min(220px, 100%);
 }
 
 .goals-header {
@@ -66,11 +88,11 @@
   justify-content: center;
   min-height: 42px;
   padding: 0.72rem 1rem;
-  color: #fffaf4;
-  background: linear-gradient(135deg, var(--buck-orange), var(--buck-coral));
+  color: #241409;
+  background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
   border: 0;
   border-radius: 8px;
-  box-shadow: 0 12px 24px rgba(255, 56, 56, 0.18);
+  box-shadow: 0 12px 24px rgba(255, 122, 51, 0.18);
   font-size: 0.95rem;
   font-weight: 900;
   text-align: center;
@@ -91,11 +113,27 @@ html[data-buck-theme="dark"] .create-goal-button {
 }
 
 .goals-create-btn:hover,
+.goals-create-btn:focus-visible,
 .setActiveButton:hover,
+.setActiveButton:focus-visible,
 .goals-action-btn:hover,
-.create-goal-button:hover {
-  box-shadow: 0 16px 30px rgba(255, 56, 56, 0.24);
+.goals-action-btn:focus-visible,
+.create-goal-button:hover,
+.create-goal-button:focus-visible {
+  background: linear-gradient(135deg, var(--buck-orange), var(--buck-coral));
+  box-shadow: 0 16px 30px rgba(255, 122, 51, 0.24);
   transform: translateY(-2px);
+}
+
+html[data-buck-theme="dark"] .goals-create-btn:hover,
+html[data-buck-theme="dark"] .goals-create-btn:focus-visible,
+html[data-buck-theme="dark"] .setActiveButton:hover,
+html[data-buck-theme="dark"] .setActiveButton:focus-visible,
+html[data-buck-theme="dark"] .goals-action-btn:hover,
+html[data-buck-theme="dark"] .goals-action-btn:focus-visible,
+html[data-buck-theme="dark"] .create-goal-button:hover,
+html[data-buck-theme="dark"] .create-goal-button:focus-visible {
+  background: linear-gradient(135deg, #ffd36c, var(--buck-orange));
 }
 
 .goals-list {
@@ -156,28 +194,28 @@ html[data-buck-theme="dark"] .create-goal-button {
     transform 180ms ease;
 }
 
-.goals-card:hover,
-.goals-card.selected,
-.GoalsContainer:hover,
-.goal-details:hover {
+.goals-card:hover:not(.selected),
+.goals-card:focus-visible:not(.selected) {
   border-color: rgba(244, 117, 54, 0.48);
   box-shadow: 0 22px 48px rgba(94, 59, 34, 0.14);
   transform: translateY(-3px);
 }
 
-html[data-buck-theme="dark"] .goals-card:hover,
-html[data-buck-theme="dark"] .goals-card.selected,
-html[data-buck-theme="dark"] .GoalsContainer:hover,
-html[data-buck-theme="dark"] .goal-details:hover {
+html[data-buck-theme="dark"] .goals-card:hover:not(.selected),
+html[data-buck-theme="dark"] .goals-card:focus-visible:not(.selected) {
   box-shadow: 0 22px 48px rgba(0, 0, 0, 0.32);
 }
 
 .goals-card:hover::before,
-.goals-card.selected::before,
-.GoalsContainer:hover::before,
-.goal-details:hover::before {
+.goals-card:focus-visible::before,
+.goals-card.selected::before {
   opacity: 1;
   transform: scaleX(1);
+}
+
+.goals-card:focus-visible {
+  outline: 3px solid rgba(255, 197, 71, 0.45);
+  outline-offset: 3px;
 }
 
 .goals-card h3,
@@ -197,10 +235,14 @@ html[data-buck-theme="dark"] .goal-details:hover {
 
 .goals-card.selected {
   background: rgba(255, 240, 200, 0.48);
+  border-color: rgba(244, 117, 54, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(244, 117, 54, 0.1);
+  transform: none;
 }
 
 html[data-buck-theme="dark"] .goals-card.selected {
   background: rgba(255, 197, 71, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(255, 197, 71, 0.12);
 }
 
 .goal-buttons-container {

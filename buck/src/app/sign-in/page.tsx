@@ -3,9 +3,12 @@ import { useEffect, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { signInUser, signInWithGoogle } from "@/component/authentication";
 import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
+import {
+  getEmailValidationMessage,
+  normalizeEmailAddress,
+} from "@/utils/emailValidation";
 import { motion } from "framer-motion";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 import {
@@ -53,68 +56,122 @@ function getSafeRedirectPath(redirectTo: string | null) {
   return redirectTo;
 }
 
-const SignIn = () => {
-  const router = useRouter();
+function getAuthNotice(reason: string | null) {
+  switch (reason) {
+    case "session-expired":
+      return "You were signed out after a period of inactivity.";
+    default:
+      return "";
+  }
+}
 
+function getAuthError(error: string | null) {
+  switch (error) {
+    case "supabase-not-configured":
+      return "Supabase authentication is not configured yet.";
+    case "session-security-not-configured":
+      return "Session security is not configured. Add SESSION_COOKIE_SECRET before using protected pages in production.";
+    case "auth-callback-missing-code":
+      return "The sign-in link was missing an auth code. Please try signing in again.";
+    case "auth-callback-failed":
+      return "Buck could not finish Google sign in. Please try again.";
+    default:
+      return "";
+  }
+}
+
+const SignIn = () => {
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [message, setMsg] = useState("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [redirectTo, setRedirectTo] = useState("/dashboard/home");
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const isDarkTheme = useAuthPageTheme();
   const signInButton = usePointerGradient<HTMLButtonElement>();
+  const isAuthBusy = isSigningIn || isGoogleLoading;
+
+  const openAuthRedirect = (path: string) => {
+    window.location.assign(path);
+  };
 
   useEffect(() => {
-    setRedirectTo(
-      getSafeRedirectPath(
-        new URLSearchParams(window.location.search).get("redirectTo")
-      )
-    );
+    const searchParams = new URLSearchParams(window.location.search);
+
+    setRedirectTo(getSafeRedirectPath(searchParams.get("redirectTo")));
+
+    setMsg(getAuthNotice(searchParams.get("reason")));
+    setError(getAuthError(searchParams.get("error")));
   }, []);
 
   useRedirectIfAuthenticated(redirectTo);
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
   const handleSignIn = async (e: FormEvent) => {
     e.preventDefault();
+    if (isAuthBusy) {
+      return;
+    }
+
     setError("");
-    if (!email || !pass) {
+    setMsg("");
+    const normalizedEmail = normalizeEmailAddress(email);
+
+    if (!normalizedEmail || !pass) {
       setError("Please enter both email and password.");
       return;
     }
-    if (!validateEmail(email)) {
-      setError("Please enter a valid email address.");
+    const emailValidationMessage = getEmailValidationMessage(email);
+    if (emailValidationMessage) {
+      setError(emailValidationMessage);
       return;
     }
     if (pass.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
     }
-    const result = await signInUser(email, pass);
+
+    setIsSigningIn(true);
+    setMsg("Checking your account...");
+
+    const result = await signInUser(normalizedEmail, pass);
+
     if (result.success) {
-      setMsg("Sign in successful!");
-      router.push(redirectTo);
+      setMsg("Sign in successful. Opening your dashboard...");
+      openAuthRedirect(redirectTo);
+      return;
     } else {
       setError(result.message || "Sign in failed.");
+      setMsg("");
+      setIsSigningIn(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
+    if (isAuthBusy) {
+      return;
+    }
+
+    setError("");
+    setMsg("Opening Google sign in...");
+    setIsGoogleLoading(true);
+
     const result = await signInWithGoogle(redirectTo);
+
     if (result.success) {
       setMsg("Redirecting to Google...");
 
       if (!result.redirecting) {
-        router.push(redirectTo);
+        openAuthRedirect(redirectTo);
       }
     } else if (result.cancelled) {
-      // Do nothing, user cancelled
+      setMsg("");
+      setIsGoogleLoading(false);
     } else {
       setError(result.message || "Google Sign-In failed.");
+      setMsg("");
+      setIsGoogleLoading(false);
     }
   };
 
@@ -220,15 +277,21 @@ const SignIn = () => {
               className="SI-Google-Btn"
               type="button"
               onClick={handleGoogleSignIn}
+              disabled={isAuthBusy}
+              aria-busy={isGoogleLoading}
             >
-              <Image
-                src="/Google.png"
-                alt=""
-                width={20}
-                height={20}
-                className="SI-Google-Icon"
-              />
-              Continue with Google
+              {isGoogleLoading ? (
+                <span className="auth-button-spinner" aria-hidden="true" />
+              ) : (
+                <Image
+                  src="/Google.png"
+                  alt=""
+                  width={20}
+                  height={20}
+                  className="SI-Google-Icon"
+                />
+              )}
+              {isGoogleLoading ? "Opening Google..." : "Continue with Google"}
             </button>
 
             <div className="SI-Divider">
@@ -247,6 +310,7 @@ const SignIn = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
+                disabled={isAuthBusy}
               />
 
               <div className="SI-LabelRow">
@@ -266,6 +330,7 @@ const SignIn = () => {
                   value={pass}
                   onChange={(e) => setPass(e.target.value)}
                   autoComplete="current-password"
+                  disabled={isAuthBusy}
                 />
                 <button
                   type="button"
@@ -273,6 +338,7 @@ const SignIn = () => {
                   tabIndex={-1}
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
+                  disabled={isAuthBusy}
                 >
                   <Image
                     src={showPassword ? "/duck-eye.png" : "/duck-eye-closed.png"}
@@ -296,12 +362,21 @@ const SignIn = () => {
                 onMouseMove={signInButton.handlePointerMove}
                 onMouseLeave={signInButton.handlePointerLeave}
                 style={signInButtonStyle}
-                whileHover={{
-                  scale: 1.02,
-                }}
+                whileHover={isAuthBusy ? undefined : { scale: 1.02 }}
+                disabled={isAuthBusy}
+                aria-busy={isSigningIn}
               >
-                Sign In
-                <FaArrowRight aria-hidden="true" />
+                {isSigningIn ? (
+                  <>
+                    <span className="auth-button-spinner" aria-hidden="true" />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    Sign In
+                    <FaArrowRight aria-hidden="true" />
+                  </>
+                )}
               </motion.button>
 
               {message && <div className="success-message">{message}</div>}

@@ -5,17 +5,42 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { FaArrowRight, FaEnvelope, FaShieldAlt } from "react-icons/fa";
+import { resendSignUpConfirmation } from "@/component/authentication";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import "./style.css";
 
 export default function CheckEmailPage() {
   const [email, setEmail] = useState("");
+  const [resendStatus, setResendStatus] = useState("");
+  const [resendError, setResendError] = useState("");
+  const [resending, setResending] = useState(false);
   const isDarkTheme = useAuthPageTheme();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setEmail(params.get("email") ?? "");
   }, []);
+
+  const handleResendConfirmation = async () => {
+    setResendStatus("");
+    setResendError("");
+
+    if (!email) {
+      setResendError("Open this page from account creation so Buck knows where to resend.");
+      return;
+    }
+
+    setResending(true);
+    const result = await resendSignUpConfirmation(email);
+    setResending(false);
+
+    if (result.success) {
+      setResendStatus(result.message || "Confirmation email sent again.");
+      return;
+    }
+
+    setResendError(result.message || "Could not resend confirmation email.");
+  };
 
   return (
     <div className={`CE-Background${isDarkTheme ? " CE-Dark" : ""}`}>
@@ -67,10 +92,29 @@ export default function CheckEmailPage() {
             Back to Sign In
             <FaArrowRight aria-hidden="true" />
           </Link>
+          <button
+            className="CE-SecondaryAction"
+            type="button"
+            onClick={handleResendConfirmation}
+            disabled={resending}
+          >
+            {resending ? "Sending..." : "Resend email"}
+          </button>
           <Link href="/create-account" className="CE-SecondaryAction">
             Use another email
           </Link>
         </div>
+
+        {resendStatus ? (
+          <p className="CE-Message CE-Message--success" role="status">
+            {resendStatus}
+          </p>
+        ) : null}
+        {resendError ? (
+          <p className="CE-Message CE-Message--error" role="alert">
+            {resendError}
+          </p>
+        ) : null}
       </motion.main>
     </div>
   );
