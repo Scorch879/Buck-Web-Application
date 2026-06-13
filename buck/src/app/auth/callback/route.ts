@@ -8,11 +8,19 @@ import {
 } from "@/utils/supabaseConfig";
 
 function getSafeNextPath(value: string | null) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return "/dashboard/home";
+  if (!value) return "/dashboard/home";
+
+  try {
+    const parsedUrl = new URL(value, "http://localhost");
+    
+    if (parsedUrl.origin === "http://localhost" && parsedUrl.pathname.startsWith("/dashboard")) {
+      return parsedUrl.pathname + parsedUrl.search;
+    }
+  } catch (e) {
+    // If parsing fails, fall through to default
   }
 
-  return value;
+  return "/dashboard/home";
 }
 
 function createAppRedirect(request: NextRequest, path: string) {
@@ -67,16 +75,27 @@ export async function GET(request: NextRequest) {
     // Fallback for implicit flow (hash fragment)
     // If the URL has a hash fragment, the server can't see it.
     // We return a small HTML page that checks the hash and either redirects to the nextPath or to sign-in.
+    // To prevent XSS, we pass dynamic variables via safe HTML attributes instead of inline JS injection.
+    const fallbackUrl = createSignInRedirect(request, "auth-callback-missing-code").toString();
+    
+    // Basic HTML escaping for attributes
+    const escapeHtml = (str: string) => str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+
     return new NextResponse(
       `
       <!DOCTYPE html>
       <html>
         <head>
+          <meta id="redirect-data" data-next="${escapeHtml(nextPath)}" data-fallback="${escapeHtml(fallbackUrl)}" />
           <script>
+            const meta = document.getElementById("redirect-data");
+            const nextPath = meta.getAttribute("data-next");
+            const fallbackPath = meta.getAttribute("data-fallback");
+            
             if (window.location.hash && window.location.hash.includes("access_token")) {
-              window.location.replace("${nextPath}" + window.location.hash);
+              window.location.replace(nextPath + window.location.hash);
             } else {
-              window.location.replace("${createSignInRedirect(request, "auth-callback-missing-code").toString()}");
+              window.location.replace(fallbackPath);
             }
           </script>
         </head>
