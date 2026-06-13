@@ -901,9 +901,10 @@ html[data-buck-theme="dark"] .dashboard-skeleton-bars span {
     position: relative;
     top: auto;
     min-height: auto;
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0.35rem;
+    align-items: center;
+    justify-content: space-between;
+    flex-direction: row;
+    gap: 0.5rem;
     padding: 0.85rem 1rem;
   }
 
@@ -1001,6 +1002,12 @@ html[data-buck-theme="dark"] .dashboard-skeleton-bars span {
     font-size: 1.12rem;
   }
 
+  .dashboard-wallet-pill {
+    padding: 0.55rem 1rem;
+    font-size: 0.95rem;
+    margin-top: 0.25rem;
+  }
+
   .dashboard-tagline {
     display: none;
   }
@@ -1058,8 +1065,7 @@ html[data-buck-theme="dark"] .dashboard-skeleton-bars span {
 }
 
 /* =========================================================
-   DASHBOARD-WIDE: unified button hover — translateY(-2px) + shadow
-   Covers every primary action button across all dashboard pages.
+   DASHBOARD-WIDE: unified button styling — matches "Get Started"
    ========================================================= */
 .dashboard :is(
   .settings-button,
@@ -1069,43 +1075,12 @@ html[data-buck-theme="dark"] .dashboard-skeleton-bars span {
   .create-goal-button,
   .expenses-primary-button,
   .addProgress-btn,
-  .progress-add-btn
-):hover:not(:disabled),
-.dashboard :is(
-  .settings-button,
-  .goals-create-btn,
-  .goals-action-btn,
-  .setActiveButton,
-  .create-goal-button,
-  .expenses-primary-button,
-  .addProgress-btn,
-  .progress-add-btn
-):focus-visible:not(:disabled) {
-  transform: translateY(-2px) !important;
-  box-shadow: 0 14px 28px rgba(255, 122, 51, 0.22) !important;
-}
-
-html[data-buck-theme="dark"] .dashboard :is(
-  .settings-button,
-  .goals-create-btn,
-  .goals-action-btn,
-  .setActiveButton,
-  .create-goal-button,
-  .expenses-primary-button,
-  .addProgress-btn,
-  .progress-add-btn
-):hover:not(:disabled),
-html[data-buck-theme="dark"] .dashboard :is(
-  .settings-button,
-  .goals-create-btn,
-  .goals-action-btn,
-  .setActiveButton,
-  .create-goal-button,
-  .expenses-primary-button,
-  .addProgress-btn,
-  .progress-add-btn
-):focus-visible:not(:disabled) {
-  box-shadow: 0 14px 28px rgba(255, 197, 71, 0.18) !important;
+  .progress-add-btn,
+  .admin-setup-button
+) {
+  font-weight: 700 !important;
+  font-family: inherit !important;
+  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease !important;
 }
 
 .dashboard :is(
@@ -1116,7 +1091,100 @@ html[data-buck-theme="dark"] .dashboard :is(
   .create-goal-button,
   .expenses-primary-button,
   .addProgress-btn,
-  .progress-add-btn
+  .progress-add-btn,
+  .admin-setup-button,
+  .dashboard-primary-button
+):not(.settings-button--danger) {
+  color: #ffffff !important;
+  background: var(--buck-orange) !important;
+  border: none !important;
+}
+
+.dashboard .settings-button.settings-button--danger {
+  background: var(--buck-coral) !important;
+}
+
+.dashboard :is(
+  .settings-button,
+  .goals-create-btn,
+  .goals-action-btn,
+  .setActiveButton,
+  .create-goal-button,
+  .expenses-primary-button,
+  .addProgress-btn,
+  .progress-add-btn,
+  .admin-setup-button
+):hover:not(:disabled),
+.dashboard :is(
+  .settings-button,
+  .goals-create-btn,
+  .goals-action-btn,
+  .setActiveButton,
+  .create-goal-button,
+  .expenses-primary-button,
+  .addProgress-btn,
+  .progress-add-btn,
+  .admin-setup-button
+):focus-visible:not(:disabled) {
+  transform: translateY(-1px) scale(1.02) !important;
+  box-shadow: 0 12px 24px rgba(253, 82, 59, 0.24) !important;
+}
+
+html[data-buck-theme="dark"] .dashboard :is(
+  .settings-button,
+  .goals-create-btn,
+  .goals-action-btn,
+  .setActiveButton,
+  .create-goal-button,
+  .expenses-primary-button,
+  .addProgress-btn,
+  .progress-add-btn,
+  .admin-setup-button
+):hover:not(:disabled),
+html[data-buck-theme="dark"] .dashboard :is(
+  .settings-button,
+  .goals-create-btn,
+  .goals-action-btn,
+  .setActiveButton,
+  .create-goal-button,
+  .expenses-primary-button,
+  .addProgress-btn,
+  .progress-add-btn,
+  .admin-setup-button
+):focus-visible:not(:disabled) {
+  box-shadow: 0 16px 34px rgba(255, 197, 71, 0.24) !important;
+}
+
+html[data-buck-theme="dark"] .dashboard :is(
+  .settings-button,
+  .goals-create-btn,
+  .goals-action-btn,
+  .setActiveButton,
+  .create-goal-button,
+  .expenses-primary-button,
+  .addProgress-btn,
+  .progress-add-btn,
+  .admin-setup-button,
+  .dashboard-primary-button
+):not(.settings-button--danger) {
+  color: #241409 !important;
+}
+
+html[data-buck-theme="dark"] .dashboard .settings-button.settings-button--danger:hover:not(:disabled),
+html[data-buck-theme="dark"] .dashboard .settings-button.settings-button--danger:focus-visible:not(:disabled) {
+  background: #ff5252 !important;
+}
+
+.dashboard :is(
+  .settings-button,
+  .goals-create-btn,
+  .goals-action-btn,
+  .setActiveButton,
+  .create-goal-button,
+  .expenses-primary-button,
+  .addProgress-btn,
+  .progress-add-btn,
+  .admin-setup-button
 ):active:not(:disabled) {
   transform: translateY(0) scale(0.98) !important;
   box-shadow: none !important;
