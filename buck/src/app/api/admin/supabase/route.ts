@@ -1,6 +1,26 @@
 import { NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { supabaseAnonKey, supabaseCookieOptions, supabaseUrl } from "@/utils/supabaseConfig";
+import { cookies } from "next/headers";
 
 export async function GET() {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(supabaseUrl!, supabaseAnonKey!, {
+    cookieOptions: supabaseCookieOptions,
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll() {}
+    },
+  });
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user || user.email !== "buckthebudgettracker@gmail.com") {
+    return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
+  }
+
   const token = process.env.SUPABASE_MANAGEMENT_TOKEN;
   const projectRef = process.env.SUPABASE_PROJECT_REF;
 
