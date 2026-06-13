@@ -52,12 +52,14 @@ function getSafeRedirectPath(redirectTo: string | null) {
   if (!redirectTo) return "/dashboard/home";
 
   try {
-    // Validate by attempting to parse as a full URL with a dummy origin.
-    // This safely resolves any path traversals or protocol-relative injections.
-    const parsedUrl = new URL(redirectTo, "http://localhost");
+    // We use a dummy base URL strictly for parsing purposes to utilize the native URL object.
+    // This ensures the value is a relative path. If the attacker provides an absolute URL 
+    // (e.g. "https://evil.com"), the origin will NOT match the dummy base, and it will be rejected.
+    // This works flawlessly in production because it only returns the relative pathname.
+    const parsedUrl = new URL(redirectTo, "http://dummy.local");
     
     // Check if it's strictly a relative path going to the dashboard
-    if (parsedUrl.origin === "http://localhost" && parsedUrl.pathname.startsWith("/dashboard")) {
+    if (parsedUrl.origin === "http://dummy.local" && parsedUrl.pathname.startsWith("/dashboard")) {
       // Return pathname + search (preserves query params, but ignores potential malicious fragments)
       return parsedUrl.pathname + parsedUrl.search;
     }
