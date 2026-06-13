@@ -212,8 +212,8 @@ export default function WalletModal({
             onMouseLeave={addButton.handlePointerLeave}
             style={{
               background: addButton.pointer
-                ? `radial-gradient(circle at ${addButton.pointer.x}px ${addButton.pointer.y}px, var(--buck-gold) 0%, var(--buck-orange) 48%, var(--buck-coral) 100%)`
-                : "linear-gradient(135deg, var(--buck-orange), var(--buck-coral))",
+                ? `radial-gradient(circle at ${addButton.pointer.x}px ${addButton.pointer.y}px, var(--buck-gold) 0%, var(--buck-orange) 100%)`
+                : "var(--buck-orange)",
               transition: addButton.pointer ? "background 0.1s" : "background 0.3s",
             }}
             whileHover={{ scale: 1.03 }}

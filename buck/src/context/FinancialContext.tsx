@@ -18,6 +18,11 @@ export type DashboardDataCache = {
   activeWalletId?: string | null;
   activeWalletBudget?: number | null;
   forecastInsights?: import("@/utils/forecastApi").AIForecastInsights;
+  adminFeedback?: import("@/utils/supabaseData").BuckFeedback[];
+  adminVercelDeployments?: any[];
+  adminSupabaseLogs?: any[];
+  adminVercelError?: string;
+  adminSupabaseError?: string;
   updatedAt?: number;
 };
 

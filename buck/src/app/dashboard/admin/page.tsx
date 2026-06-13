@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FaDatabase, FaEnvelopeOpenText, FaServer } from "react-icons/fa";
+import { FaDatabase, FaEnvelopeOpenText, FaServer, FaSpinner } from "react-icons/fa";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
+import { useFinancial } from "@/context/FinancialContext";
 import { getAdminFeedback, type BuckFeedback } from "@/utils/supabaseData";
-import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
-import "../settings/style.css";
+// @ts-ignore
+import "@/app/dashboard/settings/style.css";
+// @ts-ignore
 import "./style.css";
 
 function formatAdminDate(isoString: string) {
@@ -19,63 +21,82 @@ function formatAdminDate(isoString: string) {
 export default function AdminPage() {
   const router = useRouter();
   const user = useOptionalDashboardUser();
-  const [feedback, setFeedback] = useState<BuckFeedback[] | null>(null);
-  const [vercelDeployments, setVercelDeployments] = useState<any[] | null>(null);
-  const [supabaseLogs, setSupabaseLogs] = useState<any[] | null>(null);
-  const [vercelError, setVercelError] = useState("");
-  const [supabaseError, setSupabaseError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const { dashboardCache, setDashboardCache } = useFinancial();
+  const { 
+    adminFeedback: feedback,
+    adminVercelDeployments: vercelDeployments,
+    adminSupabaseLogs: supabaseLogs,
+    adminVercelError: vercelError,
+    adminSupabaseError: supabaseError
+  } = dashboardCache;
+
+  const [activeTab, setActiveTab] = useState("feedback");
+  const [isFetchingFeedback, setIsFetchingFeedback] = useState(!feedback);
+  const [isFetchingVercel, setIsFetchingVercel] = useState(!vercelDeployments);
+  const [isFetchingSupabase, setIsFetchingSupabase] = useState(!supabaseLogs);
   const [error, setError] = useState("");
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [filterCategory, setFilterCategory] = useState("all");
 
   useEffect(() => {
     let active = true;
 
     async function loadAdminData() {
-      if (!user) {
-        return;
-      }
-
+      if (!user) return;
       if (user.email !== "buckthebudgettracker@gmail.com") {
         router.replace("/dashboard/home");
         return;
       }
 
-      try {
-        const [feedbackData, vercelResponse, supabaseResponse] = await Promise.all([
-          getAdminFeedback().catch(() => {
-            if (active) setError("Failed to load feedback. Make sure the 'feedback' table exists in Supabase.");
-            return null;
-          }),
-          fetch("/api/admin/vercel").catch(() => null),
-          fetch("/api/admin/supabase").catch(() => null),
-        ]);
-
-        if (active && feedbackData) {
-          setFeedback(feedbackData);
+      if (activeTab === "feedback") {
+        if (!feedback) setIsFetchingFeedback(true);
+        try {
+          const data = await getAdminFeedback();
+          if (active) setDashboardCache(c => ({...c, adminFeedback: data}));
+        } catch (err) {
+          if (active) setError("Failed to load feedback. Make sure the 'feedback' table exists in Supabase.");
+        } finally {
+          if (active) setIsFetchingFeedback(false);
         }
+      }
 
-        if (active && vercelResponse) {
-          const vData = await vercelResponse.json();
-          if (vercelResponse.ok) {
-            setVercelDeployments(vData.deployments || []);
-          } else {
-            setVercelError(vData.error || "Failed to fetch Vercel data.");
+      if (activeTab === "supabase") {
+        if (!supabaseLogs) setIsFetchingSupabase(true);
+        try {
+          const res = await fetch("/api/admin/supabase");
+          const data = await res.json();
+          if (active) {
+            if (res.ok) {
+              setDashboardCache(c => ({...c, adminSupabaseLogs: data.logs || []}));
+            } else {
+              setDashboardCache(c => ({...c, adminSupabaseError: data.error || "Failed to fetch Supabase logs."}));
+            }
           }
+        } catch (err) {
+          if (active) setDashboardCache(c => ({...c, adminSupabaseError: "Fetch error"}));
+        } finally {
+          if (active) setIsFetchingSupabase(false);
         }
+      }
 
-        if (active && supabaseResponse) {
-          const sData = await supabaseResponse.json();
-          if (supabaseResponse.ok) {
-            setSupabaseLogs(sData.logs || []);
-          } else {
-            setSupabaseError(sData.error || "Failed to fetch Supabase logs.");
+      if (activeTab === "vercel") {
+        if (!vercelDeployments) setIsFetchingVercel(true);
+        try {
+          const res = await fetch("/api/admin/vercel");
+          const data = await res.json();
+          if (active) {
+            if (res.ok) {
+              setDashboardCache(c => ({...c, adminVercelDeployments: data.deployments || []}));
+            } else {
+              setDashboardCache(c => ({...c, adminVercelError: data.error || "Failed to fetch Vercel data."}));
+            }
           }
-        }
-      } catch (err) {
-        // Handled individually above
-      } finally {
-        if (active) {
-          setLoading(false);
+        } catch (err) {
+          if (active) setDashboardCache(c => ({...c, adminVercelError: "Fetch error"}));
+        } finally {
+          if (active) setIsFetchingVercel(false);
         }
       }
     }
@@ -85,27 +106,18 @@ export default function AdminPage() {
     return () => {
       active = false;
     };
-  }, [user, router]);
-
-  const adminTabs = [
-    { id: "feedback", label: "User Feedback", icon: FaEnvelopeOpenText, description: "Monitor feedback from your users." },
-    { id: "supabase", label: "Supabase Logs", icon: FaDatabase, description: "Live auth logs from your Postgres database." },
-    { id: "vercel", label: "Vercel Deployments", icon: FaServer, description: "Track your recent project builds." },
-  ];
-
-  const [activeTab, setActiveTab] = useState("feedback");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
-  const [filterCategory, setFilterCategory] = useState("all");
+  }, [user, router, activeTab, setDashboardCache]);
 
   useEffect(() => {
     setSearchQuery("");
     setFilterCategory("all");
   }, [activeTab]);
 
-  if (loading) {
-    return <DashboardPageSkeleton variant="settings" />;
-  }
+  const adminTabs = [
+    { id: "feedback", label: "User Feedback", icon: FaEnvelopeOpenText, description: "Monitor feedback from your users." },
+    { id: "supabase", label: "Supabase Logs", icon: FaDatabase, description: "Live auth logs from your Postgres database." },
+    { id: "vercel", label: "Vercel Deployments", icon: FaServer, description: "Track your recent project builds." },
+  ];
 
   const ActiveIcon = adminTabs.find((t) => t.id === activeTab)?.icon || FaEnvelopeOpenText;
   const activeDescription = adminTabs.find((t) => t.id === activeTab)?.description;
@@ -228,7 +240,12 @@ export default function AdminPage() {
             </div>
 
             {activeTab === "feedback" && (
-              filteredFeedback && filteredFeedback.length > 0 ? (
+              isFetchingFeedback ? (
+                <div className="admin-placeholder-box">
+                  <FaSpinner className="fa-spin" aria-hidden="true" style={{ animation: "spin 1s linear infinite" }} />
+                  <p>Loading feedback...</p>
+                </div>
+              ) : filteredFeedback && filteredFeedback.length > 0 ? (
                 <div className="admin-feedback-list">
                   {filteredFeedback.map((item) => (
                     <div key={item.id} className="admin-feedback-item">
@@ -252,7 +269,12 @@ export default function AdminPage() {
             )}
 
             {activeTab === "supabase" && (
-              supabaseError ? (
+              isFetchingSupabase ? (
+                <div className="admin-placeholder-box">
+                  <FaSpinner className="fa-spin" aria-hidden="true" style={{ animation: "spin 1s linear infinite" }} />
+                  <p>Loading logs...</p>
+                </div>
+              ) : supabaseError ? (
                 <div className="admin-placeholder-box">
                   <FaDatabase aria-hidden="true" />
                   <h3>Integration Required</h3>
@@ -273,13 +295,18 @@ export default function AdminPage() {
                 </div>
               ) : (
                 <div className="admin-placeholder-box">
-                  <p>No logs found or loading...</p>
+                  <p>No logs found.</p>
                 </div>
               )
             )}
 
             {activeTab === "vercel" && (
-              vercelError ? (
+              isFetchingVercel ? (
+                <div className="admin-placeholder-box">
+                  <FaSpinner className="fa-spin" aria-hidden="true" style={{ animation: "spin 1s linear infinite" }} />
+                  <p>Loading deployments...</p>
+                </div>
+              ) : vercelError ? (
                 <div className="admin-placeholder-box">
                   <FaServer aria-hidden="true" />
                   <h3>Integration Required</h3>
@@ -306,7 +333,7 @@ export default function AdminPage() {
                 </div>
               ) : (
                 <div className="admin-placeholder-box">
-                  <p>No deployments found or loading...</p>
+                  <p>No deployments found.</p>
                 </div>
               )
             )}
