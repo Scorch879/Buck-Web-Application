@@ -236,7 +236,7 @@ export default function ExpensesPage() {
   }
 
   return (
-    <main className="expenses-page">
+    <div className="expenses-page">
       {error ? <div className="expenses-message">{error}</div> : null}
 
       <section className="expenses-stats">
@@ -351,6 +351,6 @@ export default function ExpensesPage() {
           )}
         </section>
       </section>
-    </main>
+    </div>
   );
 }

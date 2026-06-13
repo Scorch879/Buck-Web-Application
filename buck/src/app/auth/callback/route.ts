@@ -34,6 +34,8 @@ export async function GET(request: NextRequest) {
   }
 
   const code = request.nextUrl.searchParams.get("code");
+  const token_hash = request.nextUrl.searchParams.get("token_hash");
+  const type = request.nextUrl.searchParams.get("type") as "recovery" | "invite" | "signup" | "magiclink" | "email" | null;
   const nextPath = getSafeNextPath(request.nextUrl.searchParams.get("next"));
   const redirectResponse = NextResponse.redirect(
     createAppRedirect(request, nextPath)
@@ -53,7 +55,7 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  if (!code) {
+  if (!code && !token_hash) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -62,19 +64,48 @@ export async function GET(request: NextRequest) {
       return redirectResponse;
     }
 
-    return NextResponse.redirect(
-      createSignInRedirect(request, "auth-callback-missing-code")
+    // Fallback for implicit flow (hash fragment)
+    // If the URL has a hash fragment, the server can't see it.
+    // We return a small HTML page that checks the hash and either redirects to the nextPath or to sign-in.
+    return new NextResponse(
+      `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <script>
+            if (window.location.hash && window.location.hash.includes("access_token")) {
+              window.location.replace("${nextPath}" + window.location.hash);
+            } else {
+              window.location.replace("${createSignInRedirect(request, "auth-callback-missing-code").toString()}");
+            }
+          </script>
+        </head>
+        <body>Redirecting...</body>
+      </html>
+      `,
+      { headers: { "Content-Type": "text/html" } }
     );
   }
 
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (token_hash && type) {
+    const { error } = await supabase.auth.verifyOtp({ token_hash, type });
+    if (error) {
+      console.error("Auth callback OTP verification failed:", error.message);
+      return NextResponse.redirect(createSignInRedirect(request, "auth-callback-failed"));
+    }
+    return redirectResponse;
+  }
 
-  if (error) {
-    console.error("Auth callback exchange failed:", error.message);
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
 
-    return NextResponse.redirect(
-      createSignInRedirect(request, "auth-callback-failed")
-    );
+    if (error) {
+      console.error("Auth callback exchange failed:", error.message);
+
+      return NextResponse.redirect(
+        createSignInRedirect(request, "auth-callback-failed")
+      );
+    }
   }
 
   return redirectResponse;

@@ -57,6 +57,8 @@ const ForgotPassword = () => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const isDarkTheme = useAuthPageTheme();
   const resetButton = usePointerGradient<HTMLButtonElement>();
   const passwordPolicy = evaluatePasswordPolicy(newPassword, { email });
@@ -73,17 +75,43 @@ const ForgotPassword = () => {
       window.location.hash.includes("type=recovery") ||
       window.location.search.includes("type=recovery");
 
-    if (hasRecoveryToken) {
-      setIsRecoveryMode(true);
-    }
+    if (!supabase) return;
 
     const {
       data: { subscription },
-    } = supabase?.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "INITIAL_SESSION") {
+        if (hasRecoveryToken) {
+          if (session) {
+            setIsRecoveryMode(true);
+          } else if (window.location.hash.includes("access_token")) {
+            // Fallback for older implicit flow email templates
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            const access_token = hashParams.get("access_token");
+            const refresh_token = hashParams.get("refresh_token");
+
+            if (access_token && refresh_token) {
+              supabase.auth.setSession({ access_token, refresh_token }).then(({ data, error }) => {
+                if (!error && data.session) {
+                  setIsRecoveryMode(true);
+                  setError("");
+                  window.history.replaceState(null, "", window.location.pathname + "?type=recovery");
+                } else {
+                  setError("This password reset link is invalid or has expired.");
+                }
+              });
+            } else {
+              setError("This password reset link is invalid or has expired.");
+            }
+          } else {
+            setError("This password reset link is invalid or has expired.");
+          }
+        }
+      } else if (event === "PASSWORD_RECOVERY" || (hasRecoveryToken && session)) {
         setIsRecoveryMode(true);
+        setError("");
       }
-    }) ?? { data: { subscription: null } };
+    });
 
     return () => {
       subscription?.unsubscribe();
@@ -285,16 +313,33 @@ const ForgotPassword = () => {
                   <label htmlFor="new-password" className="FP-Label">
                     New password
                   </label>
-                  <input
-                    id="new-password"
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="FP-Input"
-                    placeholder="Create a new password"
-                    autoComplete="new-password"
-                    disabled={isSubmitting}
-                  />
+                  <div className="FP-InputWrapper">
+                    <input
+                      id="new-password"
+                      type={showNewPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="FP-Input"
+                      placeholder="Create a new password"
+                      autoComplete="new-password"
+                      disabled={isSubmitting}
+                    />
+                    <button
+                      type="button"
+                      className="FP-Eye-Btn"
+                      tabIndex={-1}
+                      onClick={() => setShowNewPassword((v) => !v)}
+                      aria-label={showNewPassword ? "Hide password" : "Show password"}
+                      disabled={isSubmitting}
+                    >
+                      <Image
+                        src={showNewPassword ? "/duck-eye.png" : "/duck-eye-closed.png"}
+                        alt=""
+                        width={24}
+                        height={24}
+                      />
+                    </button>
+                  </div>
                   {newPassword ? (
                     <div
                       className={`FP-PasswordFeedback FP-PasswordFeedback--${passwordPolicy.strength}`}
@@ -325,16 +370,33 @@ const ForgotPassword = () => {
                   <label htmlFor="confirm-password" className="FP-Label">
                     Confirm password
                   </label>
-                  <input
-                    id="confirm-password"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="FP-Input"
-                    placeholder="Confirm your new password"
-                    autoComplete="new-password"
-                    disabled={isSubmitting}
-                  />
+                  <div className="FP-InputWrapper">
+                    <input
+                      id="confirm-password"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="FP-Input"
+                      placeholder="Confirm your new password"
+                      autoComplete="new-password"
+                      disabled={isSubmitting}
+                    />
+                    <button
+                      type="button"
+                      className="FP-Eye-Btn"
+                      tabIndex={-1}
+                      onClick={() => setShowConfirmPassword((v) => !v)}
+                      aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                      disabled={isSubmitting}
+                    >
+                      <Image
+                        src={showConfirmPassword ? "/duck-eye.png" : "/duck-eye-closed.png"}
+                        alt=""
+                        width={24}
+                        height={24}
+                      />
+                    </button>
+                  </div>
                   {confirmStatus ? (
                     <p
                       className={`FP-ConfirmHint${

@@ -197,13 +197,13 @@ export default function WalletPage() {
   }
 
   return (
-    <main className="settings-page">
+    <div className="settings-page">
       {error && <div className="settings-message settings-message--error">{error}</div>}
 
       <div className="wallet-grid">
         <article className="settings-card">
-          <div className="settings-card-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-            <div style={{ display: 'flex', gap: '1rem' }}>
+          <div className="settings-card-heading settings-card-header">
+            <div className="settings-card-title">
               <span aria-hidden="true">
                 <FaWallet />
               </span>
@@ -277,21 +277,13 @@ export default function WalletPage() {
                 >
                   {editId === w.id ? (
                     <>
-                      <div className="settings-wallet-info" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                      <div className="settings-wallet-info settings-wallet-edit-grid">
                         <input
                           type="text"
                           value={editName}
                           onChange={(e) => setEditName(e.target.value)}
                           placeholder="Wallet Name"
                           className="settings-form-input"
-                          style={{
-                            width: "100%",
-                            padding: "0.5rem",
-                            borderRadius: "4px",
-                            border: "1px solid var(--buck-line)",
-                            background: "transparent",
-                            color: "var(--buck-ink)"
-                          }}
                         />
                         <input
                           type="number"
@@ -301,22 +293,13 @@ export default function WalletPage() {
                           min="0.01"
                           step="0.01"
                           className="settings-form-input"
-                          style={{
-                            width: "100%",
-                            padding: "0.5rem",
-                            borderRadius: "4px",
-                            border: "1px solid var(--buck-line)",
-                            background: "transparent",
-                            color: "var(--buck-ink)"
-                          }}
                         />
                       </div>
-                      <div className="settings-wallet-actions" style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "1rem", width: "100%" }}>
+                      <div className="settings-wallet-actions">
                         <button
                           className="settings-button settings-button--primary"
                           onClick={() => handleEditSave(w.id)}
                           type="button"
-                          style={{ flex: 1, margin: 0 }}
                         >
                           Save
                         </button>
@@ -324,7 +307,6 @@ export default function WalletPage() {
                           className="settings-button settings-button--secondary"
                           onClick={handleEditCancel}
                           type="button"
-                          style={{ flex: 1, margin: 0 }}
                         >
                           Cancel
                         </button>
@@ -332,7 +314,7 @@ export default function WalletPage() {
                     </>
                   ) : (
                     <>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+                      <div className="settings-wallet-header">
                         <div className="settings-wallet-info">
                           <strong>{w.name}</strong>
                           <span className="settings-wallet-budget">{formatCurrency(Number(w.budget))}</span>
@@ -343,7 +325,7 @@ export default function WalletPage() {
                           </span>
                         )}
                       </div>
-                      <div className="settings-wallet-actions" style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "1rem", width: "100%" }}>
+                      <div className="settings-wallet-actions">
                         {w.id !== activeWalletId && (
                           <button
                             className="settings-button settings-button--secondary"
@@ -380,8 +362,8 @@ export default function WalletPage() {
         </article>
 
         <article className="settings-card">
-          <div className="settings-card-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-            <div style={{ display: 'flex', gap: '1rem' }}>
+          <div className="settings-card-heading settings-card-header">
+            <div className="settings-card-title">
               <span aria-hidden="true">
                 <FaHistory />
               </span>
@@ -423,8 +405,8 @@ export default function WalletPage() {
               filteredHistoryWallets.map((w) => (
                 <div key={w.id} className="settings-action-panel settings-wallet-item" style={{ opacity: w.deletedAt ? 0.6 : 1 }}>
                   <div className="settings-wallet-info" style={{ width: '100%' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div className="settings-wallet-header">
+                      <div className="settings-card-title" style={{ gap: '0.5rem' }}>
                         <strong style={{ textDecoration: w.deletedAt ? 'line-through' : 'none' }}>{w.name}</strong>
                         {w.deletedAt && (
                           <span style={{ fontSize: '0.7rem', background: 'var(--buck-surface)', color: 'var(--buck-muted)', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid var(--buck-line)' }}>
@@ -483,6 +465,6 @@ export default function WalletPage() {
           onClose={() => setIsModalOpen(false)}
         />
       )}
-    </main>
+    </div>
   );
 }
