@@ -217,7 +217,7 @@ export default function FinancialAdvisorPage() {
   }
 
   return (
-    <main className="advisor-page">
+    <div className="advisor-page">
       {error ? <div className="advisor-message">{error}</div> : null}
 
       <section className="advisor-hero">
@@ -295,6 +295,6 @@ export default function FinancialAdvisorPage() {
           </div>
         </section>
       </div>
-    </main>
+    </div>
   );
 }

@@ -154,7 +154,7 @@ export default function AdminPage() {
   });
 
   return (
-    <main className="admin-page">
+    <div className="admin-page">
       {error && (
         <div style={{ color: "#a81919", background: "rgba(255, 56, 56, 0.14)", padding: "1rem", borderRadius: "8px", border: "1px solid rgba(255, 56, 56, 0.34)", marginBottom: "1rem", flexShrink: 0 }}>
           {error}
@@ -340,6 +340,6 @@ export default function AdminPage() {
           </article>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

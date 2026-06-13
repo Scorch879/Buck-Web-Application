@@ -401,14 +401,20 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isAuthRoute && user) {
-    const redirectResponse = NextResponse.redirect(
-      createDashboardRedirect(request)
-    );
-    copyResponseCookies(response, redirectResponse);
-    await refreshActivityCookie(redirectResponse, user.id);
-    setNoStoreHeaders(redirectResponse);
+    const isRecoveryMode =
+      pathname === "/forgot-password" &&
+      request.nextUrl.searchParams.get("type") === "recovery";
 
-    return redirectResponse;
+    if (!isRecoveryMode) {
+      const redirectResponse = NextResponse.redirect(
+        createDashboardRedirect(request)
+      );
+      copyResponseCookies(response, redirectResponse);
+      await refreshActivityCookie(redirectResponse, user.id);
+      setNoStoreHeaders(redirectResponse);
+
+      return redirectResponse;
+    }
   }
 
   return response;

@@ -8,11 +8,19 @@ import {
 } from "@/utils/supabaseConfig";
 
 function getSafeNextPath(value: string | null) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return "/dashboard/home";
+  if (!value) return "/dashboard/home";
+
+  try {
+    const parsedUrl = new URL(value, "http://localhost");
+    
+    if (parsedUrl.origin === "http://localhost" && parsedUrl.pathname.startsWith("/dashboard")) {
+      return parsedUrl.pathname + parsedUrl.search;
+    }
+  } catch (e) {
+    // If parsing fails, fall through to default
   }
 
-  return value;
+  return "/dashboard/home";
 }
 
 function createAppRedirect(request: NextRequest, path: string) {
@@ -34,6 +42,8 @@ export async function GET(request: NextRequest) {
   }
 
   const code = request.nextUrl.searchParams.get("code");
+  const token_hash = request.nextUrl.searchParams.get("token_hash");
+  const type = request.nextUrl.searchParams.get("type") as "recovery" | "invite" | "signup" | "magiclink" | "email" | null;
   const nextPath = getSafeNextPath(request.nextUrl.searchParams.get("next"));
   const redirectResponse = NextResponse.redirect(
     createAppRedirect(request, nextPath)
@@ -53,7 +63,7 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  if (!code) {
+  if (!code && !token_hash) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -62,19 +72,59 @@ export async function GET(request: NextRequest) {
       return redirectResponse;
     }
 
-    return NextResponse.redirect(
-      createSignInRedirect(request, "auth-callback-missing-code")
+    // Fallback for implicit flow (hash fragment)
+    // If the URL has a hash fragment, the server can't see it.
+    // We return a small HTML page that checks the hash and either redirects to the nextPath or to sign-in.
+    // To prevent XSS, we pass dynamic variables via safe HTML attributes instead of inline JS injection.
+    const fallbackUrl = createSignInRedirect(request, "auth-callback-missing-code").toString();
+    
+    // Basic HTML escaping for attributes
+    const escapeHtml = (str: string) => str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+
+    return new NextResponse(
+      `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta id="redirect-data" data-next="${escapeHtml(nextPath)}" data-fallback="${escapeHtml(fallbackUrl)}" />
+          <script>
+            const meta = document.getElementById("redirect-data");
+            const nextPath = meta.getAttribute("data-next");
+            const fallbackPath = meta.getAttribute("data-fallback");
+            
+            if (window.location.hash && window.location.hash.includes("access_token")) {
+              window.location.replace(nextPath + window.location.hash);
+            } else {
+              window.location.replace(fallbackPath);
+            }
+          </script>
+        </head>
+        <body>Redirecting...</body>
+      </html>
+      `,
+      { headers: { "Content-Type": "text/html" } }
     );
   }
 
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (token_hash && type) {
+    const { error } = await supabase.auth.verifyOtp({ token_hash, type });
+    if (error) {
+      console.error("Auth callback OTP verification failed:", error.message);
+      return NextResponse.redirect(createSignInRedirect(request, "auth-callback-failed"));
+    }
+    return redirectResponse;
+  }
 
-  if (error) {
-    console.error("Auth callback exchange failed:", error.message);
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
 
-    return NextResponse.redirect(
-      createSignInRedirect(request, "auth-callback-failed")
-    );
+    if (error) {
+      console.error("Auth callback exchange failed:", error.message);
+
+      return NextResponse.redirect(
+        createSignInRedirect(request, "auth-callback-failed")
+      );
+    }
   }
 
   return redirectResponse;

@@ -89,7 +89,7 @@
   display: flex;
   align-items: center;
   gap: 0.85rem;
-  min-width: min(320px, 100%);
+  width: 100%;
   padding: 0.7rem;
   background: rgba(255, 197, 71, 0.12);
   border: 1px solid rgba(244, 117, 54, 0.22);

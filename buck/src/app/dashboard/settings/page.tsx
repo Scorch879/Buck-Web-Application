@@ -645,7 +645,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="settings-page">
+    <div className="settings-page">
 
       {notice ? (
         <div className="settings-message settings-message--success">
@@ -1312,6 +1312,6 @@ export default function SettingsPage() {
           </section>
         </div>
       ) : null}
-    </main>
+    </div>
   );
 }
