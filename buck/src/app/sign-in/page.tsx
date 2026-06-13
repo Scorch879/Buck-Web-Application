@@ -49,11 +49,23 @@ const signInHighlights: SignInHighlight[] = [
 ];
 
 function getSafeRedirectPath(redirectTo: string | null) {
-  if (!redirectTo || !redirectTo.startsWith("/") || redirectTo.startsWith("//")) {
-    return "/dashboard/home";
+  if (!redirectTo) return "/dashboard/home";
+
+  try {
+    // Validate by attempting to parse as a full URL with a dummy origin.
+    // This safely resolves any path traversals or protocol-relative injections.
+    const parsedUrl = new URL(redirectTo, "http://localhost");
+    
+    // Check if it's strictly a relative path going to the dashboard
+    if (parsedUrl.origin === "http://localhost" && parsedUrl.pathname.startsWith("/dashboard")) {
+      // Return pathname + search (preserves query params, but ignores potential malicious fragments)
+      return parsedUrl.pathname + parsedUrl.search;
+    }
+  } catch (e) {
+    // If parsing fails, fall through to default
   }
 
-  return redirectTo;
+  return "/dashboard/home";
 }
 
 function getAuthNotice(reason: string | null) {

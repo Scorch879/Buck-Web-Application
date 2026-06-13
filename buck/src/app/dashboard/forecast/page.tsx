@@ -63,7 +63,7 @@ export default function ForecastPage() {
   }
 
   return (
-    <main className="forecast-page">
+    <div className="forecast-page">
       {error && <div className="settings-message settings-message--error">{error}</div>}
 
       <section className="forecast-hero">
@@ -115,6 +115,6 @@ export default function ForecastPage() {
           </div>
         </section>
       </div>
-    </main>
+    </div>
   );
 }

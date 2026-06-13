@@ -284,6 +284,46 @@ html[data-buck-theme="dark"] .FP-Background {
   box-shadow: 0 0 0 3px rgba(255, 197, 71, 0.12);
 }
 
+.FP-InputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.FP-InputWrapper .FP-Input {
+  padding-right: 2.8rem;
+}
+
+.FP-Eye-Btn {
+  position: absolute;
+  right: 0.8rem;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  z-index: 2;
+  opacity: 0.76;
+  transition:
+    background 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.FP-Eye-Btn img {
+  filter: invert(83%) sepia(64%) saturate(684%) hue-rotate(338deg) brightness(104%) contrast(101%);
+  transition: filter 180ms ease;
+}
+
+.FP-Eye-Btn:hover {
+  background: rgba(255, 197, 71, 0.12);
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
 .FP-Input:-webkit-autofill,
 .FP-Input:-webkit-autofill:hover {
   border-color: rgba(255, 211, 154, 0.2);
