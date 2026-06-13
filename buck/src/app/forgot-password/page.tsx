@@ -80,6 +80,7 @@ const ForgotPassword = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!supabase) return;
       if (event === "INITIAL_SESSION") {
         if (hasRecoveryToken) {
           if (session) {
