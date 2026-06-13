@@ -103,6 +103,16 @@ textarea {
   font: inherit;
 }
 
+select option {
+  background-color: #2d180c;
+  color: #ffffff;
+}
+
+html[data-buck-theme="light"] select option {
+  background-color: #ffffff;
+  color: #000000;
+}
+
 button {
   cursor: pointer;
 }
