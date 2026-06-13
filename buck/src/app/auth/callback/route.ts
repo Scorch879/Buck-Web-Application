@@ -11,9 +11,16 @@ function getSafeNextPath(value: string | null) {
   if (!value) return "/dashboard/home";
 
   try {
-    const parsedUrl = new URL(value, "http://localhost");
+    // We use a dummy base URL strictly for parsing purposes to utilize the native URL object.
+    // This ensures the value is a relative path. If the attacker provides an absolute URL 
+    // (e.g. "https://evil.com"), the origin will NOT match the dummy base, and it will be rejected.
+    // This works flawlessly in production because it only returns the relative pathname.
+    const parsedUrl = new URL(value, "http://dummy.local");
     
-    if (parsedUrl.origin === "http://localhost" && parsedUrl.pathname.startsWith("/dashboard")) {
+    if (
+      parsedUrl.origin === "http://dummy.local" && 
+      (parsedUrl.pathname.startsWith("/dashboard") || parsedUrl.pathname === "/forgot-password")
+    ) {
       return parsedUrl.pathname + parsedUrl.search;
     }
   } catch (e) {
