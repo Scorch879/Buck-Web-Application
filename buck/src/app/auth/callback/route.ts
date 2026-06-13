@@ -8,19 +8,16 @@ import {
 } from "@/utils/supabaseConfig";
 
 function getSafeNextPath(value: string | null) {
-  if (!value) return "/dashboard/home";
-
-  try {
-    const parsedUrl = new URL(value, "http://localhost");
-    
-    if (parsedUrl.origin === "http://localhost" && parsedUrl.pathname.startsWith("/dashboard")) {
-      return parsedUrl.pathname + parsedUrl.search;
-    }
-  } catch (e) {
-    // If parsing fails, fall through to default
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return "/dashboard/home";
   }
 
-  return "/dashboard/home";
+  return value;
+}
+
+function escapeForInlineJsString(value: string) {
+  // Produces a JavaScript-string-safe representation (without surrounding quotes).
+  return JSON.stringify(value).slice(1, -1);
 }
 
 function createAppRedirect(request: NextRequest, path: string) {
@@ -75,11 +72,10 @@ export async function GET(request: NextRequest) {
     // Fallback for implicit flow (hash fragment)
     // If the URL has a hash fragment, the server can't see it.
     // We return a small HTML page that checks the hash and either redirects to the nextPath or to sign-in.
-    // To prevent XSS, we pass dynamic variables via safe HTML attributes instead of inline JS injection.
-    const fallbackUrl = createSignInRedirect(request, "auth-callback-missing-code").toString();
-    
-    // Basic HTML escaping for attributes
-    const escapeHtml = (str: string) => str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    const escapedNextPath = escapeForInlineJsString(nextPath);
+    const escapedMissingCodeRedirect = escapeForInlineJsString(
+      createSignInRedirect(request, "auth-callback-missing-code").toString()
+    );
 
     return new NextResponse(
       `
@@ -93,9 +89,9 @@ export async function GET(request: NextRequest) {
             const fallbackPath = meta.getAttribute("data-fallback");
             
             if (window.location.hash && window.location.hash.includes("access_token")) {
-              window.location.replace(nextPath + window.location.hash);
+              window.location.replace("${escapedNextPath}" + window.location.hash);
             } else {
-              window.location.replace(fallbackPath);
+              window.location.replace("${escapedMissingCodeRedirect}");
             }
           </script>
         </head>
