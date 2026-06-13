@@ -15,6 +15,11 @@ function getSafeNextPath(value: string | null) {
   return value;
 }
 
+function escapeForInlineJsString(value: string) {
+  // Produces a JavaScript-string-safe representation (without surrounding quotes).
+  return JSON.stringify(value).slice(1, -1);
+}
+
 function createAppRedirect(request: NextRequest, path: string) {
   return new URL(getSafeNextPath(path), request.nextUrl.origin);
 }
@@ -67,6 +72,11 @@ export async function GET(request: NextRequest) {
     // Fallback for implicit flow (hash fragment)
     // If the URL has a hash fragment, the server can't see it.
     // We return a small HTML page that checks the hash and either redirects to the nextPath or to sign-in.
+    const escapedNextPath = escapeForInlineJsString(nextPath);
+    const escapedMissingCodeRedirect = escapeForInlineJsString(
+      createSignInRedirect(request, "auth-callback-missing-code").toString()
+    );
+
     return new NextResponse(
       `
       <!DOCTYPE html>
@@ -74,9 +84,9 @@ export async function GET(request: NextRequest) {
         <head>
           <script>
             if (window.location.hash && window.location.hash.includes("access_token")) {
-              window.location.replace("${nextPath}" + window.location.hash);
+              window.location.replace("${escapedNextPath}" + window.location.hash);
             } else {
-              window.location.replace("${createSignInRedirect(request, "auth-callback-missing-code").toString()}");
+              window.location.replace("${escapedMissingCodeRedirect}");
             }
           </script>
         </head>
