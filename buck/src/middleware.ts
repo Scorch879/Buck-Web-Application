@@ -375,6 +375,16 @@ export async function middleware(request: NextRequest) {
     return redirectResponse;
   }
 
+  if (pathname.startsWith("/dashboard/admin") && user?.email !== "buckthebudgettracker@gmail.com") {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/dashboard/home";
+    redirectUrl.search = "";
+    const redirectResponse = NextResponse.redirect(redirectUrl);
+    setNoStoreHeaders(redirectResponse);
+
+    return redirectResponse;
+  }
+
   if (isProtectedRoute && user && shouldEnforceServerIdle) {
     const activity = await readActivityCookie(request, user.id);
     const timeoutMs = getIdleTimeoutMs();
