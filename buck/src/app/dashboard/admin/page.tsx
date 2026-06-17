@@ -153,6 +153,10 @@ export default function AdminPage() {
       : new Date(a.created).getTime() - new Date(b.created).getTime();
   });
 
+  if (!user || user.email !== "buckthebudgettracker@gmail.com") {
+    return null;
+  }
+
   return (
     <div className="admin-page">
       {error && (
