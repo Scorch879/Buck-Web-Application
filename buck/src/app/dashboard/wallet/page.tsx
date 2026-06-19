@@ -53,13 +53,23 @@ export default function WalletPage() {
     try {
       const walletsArr = await listWallets(user.uid);
       setWallets(walletsArr);
-      setDashboardCache((current) => mergeDashboardDataCache(current, user.uid, { wallets: walletsArr }));
       
-      if (walletsArr.length === 1 && !activeWalletId) {
-        await setActiveWallet(user.uid, walletsArr[0].id);
-        setActiveWalletId(walletsArr[0].id);
-        setDashboardCache((current) => mergeDashboardDataCache(current, user.uid, { activeWalletId: walletsArr[0].id }));
+      const activeWalletsList = walletsArr.filter(w => !w.deletedAt);
+      let newActiveId = activeWalletId;
+
+      if (activeWalletsList.length === 1 && !newActiveId) {
+        newActiveId = activeWalletsList[0].id;
+        await setActiveWallet(user.uid, newActiveId);
+        setActiveWalletId(newActiveId);
       }
+
+      const activeWallet = walletsArr.find((w) => w.id === newActiveId && !w.deletedAt);
+
+      setDashboardCache((current) => mergeDashboardDataCache(current, user.uid, { 
+        wallets: walletsArr,
+        ...(newActiveId ? { activeWalletId: newActiveId } : {}),
+        ...(activeWallet ? { activeWalletBudget: activeWallet.budget } : { activeWalletBudget: 0 }),
+      }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load wallets.");
     } finally {
@@ -85,7 +95,7 @@ export default function WalletPage() {
       if (activeWalletId === id) {
         await setActiveWallet(user.uid, null);
         setActiveWalletId(null);
-        setDashboardCache((current) => mergeDashboardDataCache(current, user.uid, { activeWalletId: null }));
+        setDashboardCache((current) => mergeDashboardDataCache(current, user.uid, { activeWalletId: null, activeWalletBudget: 0 }));
       }
       fetchWallets();
     } catch (err) {
@@ -168,6 +178,12 @@ export default function WalletPage() {
     if (!user) return;
     await setActiveWallet(user.uid, id);
     setActiveWalletId(id);
+
+    const newActiveWallet = wallets.find((w) => w.id === id);
+    setDashboardCache((current) => mergeDashboardDataCache(current, user.uid, {
+      activeWalletId: id,
+      ...(newActiveWallet ? { activeWalletBudget: newActiveWallet.budget } : {}),
+    }));
   };
 
   const activeWallets = wallets.filter(w => !w.deletedAt);

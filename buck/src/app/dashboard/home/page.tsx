@@ -236,7 +236,7 @@ export default function Dashboard() {
         
         let activeWalletBudget = null;
         if (activeWalletId && loadedWallets) {
-          const activeWallet = loadedWallets.find((w) => w.id === activeWalletId);
+          const activeWallet = loadedWallets.find((w) => w.id === activeWalletId && !w.deletedAt);
           if (activeWallet) {
             activeWalletBudget = Number(activeWallet.budget);
           }
