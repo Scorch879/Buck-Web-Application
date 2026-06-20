@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import styles from "./WalletModal.module.css";
 import { motion } from "framer-motion";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
+import { useFinancial } from "@/context/FinancialContext";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 import { formatCurrency } from "@/utils/formatters";
 import {
@@ -42,6 +43,7 @@ export default function WalletModal({
   const [portalReady, setPortalReady] = useState(false);
 
   const user = useOptionalDashboardUser();
+  const { setDashboardCache } = useFinancial();
 
   useEffect(() => {
     setPortalReady(true);
@@ -67,10 +69,23 @@ export default function WalletModal({
       const walletsArr = await listWallets(user.uid);
       setWallets(walletsArr);
 
-      if (walletsArr.length === 1) {
-        await setActiveWallet(user.uid, walletsArr[0].id);
-        setActiveWalletId(walletsArr[0].id);
+      const activeWalletsList = walletsArr.filter((w) => !w.deletedAt);
+      let newActiveId = activeWalletId;
+
+      if (activeWalletsList.length === 1) {
+        newActiveId = activeWalletsList[0].id;
+        await setActiveWallet(user.uid, newActiveId);
+        setActiveWalletId(newActiveId);
       }
+
+      const activeWallet = walletsArr.find((w) => w.id === newActiveId && !w.deletedAt);
+
+      setDashboardCache((current) => ({
+        ...current,
+        wallets: walletsArr,
+        ...(newActiveId ? { activeWalletId: newActiveId } : {}),
+        ...(activeWallet ? { activeWalletBudget: activeWallet.budget } : { activeWalletBudget: 0 }),
+      }));
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to load wallets.");
     } finally {
@@ -168,6 +183,13 @@ export default function WalletModal({
     setActiveWalletId(id);
     setJustActivatedId(id);
     setTimeout(() => setJustActivatedId(null), 900);
+
+    const newActiveWallet = wallets.find((w) => w.id === id);
+    setDashboardCache((current) => ({
+      ...current,
+      activeWalletId: id,
+      ...(newActiveWallet ? { activeWalletBudget: newActiveWallet.budget } : {}),
+    }));
   };
 
   const activeWallets = wallets.filter(w => !w.deletedAt);

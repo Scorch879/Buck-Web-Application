@@ -1157,7 +1157,8 @@ export async function getActiveWallet(userId: string) {
   }
 
   const safeUserId = assertUuid(userId, "user id");
-  const wallets = await listWallets(safeUserId);
+  const allWallets = await listWallets(safeUserId);
+  const wallets = allWallets.filter(w => !w.deletedAt);
   let activeWalletId = await getActiveWalletId(safeUserId);
 
   if (!activeWalletId && wallets.length === 1) {
