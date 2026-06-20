@@ -34,8 +34,8 @@ const heroWords = ["Buck", "Budget", "Tracker"];
 const adviserRotationDelay = 6800;
 const revealViewport = { once: true, amount: 0.2 };
 const cardLiftHover: TargetAndTransition = {
-  y: -8,
-  transition: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
+  y: -7,
+  transition: { duration: 0.16, ease: "easeOut" },
 };
 
 const weeklyPreviewSnapshots = [
@@ -207,16 +207,16 @@ const heroWordContainer: Variants = {
 const revealVariants: Variants = {
   hidden: {
     opacity: 0,
-    y: 28,
-    filter: "blur(8px)",
+    y: 20,
+    filter: "blur(4px)",
   },
   visible: {
     opacity: 1,
     y: 0,
     filter: "blur(0px)",
     transition: {
-      duration: 0.58,
-      ease: [0.22, 1, 0.36, 1],
+      duration: 0.38,
+      ease: "easeOut",
     },
   },
 };
@@ -226,8 +226,8 @@ const revealGroupVariants: Variants = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.09,
-      delayChildren: 0.08,
+      staggerChildren: 0.055,
+      delayChildren: 0.035,
     },
   },
 };
@@ -235,16 +235,14 @@ const revealGroupVariants: Variants = {
 const revealCardVariants: Variants = {
   hidden: {
     opacity: 0,
-    y: 22,
-    filter: "blur(6px)",
+    y: 14,
   },
   visible: {
     opacity: 1,
     y: 0,
-    filter: "blur(0px)",
     transition: {
-      duration: 0.5,
-      ease: [0.22, 1, 0.36, 1],
+      duration: 0.3,
+      ease: "easeOut",
     },
   },
 };
@@ -252,13 +250,11 @@ const revealCardVariants: Variants = {
 function Reveal({
   children,
   className,
-  delay = 0,
   hoverLift = false,
   scrollAnchor = false,
 }: {
   children: ReactNode;
   className?: string;
-  delay?: number;
   hoverLift?: boolean;
   scrollAnchor?: boolean;
 }) {
@@ -271,7 +267,6 @@ function Reveal({
       whileInView="visible"
       whileHover={hoverLift ? cardLiftHover : undefined}
       viewport={revealViewport}
-      transition={{ delay }}
     >
       {children}
     </motion.div>
