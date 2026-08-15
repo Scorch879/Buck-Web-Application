@@ -1,36 +1,33 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Buck Next.js Frontend
 
-## Getting Started
+This directory contains the primary frontend web application for Buck Budget Tracker built with [Next.js 15](https://nextjs.org/) (App Router), [React 19](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Framer Motion](https://www.framer.com/motion/), and [Supabase](https://supabase.com/).
 
-First, run the development server:
+---
+
+## Quick Start
 
 ```bash
+# Install dependencies
+npm install
+
+# Start development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# Run production build
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Documentation
 
-## Learn More
+For technical architecture guides and design documentation, see the [`docs/`](./docs/) directory:
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [`docs/ui-motion-and-scroll-effects.md`](./docs/ui-motion-and-scroll-effects.md) — Header scroll indicators, modal perimeter SVG glow, and Framer Motion integration.
+- [`docs/global-ui.md`](./docs/global-ui.md) — Global UI tokens, button micro-animations, and dropdown standards.
+- [`docs/universal-button-styling.md`](./docs/universal-button-styling.md) — Primary button gradients and wallet card action rows.
+- [`docs/wallet-layout.md`](./docs/wallet-layout.md) — Multi-wallet layout architecture and mobile responsiveness.
+- [`docs/SUPABASE_AUTH_SETUP.md`](./docs/SUPABASE_AUTH_SETUP.md) — Supabase SSR authentication setup and email templates.
+- [`docs/admin-dashboard.md`](./docs/admin-dashboard.md) — Admin monitoring and caching systems.
