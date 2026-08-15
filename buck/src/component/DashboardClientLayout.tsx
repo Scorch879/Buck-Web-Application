@@ -1,7 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import AuthGuard from "@/component/AuthGuard";
 import DashboardHeader from "@/component/dashboardheader";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
@@ -129,10 +130,20 @@ function DashboardShell({ children }: { children: ReactNode }) {
     : pageChrome.title;
   const topbarEyebrow = isHomePage ? "Home" : pageChrome.eyebrow;
 
+  const mainRef = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({ container: mainRef });
+  const smoothScroll = useSpring(scrollYProgress, {
+    stiffness: 280,
+    damping: 30,
+    mass: 0.4,
+    restDelta: 0.0001,
+  });
+  const scrollOpacity = useTransform(smoothScroll, [0, 0.01, 1], [0, 1, 1]);
+
   return (
     <div className="dashboard">
       <DashboardHeader />
-      <main className="dashboard-main">
+      <main className="dashboard-main" ref={mainRef}>
         <header className={`dashboard-topbar${isHomePage ? " dashboard-topbar--welcome" : ""}`}>
           <div>
             <p>{topbarEyebrow}</p>
@@ -155,6 +166,18 @@ function DashboardShell({ children }: { children: ReactNode }) {
                 }).format(userCache.activeWalletBudget || 0)}
               </span>
             </button>
+          </div>
+          <div
+            className="dashboard-scroll-track"
+            aria-hidden="true"
+          >
+            <motion.div
+              className="dashboard-scroll-indicator"
+              style={{
+                scaleX: smoothScroll,
+                opacity: scrollOpacity,
+              }}
+            />
           </div>
         </header>
         {children}
