@@ -1,11 +1,11 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useScroll, useSpring, useTransform } from "framer-motion";
 import type { TargetAndTransition, Variants } from "framer-motion";
 import { FaArrowRight, FaBars, FaChevronRight, FaMoon, FaSun, FaTimes, FaEnvelope } from "react-icons/fa";
 import {
@@ -299,11 +299,126 @@ const getSectionScrollTop = (section: HTMLElement) => {
   return Math.max(anchorTop - preferredAnchorTop, 0);
 };
 
+function ScrollGlowModalCard({
+  children,
+  ariaLabelledBy,
+  className = "legal-modal-card",
+  style,
+}: {
+  children: ReactNode;
+  ariaLabelledBy?: string;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const scrollElRef = useRef<HTMLDivElement>(null);
+  const [isScrollable, setIsScrollable] = useState(false);
+  const { scrollYProgress } = useScroll({
+    container: scrollElRef,
+  });
+
+  const smoothProgress = useSpring(scrollYProgress, {
+    stiffness: 280,
+    damping: 30,
+    mass: 0.4,
+    restDelta: 0.0001,
+  });
+
+  const borderOpacity = useTransform(smoothProgress, [0, 0.015, 1], [0, 1, 1]);
+
+  useEffect(() => {
+    const el = scrollElRef.current;
+    if (!el) return;
+
+    const checkScrollable = () => {
+      const scrollable = el.scrollHeight > el.clientHeight + 10;
+      setIsScrollable(scrollable);
+    };
+
+    checkScrollable();
+    window.addEventListener("resize", checkScrollable);
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(checkScrollable);
+      ro.observe(el);
+    }
+
+    return () => {
+      window.removeEventListener("resize", checkScrollable);
+      ro?.disconnect();
+    };
+  }, []);
+
+  return (
+    <motion.div
+      className="modal-glow-shell"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={ariaLabelledBy}
+      initial={{ opacity: 0, y: 28, scale: 0.94, filter: "blur(8px)" }}
+      animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+      exit={{ opacity: 0, y: 18, scale: 0.96, filter: "blur(6px)" }}
+      transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+      onClick={(event) => event.stopPropagation()}
+      style={style}
+    >
+      {isScrollable && (
+        <svg className="modal-glow-svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="modalPerimeterGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#ffc547" />
+              <stop offset="45%" stopColor="#f47536" />
+              <stop offset="100%" stopColor="#ff3838" />
+            </linearGradient>
+          </defs>
+          <rect
+            className="modal-glow-rect-base"
+            x="1"
+            y="1"
+            width="calc(100% - 2px)"
+            height="calc(100% - 2px)"
+            rx="8"
+            ry="8"
+          />
+          <motion.rect
+            className="modal-glow-rect-progress"
+            x="1"
+            y="1"
+            width="calc(100% - 2px)"
+            height="calc(100% - 2px)"
+            rx="8"
+            ry="8"
+            style={{
+              pathLength: smoothProgress,
+              opacity: borderOpacity,
+            }}
+          />
+        </svg>
+      )}
+      <div ref={scrollElRef} className={className}>
+        {children}
+      </div>
+    </motion.div>
+  );
+}
+
 export default function Home() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [isDarkTheme, setIsDarkTheme] = useState(false);
   const [isHeaderStuck, setIsHeaderStuck] = useState(false);
+  const { scrollYProgress: pageScrollProgress } = useScroll();
+  const smoothHeaderProgress = useSpring(pageScrollProgress, {
+    stiffness: 280,
+    damping: 30,
+    mass: 0.4,
+    restDelta: 0.0001,
+  });
+  const headerProgressOpacity = useTransform(
+    smoothHeaderProgress,
+    [0, 0.01, 1],
+    [0, 1, 1]
+  );
   const [activeSection, setActiveSection] = useState(
     landingNavItems[0]?.targetId ?? "home"
   );
@@ -771,6 +886,20 @@ export default function Home() {
               Sign In
             </button>
           </nav>
+        )}
+        {isHeaderStuck && (
+          <div
+            className="site-header-scroll-track"
+            aria-hidden="true"
+          >
+            <motion.div
+              className="site-header-scroll-indicator"
+              style={{
+                scaleX: smoothHeaderProgress,
+                opacity: headerProgressOpacity,
+              }}
+            />
+          </div>
         )}
       </header>
 
@@ -1290,17 +1419,7 @@ export default function Home() {
             transition={{ duration: 0.2 }}
             onClick={() => setLegalModal(null)}
           >
-            <motion.article
-              className="legal-modal-card"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="legal-modal-title"
-              initial={{ opacity: 0, y: 28, scale: 0.94, filter: "blur(8px)" }}
-              animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-              exit={{ opacity: 0, y: 18, scale: 0.96, filter: "blur(6px)" }}
-              transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
-              onClick={(event) => event.stopPropagation()}
-            >
+            <ScrollGlowModalCard ariaLabelledBy="legal-modal-title">
               <button
                 className="legal-modal-close"
                 type="button"
@@ -1335,7 +1454,7 @@ export default function Home() {
                   </section>
                 ))}
               </div>
-            </motion.article>
+            </ScrollGlowModalCard>
           </motion.div>
         )}
         {contactModal && (
@@ -1358,7 +1477,7 @@ export default function Home() {
               exit={{ opacity: 0, y: 18, scale: 0.96, filter: "blur(6px)" }}
               transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
               onClick={(event) => event.stopPropagation()}
-              style={{ maxWidth: '420px', textAlign: 'center', padding: '2.5rem 1.5rem' }}
+              style={{ maxWidth: "420px", textAlign: "center", padding: "2.5rem 1.5rem" }}
             >
               <button
                 className="legal-modal-close"
@@ -1369,18 +1488,47 @@ export default function Home() {
                 <FaTimes aria-hidden="true" />
               </button>
 
-              <div style={{ marginBottom: '1rem' }}>
-                <span style={{ display: 'inline-flex', padding: '1rem', borderRadius: '50%', background: 'rgba(244, 117, 54, 0.1)', color: 'var(--buck-orange)', fontSize: '1.5rem' }}>
+              <div style={{ marginBottom: "1rem" }}>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    padding: "1rem",
+                    borderRadius: "50%",
+                    background: "rgba(244, 117, 54, 0.1)",
+                    color: "var(--buck-orange)",
+                    fontSize: "1.5rem",
+                  }}
+                >
                   <FaEnvelope />
                 </span>
               </div>
-              <h2 id="contact-modal-title" style={{ fontSize: '1.5rem', marginBottom: '0.8rem', color: 'var(--buck-ink)' }}>
+              <h2
+                id="contact-modal-title"
+                style={{
+                  fontSize: "1.5rem",
+                  marginBottom: "0.8rem",
+                  color: "var(--buck-ink)",
+                }}
+              >
                 Email Copied!
               </h2>
-              <p style={{ color: 'var(--buck-muted)', lineHeight: '1.6', marginBottom: '1.5rem' }}>
-                If you have any questions or queries, feel free to contact us at <strong style={{ color: 'var(--buck-orange)' }}>buckthebudgettracker@gmail.com</strong>
+              <p
+                style={{
+                  color: "var(--buck-muted)",
+                  lineHeight: "1.6",
+                  marginBottom: "1.5rem",
+                }}
+              >
+                If you have any questions or queries, feel free to contact us at{" "}
+                <strong style={{ color: "var(--buck-orange)" }}>
+                  buckthebudgettracker@gmail.com
+                </strong>
               </p>
-              <button className="nav-cta" onClick={() => setContactModal(false)} style={{ width: '100%', padding: '0.8rem' }}>
+              <button
+                className="nav-cta"
+                onClick={() => setContactModal(false)}
+                style={{ width: "100%", padding: "0.8rem" }}
+              >
                 Got it
               </button>
             </motion.article>
