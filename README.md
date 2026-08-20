@@ -88,13 +88,21 @@ npm run start
 
 ---
 
-## 📚 Technical Documentation Index
+## 📚 Core Documentation & AI-First Source of Truth
 
-For detailed guides and architecture documents, refer to the [`buck/docs/`](./buck/docs/) directory:
+The repository maintains an AI-first, machine-readable suite of core documentation:
 
+- [**Agents.md**](./Agents.md) — Multi-agent roles, system scopes, interaction boundaries, and execution lifecycle.
+- [**Skills.md**](./Skills.md) — Comprehensive catalog of Supabase data functions, API routes, FastAPI endpoints, and hooks.
+- [**Design.md**](./Design.md) — System architecture diagrams, database schemas, sequence workflows, and ADRs.
+- [**Implementation.md**](./Implementation.md) — Execution logic, environment variable matrix, setup instructions, and hardcoded boundaries.
+- [**QA_Report.md**](./QA_Report.md) — Continuous quality assurance, defect backlog, security audit, and test strategy.
+
+### Additional Domain Guides
+For focused UI and auth implementation guides, refer to [`buck/docs/`](./buck/docs/):
 - [**UI Motion & Scroll Effects**](./buck/docs/ui-motion-and-scroll-effects.md) — Header scroll indicators, modal perimeter glow, and Framer Motion integration.
 - [**Global UI Standardizations**](./buck/docs/global-ui.md) — Global button styles, dropdown accessibility, and design tokens.
 - [**Universal Button Styling & Wallet Refinements**](./buck/docs/universal-button-styling.md) — Action button gradients and wallet card action rows.
 - [**Wallet Layout & Search**](./buck/docs/wallet-layout.md) — Multi-wallet split-level flexbox layouts and search architecture.
 - [**Supabase Auth Setup**](./buck/docs/SUPABASE_AUTH_SETUP.md) — Authentication flow, password reset, and SSR client guidelines.
-- [**Admin Dashboard & Backend Caching**](./buck/docs/admin-dashboard.md) — Admin monitoring and Redis/in-memory cache layers.
+- [**Admin Dashboard & Backend Caching**](./buck/docs/admin-dashboard.md) — Admin monitoring and in-memory context caching.
