@@ -21,13 +21,15 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 
 ---
 
-## Documentation
+## 📚 Engineering Documentation
 
-For technical architecture guides and design documentation, see the [`docs/`](./docs/) directory:
+The [`docs/`](./docs/) directory serves as the centralized knowledge base:
 
-- [`docs/ui-motion-and-scroll-effects.md`](./docs/ui-motion-and-scroll-effects.md) — Header scroll indicators, modal perimeter SVG glow, and Framer Motion integration.
-- [`docs/global-ui.md`](./docs/global-ui.md) — Global UI tokens, button micro-animations, and dropdown standards.
-- [`docs/universal-button-styling.md`](./docs/universal-button-styling.md) — Primary button gradients and wallet card action rows.
-- [`docs/wallet-layout.md`](./docs/wallet-layout.md) — Multi-wallet layout architecture and mobile responsiveness.
-- [`docs/SUPABASE_AUTH_SETUP.md`](./docs/SUPABASE_AUTH_SETUP.md) — Supabase SSR authentication setup and email templates.
-- [`docs/admin-dashboard.md`](./docs/admin-dashboard.md) — Admin monitoring and caching systems.
+- **[Master Documentation Hub (`docs/README.md`)](./docs/README.md)** — Complete catalog and navigation hub.
+- **[Agents & Workflows (`docs/Agents.md`)](./docs/Agents.md)** — Multi-agent roles and system scopes.
+- **[Skills & APIs (`docs/Skills.md`)](./docs/Skills.md)** — Full function and endpoint catalog.
+- **[System Architecture (`docs/Design.md`)](./docs/Design.md)** — Data schemas, flows, and ADRs.
+- **[Implementation & Constraints (`docs/Implementation.md`)](./docs/Implementation.md)** — Runtime setup and logic.
+- **[QA Report & Defect Backlog (`docs/QA_Report.md`)](./docs/QA_Report.md)** — Continuous quality assurance and audit.
+- **[UI Motion & Scroll Effects (`docs/ui-motion-and-scroll-effects.md`)](./docs/ui-motion-and-scroll-effects.md)** — Header scroll and modal glow.
+- **[Supabase Auth Setup (`docs/SUPABASE_AUTH_SETUP.md`)](./docs/SUPABASE_AUTH_SETUP.md)** — SSR authentication guide.
