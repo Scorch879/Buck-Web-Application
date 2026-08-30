@@ -21,9 +21,9 @@ This document tracks identified bugs, architectural discrepancies, security vuln
 ### 🔴 Critical Severity
 
 #### BUG-001: Dead Endpoint Invocation in `aiApi.ts`
-- **Location**: [`buck/src/utils/aiApi.ts:17-28`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/aiApi.ts#L17-L28)
+- **Location**: [`buck/src/utils/aiApi.ts:17-28`](../src/utils/aiApi.ts#L17-L28)
 - **Impact**: Any invocation of `processExpense()` fails with an HTTP 404 error.
-- **Root Cause**: `aiApi.ts` targets `https://buck-web-application.onrender.com/process_expense/`. In the FastAPI backend ([`buck/BuckAI_Backend/main.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/main.py)), the route is named `/ai/categorize_expense/` or `/expenses/`. Route `/process_expense/` does not exist.
+- **Root Cause**: `aiApi.ts` targets `https://buck-web-application.onrender.com/process_expense/`. In the FastAPI backend ([`buck/BuckAI_Backend/main.py`](../BuckAI_Backend/main.py)), the route is named `/ai/categorize_expense/` or `/expenses/`. Route `/process_expense/` does not exist.
 - **Remediation**: Align the API endpoint naming between `aiApi.ts` and `main.py`.
 
 ---
