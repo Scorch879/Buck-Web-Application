@@ -1,140 +1,108 @@
 # Buck Web Application
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<p align="center">
+  <strong>Intelligent AI-Powered Budget & Expense Forecasting System</strong>
+</p>
 
-## Getting Started
+---
 
-### 1️⃣ First, clone the repository using GitHub Desktop or Git Bash 
+## 🌟 Overview
 
-In using Git CMD or Git Bash, use the command below
+**Buck** is a modern, high-performance web application designed to help users take full control of their personal finances. Combining an intuitive, responsive frontend with machine learning forecasting models and real-time backend synchronization, Buck delivers actionable spending insights, multi-wallet management, goal tracking, and AI financial advisory services.
 
+---
+
+## 🛠️ Technology Stack
+
+| Layer | Technologies |
+|---|---|
+| **Frontend Framework** | [Next.js 15](https://nextjs.org/) (App Router), [React 19](https://react.dev/), [TypeScript](https://www.typescriptlang.org/) |
+| **Motion & Animations** | [Framer Motion](https://www.framer.com/motion/) (GPU-accelerated springs, path tracing, scroll linking) |
+| **Styling & Design System** | Modern Vanilla CSS, CSS Variables, Theme Tokens (Dark & Light mode support) |
+| **Authentication & Database** | [Supabase](https://supabase.com/) (SSR Client, Row-Level Security, PostgreSQL) |
+| **Backend & AI Engine** | Python ([FastAPI](https://fastapi.tiangolo.com/)), [XGBoost](https://xgboost.readthedocs.io/), [Prophet](https://facebook.github.io/prophet/), OpenAI Embeddings |
+| **Icons & Media** | [React Icons](https://react-icons.github.io/react-icons/) (FontAwesome, HeroIcons) |
+
+---
+
+## ✨ Key Features & UI/UX Design System
+
+### 1. Unified Header & Topbar Scroll Indicators
+- **Traditional Scrollbar Concealment:** Native operating system scrollbars are concealed across scroll containers (`scrollbar-width: none;`, `::-webkit-scrollbar { display: none; }`) for a clean, distraction-free aesthetic.
+- **Landing Page Header:** When scrolled, the header morphs into frosted glass (`backdrop-filter: blur(18px)`) while a warm gold/orange gradient progress indicator sweeps smoothly across the header's bottom border.
+- **Dashboard Topbar:** Dynamically tracks inner dashboard content scrolling using Framer Motion `useScroll({ container: mainRef })` and `useSpring`.
+- **Unified Border Integration:** The scroll track functions directly as the header's crisp `2px` bottom border line, preventing jagged step mismatches or double-line rendering artifacts.
+
+### 2. Interactive Modal Perimeter Scroll Glow
+- **Dynamic `<ScrollGlowModalCard>`:** For scrollable documents (e.g. Terms of Use, Privacy Policy), a dynamic SVG border `<motion.rect pathLength={smoothProgress}>` illuminates around the perimeter of the dialog as the user scrolls.
+- **Content-Aware Scroll Detection:** Uses a `ResizeObserver` to evaluate whether content exceeds viewport boundaries, applying the SVG glow strictly when scrollable.
+- **Desktop Bounds:** Modals are strictly bounded (`width: min(880px, 100%)`, max-height `min(82dvh, 760px)`) to ensure optimal readability across widescreen displays.
+- **Isolated Static Dialogs:** Compact popups (e.g. Contact Us confirmation modal at `maxWidth: 420px`) maintain isolated static card layouts.
+
+### 3. Comprehensive Financial Management
+- **Multi-Wallet Budgeting:** Manage multiple accounts (Cash, Bank, Credit Card, Savings) with dedicated budget limits and active wallet selection.
+- **Expense Categorization:** Instant logging with auto-categorization powered by AI embeddings.
+- **Financial Goals & Multipliers:** Set savings goals with Normal, Moderate, or Aggressive pace profiles.
+- **Expense Forecasting:** Time-series spending projections adapting to historical trends and lifestyle adjustments.
+- **AI Financial Advisor:** Contextual financial tips, spending analysis, and actionable budgeting recommendations.
+- **Admin Dashboard:** Platform monitoring, database cache inspection, and maintenance tools.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- **Node.js**: v18.18.0 or higher
+- **npm** / **pnpm** / **yarn**
+
+### 1. Clone the Repository
 ```bash
-# Git CMD or Git Bash
-git clone <http link of the repository>
-
-# Github Desktop
-Press File > Clone Repository > Select Buck-Web-Application Repository
+git clone https://github.com/Scorch879/Buck-Web-Application.git
+cd Buck-Web-Application/buck
 ```
 
+### 2. Install Dependencies
 ```bash
-# then
 npm install
-# or
-npx create-next-app@latest
 ```
 
-### For the Firebase SDK to work properly, make sure to do the command below in your code
-
-```base
-#npm install for Firebase
-npm install firebase
+### 3. Configure Environment Variables
+Create a `.env.local` file inside the `buck/` directory:
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 ```
 
-
-
-Second, run the development server:
-
+### 4. Run the Development Server
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### 5. Production Build
+```bash
+npm run build
+npm run start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-
-
-```markdown
-# Expense Forecasting System
-
-## Overview
-A modular system designed to track expenses and forecast spending using AI-powered components. The architecture
-integrates frontend user interfaces with backend processing and specialized machine learning models.
-
 ---
 
-## Architecture Components
+## 📚 Core Documentation & AI-First Source of Truth
 
-### 1️⃣ Frontend (React/Next.js + Firebase Auth)
-- **Purpose**: User interaction interface for expense logging, goal management, and visualization
-- **Key Features**:
-  - Expense input forms with real-time validation
-  - Interactive UI for setting financial goals (Normal/Moderate/Aggressive profiles)
-  - Data visualization dashboard showcasing spending forecasts and insights
-  - Authentication system using Firebase identity services
+The repository maintains an AI-first, machine-readable suite of core documentation:
 
-### 2️⃣ Backend (Python FastAPI/Flask)
-- **Purpose**: Core business logic processing and API gateway
-- **Responsibilities**:
-  ```python
-  • Processes raw expense data from frontend
-  • Orchestrates AI model workflows for predictions
-  • Coordinates data storage across all components
-  • Serves as communication bridge between frontend/UI and ML services
-  ```
+- [**Agents.md**](./Agents.md) — Multi-agent roles, system scopes, interaction boundaries, and execution lifecycle.
+- [**Skills.md**](./Skills.md) — Comprehensive catalog of Supabase data functions, API routes, FastAPI endpoints, and hooks.
+- [**Design.md**](./Design.md) — System architecture diagrams, database schemas, sequence workflows, and ADRs.
+- [**Implementation.md**](./Implementation.md) — Execution logic, environment variable matrix, setup instructions, and hardcoded boundaries.
+- [**QA_Report.md**](./QA_Report.md) — Continuous quality assurance, defect backlog, security audit, and test strategy.
 
-### 3️⃣ AI Engine (Python)
-- **Powered by Three Integrated Machine Learning Models**:
-  - **OpenAI Embedding API**: Auto-categorization of expenses using advanced NLP embeddings
-
-  ```mermaid
-  graph TD;
-    A[Expense Text] --> B((Embedding));
-    B --> C{Category Prediction};
-    C --> D[Lifestyle Expenses];
-    C --> E[Utilities];
-    C --> F[Dining Out];
-  ```
-
-  - **XGBoost Classifier**: Predicts adjustment multipliers based on:
-    ```python
-      • User's historical saving patterns
-      • Financial goal profiles (Normal/Moderate/Aggressive)
-      • Behavioral spending signatures
-    ```
-
-  - **Facebook Prophet**:
-    - Time-series forecasting of monthly spending trends
-    - Adapts predictions dynamically to detect behavioral changes
-    - Incorporates emergency scenario adjustments
-
----
-
-## Data Flow Diagram
-
-```markdown
-## System Architecture
-
-| Component         | Function                                       |
-|-------------------|-----------------------------------------------|
-| Frontend           | User interface & data display                  |
-| Backend            | Core processing & API management               |
-| AI Engine          | Auto-categorization, prediction & forecasting |
-
----
-
-## Technologies Used
-
-| Component | Stack Highlights |
-|-----------|------------------|
-| Frontend   | React, Next.js, Firebase Authentication, Tailwind CSS |
-| Backend    | Python (FastAPI/Flask), PostgreSQL, Redis caching |
-| AI Engine   | XGBoost, OpenAI API, Prophet time-series library |
-
----
-
-## System Features
-
-- **Auto-expense categorization** using transformer embeddings
-- **Dynamic forecasting** adapting to user behavioral patterns
-- **Multi-model integration** for comprehensive financial insights
-- **Firebase-backed authentication** ensuring secure transactions
-```
+### Additional Domain Guides
+For focused UI and auth implementation guides, refer to [`buck/docs/`](./buck/docs/):
+- [**UI Motion & Scroll Effects**](./buck/docs/ui-motion-and-scroll-effects.md) — Header scroll indicators, modal perimeter glow, and Framer Motion integration.
+- [**Global UI Standardizations**](./buck/docs/global-ui.md) — Global button styles, dropdown accessibility, and design tokens.
+- [**Universal Button Styling & Wallet Refinements**](./buck/docs/universal-button-styling.md) — Action button gradients and wallet card action rows.
+- [**Wallet Layout & Search**](./buck/docs/wallet-layout.md) — Multi-wallet split-level flexbox layouts and search architecture.
+- [**Supabase Auth Setup**](./buck/docs/SUPABASE_AUTH_SETUP.md) — Authentication flow, password reset, and SSR client guidelines.
+- [**Admin Dashboard & Backend Caching**](./buck/docs/admin-dashboard.md) — Admin monitoring and in-memory context caching.

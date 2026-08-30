@@ -79,6 +79,8 @@ body {
   min-width: 320px;
   min-height: 100dvh;
   overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   color: var(--buck-ink);
   background: var(--buck-page-background);
   background-attachment: fixed;
@@ -88,6 +90,15 @@ body {
 
 html {
   scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 html[data-buck-theme="dark"] body {
@@ -215,15 +226,45 @@ html[data-buck-theme="dark"] .landing-page::before {
 
 .site-header--stuck {
   background: rgba(255, 250, 244, 0.92);
-  border-bottom-color: rgba(214, 208, 203, 0.82);
+  border-bottom-color: transparent;
   box-shadow: 0 10px 26px rgba(79, 47, 24, 0.08);
   backdrop-filter: blur(18px);
 }
 
 .landing-page--dark .site-header--stuck {
   background: rgba(23, 16, 12, 0.86);
-  border-bottom-color: rgba(255, 211, 154, 0.16);
+  border-bottom-color: transparent;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32);
+}
+
+.site-header-scroll-track {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(214, 208, 203, 0.6);
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 25;
+}
+
+.landing-page--dark .site-header-scroll-track {
+  background: rgba(255, 211, 154, 0.16);
+}
+
+.site-header-scroll-indicator {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--buck-gold) 0%, var(--buck-orange) 65%, var(--buck-coral) 100%);
+  transform-origin: left center;
+  will-change: transform;
+  box-shadow: 0 0 10px rgba(244, 117, 54, 0.75), 0 0 4px rgba(255, 197, 71, 0.9);
+}
+
+.landing-page--dark .site-header-scroll-indicator {
+  background: linear-gradient(90deg, #ffd78a 0%, var(--buck-orange) 60%, #ff4d4d 100%);
+  box-shadow: 0 0 12px rgba(244, 117, 54, 0.9), 0 0 5px rgba(255, 197, 71, 1);
 }
 
 .site-header-inner {
@@ -1907,13 +1948,55 @@ main {
   backdrop-filter: blur(14px);
 }
 
+.modal-glow-shell {
+  position: relative;
+  width: min(880px, 100%);
+  max-height: min(82dvh, 760px);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-glow-svg {
+  position: absolute;
+  inset: -1px;
+  width: calc(100% + 2px);
+  height: calc(100% + 2px);
+  pointer-events: none;
+  overflow: visible;
+  z-index: 30;
+  border-radius: 8px;
+}
+
+.modal-glow-rect-base {
+  fill: none;
+  stroke: rgba(244, 117, 54, 0.18);
+  stroke-width: 1.5;
+}
+
+.landing-page--dark .modal-glow-rect-base {
+  stroke: rgba(255, 197, 71, 0.14);
+}
+
+.modal-glow-rect-progress {
+  fill: none;
+  stroke: url(#modalPerimeterGradient);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 10px rgba(244, 117, 54, 0.85)) drop-shadow(0 0 4px rgba(255, 197, 71, 0.95));
+}
+
+.landing-page--dark .modal-glow-rect-progress {
+  filter: drop-shadow(0 0 14px rgba(244, 117, 54, 1)) drop-shadow(0 0 6px rgba(255, 197, 71, 1));
+}
+
 .legal-modal-card {
   position: relative;
   display: grid;
   gap: clamp(1.1rem, 2.5vw, 1.6rem);
-  width: min(880px, 100%);
+  width: 100%;
   max-height: min(82dvh, 760px);
-  overflow: auto;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   padding: clamp(1.25rem, 4vw, 2.4rem);
   color: var(--buck-ink);
   background:
@@ -1921,6 +2004,12 @@ main {
   border: 1px solid rgba(120, 92, 70, 0.22);
   border-radius: 8px;
   box-shadow: 0 28px 80px rgba(47, 27, 14, 0.28);
+}
+
+.legal-modal-card::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .landing-page--dark .legal-modal-card {
