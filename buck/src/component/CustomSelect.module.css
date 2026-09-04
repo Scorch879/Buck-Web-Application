@@ -1,0 +1,124 @@
+.container {
+  position: relative;
+  width: 100%;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 42px;
+  padding: 0.62rem 0.75rem;
+  color: var(--buck-ink);
+  background: rgba(255, 250, 244, 0.72);
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 850;
+  cursor: pointer;
+  outline: none;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+html[data-buck-theme="dark"] .trigger {
+  background: rgba(255, 197, 71, 0.08);
+}
+
+.trigger:focus,
+.trigger.open {
+  border-color: rgba(244, 117, 54, 0.62);
+  box-shadow: 0 0 0 4px rgba(244, 117, 54, 0.14);
+}
+
+.disabled .trigger {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.icon {
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+  color: var(--buck-muted);
+  transition: transform 180ms ease;
+}
+
+.iconOpen {
+  transform: rotate(180deg);
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: #fffaf6;
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(94, 59, 34, 0.14);
+  overflow: hidden;
+}
+
+html[data-buck-theme="dark"] .dropdown {
+  background: #17100c;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+}
+
+.list {
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.list::-webkit-scrollbar-thumb {
+  background: rgba(244, 117, 54, 0.3);
+  border-radius: 4px;
+}
+
+.option {
+  padding: 0.5rem 0.75rem;
+  color: #241409;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+html[data-buck-theme="dark"] .option {
+  color: #fff8ed;
+}
+
+.option:hover {
+  background: rgba(244, 117, 54, 0.1);
+  color: var(--buck-orange);
+}
+
+html[data-buck-theme="dark"] .option:hover {
+  background: rgba(244, 117, 54, 0.15);
+}
+
+.selected {
+  background: rgba(244, 117, 54, 0.15);
+  color: var(--buck-orange);
+}
+
+html[data-buck-theme="dark"] .selected {
+  background: rgba(244, 117, 54, 0.2);
+}

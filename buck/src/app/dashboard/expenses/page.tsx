@@ -20,9 +20,13 @@ import {
   type BuckExpense,
 } from "@/utils/supabaseData";
 import "./style.css";
+import CustomSelect from "@/component/CustomSelect";
+import CustomDatePicker from "@/component/CustomDatePicker";
+import { useToast } from "@/component/toast/ToastContext";
 
 export default function ExpensesPage() {
   const { user } = useDashboardUser();
+  const { toast } = useToast();
   const { dashboardCache, setDashboardCache } = useFinancial();
   const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
   const hasInitialExpensesData = Boolean(
@@ -187,10 +191,12 @@ export default function ExpensesPage() {
           activeWalletBudget: nextWalletBudget,
         })
       );
+      toast("Expense added successfully", "success");
     } catch (nextError) {
       setError(
         nextError instanceof Error ? nextError.message : "Could not add expense."
       );
+      toast(nextError instanceof Error ? nextError.message : "Could not add expense.", "error");
     } finally {
       setSaving(false);
     }
@@ -220,19 +226,21 @@ export default function ExpensesPage() {
           activeWalletBudget: nextWalletBudget,
         })
       );
+      toast("Expense deleted successfully", "success");
     } catch (nextError) {
       setError(
         nextError instanceof Error
           ? nextError.message
           : "Could not remove expense."
       );
+      toast(nextError instanceof Error ? nextError.message : "Could not remove expense.", "error");
     } finally {
       setSaving(false);
     }
   };
 
   if (loading) {
-    return <DashboardPageSkeleton variant="statistics" />;
+    return <DashboardPageSkeleton variant="expenses" />;
   }
 
   return (
@@ -277,27 +285,24 @@ export default function ExpensesPage() {
 
           <label>
             Category
-            <select
+            <CustomSelect
               value={categoryName}
-              onChange={(event) => setCategoryName(event.target.value)}
+              onChange={(val) => setCategoryName(val)}
               disabled={saving}
-            >
-              {categories.map((category) => (
-                <option key={category.id} value={category.name}>
-                  {category.name}
-                </option>
-              ))}
-              <option value="Uncategorized">Uncategorized</option>
-            </select>
+              options={[
+                ...categories.map((c) => ({ value: c.name, label: c.name })),
+                ...(!categories.some((c) => c.name === "Uncategorized")
+                  ? [{ value: "Uncategorized", label: "Uncategorized" }]
+                  : []),
+              ]}
+            />
           </label>
 
           <label>
             Date
-            <input
-              type="date"
+            <CustomDatePicker
               value={spentOn}
-              onChange={(event) => setSpentOn(event.target.value)}
-              disabled={saving}
+              onChange={(val) => setSpentOn(val)}
             />
           </label>
 
