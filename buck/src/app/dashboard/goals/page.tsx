@@ -1,5 +1,9 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
+import CustomSelect from "@/component/CustomSelect";
+import CustomDatePicker from "@/component/CustomDatePicker";
+import { useToast } from "@/component/toast/ToastContext";
+import { motion, AnimatePresence } from "framer-motion";
 import "./style.css";
 import "./progress-bar.css";
 import { useRouter } from "next/navigation";
@@ -57,6 +61,7 @@ type Goal = BuckGoal;
 const GoalsPage = () => {
   const router = useRouter();
   const { user } = useDashboardUser();
+  const { toast } = useToast();
   const { dashboardCache, setDashboardCache } = useFinancial();
   const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
   const hasInitialGoalsData = Boolean(userCache.goals);
@@ -198,8 +203,9 @@ const GoalsPage = () => {
         })
       );
       setSelectedGoal(null);
+      toast("Goal deleted successfully", "success");
     } else {
-      alert(result.message || "Failed to delete goal.");
+      toast(result.message || "Failed to delete goal.", "error");
     }
   };
 
@@ -708,16 +714,18 @@ const GoalsPage = () => {
             </button>
           </div>
         </div>
-        {showModal && (
-          <CreateGoalModal
-            onClose={() => setShowModal(false)}
-            onGoalCreated={(newGoal) => {
-              setShowModal(false);
-              setGoals((prev) => [...prev, newGoal]);
-              setSelectedGoal(newGoal);
-            }}
-          />
-        )}
+        <AnimatePresence>
+          {showModal && (
+            <CreateGoalModal
+              onClose={() => setShowModal(false)}
+              onGoalCreated={(newGoal) => {
+                setShowModal(false);
+                setGoals((prev) => [...prev, newGoal]);
+                setSelectedGoal(newGoal);
+              }}
+            />
+          )}
+        </AnimatePresence>
       </>
     );
   }
@@ -1002,25 +1010,16 @@ const GoalsPage = () => {
                             marginBottom: 12,
                           }}
                         >
-                          <select
-                            value={selectedWeek}
-                            onChange={(e) =>
-                              setSelectedWeek(Number(e.target.value))
+                          <CustomSelect
+                            value={String(selectedWeek)}
+                            onChange={(val) =>
+                              setSelectedWeek(Number(val))
                             }
-                            style={{
-                              padding: "0.3rem 0.7rem",
-                              borderRadius: 6,
-                              color: "var(--buck-ink)",
-                              background: fieldBackground,
-                              border: "1px solid rgba(244,117,54,0.32)",
-                            }}
-                          >
-                            {weekDateRanges.map((range, idx) => (
-                              <option key={idx} value={idx}>
-                                Week {idx + 1}: {range.start} to {range.end}
-                              </option>
-                            ))}
-                          </select>
+                            options={weekDateRanges.map((range, idx) => ({
+                              value: String(idx),
+                              label: `Week ${idx + 1}: ${range.start} to ${range.end}`
+                            }))}
+                          />
                         </div>
                       )}
                       {selectedMode === "month" &&
@@ -1033,25 +1032,16 @@ const GoalsPage = () => {
                               marginBottom: 12,
                             }}
                           >
-                            <select
-                              value={selectedMonth}
-                              onChange={(e) =>
-                                setSelectedMonth(Number(e.target.value))
+                            <CustomSelect
+                              value={String(selectedMonth)}
+                              onChange={(val) =>
+                                setSelectedMonth(Number(val))
                               }
-                              style={{
-                                padding: "0.3rem 0.7rem",
-                                borderRadius: 6,
-                                color: "var(--buck-ink)",
-                                background: fieldBackground,
-                                border: "1px solid rgba(244,117,54,0.32)",
-                              }}
-                            >
-                              {monthDateRanges.map((range, idx) => (
-                                <option key={idx} value={idx}>
-                                  {range.label}: {range.start} to {range.end}
-                                </option>
-                              ))}
-                            </select>
+                              options={monthDateRanges.map((range, idx) => ({
+                                value: String(idx),
+                                label: `${range.label}: ${range.start} to ${range.end}`
+                              }))}
+                            />
                           </div>
                         )}
                       {/* Progress Bar for Goal */}
@@ -1268,22 +1258,13 @@ const GoalsPage = () => {
                               >
                                 Add Expense
                               </h3>
-                              <input
-                                type="date"
+                              <CustomDatePicker
                                 value={expenseDate}
-                                onChange={(e) => setExpenseDate(e.target.value)}
+                                onChange={(val) => setExpenseDate(val)}
                                 style={{
                                   width: "100%",
                                   marginBottom: 12,
-                                  padding: 12,
-                                  borderRadius: 7,
-                                  border: "1px solid rgba(244,117,54,0.32)",
-                                  background: fieldBackground,
-                                  fontSize: 17,
                                   boxSizing: "border-box",
-                                  display: "block",
-                                  color: "var(--buck-ink)",
-                                  transition: "border 0.2s",
                                 }}
                               />
                               <input
@@ -1442,67 +1423,92 @@ const GoalsPage = () => {
           )}
         </div>
       </div>
-      {showModal && (
-        <CreateGoalModal
-          onClose={() => setShowModal(false)}
-          onGoalCreated={(newGoal) => {
-            setShowModal(false);
-            setGoals((prev) => [...prev, newGoal]);
-            setSelectedGoal(newGoal);
-          }}
-        />
-      )}
-      {showProgressModal && progressGoal && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <h3>Add Progress to {progressGoal.goalName}</h3>
-            <input
-              type="number"
-              min="1"
-              placeholder="Amount"
-              value={progressInput}
-              onChange={(e) => setProgressInput(e.target.value)}
-              disabled={progressLoading}
-              style={{ marginBottom: "1rem", width: "100%" }}
-            />
-            <div className="ProgressModal-btns">
-              <button
-                className="addProgress-btn"
-                onClick={handleAddProgress}
-                disabled={progressLoading}
-              >
-                {progressLoading ? "Saving..." : "Save"}
-              </button>
-              <button
-                style={{ marginLeft: 8 }}
-                onClick={() => setShowProgressModal(false)}
-                disabled={progressLoading}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {showErrorModal && (
-        <div
-          className="modal-backdrop"
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            background: "rgba(18,13,10,0.48)",
-            zIndex: 1200,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
+      <AnimatePresence>
+        {showModal && (
+          <CreateGoalModal
+            onClose={() => setShowModal(false)}
+            onGoalCreated={(newGoal) => {
+              setShowModal(false);
+              setGoals((prev) => [...prev, newGoal]);
+              setSelectedGoal(newGoal);
+            }}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showProgressModal && progressGoal && (
+          <motion.div
+            className="modal-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div
               className="modal"
-              style={{
+              initial={{ y: 20, opacity: 0, scale: 0.95 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 20, opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+            >
+              <h3>Add Progress to {progressGoal.goalName}</h3>
+              <input
+                type="number"
+                min="1"
+                placeholder="Amount"
+                value={progressInput}
+                onChange={(e) => setProgressInput(e.target.value)}
+                disabled={progressLoading}
+                style={{ marginBottom: "1rem", width: "100%" }}
+              />
+              <div className="ProgressModal-btns">
+                <button
+                  className="addProgress-btn"
+                  onClick={handleAddProgress}
+                  disabled={progressLoading}
+                >
+                  {progressLoading ? "Saving..." : "Save"}
+                </button>
+                <button
+                  style={{ marginLeft: 8 }}
+                  onClick={() => setShowProgressModal(false)}
+                  disabled={progressLoading}
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showErrorModal && (
+          <motion.div
+            className="modal-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100vw",
+              height: "100vh",
+              background: "rgba(18,13,10,0.48)",
+              zIndex: 1200,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <motion.div
+                className="modal"
+                initial={{ y: 20, opacity: 0, scale: 0.95 }}
+                animate={{ y: 0, opacity: 1, scale: 1 }}
+                exit={{ y: 20, opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                style={{
               background: modalBackground,
               color: "var(--buck-ink)",
               border: "1px solid var(--buck-line)",
@@ -1558,9 +1564,10 @@ const GoalsPage = () => {
             >
               Close
             </button>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 };

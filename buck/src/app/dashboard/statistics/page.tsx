@@ -40,6 +40,10 @@ import {
   type BuckExpense,
   type BuckGoal,
 } from "@/utils/supabaseData";
+import CustomSelect from "@/component/CustomSelect";
+import CustomDatePicker from "@/component/CustomDatePicker";
+import { useToast } from "@/component/toast/ToastContext";
+import { motion, AnimatePresence } from "framer-motion";
 
 ChartJS.register(
   CategoryScale,
@@ -56,6 +60,7 @@ type Goal = BuckGoal;
 const Statistics = () => {
   const router = useRouter();
   const { user } = useDashboardUser();
+  const { toast } = useToast();
   const { setTotalSaved, dashboardCache, setDashboardCache } = useFinancial();
   const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
   const hasInitialStatisticsData = Boolean(
@@ -162,7 +167,12 @@ const Statistics = () => {
     if (!user) return;
     if (!window.confirm("Are you sure you want to delete this category?"))
       return;
-    await deleteCategory(user.uid, catId);
+    try {
+      await deleteCategory(user.uid, catId);
+      toast("Category deleted successfully", "success");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to delete category", "error");
+    }
   };
 
   const handleAddCategory = async () => {
@@ -812,31 +822,15 @@ const Statistics = () => {
               >
                 View Mode:
               </label>
-              <select
+              <CustomSelect
                 value={selectedMode}
-                onChange={(e) =>
-                  setSelectedMode(
-                    e.target.value as "week" | "month" | "overall"
-                  )
-                }
-                style={{
-                  padding: "0.5rem 1.2rem",
-                  borderRadius: "10px",
-                  border: "1px solid rgba(244,117,54,0.38)",
-                  background: softBackground,
-                  color: "var(--buck-orange)",
-                  fontWeight: 600,
-                  fontSize: "1rem",
-                  boxShadow: "0 2px 8px 0 rgba(239, 138, 87, 0.08)",
-                  outline: "none",
-                  cursor: "pointer",
-                  transition: "border 0.2s",
-                }}
-              >
-                <option value="week">Weekly</option>
-                <option value="month">Monthly</option>
-                <option value="overall">Overall</option>
-              </select>
+                onChange={(val) => setSelectedMode(val as "week" | "month" | "overall")}
+                options={[
+                  { value: "week", label: "Weekly" },
+                  { value: "month", label: "Monthly" },
+                  { value: "overall", label: "Overall" },
+                ]}
+              />
             </div>
             {/* Week/Month Selector */}
             {selectedMode === "week" && weekDateRanges.length > 0 && (
@@ -846,30 +840,15 @@ const Statistics = () => {
                 >
                   Select Week:
                 </label>
-                <select
-                  value={selectedWeek}
-                  onChange={(e) => setSelectedWeek(Number(e.target.value))}
-                  style={{
-                    padding: "0.5rem 1.2rem",
-                    borderRadius: "10px",
-                    border: "1px solid rgba(244,117,54,0.38)",
-                    background: softBackground,
-                    color: "var(--buck-orange)",
-                    fontWeight: 600,
-                    fontSize: "1rem",
-                    boxShadow: "0 2px 8px 0 rgba(239, 138, 87, 0.08)",
-                    outline: "none",
-                    cursor: "pointer",
-                    transition: "border 0.2s",
-                  }}
+                <CustomSelect
+                  value={String(selectedWeek)}
+                  onChange={(val) => setSelectedWeek(Number(val))}
                   disabled={weekDateRanges.length === 0}
-                >
-                  {weekDateRanges.map((range, idx) => (
-                    <option key={idx} value={idx} style={{ color: "var(--buck-ink)" }}>
-                      Week {idx + 1}: {range.start} to {range.end}
-                    </option>
-                  ))}
-                </select>
+                  options={weekDateRanges.map((range, idx) => ({
+                    value: String(idx),
+                    label: `Week ${idx + 1}: ${range.start} to ${range.end}`
+                  }))}
+                />
               </div>
             )}
             {selectedMode === "month" && monthDateRanges.length > 0 && (
@@ -879,30 +858,15 @@ const Statistics = () => {
                 >
                   Select Month:
                 </label>
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                  style={{
-                    padding: "0.5rem 1.2rem",
-                    borderRadius: "10px",
-                    border: "1px solid rgba(244,117,54,0.38)",
-                    background: softBackground,
-                    color: "var(--buck-orange)",
-                    fontWeight: 600,
-                    fontSize: "1rem",
-                    boxShadow: "0 2px 8px 0 rgba(239, 138, 87, 0.08)",
-                    outline: "none",
-                    cursor: "pointer",
-                    transition: "border 0.2s",
-                  }}
+                <CustomSelect
+                  value={String(selectedMonth)}
+                  onChange={(val) => setSelectedMonth(Number(val))}
                   disabled={monthDateRanges.length === 0}
-                >
-                  {monthDateRanges.map((range, idx) => (
-                    <option key={idx} value={idx} style={{ color: "var(--buck-ink)" }}>
-                      {range.label}: {range.start} to {range.end}
-                    </option>
-                  ))}
-                </select>
+                  options={monthDateRanges.map((range, idx) => ({
+                    value: String(idx),
+                    label: `${range.label}: ${range.start} to ${range.end}`
+                  }))}
+                />
               </div>
             )}
           </div>
@@ -1160,47 +1124,51 @@ const Statistics = () => {
           )}
         </div>
         {/* Add Expense Button and Modal */}
-        {showExpenseModal && (
-          <div
-            className="modal-backdrop"
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              width: "100vw",
-              height: "100vh",
-              background: "rgba(0,0,0,0.4)",
-              zIndex: 1000,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "background 0.3s",
-            }}
-          >
-            <div
-              className="modal expense-modal-animate"
+        <AnimatePresence>
+          {showExpenseModal && (
+            <motion.div
+              className="modal-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
               style={{
-                background: modalBackground,
-                borderRadius: 20,
-                padding: 32,
-                width: "100%",
-                maxWidth: 540,
-                minWidth: 320,
-                boxShadow: "0 12px 48px rgba(239,138,87,0.18)",
-                position: "relative",
+                position: "fixed",
+                top: 0,
+                left: 0,
+                width: "100vw",
+                height: "100vh",
+                background: "rgba(0,0,0,0.4)",
+                zIndex: 1000,
                 display: "flex",
-                flexDirection: "column",
                 alignItems: "center",
-                animation: "fadeInScale 0.35s",
-                color: "var(--buck-ink)",
-                fontSize: 17,
                 maxHeight: "90vh",
-                overflowY: "auto",
               }}
             >
-              <button
-                onClick={() => setShowExpenseModal(false)}
+              <motion.div
+                className="modal"
+                initial={{ y: 20, opacity: 0, scale: 0.95 }}
+                animate={{ y: 0, opacity: 1, scale: 1 }}
+                exit={{ y: 20, opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
                 style={{
+                  background: "var(--buck-surface)",
+                  borderRadius: 20,
+                  padding: 32,
+                  width: "100%",
+                  maxWidth: 540,
+                  minWidth: 320,
+                  boxShadow: "0 12px 48px rgba(239,138,87,0.18)",
+                  position: "relative",
+                  display: "flex",
+                  flexDirection: "column",
+                  color: "var(--buck-ink)",
+                  fontSize: 17,
+                }}
+              >
+                <button
+                  onClick={() => setShowExpenseModal(false)}
+                  style={{
                   position: "absolute",
                   top: 18,
                   right: 22,
@@ -1227,22 +1195,13 @@ const Statistics = () => {
               >
                 Add Expense
               </h3>
-              <input
-                type="date"
+              <CustomDatePicker
                 value={expenseDate}
-                onChange={(e) => setExpenseDate(e.target.value)}
+                onChange={(val) => setExpenseDate(val)}
                 style={{
                   width: "100%",
                   marginBottom: 12,
-                  padding: 12,
-                  borderRadius: 7,
-                  border: "1px solid rgba(244,117,54,0.32)",
-                  fontSize: 17,
                   boxSizing: "border-box",
-                  display: "block",
-                  color: "var(--buck-ink)",
-                  background: fieldBackground,
-                  transition: "border 0.2s",
                 }}
               />
               <input
@@ -1446,35 +1405,20 @@ const Statistics = () => {
                 >
                   Category:
                 </label>
-                <select
+                <CustomSelect
                   value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: 12,
-                    borderRadius: 7,
-                    border: "1px solid rgba(244,117,54,0.32)",
-                    fontSize: 17,
-                    boxSizing: "border-box",
-                    display: "block",
-                    color: "var(--buck-ink)",
-                    background: modalBackground,
-                    transition: "border 0.2s",
-                  }}
-                >
-                  <option value="">Select category</option>
-                  {categories
-                    .filter((cat) =>
-                      cat.name
-                        .toLowerCase()
-                        .includes(categorySearch.toLowerCase())
-                    )
-                    .map((cat) => (
-                      <option key={cat.id} value={cat.name}>
-                        {cat.name}
-                      </option>
-                    ))}
-                </select>
+                  onChange={(val) => setSelectedCategory(val)}
+                  options={[
+                    { value: "", label: "Select category" },
+                    ...categories
+                      .filter((cat) =>
+                        cat.name
+                          .toLowerCase()
+                          .includes(categorySearch.toLowerCase())
+                      )
+                      .map((cat) => ({ value: cat.name, label: cat.name })),
+                  ]}
+                />
                 <button
                   onClick={() => setAddingCategory(true)}
                   style={{
@@ -1561,13 +1505,10 @@ const Statistics = () => {
               >
                 {expenseLoading ? "Adding..." : "Add Expense"}
               </button>
-            </div>
-            <style>{`
-              @keyframes fadeInScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-              @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-            `}</style>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
+        </AnimatePresence>
         {/* Recent Expenses Card */}
         {goals.length > 0 && (
           <div style={{ width: "100%", maxWidth: 900, margin: "2rem auto" }}>

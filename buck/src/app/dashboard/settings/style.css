@@ -385,33 +385,37 @@ html[data-buck-theme="dark"] .settings-section--danger {
 }
 
 .settings-form input,
+.settings-form-input,
 .settings-form textarea {
   width: 100%;
-  min-height: 40px;
-  padding: 0.58rem 0.72rem;
+  padding: 0.72rem 1rem;
   color: var(--buck-ink);
-  background: rgba(255, 250, 244, 0.72);
-  border: 1px solid var(--buck-line);
+  background: rgba(255, 250, 244, 0.74);
+  border: 1px solid rgba(244, 117, 54, 0.28);
   border-radius: 8px;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 500;
   outline: none;
   transition:
+    background 180ms ease,
     border-color 180ms ease,
-    box-shadow 180ms ease,
-    background 180ms ease;
-  font-family: inherit;
+    box-shadow 180ms ease;
 }
 
 .settings-form textarea {
   resize: vertical;
-  min-height: 100px;
+  min-height: 96px;
 }
 
 html[data-buck-theme="dark"] .settings-form input,
+html[data-buck-theme="dark"] .settings-form-input,
 html[data-buck-theme="dark"] .settings-form textarea {
-  background: rgba(255, 197, 71, 0.08);
+  background: rgba(255, 197, 71, 0.05);
 }
 
 .settings-form input:focus,
+.settings-form-input:focus,
 .settings-form textarea:focus {
   border-color: rgba(244, 117, 54, 0.62);
   box-shadow: 0 0 0 4px rgba(244, 117, 54, 0.14);
@@ -657,6 +661,7 @@ html[data-buck-theme="dark"] .settings-action-panel {
 }
 
 .settings-wallet-item {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -686,6 +691,13 @@ html[data-buck-theme="dark"] .settings-wallet-item--active {
   font-weight: 900;
 }
 
+.settings-wallet-edit-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
 .settings-wallet-actions {
   display: flex;
   align-items: center;
@@ -694,14 +706,17 @@ html[data-buck-theme="dark"] .settings-wallet-item--active {
 }
 
 .settings-wallet-active-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.42rem 0.85rem;
+  padding: 0.35rem 0.75rem;
   color: #ffffff;
   background: var(--buck-orange);
   border-radius: 999px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 900;
 }
 

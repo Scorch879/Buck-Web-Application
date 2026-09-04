@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { createGoal } from "@/component/goals";
 import "./style.css";
+import CustomSelect from "@/component/CustomSelect";
+import CustomDatePicker from "@/component/CustomDatePicker";
+import { motion } from "framer-motion";
 
 type CreateGoalModalProps = {
   onClose: () => void;
@@ -42,8 +45,20 @@ const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreate
   };
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-content">
+    <motion.div 
+      className="modal-backdrop"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+    >
+      <motion.div 
+        className="modal-content"
+        initial={{ y: 20, opacity: 0, scale: 0.95 }}
+        animate={{ y: 0, opacity: 1, scale: 1 }}
+        exit={{ y: 20, opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.2 }}
+      >
         <button className="modal-close" onClick={onClose}>×</button>
         <h2 className="create-goal-title">Create a New Goal</h2>
         {success && (
@@ -71,24 +86,21 @@ const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreate
             min={1}
             className="create-goal-input"
           />
-          <select
-            id="attitude"
+          <CustomSelect
             value={form.attitude}
-            onChange={handleChange}
-            required
+            onChange={(val) => setForm(prev => ({ ...prev, attitude: val }))}
+            options={[
+              { value: "Normal", label: "Normal" },
+              { value: "Moderate", label: "Moderate" },
+              { value: "Aggressive", label: "Aggressive" }
+            ]}
             className="create-goal-input"
-          >
-            <option value="" disabled>Select Attitude</option>
-            <option value="Normal">Normal</option>
-            <option value="Moderate">Moderate</option>
-            <option value="Aggressive">Aggressive</option>
-          </select>
-          <input
+          />
+          <CustomDatePicker
             id="targetDate"
-            type="date"
             placeholder="Target Date (YYYY-MM-DD)"
             value={form.targetDate}
-            onChange={handleChange}
+            onChange={(val) => setForm(prev => ({ ...prev, targetDate: val }))}
             required
             className="create-goal-input"
           />
@@ -100,8 +112,8 @@ const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreate
             {submitting ? "Creating..." : "Create Goal"}
           </button>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

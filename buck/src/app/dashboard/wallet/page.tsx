@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial, mergeDashboardDataCache } from "@/context/FinancialContext";
+import { useToast } from "@/component/toast/ToastContext";
 import { formatCurrency } from "@/utils/formatters";
 import {
   addWallet,
@@ -15,13 +16,16 @@ import {
   type BuckWallet,
 } from "@/utils/supabaseData";
 import { FaWallet, FaPlus, FaCheck, FaTrash, FaEdit, FaHistory, FaSearch } from "react-icons/fa";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import "../settings/style.css";
 import WalletModal from "./WalletModal";
+import CustomSelect from "@/component/CustomSelect";
+import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 
 export default function WalletPage() {
   const user = useOptionalDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
+  const { toast } = useToast();
   const userCache = user && dashboardCache.userId === user.uid ? dashboardCache : {};
   
   const hasInitialData = Boolean(userCache.wallets && userCache.activeWalletId !== undefined);
@@ -72,6 +76,7 @@ export default function WalletPage() {
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load wallets.");
+      toast("Failed to load wallets", "error");
     } finally {
       setLoading(false);
     }
@@ -97,9 +102,11 @@ export default function WalletPage() {
         setActiveWalletId(null);
         setDashboardCache((current) => mergeDashboardDataCache(current, user.uid, { activeWalletId: null, activeWalletBudget: 0 }));
       }
+      toast("Wallet deleted successfully", "success");
       fetchWallets();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete wallet.");
+      toast("Failed to delete wallet", "error");
     }
   };
 
@@ -113,6 +120,7 @@ export default function WalletPage() {
     if (!user) return;
     if (!editName.trim() || !editBudget.trim() || isNaN(Number(editBudget)) || Number(editBudget) <= 0) {
       setError("Please enter a valid name and a budget greater than 0.");
+      toast("Please enter a valid name and a budget greater than 0.", "error");
       return;
     }
     try {
@@ -124,9 +132,11 @@ export default function WalletPage() {
       setEditName("");
       setEditBudget("");
       setError("");
+      toast("Wallet updated successfully", "success");
       fetchWallets();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update wallet.");
+      toast("Failed to update wallet", "error");
     }
   };
 
@@ -162,28 +172,36 @@ export default function WalletPage() {
     if (!user) return;
     if (!name.trim() || !budget.trim() || isNaN(Number(budget)) || Number(budget) <= 0) {
       setError("Please enter a valid name and a budget greater than 0.");
+      toast("Please enter a valid name and budget.", "error");
       return;
     }
     try {
       await addWallet(user.uid, name.trim(), Number(budget));
       setName("");
       setBudget("");
+      toast("Wallet created successfully", "success");
       fetchWallets();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add wallet");
+      toast("Failed to create wallet", "error");
     }
   };
 
   const handleSetActive = async (id: string) => {
     if (!user) return;
-    await setActiveWallet(user.uid, id);
-    setActiveWalletId(id);
-
-    const newActiveWallet = wallets.find((w) => w.id === id);
-    setDashboardCache((current) => mergeDashboardDataCache(current, user.uid, {
-      activeWalletId: id,
-      ...(newActiveWallet ? { activeWalletBudget: newActiveWallet.budget } : {}),
-    }));
+    try {
+      await setActiveWallet(user.uid, id);
+      setActiveWalletId(id);
+      
+      const newActiveWallet = wallets.find((w) => w.id === id);
+      setDashboardCache((current) => mergeDashboardDataCache(current, user.uid, { 
+        activeWalletId: id,
+        ...(newActiveWallet ? { activeWalletBudget: newActiveWallet.budget } : {})
+      }));
+      toast("Active wallet updated", "success");
+    } catch (err) {
+      toast("Failed to update active wallet", "error");
+    }
   };
 
   const activeWallets = wallets.filter(w => !w.deletedAt);
@@ -209,7 +227,7 @@ export default function WalletPage() {
   }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   if (loading) {
-    return <div className="settings-page">Loading wallets...</div>;
+    return <DashboardPageSkeleton variant="wallet" />;
   }
 
   return (
@@ -261,17 +279,18 @@ export default function WalletPage() {
                 )}
               </div>
 
-              <select 
-                className="wallet-filter-select"
-                value={activeSort}
-                onChange={(e) => setActiveSort(e.target.value)}
-              >
-                <option value="Highest Budget">Highest Budget</option>
-                <option value="Lowest Budget">Lowest Budget</option>
-                <option value="A-Z">A-Z</option>
-                <option value="Newest - Oldest">Newest - Oldest</option>
-                <option value="Oldest - Newest">Oldest - Newest</option>
-              </select>
+              <CustomSelect
+  value={activeSort}
+  onChange={(val) => setActiveSort(val)}
+  options={[
+{ value: "Highest Budget", label: "Highest Budget" },
+{ value: "Lowest Budget", label: "Lowest Budget" },
+{ value: "A-Z", label: "A-Z" },
+{ value: "Newest - Oldest", label: "Newest - Oldest" },
+{ value: "Oldest - Newest", label: "Oldest - Newest" }
+]}
+  className="wallet-filter-select"
+/>
 
               <button 
                 className="settings-button settings-button--primary"
@@ -403,15 +422,16 @@ export default function WalletPage() {
                 />
               </div>
 
-              <select 
-                className="wallet-filter-select"
-                value={historyFilter}
-                onChange={(e) => setHistoryFilter(e.target.value)}
-              >
-                <option value="All">All</option>
-                <option value="Active Only">Active Only</option>
-                <option value="Archived Only">Archived Only</option>
-              </select>
+              <CustomSelect
+  value={historyFilter}
+  onChange={(val) => setHistoryFilter(val)}
+  options={[
+{ value: "All", label: "All" },
+{ value: "Active Only", label: "Active Only" },
+{ value: "Archived Only", label: "Archived Only" }
+]}
+  className="wallet-filter-select"
+/>
             </div>
           </div>
           <div className="settings-wallet-list">
@@ -448,39 +468,57 @@ export default function WalletPage() {
 
       </div>
 
-      {confirmDeleteId && (
-        <div className="settings-modal-backdrop" onClick={() => setConfirmDeleteId(null)}>
-          <div className="settings-modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0, color: "var(--buck-ink)" }}>Delete Wallet</h3>
-            <p style={{ color: "var(--buck-muted)" }}>
-              Are you sure you want to delete this wallet? This action cannot be undone.
-            </p>
-            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", marginTop: "1.5rem" }}>
-              <button
-                className="settings-button settings-button--secondary"
-                onClick={() => setConfirmDeleteId(null)}
-              >
-                Cancel
-              </button>
-              <button
-                className="settings-button settings-button--danger"
-                onClick={async () => {
-                  await handleDelete(confirmDeleteId);
-                  setConfirmDeleteId(null);
-                }}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {isModalOpen && (
-        <WalletModal
-          open={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {confirmDeleteId && (
+          <motion.div 
+            className="settings-modal-backdrop" 
+            onClick={() => setConfirmDeleteId(null)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div 
+              className="settings-modal-content" 
+              onClick={(e) => e.stopPropagation()}
+              initial={{ y: 20, opacity: 0, scale: 0.95 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 20, opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+            >
+              <h3 style={{ marginTop: 0, color: "var(--buck-ink)" }}>Delete Wallet</h3>
+              <p style={{ color: "var(--buck-muted)" }}>
+                Are you sure you want to delete this wallet? This action cannot be undone.
+              </p>
+              <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", marginTop: "1.5rem" }}>
+                <button
+                  className="settings-button settings-button--secondary"
+                  onClick={() => setConfirmDeleteId(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="settings-button settings-button--danger"
+                  onClick={async () => {
+                    await handleDelete(confirmDeleteId);
+                    setConfirmDeleteId(null);
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {isModalOpen && (
+          <WalletModal
+            open={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

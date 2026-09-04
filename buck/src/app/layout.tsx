@@ -4,6 +4,8 @@ import SessionManager from "@/component/SessionManager";
 import "./globals.css";
 import MaintenancePage from "./maintenance-page";
 
+import { ToastProvider } from "@/component/toast/ToastContext";
+
 const themeInitScript = `
 (() => {
   try {
@@ -55,10 +57,10 @@ export default function RootLayout({
         {maintenanceMode ? (
           <MaintenancePage />
         ) : (
-          <>
+          <ToastProvider>
             <SessionManager />
             {children}
-          </>
+          </ToastProvider>
         )}
       </body>
     </html>

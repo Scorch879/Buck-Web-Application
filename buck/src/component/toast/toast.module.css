@@ -1,0 +1,95 @@
+.toastContainer {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.toastNotification {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 280px;
+  max-width: 400px;
+  padding: 1rem 1.25rem;
+  background: var(--buck-surface);
+  color: var(--buck-ink);
+  border-radius: 8px;
+  border-left: 4px solid var(--buck-line);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+  pointer-events: auto;
+}
+
+html[data-buck-theme="dark"] .toastNotification {
+  background: #1e1510;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+.toastSuccess { border-left-color: #2e7d32; }
+.toastSuccess .toastIcon { color: #2e7d32; }
+
+.toastError { border-left-color: #c62828; }
+.toastError .toastIcon { color: #c62828; }
+
+.toastWarning { border-left-color: #f57c00; }
+.toastWarning .toastIcon { color: #f57c00; }
+
+.toastInfo { border-left-color: var(--buck-orange); }
+.toastInfo .toastIcon { color: var(--buck-orange); }
+
+html[data-buck-theme="dark"] .toastSuccess { border-left-color: #4caf50; }
+html[data-buck-theme="dark"] .toastSuccess .toastIcon { color: #4caf50; }
+
+html[data-buck-theme="dark"] .toastError { border-left-color: #ef5350; }
+html[data-buck-theme="dark"] .toastError .toastIcon { color: #ef5350; }
+
+html[data-buck-theme="dark"] .toastWarning { border-left-color: #ff9800; }
+html[data-buck-theme="dark"] .toastWarning .toastIcon { color: #ff9800; }
+
+html[data-buck-theme="dark"] .toastInfo { border-left-color: var(--buck-gold); }
+html[data-buck-theme="dark"] .toastInfo .toastIcon { color: var(--buck-gold); }
+
+.toastIcon {
+  font-size: 1.25rem;
+  display: flex;
+}
+
+.toastMessage {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 600;
+  word-wrap: break-word;
+}
+
+.toastClose {
+  background: none;
+  border: none;
+  color: var(--buck-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  transition: color 0.2s;
+}
+
+.toastClose:hover {
+  color: var(--buck-ink);
+}
+
+@media (max-width: 600px) {
+  .toastContainer {
+    bottom: auto;
+    top: 1rem;
+    right: 1rem;
+    left: 1rem;
+    flex-direction: column-reverse;
+  }
+  .toastNotification {
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+  }
+}
