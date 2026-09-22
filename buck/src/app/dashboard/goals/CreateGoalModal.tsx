@@ -90,6 +90,7 @@ const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreate
             value={form.attitude}
             onChange={(val) => setForm(prev => ({ ...prev, attitude: val }))}
             options={[
+              { value: "", label: "Select Attitude" },
               { value: "Normal", label: "Normal" },
               { value: "Moderate", label: "Moderate" },
               { value: "Aggressive", label: "Aggressive" }

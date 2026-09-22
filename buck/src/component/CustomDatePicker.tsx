@@ -40,8 +40,8 @@ export default function CustomDatePicker({
   // currentView determines which month/year is being displayed in the popover
   const [currentView, setCurrentView] = useState(() => {
     if (value) {
-      const d = new Date(value);
-      if (!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), 1);
+      const [y, m, day] = value.split("-").map(Number);
+      if (y && m && day) return new Date(y, m - 1, 1);
     }
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
@@ -49,9 +49,9 @@ export default function CustomDatePicker({
 
   useEffect(() => {
     if (isOpen && value) {
-      const d = new Date(value);
-      if (!isNaN(d.getTime())) {
-        setCurrentView(new Date(d.getFullYear(), d.getMonth(), 1));
+      const [y, m, day] = value.split("-").map(Number);
+      if (y && m && day) {
+        setCurrentView(new Date(y, m - 1, 1));
       }
     }
   }, [isOpen, value]);
@@ -172,9 +172,12 @@ export default function CustomDatePicker({
         type="text"
         value={value}
         id={id}
+        name={id}
         required={required}
         readOnly
-        style={{ opacity: 0, position: "absolute", zIndex: -1, width: 0, height: 0 }}
+        tabIndex={-1}
+        aria-hidden="true"
+        style={{ opacity: 0, position: "absolute", bottom: 0, left: 0, width: "100%", height: "100%", zIndex: -1, pointerEvents: "none" }}
       />
       
       <div 

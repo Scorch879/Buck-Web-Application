@@ -53,12 +53,21 @@ export default function CustomSelect({
       id={id}
     >
       <div
+        role="combobox"
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
         className={`${styles.trigger} ${isOpen ? styles.open : ""}`}
         onClick={() => !disabled && setIsOpen(!isOpen)}
         tabIndex={disabled ? -1 : 0}
         onKeyDown={(e) => {
           if (disabled) return;
-          if (e.key === "Enter" || e.key === " ") setIsOpen(!isOpen);
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setIsOpen(!isOpen);
+          } else if (e.key === "Escape" && isOpen) {
+            e.preventDefault();
+            setIsOpen(false);
+          }
         }}
       >
         <span className={styles.label}>{selectedOption?.label || value}</span>

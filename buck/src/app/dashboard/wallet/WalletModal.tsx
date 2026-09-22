@@ -148,6 +148,7 @@ export default function WalletModal({
         await setActiveWallet(user.uid, null);
         setActiveWalletId(null);
       }
+      setConfirmDeleteId(null);
       fetchWallets();
       fetchActiveWallet();
     } catch (err: any) {
