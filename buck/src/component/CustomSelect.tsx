@@ -76,16 +76,26 @@ export default function CustomSelect({
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.15 }}
           >
-            <ul className={styles.list}>
+            <ul className={styles.list} role="listbox">
               {options.map((option) => (
                 <li
                   key={option.value}
+                  role="option"
+                  aria-selected={value === option.value}
+                  tabIndex={0}
                   className={`${styles.option} ${
                     value === option.value ? styles.selected : ""
                   }`}
                   onClick={() => {
                     onChange(option.value);
                     setIsOpen(false);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onChange(option.value);
+                      setIsOpen(false);
+                    }
                   }}
                 >
                   {option.label}

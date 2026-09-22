@@ -23,9 +23,10 @@ BEGIN
         RAISE EXCEPTION 'Cannot delete a wallet that still has a budget. Please empty it first.';
       END IF;
     END IF;
+    RETURN NEW;
   END IF;
 
-  RETURN NEW;
+  RETURN OLD;
 END;
 $$;
 

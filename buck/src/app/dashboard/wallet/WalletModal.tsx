@@ -129,22 +129,30 @@ export default function WalletModal({
       return;
     }
     if (!user) return;
-    await addWallet(user.uid, name, Number(budget));
-    setName("");
-    setBudget("");
-    fetchWallets();
-    fetchActiveWallet();
+    try {
+      await addWallet(user.uid, name, Number(budget));
+      setName("");
+      setBudget("");
+      fetchWallets();
+      fetchActiveWallet();
+    } catch (err: any) {
+      setError(err.message || "Failed to add wallet");
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (!user) return;
-    await deleteWallet(user.uid, id);
-    if (activeWalletId === id) {
-      await setActiveWallet(user.uid, null);
-      setActiveWalletId(null);
+    try {
+      await deleteWallet(user.uid, id);
+      if (activeWalletId === id) {
+        await setActiveWallet(user.uid, null);
+        setActiveWalletId(null);
+      }
+      fetchWallets();
+      fetchActiveWallet();
+    } catch (err: any) {
+      setError(err.message || "Failed to delete wallet");
     }
-    fetchWallets();
-    fetchActiveWallet();
   };
 
   const handleEdit = (wallet: Wallet) => {
@@ -159,15 +167,19 @@ export default function WalletModal({
       setError("Please enter a valid name and a budget greater than 0.");
       return;
     }
-    await updateWallet(user.uid, id, {
-      name: editName,
-      budget: Number(editBudget),
-    });
-    setEditId(null);
-    setEditName("");
-    setEditBudget("");
-    setError("");
-    fetchWallets();
+    try {
+      await updateWallet(user.uid, id, {
+        name: editName,
+        budget: Number(editBudget),
+      });
+      setEditId(null);
+      setEditName("");
+      setEditBudget("");
+      setError("");
+      fetchWallets();
+    } catch (err: any) {
+      setError(err.message || "Failed to update wallet");
+    }
   };
 
   const handleEditCancel = () => {

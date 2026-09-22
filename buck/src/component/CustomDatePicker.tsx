@@ -79,12 +79,11 @@ export default function CustomDatePicker({
     setCurrentView(new Date(currentView.getFullYear(), currentView.getMonth() + 1, 1));
   };
 
+  const pad = (n: number) => n.toString().padStart(2, "0");
+
   const handleDateSelect = (day: number) => {
-    const selected = new Date(currentView.getFullYear(), currentView.getMonth(), day);
-    // Adjust for timezone offset to safely format as YYYY-MM-DD
-    const tzOffset = selected.getTimezoneOffset() * 60000;
-    const localIso = new Date(selected.getTime() - tzOffset).toISOString().slice(0, 10);
-    onChange(localIso);
+    const currentIso = `${currentView.getFullYear()}-${pad(currentView.getMonth() + 1)}-${pad(day)}`;
+    onChange(currentIso);
     setIsOpen(false);
   };
 
@@ -97,9 +96,8 @@ export default function CustomDatePicker({
   const handleToday = (e: React.MouseEvent) => {
     e.stopPropagation();
     const today = new Date();
-    const tzOffset = today.getTimezoneOffset() * 60000;
-    const localIso = new Date(today.getTime() - tzOffset).toISOString().slice(0, 10);
-    onChange(localIso);
+    const currentIso = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+    onChange(currentIso);
     setCurrentView(new Date(today.getFullYear(), today.getMonth(), 1));
     setIsOpen(false);
   };
@@ -127,9 +125,6 @@ export default function CustomDatePicker({
 
     // Actual days
     for (let i = 1; i <= daysInMonth; i++) {
-      const dateStr = new Date(year, month, i).toLocaleDateString("en-CA"); // YYYY-MM-DD locally if en-CA, but safer to construct string manually
-      
-      const pad = (n: number) => n.toString().padStart(2, "0");
       const currentIso = `${year}-${pad(month + 1)}-${pad(i)}`;
       
       const isSelected = value === currentIso;

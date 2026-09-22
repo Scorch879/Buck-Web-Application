@@ -280,17 +280,17 @@ export default function WalletPage() {
               </div>
 
               <CustomSelect
-  value={activeSort}
-  onChange={(val) => setActiveSort(val)}
-  options={[
-{ value: "Highest Budget", label: "Highest Budget" },
-{ value: "Lowest Budget", label: "Lowest Budget" },
-{ value: "A-Z", label: "A-Z" },
-{ value: "Newest - Oldest", label: "Newest - Oldest" },
-{ value: "Oldest - Newest", label: "Oldest - Newest" }
-]}
-  className="wallet-filter-select"
-/>
+                value={activeSort}
+                onChange={(val) => setActiveSort(val)}
+                options={[
+                  { value: "Highest Budget", label: "Highest Budget" },
+                  { value: "Lowest Budget", label: "Lowest Budget" },
+                  { value: "A-Z", label: "A-Z" },
+                  { value: "Newest - Oldest", label: "Newest - Oldest" },
+                  { value: "Oldest - Newest", label: "Oldest - Newest" }
+                ]}
+                className="wallet-filter-select"
+              />
 
               <button 
                 className="settings-button settings-button--primary"
@@ -423,15 +423,15 @@ export default function WalletPage() {
               </div>
 
               <CustomSelect
-  value={historyFilter}
-  onChange={(val) => setHistoryFilter(val)}
-  options={[
-{ value: "All", label: "All" },
-{ value: "Active Only", label: "Active Only" },
-{ value: "Archived Only", label: "Archived Only" }
-]}
-  className="wallet-filter-select"
-/>
+                value={historyFilter}
+                onChange={(val) => setHistoryFilter(val)}
+                options={[
+                  { value: "All", label: "All" },
+                  { value: "Active Only", label: "Active Only" },
+                  { value: "Archived Only", label: "Archived Only" }
+                ]}
+                className="wallet-filter-select"
+              />
             </div>
           </div>
           <div className="settings-wallet-list">
