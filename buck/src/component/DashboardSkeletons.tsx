@@ -1,6 +1,6 @@
 "use client";
 
-type DashboardSkeletonVariant = "home" | "goals" | "statistics" | "settings";
+type DashboardSkeletonVariant = "home" | "goals" | "statistics" | "settings" | "expenses" | "wallet";
 
 function SkeletonBlock({
   className = "",
@@ -151,22 +151,81 @@ function SettingsSkeleton() {
   );
 }
 
+function ExpensesSkeleton() {
+  return (
+    <div className="expenses-page dashboard-skeleton" aria-label="Loading expenses">
+      <section className="expenses-stats">
+        {Array.from({ length: 3 }, (_, i) => (
+          <article key={i} className="dashboard-skeleton-card">
+            <SkeletonBlock rows={2} />
+          </article>
+        ))}
+      </section>
+      
+      <section className="expenses-layout">
+        <div className="expenses-card expenses-form dashboard-skeleton-card">
+           <SkeletonBlock className="dashboard-skeleton-heading" rows={2} />
+           <SkeletonBlock rows={4} />
+           <SkeletonBlock className="dashboard-skeleton-button" />
+        </div>
+        <div className="expenses-card expenses-list dashboard-skeleton-card">
+           <SkeletonBlock className="dashboard-skeleton-heading" rows={2} />
+           <div className="expenses-list-items" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
+             {Array.from({ length: 4 }, (_, i) => (
+               <article key={i} className="expenses-list-item" style={{ padding: '0.75rem', background: 'var(--buck-surface)', borderRadius: '8px', border: '1px solid var(--buck-line)' }}>
+                 <SkeletonBlock rows={2} />
+               </article>
+             ))}
+           </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function WalletSkeleton() {
+  return (
+    <div className="settings-page dashboard-skeleton" aria-label="Loading wallets">
+      <div className="wallet-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.2rem', marginTop: '1.2rem' }}>
+         <article className="settings-card dashboard-skeleton-card">
+            <div className="settings-card-heading">
+               <SkeletonBlock className="dashboard-skeleton-heading" rows={2} />
+            </div>
+            <div className="settings-wallet-list" style={{ display: 'grid', gap: '0.65rem', marginTop: '1rem' }}>
+              {Array.from({ length: 3 }, (_, i) => (
+                 <div key={i} className="settings-wallet-item" style={{ padding: '0.75rem', border: '1px solid var(--buck-line)', borderRadius: '8px' }}>
+                    <SkeletonBlock rows={2} />
+                 </div>
+              ))}
+            </div>
+         </article>
+         <article className="settings-card dashboard-skeleton-card">
+            <div className="settings-card-heading">
+               <SkeletonBlock className="dashboard-skeleton-heading" rows={2} />
+            </div>
+            <div className="settings-wallet-list" style={{ display: 'grid', gap: '0.65rem', marginTop: '1rem' }}>
+              {Array.from({ length: 2 }, (_, i) => (
+                 <div key={i} className="settings-wallet-item" style={{ padding: '0.75rem', border: '1px solid var(--buck-line)', borderRadius: '8px' }}>
+                    <SkeletonBlock rows={2} />
+                 </div>
+              ))}
+            </div>
+         </article>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardPageSkeleton({
   variant = "home",
 }: {
   variant?: DashboardSkeletonVariant;
 }) {
-  if (variant === "settings") {
-    return <SettingsSkeleton />;
-  }
-
-  if (variant === "goals") {
-    return <GoalsSkeleton />;
-  }
-
-  if (variant === "statistics") {
-    return <StatisticsSkeleton />;
-  }
-
+  if (variant === "settings") return <SettingsSkeleton />;
+  if (variant === "goals") return <GoalsSkeleton />;
+  if (variant === "statistics") return <StatisticsSkeleton />;
+  if (variant === "expenses") return <ExpensesSkeleton />;
+  if (variant === "wallet") return <WalletSkeleton />;
+  
   return <HomeSkeleton />;
 }

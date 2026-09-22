@@ -10,6 +10,7 @@ import { getAdminFeedback, type BuckFeedback } from "@/utils/supabaseData";
 import "@/app/dashboard/settings/style.css";
 // @ts-ignore
 import "./style.css";
+import CustomSelect from "@/component/CustomSelect";
 
 function formatAdminDate(isoString: string) {
   return new Intl.DateTimeFormat(undefined, {
@@ -206,41 +207,44 @@ export default function AdminPage() {
               />
               
               {activeTab === "feedback" && (
-                <select 
-                  className="admin-filter-select"
+                <CustomSelect
                   value={filterCategory}
-                  onChange={(e) => setFilterCategory(e.target.value)}
-                >
-                  <option value="all">All Categories</option>
-                  <option value="Bug">Bug</option>
-                  <option value="Feature">Feature</option>
-                  <option value="Question">Question</option>
-                  <option value="Other">Other</option>
-                </select>
+                  onChange={(val) => setFilterCategory(val)}
+                  options={[
+                    { value: "all", label: "All Categories" },
+                    { value: "Bug", label: "Bug" },
+                    { value: "Feature", label: "Feature" },
+                    { value: "Question", label: "Question" },
+                    { value: "Other", label: "Other" }
+                  ]}
+                  className="admin-filter-select"
+                />
               )}
 
               {activeTab === "vercel" && (
-                <select 
-                  className="admin-filter-select"
+                <CustomSelect
                   value={filterCategory}
-                  onChange={(e) => setFilterCategory(e.target.value)}
-                >
-                  <option value="all">All States</option>
-                  <option value="READY">Ready</option>
-                  <option value="ERROR">Error</option>
-                  <option value="BUILDING">Building</option>
-                  <option value="QUEUED">Queued</option>
-                </select>
+                  onChange={(val) => setFilterCategory(val)}
+                  options={[
+                    { value: "all", label: "All States" },
+                    { value: "READY", label: "Ready" },
+                    { value: "ERROR", label: "Error" },
+                    { value: "BUILDING", label: "Building" },
+                    { value: "QUEUED", label: "Queued" }
+                  ]}
+                  className="admin-filter-select"
+                />
               )}
 
-              <select 
-                className="admin-filter-select"
+              <CustomSelect
                 value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}
-              >
-                <option value="newest">Newest First</option>
-                <option value="oldest">Oldest First</option>
-              </select>
+                onChange={(val) => setSortOrder(val as "newest" | "oldest")}
+                options={[
+                  { value: "newest", label: "Newest First" },
+                  { value: "oldest", label: "Oldest First" }
+                ]}
+                className="admin-filter-select"
+              />
             </div>
 
             {activeTab === "feedback" && (

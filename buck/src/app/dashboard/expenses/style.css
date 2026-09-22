@@ -153,14 +153,8 @@ html[data-buck-theme="dark"] .expenses-form select {
   box-shadow: 0 0 0 4px rgba(244, 117, 54, 0.14);
 }
 
-.expenses-form select option {
-  color: #241409;
-  background-color: #fffaf6;
-}
-
-html[data-buck-theme="dark"] .expenses-form select option {
-  color: #fff8ed;
-  background-color: #17100c;
+html[data-buck-theme="dark"] .expenses-form select {
+  color-scheme: dark;
 }
 
 .expenses-primary-button {
