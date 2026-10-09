@@ -10,6 +10,10 @@ Run these migrations in order:
 supabase/migrations/202606010001_initial_buck_schema.sql
 supabase/migrations/202606100001_profile_avatars.sql
 supabase/migrations/202606110001_account_deletion_requests.sql
+supabase/migrations/202606110002_auth_security_events.sql
+supabase/migrations/202606120001_soft_delete_wallets.sql
+supabase/migrations/202606130001_strict_deletions.sql
+supabase/migrations/202606140001_security_and_policy_hardening.sql
 ```
 
 You can paste the file contents into the Supabase SQL Editor, or apply it later with the Supabase CLI.

@@ -38,6 +38,11 @@ function HomeSkeleton() {
         </article>
       </section>
 
+      <article className="interpretation-card dashboard-skeleton-card">
+        <SkeletonBlock className="dashboard-skeleton-heading" rows={2} />
+        <SkeletonBlock rows={3} />
+      </article>
+
       <section className="summary-card dashboard-skeleton-card">
         <SkeletonBlock className="dashboard-skeleton-heading" rows={2} />
         <div className="summary-content">
@@ -154,12 +159,27 @@ function SettingsSkeleton() {
 function ExpensesSkeleton() {
   return (
     <div className="expenses-page dashboard-skeleton" aria-label="Loading expenses">
-      <section className="expenses-stats">
+      <section className="expenses-kpi-grid">
         {Array.from({ length: 3 }, (_, i) => (
-          <article key={i} className="dashboard-skeleton-card">
-            <SkeletonBlock rows={2} />
+          <article key={i} className="expenses-kpi-card dashboard-skeleton-card">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <SkeletonBlock className="dashboard-skeleton-short" rows={1} />
+              <span style={{ width: 60, height: 20, borderRadius: 10, background: "rgba(244, 117, 54, 0.12)" }} />
+            </div>
+            <SkeletonBlock className="dashboard-skeleton-heading" rows={1} />
+            <div style={{ height: 16, background: "rgba(244, 117, 54, 0.08)", borderRadius: 4, marginTop: 4 }} />
           </article>
         ))}
+      </section>
+
+      <section className="expenses-category-visualizer dashboard-skeleton-card">
+        <SkeletonBlock className="dashboard-skeleton-short" rows={1} />
+        <div style={{ height: 10, background: "rgba(244, 117, 54, 0.1)", borderRadius: 6, margin: "6px 0" }} />
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          {Array.from({ length: 4 }, (_, i) => (
+            <span key={i} style={{ width: 70, height: 24, borderRadius: 12, background: "rgba(244, 117, 54, 0.08)" }} />
+          ))}
+        </div>
       </section>
       
       <section className="expenses-layout">

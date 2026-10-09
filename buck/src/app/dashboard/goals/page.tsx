@@ -185,6 +185,49 @@ const GoalsPage = () => {
     }
   }
 
+  // Find current week index
+  let currentWeekIdx = -1;
+  if (weekDateRanges.length > 0) {
+    const today = new Date();
+    currentWeekIdx = weekDateRanges.findIndex((range) => {
+      const start = new Date(range.start);
+      const end = new Date(range.end);
+      return today >= start && today <= end;
+    });
+    if (currentWeekIdx === -1) {
+      currentWeekIdx = weekDateRanges.length - 1;
+    }
+  }
+
+  // Find current month index
+  let currentMonthIdx = -1;
+  if (monthDateRanges.length > 0) {
+    const today = new Date();
+    currentMonthIdx = monthDateRanges.findIndex((range) => {
+      const start = new Date(range.start);
+      const end = new Date(range.end);
+      return today >= start && today <= end;
+    });
+    if (currentMonthIdx === -1) {
+      currentMonthIdx = monthDateRanges.length - 1;
+    }
+  }
+
+  const userSelectedWeekRef = useRef(false);
+  const userSelectedMonthRef = useRef(false);
+
+  useEffect(() => {
+    if (!userSelectedWeekRef.current && currentWeekIdx >= 0) {
+      setSelectedWeek(currentWeekIdx);
+    }
+  }, [currentWeekIdx]);
+
+  useEffect(() => {
+    if (!userSelectedMonthRef.current && currentMonthIdx >= 0) {
+      setSelectedMonth(currentMonthIdx);
+    }
+  }, [currentMonthIdx]);
+
   // --- CRUD Handlers ---
   const handleDeleteGoal = async () => {
     if (!selectedGoal) return;
@@ -1034,9 +1077,10 @@ const GoalsPage = () => {
                           >
                             <CustomSelect
                               value={String(selectedMonth)}
-                              onChange={(val) =>
-                                setSelectedMonth(Number(val))
-                              }
+                              onChange={(val) => {
+                                userSelectedMonthRef.current = true;
+                                setSelectedMonth(Number(val));
+                              }}
                               options={monthDateRanges.map((range, idx) => ({
                                 value: String(idx),
                                 label: `${range.label}: ${range.start} to ${range.end}`

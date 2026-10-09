@@ -112,6 +112,8 @@ const Statistics = () => {
   );
   const [fadeWeeklyGraph, setFadeWeeklyGraph] = useState(false);
   const prevMode = useRef(selectedMode);
+  const userSelectedWeekRef = useRef(false);
+  const userSelectedMonthRef = useRef(false);
 
   // --- New state for categories, expenses, wallet ---
   const [categories, setCategories] = useState<BuckCategory[]>(
@@ -324,53 +326,58 @@ const Statistics = () => {
     };
   }, [setDashboardCache, user.uid]);
 
-  // Dynamically generate week date ranges from goals (real calendar mapping)
+  // Dynamically generate week date ranges from goals and expenses (real calendar mapping)
   let weekDateRanges: { start: string; end: string }[] = [];
   let monthDateRanges: { start: string; end: string; label: string }[] = [];
-  if (goals.length > 0) {
-    // Find the earliest Monday on or before the earliest goal start
-    const minStartRaw = new Date(
-      Math.min(...goals.map((g) => new Date(g.createdAt).getTime()))
-    );
-    const minStart = new Date(minStartRaw);
-    minStart.setDate(minStart.getDate() - ((minStart.getDay() + 6) % 7)); // Monday
-    const maxEnd = new Date(
-      Math.max(
-        ...goals.map((g) => new Date(g.targetDate || g.createdAt).getTime())
-      )
-    );
-    // Weeks (Monday to Sunday)
-    let current = new Date(minStart);
-    while (current <= maxEnd) {
-      const weekStart = new Date(current);
-      const weekEnd = new Date(current);
-      weekEnd.setDate(weekEnd.getDate() + 6);
-      weekDateRanges.push({
-        start: weekStart.toISOString().slice(0, 10),
-        end: weekEnd.toISOString().slice(0, 10),
-      });
-      current.setDate(current.getDate() + 7);
-    }
-    // Months (calendar months)
-    let monthCursor = new Date(minStart.getFullYear(), minStart.getMonth(), 1);
-    while (monthCursor <= maxEnd) {
-      const monthStart = new Date(monthCursor);
-      const monthEnd = new Date(
-        monthCursor.getFullYear(),
-        monthCursor.getMonth() + 1,
-        0
-      );
-      monthDateRanges.push({
-        start: monthStart.toISOString().slice(0, 10),
-        end: monthEnd.toISOString().slice(0, 10),
-        label: monthStart.toLocaleString("default", {
-          month: "long",
-          year: "numeric",
-        }),
-      });
-      monthCursor.setMonth(monthCursor.getMonth() + 1);
-    }
+
+  const allDateTimestamps: number[] = [
+    ...goals.map((g) => new Date(g.createdAt).getTime()),
+    ...goals.map((g) => new Date(g.targetDate || g.createdAt).getTime()),
+    ...expenses.map((e) => new Date(e.date).getTime()),
+  ].filter((t) => !isNaN(t) && t > 0);
+
+  if (allDateTimestamps.length === 0) {
+    allDateTimestamps.push(Date.now());
   }
+
+  const minStartRaw = new Date(Math.min(...allDateTimestamps));
+  const minStart = new Date(minStartRaw);
+  minStart.setDate(minStart.getDate() - ((minStart.getDay() + 6) % 7)); // Monday
+  const maxEnd = new Date(Math.max(...allDateTimestamps, Date.now()));
+
+  // Weeks (Monday to Sunday)
+  let current = new Date(minStart);
+  while (current <= maxEnd) {
+    const weekStart = new Date(current);
+    const weekEnd = new Date(current);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    weekDateRanges.push({
+      start: weekStart.toISOString().slice(0, 10),
+      end: weekEnd.toISOString().slice(0, 10),
+    });
+    current.setDate(current.getDate() + 7);
+  }
+
+  // Months (calendar months)
+  let monthCursor = new Date(minStart.getFullYear(), minStart.getMonth(), 1);
+  while (monthCursor <= maxEnd) {
+    const monthStart = new Date(monthCursor);
+    const monthEnd = new Date(
+      monthCursor.getFullYear(),
+      monthCursor.getMonth() + 1,
+      0
+    );
+    monthDateRanges.push({
+      start: monthStart.toISOString().slice(0, 10),
+      end: monthEnd.toISOString().slice(0, 10),
+      label: monthStart.toLocaleString("default", {
+        month: "long",
+        year: "numeric",
+      }),
+    });
+    monthCursor.setMonth(monthCursor.getMonth() + 1);
+  }
+
   // Find current week index
   let currentWeekIdx = -1;
   if (weekDateRanges.length > 0) {
@@ -380,7 +387,37 @@ const Statistics = () => {
       const end = new Date(range.end);
       return today >= start && today <= end;
     });
+    if (currentWeekIdx === -1) {
+      currentWeekIdx = weekDateRanges.length - 1;
+    }
   }
+
+  // Find current month index
+  let currentMonthIdx = -1;
+  if (monthDateRanges.length > 0) {
+    const today = new Date();
+    currentMonthIdx = monthDateRanges.findIndex((range) => {
+      const start = new Date(range.start);
+      const end = new Date(range.end);
+      return today >= start && today <= end;
+    });
+    if (currentMonthIdx === -1) {
+      currentMonthIdx = monthDateRanges.length - 1;
+    }
+  }
+
+  // Auto-select current week and month when date ranges become available
+  useEffect(() => {
+    if (!userSelectedWeekRef.current && currentWeekIdx >= 0) {
+      setSelectedWeek(currentWeekIdx);
+    }
+  }, [currentWeekIdx]);
+
+  useEffect(() => {
+    if (!userSelectedMonthRef.current && currentMonthIdx >= 0) {
+      setSelectedMonth(currentMonthIdx);
+    }
+  }, [currentMonthIdx]);
 
   useEffect(() => {
     const fetchGoals = async () => {
@@ -525,11 +562,53 @@ const Statistics = () => {
     dynamicCategoryList.forEach((cat) => {
       catMap[cat] = 0;
     });
-    expenses.forEach((exp) => {
+
+    let filteredExpenses = expenses;
+    if (selectedMode === "week" && weekDateRanges[selectedWeek]) {
+      const { start, end } = weekDateRanges[selectedWeek];
+      filteredExpenses = expenses.filter((exp) => {
+        const expISO = exp.date ? new Date(exp.date).toISOString().slice(0, 10) : "";
+        return expISO >= start && expISO <= end;
+      });
+    } else if (selectedMode === "month" && monthDateRanges[selectedMonth]) {
+      const { start, end } = monthDateRanges[selectedMonth];
+      filteredExpenses = expenses.filter((exp) => {
+        const expISO = exp.date ? new Date(exp.date).toISOString().slice(0, 10) : "";
+        return expISO >= start && expISO <= end;
+      });
+    }
+
+    filteredExpenses.forEach((exp) => {
       if (catMap[exp.category] !== undefined)
-        catMap[exp.category] += exp.amount;
+        catMap[exp.category] += Number(exp.amount) || 0;
     });
     return dynamicCategoryList.map((cat) => catMap[cat] || 0);
+  })();
+
+  // --- Real Period Spending & Savings for ExcessPie ---
+  const { currentPeriodSpending, currentPeriodSavings } = (() => {
+    let periodExpenses = expenses;
+    let budgetForPeriod = wallet || 35000;
+
+    if (selectedMode === "week" && weekDateRanges[selectedWeek]) {
+      const { start, end } = weekDateRanges[selectedWeek];
+      periodExpenses = expenses.filter((exp) => {
+        const expISO = exp.date ? new Date(exp.date).toISOString().slice(0, 10) : "";
+        return expISO >= start && expISO <= end;
+      });
+      budgetForPeriod = (wallet || 35000) / 4;
+    } else if (selectedMode === "month" && monthDateRanges[selectedMonth]) {
+      const { start, end } = monthDateRanges[selectedMonth];
+      periodExpenses = expenses.filter((exp) => {
+        const expISO = exp.date ? new Date(exp.date).toISOString().slice(0, 10) : "";
+        return expISO >= start && expISO <= end;
+      });
+      budgetForPeriod = wallet || 35000;
+    }
+
+    const totalSpent = periodExpenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+    const savings = Math.max(0, budgetForPeriod - totalSpent);
+    return { currentPeriodSpending: totalSpent, currentPeriodSavings: savings };
   })();
 
   // --- Forecast Chart Data ---
@@ -573,10 +652,10 @@ const Statistics = () => {
   }
 
   useEffect(() => {
-    if (selectedMode === "week") {
+    if (selectedMode === "week" || selectedMode === "month") {
       setShowWeeklyGraph(true);
       setFadeWeeklyGraph(false);
-    } else if (prevMode.current === "week") {
+    } else if (prevMode.current === "week" || prevMode.current === "month") {
       setFadeWeeklyGraph(true);
       setTimeout(() => {
         setShowWeeklyGraph(false);
@@ -606,6 +685,41 @@ const Statistics = () => {
       }
     });
     return weekSpending;
+  };
+
+  // --- Monthly Spending Data for Chart ---
+  const getMonthlySpendingData = () => {
+    if (!expenses.length || !monthDateRanges[selectedMonth]) {
+      return { spending: [0, 0, 0, 0], labels: ["Week 1", "Week 2", "Week 3", "Week 4"] };
+    }
+    const { start, end } = monthDateRanges[selectedMonth];
+    const monthStart = new Date(start);
+    const monthEnd = new Date(end);
+
+    const weeksInMonth: { start: Date; end: Date }[] = [];
+    let cur = new Date(monthStart);
+    while (cur <= monthEnd) {
+      const wStart = new Date(cur);
+      const wEnd = new Date(cur);
+      wEnd.setDate(wEnd.getDate() + 6);
+      if (wEnd > monthEnd) wEnd.setTime(monthEnd.getTime());
+      weeksInMonth.push({ start: wStart, end: wEnd });
+      cur.setDate(cur.getDate() + 7);
+    }
+
+    const spending = weeksInMonth.map(({ start: ws, end: we }) => {
+      const sStr = ws.toISOString().slice(0, 10);
+      const eStr = we.toISOString().slice(0, 10);
+      return expenses
+        .filter((exp) => {
+          const expISO = exp.date ? new Date(exp.date).toISOString().slice(0, 10) : "";
+          return expISO >= sStr && expISO <= eStr;
+        })
+        .reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+    });
+
+    const labels = weeksInMonth.map((_, i) => `Week ${i + 1}`);
+    return { spending, labels };
   };
 
   // --- Max Budget Per Day (from AI forecast) ---
@@ -722,7 +836,8 @@ const Statistics = () => {
             {selectedMode === "month" && monthDateRanges.length > 0 && (
               <div
                 style={{
-                  background: modalBackground,
+                  background:
+                    currentMonthIdx === selectedMonth ? softBackground : modalBackground,
                   borderRadius: "16px",
                   boxShadow: "0 4px 24px 0 rgba(239, 138, 87, 0.10)",
                   padding: "1.2rem 2rem",
@@ -757,6 +872,20 @@ const Statistics = () => {
                   {monthDateRanges[selectedMonth]?.start} to{" "}
                   {monthDateRanges[selectedMonth]?.end}
                 </span>
+                {currentMonthIdx === selectedMonth && (
+                  <span
+                    style={{
+                      background: "rgba(244,117,54,0.15)",
+                      color: "var(--buck-orange)",
+                      padding: "0.2rem 0.6rem",
+                      borderRadius: "6px",
+                      fontWeight: 700,
+                      fontSize: "1rem",
+                    }}
+                  >
+                    Current
+                  </span>
+                )}
               </div>
             )}
             {selectedMode === "overall" && (
@@ -842,7 +971,10 @@ const Statistics = () => {
                 </label>
                 <CustomSelect
                   value={String(selectedWeek)}
-                  onChange={(val) => setSelectedWeek(Number(val))}
+                  onChange={(val) => {
+                    userSelectedWeekRef.current = true;
+                    setSelectedWeek(Number(val));
+                  }}
                   disabled={weekDateRanges.length === 0}
                   options={weekDateRanges.map((range, idx) => ({
                     value: String(idx),
@@ -860,7 +992,10 @@ const Statistics = () => {
                 </label>
                 <CustomSelect
                   value={String(selectedMonth)}
-                  onChange={(val) => setSelectedMonth(Number(val))}
+                  onChange={(val) => {
+                    userSelectedMonthRef.current = true;
+                    setSelectedMonth(Number(val));
+                  }}
                   disabled={monthDateRanges.length === 0}
                   options={monthDateRanges.map((range, idx) => ({
                     value: String(idx),
@@ -940,6 +1075,8 @@ const Statistics = () => {
                       mode={selectedMode}
                       weekIndex={selectedWeek}
                       monthIndex={selectedMonth}
+                      spending={currentPeriodSpending}
+                      savings={currentPeriodSavings}
                     />
                   </div>
                 </div>
@@ -973,12 +1110,14 @@ const Statistics = () => {
                   </div>
                 </div>
               </div>
-              {/* Second row: Line graph (Weekly Spending Report) */}
+              {/* Second row: Line graph (Weekly or Monthly Spending Report) */}
               {showWeeklyGraph && (
                 <div className="graph-row">
                   <div className="graph-panel weekly-graph-panel">
                     <div className="graph-panel-header">
-                      Weekly Spending Report
+                      {selectedMode === "month"
+                        ? "Monthly Spending Report"
+                        : "Weekly Spending Report"}
                     </div>
                     {/* Y-Axis Max Control */}
                     <div style={{ marginBottom: "1rem", textAlign: "right" }}>
@@ -1007,16 +1146,33 @@ const Statistics = () => {
                       mode={selectedMode}
                       weekIndex={selectedWeek}
                       monthIndex={selectedMonth}
-                      spendingData={getWeeklySpendingData()}
-                      maxBudgetPerDay={maxBudgetPerDay}
+                      spendingData={
+                        selectedMode === "month"
+                          ? getMonthlySpendingData().spending
+                          : getWeeklySpendingData()
+                      }
+                      labels={
+                        selectedMode === "month"
+                          ? getMonthlySpendingData().labels
+                          : undefined
+                      }
+                      maxBudgetPerDay={
+                        selectedMode === "month"
+                          ? (wallet || 35000) / (getMonthlySpendingData().labels.length || 4)
+                          : maxBudgetPerDay
+                      }
                       noData={
-                        getWeeklySpendingData().every((v) => v === 0) &&
-                        !expenses.some((exp) => {
-                          const expDate = new Date(exp.date);
-                          const expISO = expDate.toISOString().slice(0, 10);
-                          const { start, end } = weekDateRanges[selectedWeek] || {};
-                          return start && end && expISO >= start && expISO <= end;
-                        })
+                        selectedMode === "month"
+                          ? getMonthlySpendingData().spending.every((v) => v === 0)
+                          : (
+                            getWeeklySpendingData().every((v) => v === 0) &&
+                            !expenses.some((exp) => {
+                              const expDate = new Date(exp.date);
+                              const expISO = expDate.toISOString().slice(0, 10);
+                              const { start, end } = weekDateRanges[selectedWeek] || {};
+                              return start && end && expISO >= start && expISO <= end;
+                            })
+                          )
                       }
                     />
                     {/* Custom Legend (now inside the panel) */}
