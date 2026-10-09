@@ -83,12 +83,17 @@ This document tracks identified bugs, architectural discrepancies, security vuln
 
 | Security Control | Implementation Mechanism | Status | Notes |
 |---|---|---|---|
-| **Data Isolation (RLS)** | PostgreSQL Row-Level Security on all user tables | 🟢 **PASS** | Strict `auth.uid() = user_id` check across select/insert/update/delete. |
+| **Data Isolation (RLS)** | PostgreSQL Row-Level Security on all user tables | 🟢 **PASS** | Strict `(select auth.uid()) = user_id` check across select/insert/update/delete. Duplicate policies consolidated. |
+| **Database RPC Exposure Hardening** | `REVOKE EXECUTE` on trigger & `SECURITY DEFINER` functions | 🟢 **PASS** | Revoked direct execute from `PUBLIC, anon, authenticated` across all 9 trigger/definer functions. |
+| **Database Search Path Protection** | Fixed `SET search_path = public` on database routines | 🟢 **PASS** | Eliminates role-mutable search path hijacking vulnerability. |
+| **RLS Performance & InitPlan** | Subquery wrapper `(select auth.uid())` & `(select auth.jwt())` | 🟢 **PASS** | Auth functions cached in InitPlan once per query rather than evaluated per row. |
+| **Foreign Key Covering Indexes** | Covering B-Tree indexes on `expenses` foreign keys | 🟢 **PASS** | Covering indexes added for `wallet_id`, `goal_id`, `category_id` to prevent lock contention. |
 | **Session Activity Verification** | HMAC-SHA256 Signed Cookie (`buck-session-activity`) | 🟢 **PASS** | Prevents cookie tampering; verified on every protected request in `middleware.ts`. |
 | **Session Inactivity Expiry** | 30-minute idle threshold with cross-tab Broadcast sync | 🟢 **PASS** | Synchronized across all tabs via `SessionManager.tsx`. |
-| **Password Reset Rate Limiting** | SHA-256 HMAC hashed IP/email window in `auth_security_events` | 🟢 **PASS** | Zero plaintext IP/email retention; enforces 8 resets / 15 min per IP. |
+| **Password Reset Rate Limiting** | SHA-256 HMAC hashed IP/email window in `auth_security_events` | 🟢 **PASS** | Zero plaintext IP/email retention; enforces 8 resets / 15 min per IP. Explicit service-role policy added. |
 | **Account Deletion Safeguards** | 10-day recovery window + OTP confirmation token | 🟢 **PASS** | Prevents accidental data destruction with self-service cancellation. |
 | **Private File Storage** | Supabase Storage RLS on `profile-avatars` | 🟢 **PASS** | Folders isolated by `auth.uid()`; signed URLs or SSR proxy stream required for access. |
+| **API CORS Hardening** | Explicit origin whitelist on FastAPI backend | 🟢 **PASS** | Replaced insecure wildcard `allow_origins=["*"]` with credentialed origin whitelist. |
 
 ---
 

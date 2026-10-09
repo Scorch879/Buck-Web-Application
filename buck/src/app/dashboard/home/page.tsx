@@ -19,6 +19,8 @@ import {
   type BuckCategory,
   type BuckExpense,
 } from "@/utils/supabaseData";
+import WeeklyPieChart, { type WeeklyPieSlice } from "./WeeklyPieChart";
+import WeeklyInterpretationCard from "./WeeklyInterpretationCard";
 import "./style.css";
 
 type Category = BuckCategory;
@@ -100,6 +102,73 @@ function getWeeklyData(weeklyExpenses: Expense[]) {
 
     return { day, amount };
   });
+}
+
+const PIE_COLOR_PALETTE = [
+  "#f47536", // Primary Buck Orange
+  "#ffc547", // Warm Amber / Gold
+  "#ff3838", // Coral Red
+  "#ffa15b", // Warm Peach / Apricot
+  "#8c7a6b", // Muted Slate Brown for Others
+];
+
+function getWeeklyPieData(weeklyExpenses: Expense[]): {
+  slices: WeeklyPieSlice[];
+  total: number;
+} {
+  const categoryTotals: Record<string, number> = {};
+
+  for (const expense of weeklyExpenses) {
+    const categoryName = expense.category?.trim() || "Uncategorized";
+    const amount = toNumber(expense.amount);
+    if (amount > 0) {
+      categoryTotals[categoryName] =
+        (categoryTotals[categoryName] || 0) + amount;
+    }
+  }
+
+  const sorted = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]);
+  const total = sorted.reduce((sum, [, amt]) => sum + amt, 0);
+
+  if (total === 0 || sorted.length === 0) {
+    return { slices: [], total: 0 };
+  }
+
+  let rawSlices: { category: string; amount: number; color: string }[] = [];
+
+  if (sorted.length <= 5) {
+    rawSlices = sorted.map(([category, amount], idx) => ({
+      category,
+      amount,
+      color: PIE_COLOR_PALETTE[idx % PIE_COLOR_PALETTE.length],
+    }));
+  } else {
+    // Top 4 categories
+    const top4 = sorted.slice(0, 4).map(([category, amount], idx) => ({
+      category,
+      amount,
+      color: PIE_COLOR_PALETTE[idx],
+    }));
+    // 5th element is "Others" combining all remaining categories
+    const othersAmount = sorted
+      .slice(4)
+      .reduce((sum, [, amt]) => sum + amt, 0);
+    rawSlices = [
+      ...top4,
+      {
+        category: "Others",
+        amount: othersAmount,
+        color: PIE_COLOR_PALETTE[4],
+      },
+    ];
+  }
+
+  const slices: WeeklyPieSlice[] = rawSlices.map((slice) => ({
+    ...slice,
+    percentage: total > 0 ? (slice.amount / total) * 100 : 0,
+  }));
+
+  return { slices, total };
 }
 
 function getSummaryData(categories: Category[], expenses: Expense[]) {
@@ -298,14 +367,11 @@ export default function Dashboard() {
     () => getWeeklyData(weeklyExpenses),
     [weeklyExpenses]
   );
-  const totalWeeklySpending = useMemo(
-    () =>
-      weeklyExpenses.reduce(
-        (sum, expense) => sum + toNumber(expense.amount),
-        0
-      ),
+  const weeklyPieData = useMemo(
+    () => getWeeklyPieData(weeklyExpenses),
     [weeklyExpenses]
   );
+  const totalWeeklySpending = weeklyPieData.total;
   const summaryData = useMemo(
     () => getSummaryData(categories, expenses),
     [categories, expenses]
@@ -318,16 +384,15 @@ export default function Dashboard() {
   return (
     <div className="dashboard-container">
         <section className="dashboard-content" aria-label="Weekly overview">
-          <article className="spending-card">
-            <p className="card-eyebrow">Weekly Spending</p>
-            <div className="spending-circle">
-              <div className="spending-amount">
-                {totalWeeklySpending > 0
-                  ? formatCurrency(totalWeeklySpending)
-                  : "No Data"}
-              </div>
+          <article className="spending-card" aria-label="Weekly spending breakdown">
+            <div className="card-heading">
+              <p className="card-eyebrow">Weekly Spending</p>
+              <h2 className="spending-card-title">Category Breakdown</h2>
             </div>
-            <p className="spending-label">Total spent this week</p>
+            <WeeklyPieChart
+              slices={weeklyPieData.slices}
+              total={weeklyPieData.total}
+            />
           </article>
 
           <article className="graph-card">
@@ -338,6 +403,14 @@ export default function Dashboard() {
             <WeeklyBarChart data={weeklyData} />
           </article>
         </section>
+
+        {/* Weekly Spending Interpretation Card */}
+        <WeeklyInterpretationCard
+          slices={weeklyPieData.slices}
+          total={weeklyPieData.total}
+          weeklyExpensesCount={weeklyExpenses.length}
+          activeWalletBudget={userCache.activeWalletBudget}
+        />
 
         <section className="summary-card">
           <div className="card-heading">

@@ -29,6 +29,7 @@ interface WeeklySpendingChartProps {
   weekIndex?: number;
   monthIndex?: number;
   spendingData?: number[];
+  labels?: string[];
   maxBudgetPerDay?: number;
   noData?: boolean;
 }
@@ -38,6 +39,7 @@ const WeeklySpendingChart: React.FC<WeeklySpendingChartProps> = ({
   weekIndex,
   monthIndex,
   spendingData,
+  labels,
   maxBudgetPerDay,
   noData = false,
 }) => {
@@ -46,19 +48,25 @@ const WeeklySpendingChart: React.FC<WeeklySpendingChartProps> = ({
   const chartGrid = isDarkTheme ? "rgba(255,211,154,0.16)" : "rgba(120,92,70,0.18)";
   const maxBudget = typeof maxBudgetPerDay === "number" && !isNaN(maxBudgetPerDay) ? maxBudgetPerDay : 0;
   let spending: number[] = [];
-  if (spendingData) {
+  if (spendingData && spendingData.length > 0) {
     spending = spendingData;
   } else {
-    spending = Array(7).fill(0); // Default to zero if no data
+    spending = Array(mode === "month" ? 4 : 7).fill(0);
   }
-  const data = noData ? Array(7).fill(0) : spending.map((amt) => maxBudget - amt);
+  const data = noData ? Array(spending.length).fill(0) : spending.map((amt) => maxBudget - amt);
   const yMax = Math.max(...data.map(Math.abs), 200);
+
+  const defaultLabels =
+    mode === "month"
+      ? ["Week 1", "Week 2", "Week 3", "Week 4"]
+      : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const chartLabels = labels && labels.length ? labels : defaultLabels;
 
   return (
     <div style={{ position: "relative", width: "100%", minHeight: 320 }}>
       <Line
         data={{
-          labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+          labels: chartLabels,
           datasets: [
             {
               label: "Saved/Excess",
@@ -159,7 +167,7 @@ const WeeklySpendingChart: React.FC<WeeklySpendingChartProps> = ({
             pointerEvents: "none",
           }}
         >
-          No spending data for this week
+          {mode === "month" ? "No spending data for this month" : "No spending data for this week"}
         </div>
       )}
     </div>

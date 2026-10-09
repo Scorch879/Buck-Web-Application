@@ -83,6 +83,8 @@ Execute SQL migrations located in [`buck/supabase/migrations/`](file:///d:/VS%20
 3. `202606110001_account_deletion_requests.sql` (10-day recovery window table and indexes).
 4. `202606110002_auth_security_events.sql` (Rate limit hash log table).
 5. `202606120001_soft_delete_wallets.sql` (`deleted_at` column on `wallets`).
+6. `202606130001_strict_deletions.sql` (Enforces deletion guards on non-empty wallets, funded goals, and active categories).
+7. `202606140001_security_and_policy_hardening.sql` (Hardens function search paths, revokes direct execute on trigger/definer functions, consolidates duplicate RLS policies, fixes `auth_security_events` policy, optimizes initplans, and adds covering indexes).
 
 ---
 
