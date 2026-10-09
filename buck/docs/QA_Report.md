@@ -129,3 +129,9 @@ flowchart LR
    - [ ] Request account deletion $\rightarrow$ verify confirmation email dispatched.
    - [ ] Open confirmation link $\rightarrow$ verify status transitions to "Scheduled for Deletion (10-day recovery)".
    - [ ] Click "Recover Account" $\rightarrow$ verify deletion status is revoked.
+5. **Global Toaster Notifications & Feedback Flow**:
+   - [ ] Sign up with invalid inputs $\rightarrow$ verify formatted toast warning appears instead of blocking browser `alert()`.
+   - [ ] Update display name or avatar in Settings $\rightarrow$ confirm success toast notification with progress bar.
+   - [ ] Trigger multiple rapid toasts $\rightarrow$ confirm queue maintains a maximum stack of 4 without overflowing viewport.
+   - [ ] Hover cursor over an active toast $\rightarrow$ confirm countdown progress freezes; move cursor away $\rightarrow$ confirm smooth dismissal.
+   - [ ] Complete goal progress in Goals screen $\rightarrow$ confirm celebratory completion toast triggers.
