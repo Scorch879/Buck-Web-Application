@@ -15,7 +15,7 @@ import {
   updateWallet,
   type BuckWallet,
 } from "@/utils/supabaseData";
-import { FaWallet, FaPlus, FaCheck, FaTrash, FaEdit, FaHistory, FaSearch } from "react-icons/fa";
+import { FaWallet, FaPlus, FaCheck, FaTrash, FaEdit, FaHistory, FaSearch, FaTimes } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import "../settings/style.css";
 import WalletModal from "./WalletModal";
@@ -46,7 +46,6 @@ export default function WalletPage() {
   // Search & Filter States
   const [activeSearchQuery, setActiveSearchQuery] = useState("");
   const [activeSort, setActiveSort] = useState("Highest Budget");
-  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [historyFilter, setHistoryFilter] = useState("All");
 
@@ -235,10 +234,10 @@ export default function WalletPage() {
       {error && <div className="settings-message settings-message--error">{error}</div>}
 
       <div className="wallet-grid">
-        <article className="settings-card">
-          <div className="settings-card-heading settings-card-header">
-            <div className="settings-card-title">
-              <span aria-hidden="true">
+        <article className="settings-card wallet-panel-card">
+          <div className="wallet-card-header">
+            <div className="wallet-card-title-group">
+              <span className="wallet-card-header-icon" aria-hidden="true">
                 <FaWallet />
               </span>
               <div>
@@ -246,39 +245,40 @@ export default function WalletPage() {
                 <h2>Manage your active wallets</h2>
               </div>
             </div>
-            
-            <div className="wallet-controls-container">
-              <div 
-                className={`wallet-search-wrapper ${isSearchExpanded ? 'wallet-search-wrapper--expanded' : 'wallet-search-wrapper--collapsed'}`}
-                onClick={() => {
-                  if (!isSearchExpanded) setIsSearchExpanded(true);
-                }}
-              >
-                <button 
-                  className="wallet-search-icon-btn" 
-                  aria-label="Search"
-                  onClick={(e) => {
-                    if (isSearchExpanded) {
-                      e.stopPropagation();
-                      setIsSearchExpanded(false);
-                      setActiveSearchQuery("");
-                    }
-                  }}
-                >
-                  <FaSearch />
-                </button>
-                {isSearchExpanded && (
-                  <input 
-                    type="text" 
-                    className="wallet-search-input" 
-                    placeholder="Search wallets..." 
-                    value={activeSearchQuery}
-                    onChange={(e) => setActiveSearchQuery(e.target.value)}
-                    autoFocus
-                  />
-                )}
-              </div>
 
+            <button 
+              className="settings-button settings-button--primary wallet-new-btn"
+              onClick={() => setIsModalOpen(true)}
+              type="button"
+            >
+              <FaPlus aria-hidden="true" /> New Wallet
+            </button>
+          </div>
+
+          <div className="wallet-toolbar">
+            <div className="wallet-search-bar">
+              <FaSearch className="wallet-search-icon" aria-hidden="true" />
+              <input 
+                type="text" 
+                className="wallet-search-input" 
+                placeholder="Search wallets..." 
+                value={activeSearchQuery}
+                onChange={(e) => setActiveSearchQuery(e.target.value)}
+                aria-label="Search wallets"
+              />
+              {activeSearchQuery && (
+                <button
+                  type="button"
+                  className="wallet-search-clear-btn"
+                  onClick={() => setActiveSearchQuery("")}
+                  aria-label="Clear search"
+                >
+                  <FaTimes aria-hidden="true" />
+                </button>
+              )}
+            </div>
+
+            <div className="wallet-dropdown-container">
               <CustomSelect
                 value={activeSort}
                 onChange={(val) => setActiveSort(val)}
@@ -289,18 +289,10 @@ export default function WalletPage() {
                   { value: "Newest - Oldest", label: "Newest - Oldest" },
                   { value: "Oldest - Newest", label: "Oldest - Newest" }
                 ]}
-                className="wallet-filter-select"
               />
-
-              <button 
-                className="settings-button settings-button--primary"
-                onClick={() => setIsModalOpen(true)}
-                style={{ margin: 0 }}
-              >
-                <FaPlus aria-hidden="true" style={{ marginRight: '0.4rem' }} /> New Wallet
-              </button>
             </div>
           </div>
+
           <div className="settings-wallet-list">
             {filteredActiveWallets.length === 0 ? (
               <p className="settings-wallet-empty">No wallets found matching your search or filters.</p>
@@ -311,79 +303,85 @@ export default function WalletPage() {
                   className={`settings-action-panel settings-wallet-item${w.id === activeWalletId ? " settings-wallet-item--active" : ""}`}
                 >
                   {editId === w.id ? (
-                    <>
-                      <div className="settings-wallet-info settings-wallet-edit-grid">
-                        <input
-                          type="text"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          placeholder="Wallet Name"
-                          className="settings-form-input"
-                        />
-                        <input
-                          type="number"
-                          value={editBudget}
-                          onChange={(e) => setEditBudget(e.target.value)}
-                          placeholder="Budget"
-                          min="0.01"
-                          step="0.01"
-                          className="settings-form-input"
-                        />
+                    <div className="settings-wallet-edit-container">
+                      <div className="settings-wallet-edit-grid">
+                        <label className="settings-form-label">
+                          Wallet Name
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            placeholder="Wallet Name"
+                            className="settings-form-input"
+                            autoFocus
+                          />
+                        </label>
+                        <label className="settings-form-label">
+                          Budget (PHP)
+                          <input
+                            type="number"
+                            value={editBudget}
+                            onChange={(e) => setEditBudget(e.target.value)}
+                            placeholder="Budget"
+                            min="0.01"
+                            step="0.01"
+                            className="settings-form-input"
+                          />
+                        </label>
                       </div>
                       <div className="settings-wallet-actions">
                         <button
-                          className="settings-button settings-button--primary"
+                          className="settings-button settings-button--primary settings-wallet-btn-half"
                           onClick={() => handleEditSave(w.id)}
                           type="button"
                         >
                           Save
                         </button>
                         <button
-                          className="settings-button settings-button--secondary"
+                          className="settings-button settings-button--secondary settings-wallet-btn-half"
                           onClick={handleEditCancel}
                           type="button"
                         >
                           Cancel
                         </button>
                       </div>
-                    </>
+                    </div>
                   ) : (
                     <>
                       <div className="settings-wallet-header">
                         <div className="settings-wallet-info">
-                          <strong>{w.name}</strong>
+                          <strong className="settings-wallet-name">{w.name}</strong>
                           <span className="settings-wallet-budget">{formatCurrency(Number(w.budget))}</span>
                         </div>
-                        {w.id === activeWalletId && (
+                        {w.id === activeWalletId ? (
                           <span className="settings-wallet-active-badge">
                             <FaCheck aria-hidden="true" /> Active
                           </span>
-                        )}
-                      </div>
-                      <div className="settings-wallet-actions">
-                        {w.id !== activeWalletId && (
+                        ) : (
                           <button
-                            className="settings-button settings-button--secondary"
+                            className="settings-wallet-set-active-btn"
                             onClick={() => handleSetActive(w.id)}
                             type="button"
-                            style={{ flex: 1, minWidth: "120px", margin: 0 }}
+                            aria-label={`Set ${w.name} as active wallet`}
                           >
                             Set Active
                           </button>
                         )}
+                      </div>
+                      <div className="settings-wallet-actions">
                         <button
-                          className="settings-button settings-button--secondary"
+                          className="settings-button settings-button--secondary settings-wallet-btn-half"
                           onClick={() => handleEdit(w)}
                           type="button"
-                          style={{ flex: 1, minWidth: "120px", margin: 0 }}
+                          aria-label={`Edit ${w.name}`}
                         >
                           <FaEdit aria-hidden="true" /> Edit
                         </button>
                         <button
-                          className="settings-button settings-button--danger"
+                          className="settings-button settings-button--danger settings-wallet-btn-half"
                           onClick={() => setConfirmDeleteId(w.id)}
                           type="button"
-                          style={{ flex: 1, minWidth: "120px", margin: 0 }}
+                          aria-label={`Delete ${w.name}`}
                         >
                           <FaTrash aria-hidden="true" /> Delete
                         </button>
@@ -396,10 +394,10 @@ export default function WalletPage() {
           </div>
         </article>
 
-        <article className="settings-card">
-          <div className="settings-card-heading settings-card-header">
-            <div className="settings-card-title">
-              <span aria-hidden="true">
+        <article className="settings-card wallet-panel-card">
+          <div className="wallet-card-header">
+            <div className="wallet-card-title-group">
+              <span className="wallet-card-header-icon" aria-hidden="true">
                 <FaHistory />
               </span>
               <div>
@@ -407,21 +405,32 @@ export default function WalletPage() {
                 <h2>History of Wallets</h2>
               </div>
             </div>
+          </div>
 
-            <div className="wallet-controls-container">
-              <div className="wallet-search-wrapper wallet-search-wrapper--permanent">
-                <button className="wallet-search-icon-btn" aria-label="Search icon" style={{ cursor: 'default' }}>
-                  <FaSearch />
+          <div className="wallet-toolbar">
+            <div className="wallet-search-bar">
+              <FaSearch className="wallet-search-icon" aria-hidden="true" />
+              <input 
+                type="text" 
+                className="wallet-search-input" 
+                placeholder="Search history..." 
+                value={historySearchQuery}
+                onChange={(e) => setHistorySearchQuery(e.target.value)}
+                aria-label="Search history"
+              />
+              {historySearchQuery && (
+                <button
+                  type="button"
+                  className="wallet-search-clear-btn"
+                  onClick={() => setHistorySearchQuery("")}
+                  aria-label="Clear search"
+                >
+                  <FaTimes aria-hidden="true" />
                 </button>
-                <input 
-                  type="text" 
-                  className="wallet-search-input" 
-                  placeholder="Search history..." 
-                  value={historySearchQuery}
-                  onChange={(e) => setHistorySearchQuery(e.target.value)}
-                />
-              </div>
+              )}
+            </div>
 
+            <div className="wallet-dropdown-container">
               <CustomSelect
                 value={historyFilter}
                 onChange={(val) => setHistoryFilter(val)}
@@ -430,29 +439,29 @@ export default function WalletPage() {
                   { value: "Active Only", label: "Active Only" },
                   { value: "Archived Only", label: "Archived Only" }
                 ]}
-                className="wallet-filter-select"
               />
             </div>
           </div>
+
           <div className="settings-wallet-list">
             {filteredHistoryWallets.length === 0 ? (
               <p className="settings-wallet-empty">No wallet history found.</p>
             ) : (
               filteredHistoryWallets.map((w) => (
-                <div key={w.id} className="settings-action-panel settings-wallet-item" style={{ opacity: w.deletedAt ? 0.6 : 1 }}>
+                <div key={w.id} className="settings-action-panel settings-wallet-item settings-wallet-history-item" style={{ opacity: w.deletedAt ? 0.72 : 1 }}>
                   <div className="settings-wallet-info" style={{ width: '100%' }}>
                     <div className="settings-wallet-header">
-                      <div className="settings-card-title" style={{ gap: '0.5rem' }}>
+                      <div className="settings-card-title" style={{ gap: '0.5rem', alignItems: 'center' }}>
                         <strong style={{ textDecoration: w.deletedAt ? 'line-through' : 'none' }}>{w.name}</strong>
                         {w.deletedAt && (
-                          <span style={{ fontSize: '0.7rem', background: 'var(--buck-surface)', color: 'var(--buck-muted)', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid var(--buck-line)' }}>
+                          <span className="settings-wallet-archived-badge">
                             Archived
                           </span>
                         )}
                       </div>
                       <span className="settings-wallet-budget">{formatCurrency(Number(w.budget))}</span>
                     </div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--buck-muted)', marginTop: '0.4rem', display: 'block' }}>
+                    <span className="settings-wallet-history-dates">
                       Added on {new Date(w.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
                       {w.deletedAt && (
                         <> • Deleted on {new Date(w.deletedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</>
@@ -464,8 +473,6 @@ export default function WalletPage() {
             )}
           </div>
         </article>
-
-
       </div>
 
       <AnimatePresence>
