@@ -38,11 +38,6 @@ function HomeSkeleton() {
         </article>
       </section>
 
-      <article className="interpretation-card dashboard-skeleton-card">
-        <SkeletonBlock className="dashboard-skeleton-heading" rows={2} />
-        <SkeletonBlock rows={3} />
-      </article>
-
       <section className="summary-card dashboard-skeleton-card">
         <SkeletonBlock className="dashboard-skeleton-heading" rows={2} />
         <div className="summary-content">
@@ -53,6 +48,11 @@ function HomeSkeleton() {
           ))}
         </div>
       </section>
+
+      <article className="interpretation-card dashboard-skeleton-card">
+        <SkeletonBlock className="dashboard-skeleton-heading" rows={2} />
+        <SkeletonBlock rows={3} />
+      </article>
     </div>
   );
 }

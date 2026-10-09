@@ -19,6 +19,7 @@ This document details runtime setup procedures, environment configurations, low-
 | `NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_MINUTES` | Client & Server | Optional | Default: `30`. Minutes of inactivity before auto sign-out. |
 | `NEXT_PUBLIC_SESSION_WARNING_SECONDS` | Client Only | Optional | Default: `60`. Seconds before timeout to display the session expiration countdown modal. |
 | `ACCOUNT_PURGE_SECRET` | Server Only | Optional | Bearer token required to trigger `/api/account/deletion/purge`. |
+| `CRON_SECRET` | Server Only | Optional | Bearer token required to trigger `/api/cron/generate-insights` from Vercel Cron. |
 | `SUPABASE_MANAGEMENT_TOKEN` | Server Only | Optional | Access token for Supabase Management API (used in Admin logs). |
 | `SUPABASE_PROJECT_REF` | Server Only | Optional | Project reference ID for Supabase logs endpoint. |
 | `VERCEL_ACCESS_TOKEN` | Server Only | Optional | Vercel API token for deployment metrics. |
@@ -85,6 +86,7 @@ Execute SQL migrations located in [`buck/supabase/migrations/`](file:///d:/VS%20
 5. `202606120001_soft_delete_wallets.sql` (`deleted_at` column on `wallets`).
 6. `202606130001_strict_deletions.sql` (Enforces deletion guards on non-empty wallets, funded goals, and active categories).
 7. `202606140001_security_and_policy_hardening.sql` (Hardens function search paths, revokes direct execute on trigger/definer functions, consolidates duplicate RLS policies, fixes `auth_security_events` policy, optimizes initplans, and adds covering indexes).
+8. `202610100001_ai_forecast_and_advisory_tables.sql` (Creates `ai_forecasts` and `ai_advisories` tables with relational ownership triggers, updated_at triggers, covering indexes, and user-isolated RLS policies).
 
 ---
 
@@ -114,6 +116,11 @@ Returns a composite score (0 to 5) and localized validation messages.
 - Throttles activity timestamps writes to once every 15,000 ms.
 - If a user clicks "Stay Signed In" in any tab, an `activity` message wakes all sibling tabs.
 - If a user logs out in one tab, a `signout` message terminates sessions globally across all open tabs.
+
+### 3.5 Hybrid AI Forecast & Advisory Architecture ([`aiInsightsGenerator.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/aiInsightsGenerator.ts))
+- **Cache-First UI (< 50ms load)**: Frontend routes (`/dashboard/forecast`, `/dashboard/financial-advisor`) query Supabase for active unexpired records (`ai_forecasts`, `ai_advisories`).
+- **On-Demand & Manual Refresh**: If no valid record exists or the user clicks "Refresh", route handlers recalculate trajectory in Philippine Peso (`PHP`, `₱`) and persist to Supabase.
+- **Automated Vercel Cron (`/api/cron/generate-insights`)**: Executes every Sunday at 22:00 UTC (Monday 06:00 PHT) configured in `vercel.json`, batch processing active users with `CRON_SECRET` authentication.
 
 ---
 

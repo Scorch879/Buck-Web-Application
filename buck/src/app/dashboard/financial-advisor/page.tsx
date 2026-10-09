@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FaBullseye, FaLightbulb, FaReceipt, FaWallet } from "react-icons/fa";
+import { FaBullseye, FaLightbulb, FaReceipt, FaWallet, FaSyncAlt } from "react-icons/fa";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useDashboardUser } from "@/context/DashboardUserContext";
 import {
@@ -73,6 +73,27 @@ export default function FinancialAdvisorPage() {
 
   const [aiInsights, setAiInsights] = useState<AIAdvisorInsights | null>(null);
   const [loadingAi, setLoadingAi] = useState(true);
+  const [refreshingAi, setRefreshingAi] = useState(false);
+
+  const loadAI = async (forceRefresh = false) => {
+    if (forceRefresh) {
+      setRefreshingAi(true);
+    } else {
+      setLoadingAi(true);
+    }
+    try {
+      const insights = await fetchAIAdvisorInsights({
+        userId: user.uid,
+        forceRefresh,
+      });
+      setAiInsights(insights);
+    } catch (err) {
+      console.error("Failed to fetch AI insights:", err);
+    } finally {
+      setLoadingAi(false);
+      setRefreshingAi(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -143,25 +164,8 @@ export default function FinancialAdvisorPage() {
       }
     };
 
-    const loadAI = async () => {
-      try {
-        setLoadingAi(true);
-        // We will eventually pass the user context here
-        const insights = await fetchAIAdvisorInsights({});
-        if (active) {
-          setAiInsights(insights);
-        }
-      } catch (err) {
-        console.error("Failed to fetch AI insights:", err);
-      } finally {
-        if (active) {
-          setLoadingAi(false);
-        }
-      }
-    };
-
     void loadData();
-    void loadAI();
+    void loadAI(false);
 
     const unsubscribeExpenses = subscribeUserTable(
       "expenses",
@@ -199,18 +203,37 @@ export default function FinancialAdvisorPage() {
     [expenses]
   );
 
-  const walletAdvice =
-    walletBudget <= 0
-      ? "Set or refresh your active wallet so Buck can compare your spending against real room."
-      : weeklyTotal > walletBudget * 0.65
-        ? "Slow the next few expenses down. This week is already using a large part of your wallet."
-        : "Your wallet still has breathing room. Keep tracking before small expenses blend together.";
+  const walletAdvice = useMemo(() => {
+    if (walletBudget <= 0) {
+      return "No wallet limit is set yet. Establish a budget to unlock pacing signals.";
+    }
 
-  const goalAdvice = activeGoal
-    ? goalProgress >= 80
-      ? "Your active goal is close. Keep the target visible before spending from the wallet."
-      : "A small transfer toward the active goal can keep momentum without shocking the week."
-    : "Create a saving goal so Buck has a target to protect while tracking expenses.";
+    if (weeklyTotal > walletBudget) {
+      return `Spending is pacing ${formatCurrency(
+        weeklyTotal - walletBudget
+      )} ahead of your weekly baseline. Pause non-essential purchases.`;
+    }
+
+    return `You have ${formatCurrency(
+      walletBudget - weeklyTotal
+    )} in safe room left inside this cycle.`;
+  }, [walletBudget, weeklyTotal]);
+
+  const goalAdvice = useMemo(() => {
+    if (!activeGoal) {
+      return "Add an active goal to connect your daily spending choices with a real target.";
+    }
+
+    const remaining = Math.max(0, activeGoal.targetAmount - activeGoal.currentAmount);
+
+    if (remaining === 0) {
+      return `${activeGoal.goalName} is fully funded. Time to lock in your next milestone.`;
+    }
+
+    return `${activeGoal.goalName} needs ${formatCurrency(
+      remaining
+    )} more. Keep discretionary spending steady to protect this target.`;
+  }, [activeGoal]);
 
   if (loading) {
     return <DashboardPageSkeleton variant="home" />;
@@ -222,16 +245,62 @@ export default function FinancialAdvisorPage() {
 
       <section className="advisor-hero">
         <div>
-          <p className="advisor-eyebrow">Financial Advisor</p>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+            <p className="advisor-eyebrow" style={{ margin: 0 }}>Financial Advisor</p>
+            {aiInsights?.createdAt && (
+              <span
+                style={{
+                  fontSize: "0.8rem",
+                  color: "var(--buck-muted)",
+                  background: "var(--buck-surface-soft, rgba(255,255,255,0.06))",
+                  padding: "0.2rem 0.6rem",
+                  borderRadius: "12px",
+                }}
+              >
+                {aiInsights.cached ? "Cached" : "Updated"}: {new Date(aiInsights.createdAt).toLocaleDateString()}
+              </span>
+            )}
+          </div>
           <h2>Advice that sounds like a next step.</h2>
           <p>
             Buck turns your current wallet, expense rhythm, and active goal into
             plain recommendations you can act on today.
           </p>
         </div>
-        <div className="advisor-score">
-          <span>Goal progress</span>
-          <strong>{goalProgress}%</strong>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <button
+            type="button"
+            onClick={() => void loadAI(true)}
+            disabled={refreshingAi}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              background: "var(--buck-surface-card, rgba(255, 197, 71, 0.12))",
+              color: "var(--buck-orange, #f47536)",
+              border: "1px solid rgba(244, 117, 54, 0.3)",
+              padding: "0.6rem 1rem",
+              borderRadius: "10px",
+              cursor: refreshingAi ? "not-allowed" : "pointer",
+              fontWeight: 600,
+              fontSize: "0.9rem",
+              transition: "all 0.2s ease",
+            }}
+          >
+            <FaSyncAlt style={{ animation: refreshingAi ? "spin 1s linear infinite" : "none" }} />
+            {refreshingAi ? "Analyzing..." : "Refresh Advice"}
+          </button>
+
+          <div className="advisor-score">
+            <span>Health Score</span>
+            <strong>
+              {aiInsights?.financialHealthScore !== null &&
+              aiInsights?.financialHealthScore !== undefined
+                ? `${aiInsights.financialHealthScore}`
+                : `${goalProgress}%`}
+            </strong>
+          </div>
         </div>
       </section>
 
@@ -277,7 +346,7 @@ export default function FinancialAdvisorPage() {
             <p className="advisor-eyebrow">AI Suggestion</p>
             <h3>What to do next</h3>
             <p style={{ minHeight: '80px', marginTop: '1rem' }}>
-              {loadingAi ? "Analyzing your financial data..." : aiInsights?.suggestion}
+              {loadingAi || refreshingAi ? "Analyzing your financial data..." : aiInsights?.suggestion}
             </p>
           </div>
         </section>
@@ -290,7 +359,7 @@ export default function FinancialAdvisorPage() {
             <p className="advisor-eyebrow" style={{ color: 'var(--buck-gold)' }}>AI Advice</p>
             <h3>Detailed Analysis</h3>
             <p style={{ minHeight: '80px', marginTop: '1rem' }}>
-              {loadingAi ? "Generating deep-dive analysis..." : aiInsights?.advice}
+              {loadingAi || refreshingAi ? "Generating deep-dive analysis..." : aiInsights?.advice}
             </p>
           </div>
         </section>
