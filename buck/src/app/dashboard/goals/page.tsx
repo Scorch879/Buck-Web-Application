@@ -269,7 +269,7 @@ const GoalsPage = () => {
         );
         setSelectedGoal({ ...selectedGoal, isActive: false });
       } else {
-        alert(result.message || "Failed to update goal status.");
+        toast(result.message || "Failed to update goal status.", "error");
       }
     } else {
       // Activate only this goal, deactivate others
@@ -289,7 +289,7 @@ const GoalsPage = () => {
         );
         setSelectedGoal({ ...selectedGoal, isActive: true });
       } else {
-        alert(result.message || "Failed to update goal status.");
+        toast(result.message || "Failed to update goal status.", "error");
       }
     }
   };
@@ -305,7 +305,7 @@ const GoalsPage = () => {
     if (!progressGoal || !user) return;
     const amountToAdd = parseFloat(progressInput);
     if (isNaN(amountToAdd) || amountToAdd <= 0) {
-      alert("Please enter a valid amount.");
+      toast("Please enter a valid amount greater than 0.", "warning");
       return;
     }
     setProgressLoading(true);
@@ -341,8 +341,14 @@ const GoalsPage = () => {
         });
       }
       setShowProgressModal(false);
+      toast(
+        isCompleted
+          ? "Congratulations! Goal completed!"
+          : "Goal progress updated successfully",
+        "success"
+      );
     } catch (err) {
-      alert("Failed to update progress.");
+      toast("Failed to update progress.", "error");
     } finally {
       setProgressLoading(false);
     }

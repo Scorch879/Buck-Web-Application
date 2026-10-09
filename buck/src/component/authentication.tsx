@@ -12,6 +12,7 @@ import {
   getEmailValidationMessage,
   normalizeEmailAddress,
 } from "@/utils/emailValidation";
+import { toast } from "@/component/toast";
 
 type AuthFormData = {
   username: string;
@@ -114,18 +115,18 @@ export function SignInSignUp() {
     e.preventDefault();
 
     if (form.username === "" || form.pass === "" || form.email === "") {
-      alert("Please fill in all fields");
+      toast("Please fill in all fields", "warning");
       return;
     }
 
     if (form.pass !== form.confirm) {
-      alert("Passwords do not match");
+      toast("Passwords do not match", "error");
       return;
     }
 
     const emailValidationMessage = getEmailValidationMessage(form.email);
     if (emailValidationMessage) {
-      alert(emailValidationMessage);
+      toast(emailValidationMessage, "error");
       return;
     }
 
@@ -136,14 +137,15 @@ export function SignInSignUp() {
     );
 
     if (!result.success) {
-      alert(result.message || "Sign up failed.");
+      toast(result.message || "Sign up failed.", "error");
       return;
     }
 
-    alert(
+    toast(
       result.needsEmailConfirmation
         ? "Account created. Please check your email to confirm your account."
-        : "Sign up successful!"
+        : "Sign up successful!",
+      "success"
     );
   };
 
