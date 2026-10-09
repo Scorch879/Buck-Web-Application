@@ -240,38 +240,34 @@ sequenceDiagram
 
 ```
 Buck-Web-Application/
-├── Agents.md                   # Root mirror of AI agent roles
-├── Skills.md                   # Root mirror of function and API catalog
-├── Design.md                   # Root mirror of architecture, schemas, and ADRs
-├── Implementation.md           # Root mirror of setup and execution logic
-├── QA_Report.md                # Root mirror of quality audit and defect backlog
+├── Agents.md                   # AI agent roles and collaboration boundaries
+├── Skills.md                   # Machine-readable function and API catalog
+├── Design.md                   # Architecture, schemas, flows, and ADRs
+├── Implementation.md           # Setup, runtime configs, and execution logic
+├── QA_Report.md                # Quality audit, defects, and security tracking
 ├── README.md                   # Repository overview and entry guide
 ├── buck/                       # Next.js 15 Web Application
 │   ├── BuckAI_Backend/         # Python FastAPI AI microservice
 │   │   ├── ai_models.py        # Together AI, Prophet, XGBoost models
 │   │   ├── main.py             # FastAPI routing and endpoints
 │   │   └── requirements.txt    # Python dependencies
-│   ├── docs/                   # Full Technical & AI-First Documentation
-│   │   ├── README.md           # Master Documentation Hub
-│   │   ├── Agents.md           # AI Agent roles & boundaries
-│   │   ├── Skills.md           # Machine-readable API & function catalog
-│   │   ├── Design.md           # System architecture & schemas
-│   │   ├── Implementation.md   # Execution details & constraints
-│   │   ├── QA_Report.md        # Quality audit & defect backlog
-│   │   ├── SUPABASE_AUTH_SETUP.md
-│   │   ├── SUPABASE_EMAIL_TEMPLATES.txt
-│   │   ├── ui-motion-and-scroll-effects.md
-│   │   ├── global-ui.md
-│   │   ├── universal-button-styling.md
-│   │   ├── wallet-layout.md
-│   │   ├── wallet-search.md
-│   │   ├── admin-dashboard.md
-│   │   ├── admin-backend-caching.md
-│   │   └── hydration-fix.md
+│   ├── docs/                   # Domain-specific UI/Auth documentation
 │   ├── public/                 # Static assets (images, SVGs, audio)
 │   ├── supabase/
 │   │   └── migrations/         # PostgreSQL schema migrations
-│   ├── src/                    # App Router, components, contexts, hooks, utils
+│   ├── src/
+│   │   ├── app/                # Next.js App Router (pages & API routes)
+│   │   │   ├── api/            # Server Route Handlers
+│   │   │   ├── dashboard/      # Authenticated views (home, expenses, goals, etc.)
+│   │   │   ├── globals.css     # Global CSS design tokens
+│   │   │   ├── layout.tsx      # Root layout
+│   │   │   └── page.tsx        # Public landing page
+│   │   ├── component/          # Shared components (AuthGuard, SessionManager, Header)
+│   │   ├── constants/          # Static copy and legal text
+│   │   ├── context/            # Global React state (FinancialContext, UserContext)
+│   │   ├── hooks/              # Reusable React hooks
+│   │   ├── middleware.ts       # SSR authentication and session HMAC gatekeeper
+│   │   └── utils/              # Data services, Supabase clients, formatters
 │   └── package.json            # Node.js dependencies and scripts
 ```
 
@@ -297,7 +293,7 @@ Buck-Web-Application/
 ### ADR-004: Decoupled FastAPI Microservice for AI & ML Inference
 - **Context**: Running complex Python time-series models (Prophet) and LLM prompt orchestrations directly in Node.js serverless functions is computationally heavy.
 - **Decision**: Decoupled AI inference into a dedicated Python FastAPI service running on Render.
-- **Consequences**: Enables Python ML library execution; however, requires rigorous cross-service contract synchronization (see [`QA_Report.md`](./QA_Report.md)).
+- **Consequences**: Enables Python ML library execution; however, requires rigorous cross-service contract synchronization (see [`QA_Report.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/QA_Report.md)).
 
 ### ADR-005: Zero-Knowledge Password Reset Rate Limiting
 - **Context**: Reset endpoints must prevent brute-force attacks without storing plaintext user emails or IP addresses.
@@ -313,3 +309,40 @@ Buck-Web-Application/
 - **Context**: The previous Weekly Spending widget only presented an aggregate total in an orange ring, providing no categorical breakdown of where weekly funds were deployed.
 - **Decision**: Replaced the static ring with `WeeklyPieChart.tsx` displaying category shares capped at a maximum of 5 elements (Top 4 categories + an aggregated 5th "Others" slice). Introduced a dedicated `WeeklyInterpretationCard.tsx` directly beneath the weekly overview that algorithmically analyzes category concentration, daily pacing, and wallet utilization in Philippine Peso (PHP).
 - **Consequences**: Delivers instant categorical visibility, limits chart clutter to exactly 5 slices per UI/UX principles, and provides contextual, actionable financial interpretation for the user.
+
+### ADR-008: Expenses Tab KPI Data Visualization & Category Allocation UX Overhaul
+- **Context**: The Expenses page previously rendered static typography for top KPI metrics (Wallet left, Total tracked, Average expense) without graphical progress indicators, spending velocity metrics, or category filtering controls.
+- **Decision**: Overhauled the Expenses dashboard (`app/dashboard/expenses/page.tsx`):
+  1. Replaced static stats with `ExpenseKPICards.tsx` featuring:
+     - **Wallet Balance**: Dynamic multi-stage capacity progress bar (`percentRemaining`), health badges (Healthy, Caution, Critical, Depleted), and available vs. spent breakdown.
+     - **Total Tracked**: 7-day micro-bar sparkline histogram displaying daily spend distribution alongside monthly velocity.
+     - **Average Expense**: Range benchmark track locating the average pin between minimum and maximum transaction extremes with top single expense highlights.
+  2. Implemented `ExpenseCategoryVisualizer.tsx`: A proportional multi-segmented category allocation bar and interactive category filter chips.
+  3. Upgraded the transaction workflow: Quick amount preset chips (+50, +100, +200, +500, +1000), overbudget warning indicators, a search and sorting toolbar, color-coded category theme badges with icons, and Framer Motion animated list transitions.
+  4. Synchronized `DashboardSkeletons.tsx` (`ExpensesSkeleton`) for zero layout shift during hydration.
+### ADR-009: Wallet Screen Dropdown Repair, Toolbar Alignment & Symmetrical Card Refactor
+- **Context**: The Wallet screen (`app/dashboard/wallet/page.tsx`) suffered from UI styling defects: nested rectangular border artifacts on sort/filter dropdowns due to conflicting `.wallet-filter-select` CSS wrappers, search inputs floating out of order or hidden behind collapsing triggers, and asymmetric card button layouts (inactive wallets displayed 3 bottom buttons while active wallets displayed 2). The solid orange active badge was visually indistinguishable from action buttons.
+- **Decision**: Refactored the Wallet page and styles (`buck/src/app/dashboard/settings/style.css`):
+  1. **Repaired Dropdown UI & Toolbar**: Eliminated double-border nesting artifacts by removing conflicting outer container classes on `CustomSelect`. Aligned the search bar with its left-integrated `FaSearch` icon directly to the left of the dropdown across both Active Wallets and History panels (`[Search Bar] [Dropdown]`).
+  2. **Uniform Card Structure**:
+     - **Top-Right Header**: Inactive wallets feature a dedicated `Set Active` outline pill button, while the active wallet renders an **Active Status Pillbox**.
+     - **Bottom Actions**: Standardized across ALL cards to strictly two 50%/50% symmetrical buttons (`[Edit]` and `[Delete]`), eliminating the previous 3-vs-2 button asymmetry.
+  3. **Distinct Active Pillbox Palette**: Styled the active status pillbox in a subtle emerald-mint tint (`rgba(16, 185, 129, 0.14)` border & background with `#047857` / `#34d399` text) to clearly signify non-clickable active status while adhering to the app's established health palette.
+  4. **Skeletal Loading Synchronization**: Updated `DashboardSkeletons.tsx` (`WalletSkeleton`) to match the new toolbar and symmetrical card structure.
+- **Consequences**: Resolves all visual clipping and layout defects, provides predictable symmetric card interactions, and achieves uniform scaling across desktop and mobile.
+
+### ADR-010: Home Dashboard Category Breakdown Timeframe Filter, Layout Reordering & AI Financial Advisor Placeholder Card
+- **Context**: The Category Breakdown pie graph previously filtered solely on `getWeeklyExpenses()`, causing it to collapse into a single category ("Food" 100%) when expenses recorded within the 7-day calendar week were only food, despite the user having rich historical data across Bills, Shopping, Transportation, etc. Card ordering had Financial Summary below the rule-based interpretation card. Furthermore, the user emphasized that insights should be AI-driven, requesting an AI Financial Advisor placeholder card until the ML backend is fully coupled.
+- **Decision**:
+  1. **Timeframe Filter on Category Breakdown**: Added segmented pill buttons (`[All Time] [This Month] [This Week]`) directly in the card header, defaulting to `All Time`. This immediately surfaces the user's full multi-category distribution with 5 elements (Top 4 categories + an aggregated 5th "Others" slice), while allowing one-click inspection of monthly and weekly scopes. Normalized date parsing to midday local time to eliminate timezone boundary shifts.
+  2. **Section Reordering**: Reorganized the Home dashboard layout:
+     - **Row 1**: Category Breakdown Pie Graph (`.spending-card`) & Weekly Expenses by Day Bar Graph (`.graph-card`).
+     - **Row 2**: Categories Financial Summary (`.summary-card`) - moved directly beneath the graph cards.
+     - **Row 3**: AI Financial Advisor Card (`AIAdvisorPlaceholderCard.tsx`).
+  3. **AI Financial Advisor Placeholder Card**: Designed and implemented `AIAdvisorPlaceholderCard.tsx` featuring:
+     - Architectural telemetry chips showcasing LLaMA 3.3 70B Turbo, Prophet Time-Series, and PHP currency heuristics.
+     - 3 preview capability cards: Runaway Category Alerts, Autonomous Goal Contribution Pacing, and Concise 2-Sentence Micro-Advisories.
+     - Shimmering Generative AI calibration banner with a pulsing status indicator displaying ingested telemetry event counts.
+  4. **Skeleton Hierarchy Sync**: Updated `HomeSkeleton` in `DashboardSkeletons.tsx` to maintain exact layout parity during data loading.
+- **Consequences**: Eliminates single-category pie chart collapse, ensures correct visual representation of the 5-slice cap, positions Financial Summary logically above the AI section, and provides a sleek generative AI experience for future ML model coupling.
+

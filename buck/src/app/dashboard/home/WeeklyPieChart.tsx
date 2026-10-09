@@ -23,9 +23,16 @@ export type WeeklyPieSlice = {
 interface WeeklyPieChartProps {
   slices: WeeklyPieSlice[];
   total: number;
+  centerLabel?: string;
+  emptyMessage?: string;
 }
 
-export default function WeeklyPieChart({ slices, total }: WeeklyPieChartProps) {
+export default function WeeklyPieChart({
+  slices,
+  total,
+  centerLabel = "Total this week",
+  emptyMessage = "No expenses recorded in this period",
+}: WeeklyPieChartProps) {
   const [mounted, setMounted] = useState(false);
   const isDarkTheme = useAuthPageTheme();
 
@@ -47,7 +54,7 @@ export default function WeeklyPieChart({ slices, total }: WeeklyPieChartProps) {
         <div className="spending-circle">
           <div className="spending-amount">₱0.00</div>
         </div>
-        <p className="spending-label">No expenses recorded this week</p>
+        <p className="spending-label">{emptyMessage}</p>
       </div>
     );
   }
@@ -105,7 +112,7 @@ export default function WeeklyPieChart({ slices, total }: WeeklyPieChartProps) {
         </div>
         <div className="spending-pie-center-info">
           <span className="spending-pie-center-amount">{formatCurrency(total)}</span>
-          <span className="spending-pie-center-label">Total this week</span>
+          <span className="spending-pie-center-label">{centerLabel}</span>
         </div>
       </div>
 

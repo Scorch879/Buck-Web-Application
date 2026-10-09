@@ -20,7 +20,7 @@ import {
   type BuckExpense,
 } from "@/utils/supabaseData";
 import WeeklyPieChart, { type WeeklyPieSlice } from "./WeeklyPieChart";
-import WeeklyInterpretationCard from "./WeeklyInterpretationCard";
+import AIAdvisorPlaceholderCard from "./AIAdvisorPlaceholderCard";
 import "./style.css";
 
 type Category = BuckCategory;
@@ -36,6 +36,8 @@ type SummaryItem = {
   amount: number;
   description: string;
 };
+
+type TimeframeFilter = "all" | "month" | "week";
 
 const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -62,8 +64,23 @@ function getCurrentWeekRange() {
   return { start, end };
 }
 
-function parseExpenseDate(expense: Expense) {
+function getCurrentMonthRange() {
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0, 0);
+  const end = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+  return { start, end };
+}
+
+function parseExpenseDate(expense: Expense): Date | null {
   if (!expense.date) return null;
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(expense.date);
+  if (match) {
+    const year = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10) - 1;
+    const day = parseInt(match[3], 10);
+    return new Date(year, month, day, 12, 0, 0);
+  }
 
   const date = new Date(expense.date);
   return Number.isNaN(date.getTime()) ? null : date;
@@ -77,9 +94,23 @@ function isSameCalendarDate(first: Date, second: Date) {
   );
 }
 
-function getWeeklyExpenses(expenses: Expense[]) {
-  const { start, end } = getCurrentWeekRange();
+function getFilteredExpenses(
+  expenses: Expense[],
+  timeframe: TimeframeFilter
+): Expense[] {
+  if (timeframe === "all") {
+    return expenses;
+  }
 
+  if (timeframe === "month") {
+    const { start, end } = getCurrentMonthRange();
+    return expenses.filter((expense) => {
+      const expenseDate = parseExpenseDate(expense);
+      return expenseDate ? expenseDate >= start && expenseDate <= end : false;
+    });
+  }
+
+  const { start, end } = getCurrentWeekRange();
   return expenses.filter((expense) => {
     const expenseDate = parseExpenseDate(expense);
     return expenseDate ? expenseDate >= start && expenseDate <= end : false;
@@ -112,13 +143,13 @@ const PIE_COLOR_PALETTE = [
   "#8c7a6b", // Muted Slate Brown for Others
 ];
 
-function getWeeklyPieData(weeklyExpenses: Expense[]): {
+function getCategoryPieData(filteredExpenses: Expense[]): {
   slices: WeeklyPieSlice[];
   total: number;
 } {
   const categoryTotals: Record<string, number> = {};
 
-  for (const expense of weeklyExpenses) {
+  for (const expense of filteredExpenses) {
     const categoryName = expense.category?.trim() || "Uncategorized";
     const amount = toNumber(expense.amount);
     if (amount > 0) {
@@ -362,16 +393,24 @@ export default function Dashboard() {
     };
   }, [setDashboardCache, user.uid]);
 
-  const weeklyExpenses = useMemo(() => getWeeklyExpenses(expenses), [expenses]);
+  const [timeframe, setTimeframe] = useState<TimeframeFilter>("all");
+
+  const weeklyExpenses = useMemo(
+    () => getFilteredExpenses(expenses, "week"),
+    [expenses]
+  );
   const weeklyData = useMemo(
     () => getWeeklyData(weeklyExpenses),
     [weeklyExpenses]
   );
-  const weeklyPieData = useMemo(
-    () => getWeeklyPieData(weeklyExpenses),
-    [weeklyExpenses]
+  const pieExpenses = useMemo(
+    () => getFilteredExpenses(expenses, timeframe),
+    [expenses, timeframe]
   );
-  const totalWeeklySpending = weeklyPieData.total;
+  const categoryPieData = useMemo(
+    () => getCategoryPieData(pieExpenses),
+    [pieExpenses]
+  );
   const summaryData = useMemo(
     () => getSummaryData(categories, expenses),
     [categories, expenses]
@@ -383,60 +422,103 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-container">
-        <section className="dashboard-content" aria-label="Weekly overview">
-          <article className="spending-card" aria-label="Weekly spending breakdown">
+      {/* 1. Category Breakdown Pie Graph & Weekly Expenses by Day Bar Graph */}
+      <section className="dashboard-content" aria-label="Spending overview">
+        <article className="spending-card" aria-label="Category spending breakdown">
+          <div className="card-heading-row">
             <div className="card-heading">
-              <p className="card-eyebrow">Weekly Spending</p>
+              <p className="card-eyebrow">Category Spending</p>
               <h2 className="spending-card-title">Category Breakdown</h2>
             </div>
-            <WeeklyPieChart
-              slices={weeklyPieData.slices}
-              total={weeklyPieData.total}
-            />
-          </article>
-
-          <article className="graph-card">
-            <div className="card-heading">
-              <p className="card-eyebrow">Weekly Summary</p>
-              <h2 className="graph-title">Expenses by day</h2>
+            <div
+              className="timeframe-toggle-group"
+              role="group"
+              aria-label="Category breakdown timeframe filter"
+            >
+              <button
+                type="button"
+                className={`timeframe-btn ${timeframe === "all" ? "timeframe-btn--active" : ""}`}
+                onClick={() => setTimeframe("all")}
+              >
+                All Time
+              </button>
+              <button
+                type="button"
+                className={`timeframe-btn ${timeframe === "month" ? "timeframe-btn--active" : ""}`}
+                onClick={() => setTimeframe("month")}
+              >
+                This Month
+              </button>
+              <button
+                type="button"
+                className={`timeframe-btn ${timeframe === "week" ? "timeframe-btn--active" : ""}`}
+                onClick={() => setTimeframe("week")}
+              >
+                This Week
+              </button>
             </div>
-            <WeeklyBarChart data={weeklyData} />
-          </article>
-        </section>
+          </div>
+          <WeeklyPieChart
+            slices={categoryPieData.slices}
+            total={categoryPieData.total}
+            centerLabel={
+              timeframe === "week"
+                ? "Total this week"
+                : timeframe === "month"
+                ? "Total this month"
+                : "Total all-time"
+            }
+            emptyMessage={
+              timeframe === "week"
+                ? "No expenses recorded this week"
+                : timeframe === "month"
+                ? "No expenses recorded this month"
+                : "No expenses recorded yet"
+            }
+          />
+        </article>
 
-        {/* Weekly Spending Interpretation Card */}
-        <WeeklyInterpretationCard
-          slices={weeklyPieData.slices}
-          total={weeklyPieData.total}
-          weeklyExpensesCount={weeklyExpenses.length}
-          activeWalletBudget={userCache.activeWalletBudget}
-        />
-
-        <section className="summary-card">
+        <article className="graph-card">
           <div className="card-heading">
-            <p className="card-eyebrow">Categories</p>
-            <h2 className="summary-title">Financial Summary</h2>
+            <p className="card-eyebrow">Weekly Summary</p>
+            <h2 className="graph-title">Expenses by day</h2>
           </div>
-          <div className="summary-content">
-            {summaryData.length > 0 ? (
-              summaryData.map((item) => (
-                <article key={item.label} className="summary-item">
-                  <div className="summary-item-value">
-                    {formatCurrency(item.amount)}
-                  </div>
-                  <div className="summary-item-label">{item.label}</div>
-                  <p className="summary-item-description">
-                    {item.description}
-                  </p>
-                </article>
-              ))
-            ) : (
-              <div className="empty-summary-state">
-                No summary data available
-              </div>
-            )}
-          </div>
-        </section>
+          <WeeklyBarChart data={weeklyData} />
+        </article>
+      </section>
+
+      {/* 2. Financial Summary (Categories) - placed directly below Pie and Bar graph cards */}
+      <section className="summary-card" aria-label="Categories financial summary">
+        <div className="card-heading">
+          <p className="card-eyebrow">Categories</p>
+          <h2 className="summary-title">Financial Summary</h2>
+        </div>
+        <div className="summary-content">
+          {summaryData.length > 0 ? (
+            summaryData.map((item) => (
+              <article key={item.label} className="summary-item">
+                <div className="summary-item-value">
+                  {formatCurrency(item.amount)}
+                </div>
+                <div className="summary-item-label">{item.label}</div>
+                <p className="summary-item-description">
+                  {item.description}
+                </p>
+              </article>
+            ))
+          ) : (
+            <div className="empty-summary-state">
+              No summary data available
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* 3. AI Financial Advisor Placeholder Card */}
+      <AIAdvisorPlaceholderCard
+        activeWalletBudget={userCache.activeWalletBudget}
+        totalExpensesCount={expenses.length}
+      />
     </div>
   );
 }
