@@ -244,7 +244,7 @@ export default function FinancialAdvisorPage() {
   }, [activeGoal]);
 
   if (loading) {
-    return <DashboardPageSkeleton variant="home" />;
+    return <DashboardPageSkeleton variant="financial-advisor" />;
   }
 
   return (

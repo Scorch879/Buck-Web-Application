@@ -79,7 +79,7 @@ export default function ForecastPage() {
   }, [setDashboardCache, user.uid]);
 
   if (loading) {
-    return <DashboardPageSkeleton variant="home" />;
+    return <DashboardPageSkeleton variant="forecast" />;
   }
 
   return (
