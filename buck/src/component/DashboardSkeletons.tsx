@@ -206,26 +206,43 @@ function ExpensesSkeleton() {
 function WalletSkeleton() {
   return (
     <div className="settings-page dashboard-skeleton" aria-label="Loading wallets">
-      <div className="wallet-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.2rem', marginTop: '1.2rem' }}>
-         <article className="settings-card dashboard-skeleton-card">
-            <div className="settings-card-heading">
+      <div className="wallet-grid">
+         <article className="settings-card wallet-panel-card dashboard-skeleton-card">
+            <div className="wallet-card-header">
                <SkeletonBlock className="dashboard-skeleton-heading" rows={2} />
+               <span style={{ width: 110, height: 38, borderRadius: 8, background: "rgba(244, 117, 54, 0.12)" }} />
             </div>
-            <div className="settings-wallet-list" style={{ display: 'grid', gap: '0.65rem', marginTop: '1rem' }}>
+            <div className="wallet-toolbar" style={{ display: "flex", gap: "0.65rem" }}>
+               <div style={{ flex: 1, height: 38, borderRadius: 8, background: "rgba(244, 117, 54, 0.08)" }} />
+               <div style={{ width: 165, height: 38, borderRadius: 8, background: "rgba(244, 117, 54, 0.08)" }} />
+            </div>
+            <div className="settings-wallet-list">
               {Array.from({ length: 3 }, (_, i) => (
-                 <div key={i} className="settings-wallet-item" style={{ padding: '0.75rem', border: '1px solid var(--buck-line)', borderRadius: '8px' }}>
-                    <SkeletonBlock rows={2} />
+                 <div key={i} className="settings-wallet-item" style={{ padding: '1rem', border: '1px solid var(--buck-line)', borderRadius: '10px' }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <SkeletonBlock rows={2} />
+                      <span style={{ width: 75, height: 26, borderRadius: 999, background: "rgba(244, 117, 54, 0.12)" }} />
+                    </div>
+                    <div style={{ display: "flex", gap: "0.65rem", marginTop: "0.5rem" }}>
+                      <span style={{ flex: 1, height: 38, borderRadius: 8, background: "rgba(244, 117, 54, 0.1)" }} />
+                      <span style={{ flex: 1, height: 38, borderRadius: 8, background: "rgba(255, 56, 56, 0.1)" }} />
+                    </div>
                  </div>
               ))}
             </div>
          </article>
-         <article className="settings-card dashboard-skeleton-card">
-            <div className="settings-card-heading">
+
+         <article className="settings-card wallet-panel-card dashboard-skeleton-card">
+            <div className="wallet-card-header">
                <SkeletonBlock className="dashboard-skeleton-heading" rows={2} />
             </div>
-            <div className="settings-wallet-list" style={{ display: 'grid', gap: '0.65rem', marginTop: '1rem' }}>
-              {Array.from({ length: 2 }, (_, i) => (
-                 <div key={i} className="settings-wallet-item" style={{ padding: '0.75rem', border: '1px solid var(--buck-line)', borderRadius: '8px' }}>
+            <div className="wallet-toolbar" style={{ display: "flex", gap: "0.65rem" }}>
+               <div style={{ flex: 1, height: 38, borderRadius: 8, background: "rgba(244, 117, 54, 0.08)" }} />
+               <div style={{ width: 165, height: 38, borderRadius: 8, background: "rgba(244, 117, 54, 0.08)" }} />
+            </div>
+            <div className="settings-wallet-list">
+              {Array.from({ length: 3 }, (_, i) => (
+                 <div key={i} className="settings-wallet-item" style={{ padding: '1rem', border: '1px solid var(--buck-line)', borderRadius: '10px' }}>
                     <SkeletonBlock rows={2} />
                  </div>
               ))}
