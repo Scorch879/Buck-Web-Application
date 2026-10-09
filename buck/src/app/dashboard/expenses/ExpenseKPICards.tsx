@@ -9,7 +9,6 @@ import {
   FaCheckCircle,
   FaExclamationTriangle,
   FaInfoCircle,
-  FaFireAlt,
 } from "react-icons/fa";
 import { formatCurrency, toNumber } from "@/utils/formatters";
 import type { BuckExpense, BuckWallet } from "@/utils/supabaseData";
@@ -262,14 +261,14 @@ export default function ExpenseKPICards({
         </div>
       </article>
 
-      {/* ── CARD 2: TOTAL TRACKED & 7-DAY VELOCITY ── */}
+      {/* ── CARD 2: TOTAL TRACKED ── */}
       <article className="expenses-kpi-card expenses-kpi-card--tracked">
         <div className="expenses-kpi-header">
           <div className="expenses-kpi-icon-wrapper expenses-kpi-icon-wrapper--tracked">
             <FaReceipt aria-hidden="true" />
           </div>
           <div className="expenses-kpi-title-block">
-            <span className="expenses-kpi-subtitle">Cumulative Log</span>
+            <span className="expenses-kpi-subtitle">Cumulative</span>
             <h3 className="expenses-kpi-title">Total Tracked</h3>
           </div>
           <span className="expenses-kpi-badge expenses-kpi-badge--neutral">
@@ -280,56 +279,26 @@ export default function ExpenseKPICards({
         <div className="expenses-kpi-primary-val">
           <strong>{formatCurrency(totalTracked)}</strong>
           <span className="expenses-kpi-subtext">
-            7-Day spend: <strong>{formatCurrency(weekTotal)}</strong>
+            Lifetime recorded across all wallets
           </span>
         </div>
 
-        {/* Visual 7-Day Micro-Bar Sparkline */}
+        {/* This Month & Daily Average Stat Grid replacing the bar graph */}
         <div className="expenses-kpi-visual">
-          <div
-            className="expenses-kpi-sparkline"
-            aria-label="7-day spending distribution sparkline"
-          >
-            {last7Days.map((d, index) => {
-              const heightPct =
-                d.dayAmount > 0
-                  ? Math.max(18, Math.round((d.dayAmount / maxDailySpend) * 100))
-                  : 10;
-              const hasSpend = d.dayAmount > 0;
-
-              return (
-                <div
-                  key={index}
-                  className="expenses-kpi-spark-bar-wrapper"
-                  title={`${d.dateStr}: ${formatCurrency(d.dayAmount)}`}
-                >
-                  <motion.div
-                    className={`expenses-kpi-spark-bar ${
-                      hasSpend ? "expenses-kpi-spark-bar--active" : "expenses-kpi-spark-bar--empty"
-                    }`}
-                    initial={{ height: 0 }}
-                    animate={{ height: `${heightPct}%` }}
-                    transition={{ duration: 0.5, delay: index * 0.06 }}
-                  />
-                  <span className="expenses-kpi-spark-label">{d.dayLabel}</span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="expenses-kpi-meta-split">
-            <div className="expenses-kpi-meta-item">
-              <span className="expenses-kpi-dot expenses-kpi-dot--orange" />
-              <span>This Month: <strong>{formatCurrency(monthTotal)}</strong></span>
+          <div className="expenses-kpi-stat-grid">
+            <div className="expenses-kpi-stat-box">
+              <span className="expenses-kpi-stat-label">This Month</span>
+              <strong className="expenses-kpi-stat-val">{formatCurrency(monthTotal)}</strong>
             </div>
-            <div className="expenses-kpi-meta-item">
-              <span className="expenses-kpi-micro-hint">Daily Average: {formatCurrency(weekTotal / 7)}</span>
+            <div className="expenses-kpi-stat-box">
+              <span className="expenses-kpi-stat-label">Daily Average</span>
+              <strong className="expenses-kpi-stat-val">{formatCurrency(weekTotal / 7)}</strong>
             </div>
           </div>
         </div>
       </article>
 
-      {/* ── CARD 3: AVERAGE EXPENSE & BENCHMARK RANGE ── */}
+      {/* ── CARD 3: AVERAGE EXPENSE ── */}
       <article className="expenses-kpi-card expenses-kpi-card--average">
         <div className="expenses-kpi-header">
           <div className="expenses-kpi-icon-wrapper expenses-kpi-icon-wrapper--average">
@@ -339,55 +308,35 @@ export default function ExpenseKPICards({
             <span className="expenses-kpi-subtitle">Per Transaction</span>
             <h3 className="expenses-kpi-title">Average Expense</h3>
           </div>
-          <span className="expenses-kpi-badge expenses-kpi-badge--insight">
-            <FaFireAlt aria-hidden="true" />
-            Mean Velocity
-          </span>
         </div>
 
         <div className="expenses-kpi-primary-val">
           <strong>{formatCurrency(averageExpense)}</strong>
           <span className="expenses-kpi-subtext">
-            {expenses.length > 0
-              ? `Range: ${formatCurrency(minExpense)} to ${formatCurrency(maxExpense)}`
-              : "No transaction records"}
+            Typical cost per individual transaction
           </span>
         </div>
 
-        {/* Visual Range Benchmark Track */}
+        {/* Lowest & Highest Expense Stat Grid replacing the line bar */}
         <div className="expenses-kpi-visual">
-          <div
-            className="expenses-kpi-range-track"
-            aria-label="Average expense distribution marker between min and max"
-          >
-            <div className="expenses-kpi-range-line" />
-            {expenses.length > 0 ? (
-              <motion.div
-                className="expenses-kpi-range-pin"
-                style={{ left: `${positionRatio}%` }}
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                title={`Average: ${formatCurrency(averageExpense)}`}
-              >
-                <span className="expenses-kpi-range-pin-core" />
-              </motion.div>
-            ) : null}
-          </div>
-
-          <div className="expenses-kpi-meta-split">
-            <div className="expenses-kpi-meta-item">
-              <span>Min: <strong>{formatCurrency(minExpense)}</strong></span>
+          <div className="expenses-kpi-stat-grid">
+            <div className="expenses-kpi-stat-box">
+              <span className="expenses-kpi-stat-label">Lowest Expense</span>
+              <strong className="expenses-kpi-stat-val">{formatCurrency(minExpense)}</strong>
             </div>
-            <div className="expenses-kpi-meta-item">
-              {maxExpenseItem ? (
-                <span>
-                  Max: <strong>{formatCurrency(maxExpense)}</strong>{" "}
-                  <span className="expenses-kpi-top-category">({maxExpenseItem.category})</span>
-                </span>
-              ) : (
-                <span>Max: <strong>₱0.00</strong></span>
-              )}
+            <div className="expenses-kpi-stat-box">
+              <span className="expenses-kpi-stat-label">Highest Expense</span>
+              <strong
+                className="expenses-kpi-stat-val"
+                title={
+                  maxExpenseItem?.category
+                    ? `${formatCurrency(maxExpense)} (${maxExpenseItem.category})`
+                    : formatCurrency(maxExpense)
+                }
+              >
+                {formatCurrency(maxExpense)}
+                {maxExpenseItem?.category ? ` (${maxExpenseItem.category})` : ""}
+              </strong>
             </div>
           </div>
         </div>

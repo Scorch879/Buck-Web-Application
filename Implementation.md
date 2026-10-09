@@ -128,6 +128,16 @@ Returns a composite score (0 to 5) and localized validation messages.
 - **Pause-on-Hover Engine**: Tracks elapsed time via `performance.now()`. Hovering over any toast pauses the countdown timer and freezes CSS progress bar animation; unhovering recalculates remaining duration precisely.
 - **Dual Invocation Pipeline**: Supports functional calls `toast(message, type, options)` and fluent API `toast.success()`, `toast.error()`, `toast.warning()`, `toast.info()`, `toast.loading()`, `toast.dismiss()`. Features a decoupled global event bus to dispatch toasts from non-React service utility files.
 
+### 3.7 Streamlined KPI Visualizer & Typographic Hierarchy System ([`ExpenseKPICards.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/expenses/ExpenseKPICards.tsx), [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx))
+- **High-Signal KPI Metrics**: In `ExpenseKPICards.tsx`, removed noisy 7-day sparkline histogram and benchmark line tracks in favor of a responsive 2-column `.expenses-kpi-stat-grid`. Card 2 pairs cumulative total with **This Month** and **Daily Average**; Card 3 pairs average transaction with **Lowest Expense** and **Highest Expense** with tooltip category metadata.
+- **Vertical Spacing Normalization**: Encapsulated wallet headers in `.wallet-card-title-wrap` with scoped `gap: 0.15rem; margin: 0;`, neutralizing user-agent heading block margins and ensuring strict vertical centering with header icons.
+- **Standardized Font-Weight Scale**: Replaced legacy `800`–`900` font weights with a calibrated scale:
+  - `500` (Medium): Dropdown selects, search inputs, archived status badges.
+  - `600` (Semi-bold): Form labels, quick preset chips, action buttons, category chips, list items, card badges.
+  - `650` (Demi-bold): Eyebrow text, card titles, and secondary stat values.
+  - `700` (Bold): Primary KPI hero numbers and transaction amounts.
+- **Hydration Parity**: `ExpensesSkeleton` and `WalletSkeleton` directly employ `.expenses-kpi-stat-grid` and `.wallet-card-title-wrap` to eliminate Cumulative Layout Shift (CLS).
+
 ---
 
 ## 4. Hardcoded System Constraints & Edge Cases

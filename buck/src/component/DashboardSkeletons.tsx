@@ -221,7 +221,7 @@ function ExpensesSkeleton() {
           </div>
         </article>
 
-        {/* Card 2: Total Tracked & 7-Day Sparkline Bar Histogram */}
+        {/* Card 2: Total Tracked & Dual Stat Grid */}
         <article className="expenses-kpi-card dashboard-skeleton-card">
           <div className="expenses-kpi-header">
             <div className="expenses-kpi-icon-wrapper expenses-kpi-icon-wrapper--tracked">
@@ -240,36 +240,20 @@ function ExpensesSkeleton() {
           </div>
 
           <div className="expenses-kpi-visual">
-            <div
-              className="expenses-kpi-sparkline"
-              style={{ display: "flex", alignItems: "flex-end", gap: 5, height: 44, padding: "3px 8px" }}
-            >
-              {[45, 75, 30, 90, 60, 40, 80].map((h, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 3,
-                    height: "100%",
-                    justifyContent: "flex-end",
-                  }}
-                >
-                  <span className="dashboard-skeleton-line" style={{ width: "100%", height: `${h}%`, borderRadius: 3 }} />
-                  <span className="dashboard-skeleton-line" style={{ width: 12, height: 8 }} />
-                </div>
-              ))}
-            </div>
-            <div className="expenses-kpi-meta-split">
-              <span className="dashboard-skeleton-line" style={{ width: 105, height: 12 }} />
-              <span className="dashboard-skeleton-line" style={{ width: 95, height: 12 }} />
+            <div className="expenses-kpi-stat-grid">
+              <div className="expenses-kpi-stat-box">
+                <span className="dashboard-skeleton-line" style={{ width: 60, height: 10 }} />
+                <span className="dashboard-skeleton-line" style={{ width: 75, height: 14, marginTop: 4 }} />
+              </div>
+              <div className="expenses-kpi-stat-box">
+                <span className="dashboard-skeleton-line" style={{ width: 65, height: 10 }} />
+                <span className="dashboard-skeleton-line" style={{ width: 70, height: 14, marginTop: 4 }} />
+              </div>
             </div>
           </div>
         </article>
 
-        {/* Card 3: Average Expense & Range Benchmark Pin */}
+        {/* Card 3: Average Expense & Dual Stat Grid */}
         <article className="expenses-kpi-card dashboard-skeleton-card">
           <div className="expenses-kpi-header">
             <div className="expenses-kpi-icon-wrapper expenses-kpi-icon-wrapper--average">
@@ -279,7 +263,6 @@ function ExpensesSkeleton() {
               <span className="dashboard-skeleton-line" style={{ width: 90, height: 10 }} />
               <span className="dashboard-skeleton-line" style={{ width: 125, height: 15, marginTop: 4 }} />
             </div>
-            <span className="dashboard-skeleton-line" style={{ width: 88, height: 22, borderRadius: 20 }} />
           </div>
 
           <div className="expenses-kpi-primary-val">
@@ -288,16 +271,15 @@ function ExpensesSkeleton() {
           </div>
 
           <div className="expenses-kpi-visual">
-            <div className="expenses-kpi-range-track" style={{ position: "relative", height: 18, display: "flex", alignItems: "center" }}>
-              <span className="dashboard-skeleton-line" style={{ width: "100%", height: 6, borderRadius: 3 }} />
-              <span
-                className="dashboard-skeleton-circle"
-                style={{ position: "absolute", left: "44%", width: 14, height: 14, margin: 0 }}
-              />
-            </div>
-            <div className="expenses-kpi-meta-split">
-              <span className="dashboard-skeleton-line" style={{ width: 75, height: 12 }} />
-              <span className="dashboard-skeleton-line" style={{ width: 95, height: 12 }} />
+            <div className="expenses-kpi-stat-grid">
+              <div className="expenses-kpi-stat-box">
+                <span className="dashboard-skeleton-line" style={{ width: 70, height: 10 }} />
+                <span className="dashboard-skeleton-line" style={{ width: 75, height: 14, marginTop: 4 }} />
+              </div>
+              <div className="expenses-kpi-stat-box">
+                <span className="dashboard-skeleton-line" style={{ width: 75, height: 10 }} />
+                <span className="dashboard-skeleton-line" style={{ width: 85, height: 14, marginTop: 4 }} />
+              </div>
             </div>
           </div>
         </article>
@@ -444,9 +426,9 @@ function WalletSkeleton() {
           <div className="wallet-card-header">
             <div className="wallet-card-title-group">
               <span className="dashboard-skeleton-avatar wallet-card-header-icon" style={{ width: 40, height: 40 }} />
-              <div>
+              <div className="wallet-card-title-wrap">
                 <span className="dashboard-skeleton-line" style={{ width: 85, height: 12 }} />
-                <span className="dashboard-skeleton-line" style={{ width: 185, height: 20, marginTop: 4 }} />
+                <span className="dashboard-skeleton-line" style={{ width: 185, height: 20 }} />
               </div>
             </div>
             <span className="dashboard-skeleton-line wallet-new-btn" style={{ width: 120, height: 38, borderRadius: 8 }} />
@@ -523,9 +505,9 @@ function WalletSkeleton() {
           <div className="wallet-card-header">
             <div className="wallet-card-title-group">
               <span className="dashboard-skeleton-avatar wallet-card-header-icon" style={{ width: 40, height: 40 }} />
-              <div>
+              <div className="wallet-card-title-wrap">
                 <span className="dashboard-skeleton-line" style={{ width: 50, height: 12 }} />
-                <span className="dashboard-skeleton-line" style={{ width: 165, height: 20, marginTop: 4 }} />
+                <span className="dashboard-skeleton-line" style={{ width: 165, height: 20 }} />
               </div>
             </div>
           </div>

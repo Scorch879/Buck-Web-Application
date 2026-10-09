@@ -135,3 +135,11 @@ flowchart LR
    - [ ] Trigger multiple rapid toasts $\rightarrow$ confirm queue maintains a maximum stack of 4 without overflowing viewport.
    - [ ] Hover cursor over an active toast $\rightarrow$ confirm countdown progress freezes; move cursor away $\rightarrow$ confirm smooth dismissal.
    - [ ] Complete goal progress in Goals screen $\rightarrow$ confirm celebratory completion toast triggers.
+6. **Wallet Typography & Spacing**:
+   - [ ] Navigate to `/dashboard/wallet` $\rightarrow$ verify title and eyebrow have tight, balanced vertical spacing (`0.15rem` gap) and header icon centers cleanly.
+   - [ ] Verify font weights across wallet card names, buttons, and budget amounts appear crisp and semi-bold (`600`–`650`) rather than heavy bold (`850`–`900`).
+7. **Expenses KPI Cards & Hydration Parity**:
+   - [ ] Navigate to `/dashboard/expenses` $\rightarrow$ inspect Card 2 "Total Tracked" $\rightarrow$ confirm sparkline is replaced by dual-stat grid showing "This Month" and "Daily Average".
+   - [ ] Inspect Card 3 "Average Expense" $\rightarrow$ confirm "Mean Velocity" badge and horizontal benchmark range line are removed, replaced by dual-stat grid showing "Lowest Expense" and "Highest Expense".
+   - [ ] Reload page on network throttle $\rightarrow$ verify `ExpensesSkeleton` and `WalletSkeleton` match the updated KPI and title geometry with zero CLS upon data hydration.
+

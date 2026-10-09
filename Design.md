@@ -377,3 +377,25 @@ Buck-Web-Application/
   2. Codified the **1:1 Skeletal Loading Parity Policy** into [`AGENTS.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/AGENTS.md) as a mandatory architectural constraint for all future UI modifications.
 - **Consequences**: Zero Cumulative Layout Shift (CLS) across all route transitions, smooth visual perceived performance, and uniform design language consistency across light and dark modes.
 
+### ADR-013: Expenses KPI Simplification, Typographic Hierarchy Audit & Title Spacing Normalization
+- **Context**:
+  1. **Title/Subtitle Spacing**: The Wallet screen (`app/dashboard/wallet/page.tsx`) suffered from excessive vertical gaps between the eyebrow (`YOUR WALLETS`, `LOG`) and section heading (`Manage your active wallets`, `History of Wallets`) due to unstyled user-agent heading block margins (`0.83em`). This pushed the icon and heading down, leaving the eyebrow orphaned above.
+  2. **Over-Bolding & Typographic Fatigue**: Extensive hardcoded `font-weight: 800`, `850`, and `900` definitions across `settings/style.css` and `expenses/style.css` flattened visual hierarchy, making body labels, button text, search inputs, and chips compete with primary KPI numbers.
+  3. **Overwhelming KPI Visuals**: In `ExpenseKPICards.tsx`, Card 2 featured a micro-histogram sparkline that duplicated the primary dashboard bar chart, and Card 3 featured an unnecessary "Mean Velocity" pillbox badge and a misaligned benchmark range track that crowded the cards.
+- **Decision**:
+  1. **Compact Title Grouping**: Wrapped eyebrow and title elements in `.wallet-card-title-wrap` with scoped flex direction, `gap: 0.15rem`, and normalized `margin: 0`, restoring immediate proximity and centering with the card icon.
+  2. **Global Font-Weight Audit & Softening**: Refactored font weights across `settings/style.css` and `expenses/style.css`:
+     - Eyebrows: Softened from `900` to `650` with `0.4px` letter-spacing.
+     - Card & panel headings: Softened from `850`/`800` to `650`.
+     - Action buttons and pills: Softened from `800` to `600`.
+     - Form inputs, search boxes, and dropdown selects: Softened from `750`/`700` to `500`.
+     - Primary metric values: Balanced to `700` (from `900`).
+     - Form labels, category chips, badges, and list subtitles: Balanced to `600`.
+  3. **Expenses KPI Streamlining (`ExpenseKPICards.tsx`)**:
+     - **Card 2 ("Total Tracked")**: Renamed title to "Total Tracked" (subtitle "Cumulative"). Replaced the sparkline histogram with a clean dual-stat grid showcasing **This Month** and **Daily Average**.
+     - **Card 3 ("Average Expense")**: Removed the "Mean Velocity" badge and removed the misaligned horizontal range line track. Replaced with a clean dual-stat grid showcasing **Lowest Expense** and **Highest Expense** (annotated with category).
+  4. **1:1 Skeletal Loading Parity Synchronization**:
+     - Updated `ExpensesSkeleton` in [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx) to mirror the dual stat grid structure in Cards 2 and 3 and removed Card 3's badge skeleton.
+     - Updated `WalletSkeleton` to use `.wallet-card-title-wrap` for exact vertical geometry parity.
+- **Consequences**: Restores clean typographic hierarchy, eliminates cluttered micro-visualizations in favor of high-signal metrics, and maintains strict CLS elimination during hydration.
+

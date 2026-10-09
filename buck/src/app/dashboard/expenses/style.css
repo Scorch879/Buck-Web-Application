@@ -22,7 +22,7 @@
   color: #ffd1d1;
   background: rgba(255, 56, 56, 0.16);
   border-color: rgba(255, 56, 56, 0.34);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 /* ==========================================================================
@@ -120,24 +120,28 @@ html[data-buck-theme="dark"] .expenses-kpi-card:hover {
 .expenses-kpi-title-block {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
 }
 
 .expenses-kpi-subtitle {
   display: block;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--buck-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.15;
 }
 
 .expenses-kpi-title {
-  margin: 0.1rem 0 0;
+  margin: 0;
   font-size: 0.98rem;
-  font-weight: 800;
+  font-weight: 650;
   color: var(--buck-ink);
   line-height: 1.2;
 }
@@ -147,7 +151,7 @@ html[data-buck-theme="dark"] .expenses-kpi-card:hover {
   align-items: center;
   gap: 0.32rem;
   font-size: 0.72rem;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0.22rem 0.55rem;
   border-radius: 20px;
   white-space: nowrap;
@@ -187,7 +191,7 @@ html[data-buck-theme="dark"] .expenses-kpi-card:hover {
 .expenses-kpi-primary-val strong {
   display: block;
   font-size: clamp(1.4rem, 2.5vw, 1.85rem);
-  font-weight: 900;
+  font-weight: 700;
   color: var(--buck-ink);
   line-height: 1.1;
   letter-spacing: -0.01em;
@@ -260,6 +264,59 @@ html[data-buck-theme="dark"] .expenses-kpi-progress-track {
 
 html[data-buck-theme="dark"] .expenses-kpi-tick {
   background: rgba(255, 255, 255, 0.15);
+}
+
+/* Dual Stat Grid (Cards 2 & 3) */
+.expenses-kpi-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.expenses-kpi-stat-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  padding: 0.55rem 0.72rem;
+  background: rgba(255, 197, 71, 0.08);
+  border: 1px solid rgba(244, 117, 54, 0.2);
+  border-radius: 8px;
+  min-width: 0;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+
+html[data-buck-theme="dark"] .expenses-kpi-stat-box {
+  background: rgba(255, 197, 71, 0.05);
+  border-color: rgba(244, 117, 54, 0.22);
+}
+
+.expenses-kpi-stat-box:hover {
+  background: rgba(255, 197, 71, 0.14);
+  border-color: var(--buck-orange);
+  transform: translateY(-1px);
+}
+
+.expenses-kpi-stat-label {
+  color: var(--buck-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  line-height: 1.2;
+}
+
+.expenses-kpi-stat-val {
+  color: var(--buck-ink);
+  font-size: 0.94rem;
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Sparkline Micro Histogram (Card 2) */
@@ -432,7 +489,7 @@ html[data-buck-theme="dark"] .expenses-kpi-range-pin {
 .expenses-category-vis-title {
   margin: 0;
   font-size: 1.05rem;
-  font-weight: 800;
+  font-weight: 650;
   color: var(--buck-ink);
   line-height: 1.2;
 }
@@ -449,7 +506,7 @@ html[data-buck-theme="dark"] .expenses-kpi-range-pin {
   gap: 0.35rem;
   padding: 0.25rem 0.65rem;
   font-size: 0.74rem;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--buck-coral);
   background: rgba(255, 56, 56, 0.08);
   border: 1px solid rgba(255, 56, 56, 0.28);
@@ -514,7 +571,7 @@ html[data-buck-theme="dark"] .expenses-category-bar-track {
   gap: 0.4rem;
   padding: 0.3rem 0.65rem;
   font-size: 0.76rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--buck-ink);
   background: rgba(255, 250, 244, 0.85);
   border: 1px solid var(--buck-line);
@@ -538,7 +595,7 @@ html[data-buck-theme="dark"] .expenses-category-chip {
 .expenses-category-chip--active {
   border-color: var(--buck-orange);
   background: rgba(244, 117, 54, 0.14) !important;
-  font-weight: 800;
+  font-weight: 650;
 }
 
 .expenses-category-chip-dot {
@@ -558,7 +615,7 @@ html[data-buck-theme="dark"] .expenses-category-chip {
 
 .expenses-category-chip-badge {
   font-size: 0.68rem;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--buck-muted);
   background: rgba(0, 0, 0, 0.06);
   padding: 0.1rem 0.35rem;
@@ -617,15 +674,17 @@ html[data-buck-theme="dark"] .expenses-category-chip-badge {
 .expenses-eyebrow {
   margin: 0;
   color: var(--buck-orange);
-  font-size: 0.78rem;
-  font-weight: 900;
+  font-size: 0.75rem;
+  font-weight: 650;
   text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
 .expenses-card h2 {
   margin: 0.12rem 0 0;
   color: var(--buck-ink);
-  font-size: 1.28rem;
+  font-size: 1.25rem;
+  font-weight: 650;
   line-height: 1.2;
 }
 
@@ -634,7 +693,7 @@ html[data-buck-theme="dark"] .expenses-category-chip-badge {
   display: grid;
   gap: 0.34rem;
   color: var(--buck-ink);
-  font-weight: 800;
+  font-weight: 600;
   font-size: 0.88rem;
 }
 
@@ -687,7 +746,7 @@ html[data-buck-theme="dark"] .expenses-form select {
 .expenses-quick-chip {
   padding: 0.18rem 0.5rem;
   font-size: 0.72rem;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--buck-ink);
   background: rgba(255, 197, 71, 0.12);
   border: 1px solid var(--buck-line);
@@ -728,7 +787,7 @@ html[data-buck-theme="dark"] .expenses-form select {
   border: 1px solid rgba(255, 56, 56, 0.3);
   border-radius: 6px;
   font-size: 0.76rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--buck-coral);
 }
 
@@ -739,7 +798,7 @@ html[data-buck-theme="dark"] .expenses-form select {
   border: 0;
   border-radius: 8px;
   font: inherit;
-  font-weight: 900;
+  font-weight: 650;
   cursor: pointer;
   transition:
     box-shadow 180ms ease,
@@ -777,7 +836,7 @@ html[data-buck-theme="dark"] .expenses-form select {
 
 .expenses-list-count-badge {
   font-size: 0.75rem;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--buck-muted);
   background: rgba(0, 0, 0, 0.05);
   border: 1px solid var(--buck-line);
@@ -867,7 +926,7 @@ html[data-buck-theme="dark"] .expenses-search-box input {
   min-height: 38px;
   padding: 0.48rem 0.75rem 0.48rem 2rem;
   font-size: 0.82rem;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--buck-ink);
   background: rgba(255, 250, 244, 0.72);
   border: 1px solid var(--buck-line);
@@ -937,7 +996,7 @@ html[data-buck-theme="dark"] .expenses-list-item {
 .expenses-list-item-title {
   display: block;
   font-size: 0.92rem;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--buck-ink);
   white-space: nowrap;
   overflow: hidden;
@@ -953,7 +1012,7 @@ html[data-buck-theme="dark"] .expenses-list-item {
 
 .expenses-list-item-pill {
   font-size: 0.7rem;
-  font-weight: 700;
+  font-weight: 600;
   padding: 0.1rem 0.45rem;
   border-radius: 4px;
   border: 1px solid;
@@ -974,7 +1033,7 @@ html[data-buck-theme="dark"] .expenses-list-item {
 
 .expenses-list-item-amount {
   font-size: 1.05rem;
-  font-weight: 900;
+  font-weight: 700;
   color: var(--buck-ink);
   white-space: nowrap;
 }
@@ -1013,7 +1072,7 @@ html[data-buck-theme="dark"] .expenses-list-item {
   width: 100%;
   padding: 0.55rem;
   font-size: 0.82rem;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--buck-orange);
   background: none;
   border: 1px dashed var(--buck-line);
@@ -1045,7 +1104,7 @@ html[data-buck-theme="dark"] .expenses-list-item {
 .expenses-empty-filtered p,
 .expenses-empty-new p {
   margin: 0;
-  font-weight: 800;
+  font-weight: 600;
   font-size: 0.95rem;
   color: var(--buck-ink);
 }
@@ -1061,7 +1120,7 @@ html[data-buck-theme="dark"] .expenses-list-item {
   margin-top: 0.65rem;
   padding: 0.35rem 0.85rem;
   font-size: 0.78rem;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--buck-orange);
   background: rgba(244, 117, 54, 0.12);
   border: 1px solid var(--buck-orange);
