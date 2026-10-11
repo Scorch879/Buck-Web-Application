@@ -135,6 +135,40 @@ This document tracks identified bugs, architectural discrepancies, security vuln
 - **Impact**: Inability to configure or rotate administrator credentials without modifying and redeploying core source code.
 - **Remediation**: Migrate admin validation to an environment variable `ADMIN_EMAIL` or implement role-based access control (RBAC) via Supabase custom user claims (`app_metadata.role = 'admin'`).
 
+#### BUG-009: Supabase Migration History Drift (Live `glnuzqmnmzuxgujmxigx` vs Repo)
+- **Location**: `supabase_migrations.schema_migrations` (live), [`buck/supabase/migrations/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/)
+- **Symptoms**: Live history records only `202606130001_strict_deletions` (version `20260904012427`) and `202606140001_security_and_policy_hardening` (version `20260924034657`). Objects from the other migrations exist live, so they were applied outside the migration tracker.
+- **Impact**: `supabase db push` would try to re-apply already-present migrations, and the two recorded versions do not match the local file prefixes.
+- **Resolution (applied to live 2026-10-11)**: Renamed the two recorded versions to the file prefixes and insert history rows for `202606010001`, `202606100001`, `202606110001`, `202606110002`, `202606120001`, `202606120002`, `202610100001` and `202610110001`.
+
+#### BUG-010: `public.feedback` Table Had No Creating Migration
+- **Location**: live `public.feedback` (4 rows); policies in `202606140001_security_and_policy_hardening.sql`
+- **Resolution**: Added [`202606120002_feedback_table.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202606120002_feedback_table.sql). It uses `create table if not exists` with the live column set, sorted before the hardening migration so a fresh replay works.
+
+#### BUG-011: `transfer_funds_atomic` Required by SRS 3.6 but Missing
+- **Location**: live database and repo
+- **Resolution (repo)**: Added [`202610110001_transfer_funds_atomic.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610110001_transfer_funds_atomic.sql). The function is `SECURITY INVOKER` with an `auth.uid()` ownership check, ordered row locks, a rounded `numeric(14,2)` amount and an insufficient-funds check, and is executable by `authenticated` only.
+- **Applied to live** on 2026-10-11 (existence not yet exercised with a real transfer). No client code calls it yet, since no transfer UI or data-layer function exists in `supabaseData.ts`.
+
+#### BUG-012: Spec/Schema Gaps (Undocumented Fields)
+- **Gaps**: `wallets` has no type column (Cash/Bank/E-Wallet), `expenses` has no `is_emergency` (it can only live in `metadata` jsonb), and `profiles` has no `is_deleted` / `grace_period_expires_at` (the grace period is modelled in `account_deletion_requests`).
+- **Remediation**: Either align `Claude.md` / SRS with the current schema or add the columns in a new migration.
+
+#### INFO-001: `public.rls_auto_enable()` Is Platform-Managed
+- The live-only function and its `ensure_rls` event trigger are a Supabase default that enables RLS on new `public` tables. No migration is needed.
+
+#### INFO-002: Accepted Risk: Leaked Password Protection Disabled
+- The Supabase security advisor warns `auth_leaked_password_protection`. The feature requires a paid Supabase plan and the project is on the free plan, so the warning is accepted. Revisit if the project upgrades.
+
+#### BUG-013: Live `categories` Table Lacks the Canonical `Fare` Category
+- **Location**: live `public.categories` (all 8 users have 17 rows, including `Uncategorized` but no `Fare`), versus the 17 canonical categories in `Claude.md` 3.2.
+- **Impact**: `Fare` expenses cannot be linked by `category_id`. The varied test seed inserts them with `category_id = NULL` and `category_name = 'Fare'`.
+- **Remediation**: Decide whether `Uncategorized` replaces or supplements `Fare`, then backfill and fix the new-user category seeding.
+
+#### INFO-003: Varied Test Data Seeded (2026-10-12)
+- Additive and tagged `metadata.seed = 'varied-2026-10-12'` (wallets are named `Seed Bank Account`, goals start with `Seed: `). Script and UNDO block: [`buck/supabase/seed_varied_test_data.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/seed_varied_test_data.sql).
+- Inserted: 8 wallets, 1,012 expenses, 8 goals, 8 forecasts, 16 advisories across the 8 existing users. No existing rows were changed.
+
 ---
 
 ### 🟢 Low Severity / Tech Debt
