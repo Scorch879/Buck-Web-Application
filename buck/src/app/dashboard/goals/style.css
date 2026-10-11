@@ -1,18 +1,10 @@
-.dashboard {
-  min-height: 100dvh;
-  width: 100%;
-  color: var(--buck-ink);
-  background: var(--buck-page-background);
-  font-family: "Segoe UI", Helvetica, Arial, sans-serif;
-}
-
 .GoalsPage {
   display: grid;
   grid-template-columns: minmax(320px, 0.36fr) minmax(0, 1fr);
-  gap: clamp(1rem, 2.4vw, 1.4rem);
+  gap: clamp(0.75rem, 1.5vw, 1rem);
   width: 100%;
   margin: 0;
-  padding: clamp(1rem, 2.6vw, 1.6rem);
+  padding: clamp(0.75rem, 1.5vw, 1rem);
   color: var(--buck-ink);
 }
 
@@ -45,7 +37,7 @@
   width: min(860px, 100%);
   min-height: calc(100dvh - 3rem);
   margin: 0 auto;
-  padding: clamp(1rem, 4vw, 2rem);
+  padding: clamp(0.75rem, 2vw, 1.25rem);
 }
 
 .emptyContainer .goals-card {

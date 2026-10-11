@@ -19,6 +19,7 @@ import {
 import WalletModal from "@/app/dashboard/wallet/WalletModal";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial } from "@/context/FinancialContext";
+import { useToast } from "@/component/toast";
 import { signOutUser } from "./authentication";
 import "./dashboard.css";
 
@@ -90,6 +91,7 @@ export default function DashboardHeader({
   const pathname = usePathname();
   const user = useOptionalDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
+  const { toast } = useToast();
   const userCache = dashboardCache.userId === user?.uid ? dashboardCache : {};
   const displayName =
     userCache.profile?.username ||
@@ -171,7 +173,7 @@ export default function DashboardHeader({
     }
 
     setIsSigningOut(false);
-    alert(result.message || "Sign out failed.");
+    toast(result.message || "Sign out failed.", "error");
   };
 
   const renderNavItems = () =>

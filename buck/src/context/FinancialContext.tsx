@@ -17,6 +17,7 @@ export type DashboardDataCache = {
   wallets?: import("@/utils/supabaseData").BuckWallet[];
   activeWalletId?: string | null;
   activeWalletBudget?: number | null;
+  aiInsights?: import("@/utils/advisorApi").AIAdvisorInsights;
   forecastInsights?: import("@/utils/forecastApi").AIForecastInsights;
   adminFeedback?: import("@/utils/supabaseData").BuckFeedback[];
   adminVercelDeployments?: any[];

@@ -112,3 +112,8 @@ This catalog documents the functions, tools, database interactions, API endpoint
 ### 4.2 State Contexts
 - [`DashboardUserContext`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/context/DashboardUserContext.tsx): Provides authenticated user context (`user.uid`, `user.email`, `user.displayName`) to all dashboard routes.
 - [`FinancialContext`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/context/FinancialContext.tsx): In-memory dashboard cache storing expenses, categories, goals, wallets, active wallet ID/budget, admin feedback, Vercel deployments, and Supabase logs across route transitions.
+
+### 4.3 Notification Subsystem (`buck/src/component/toast/`)
+- [`ToastContext`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/toast/ToastContext.tsx): Root state provider managing the active notification queue with automatic timeout tracking and pause-on-hover logic.
+- [`useToast()`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/toast/ToastContext.tsx): Hook returning the unified dispatcher function supporting both `toast(message, type, options)` and fluent helpers (`toast.success()`, `toast.error()`, `toast.warning()`, `toast.info()`, `toast.loading()`, `toast.dismiss()`).
+- [`toast`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/toast/ToastContext.tsx): Global standalone event bus function allowing notification emission from non-React utility files and event handlers.

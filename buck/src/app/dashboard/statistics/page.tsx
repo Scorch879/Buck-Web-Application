@@ -758,8 +758,8 @@ const Statistics = () => {
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            marginTop: "2.5rem",
-            marginBottom: "1.5rem",
+            marginTop: "0.5rem",
+            marginBottom: "1rem",
             width: "100%",
             maxWidth: 900,
           }}

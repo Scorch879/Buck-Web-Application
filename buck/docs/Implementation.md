@@ -122,6 +122,12 @@ Returns a composite score (0 to 5) and localized validation messages.
 - **On-Demand & Manual Refresh**: If no valid record exists or the user clicks "Refresh", route handlers recalculate trajectory in Philippine Peso (`PHP`, `₱`) and persist to Supabase.
 - **Automated Vercel Cron (`/api/cron/generate-insights`)**: Executes every Sunday at 22:00 UTC (Monday 06:00 PHT) configured in `vercel.json`, batch processing active users with `CRON_SECRET` authentication.
 
+### 3.6 Global Uniform Toaster Subsystem ([`ToastContext.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/toast/ToastContext.tsx), [`ToastItem.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/toast/ToastItem.tsx))
+- **Queue & Stack Management**: Hard-capped at 4 concurrent notifications (`MAX_TOASTS = 4`) rendered through Framer Motion `popLayout`. When queue overflows, oldest toast is gracefully displaced.
+- **Timer & Auto-Dismiss Lifecycles**: Default lifespan of 4,000 ms (`defaultDuration = 4000`), with infinite duration for `'loading'` state until programmatically dismissed or replaced.
+- **Pause-on-Hover Engine**: Tracks elapsed time via `performance.now()`. Hovering over any toast pauses the countdown timer and freezes CSS progress bar animation; unhovering recalculates remaining duration precisely.
+- **Dual Invocation Pipeline**: Supports functional calls `toast(message, type, options)` and fluent API `toast.success()`, `toast.error()`, `toast.warning()`, `toast.info()`, `toast.loading()`, `toast.dismiss()`. Features a decoupled global event bus to dispatch toasts from non-React service utility files.
+
 ---
 
 ## 4. Hardcoded System Constraints & Edge Cases
@@ -135,3 +141,4 @@ Returns a composite score (0 to 5) and localized validation messages.
 | **Rate Limiting** | Max 8 password resets per IP per 15 min; 40 per IP per 24 hr; 5 per email per 1 hr; 60s email cooldown | [`password-reset/route.ts:45-51`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/auth/password-reset/route.ts#L45-L51) |
 | **Modal Bounds** | Desktop max width: `min(880px, 100%)`, max height: `min(82dvh, 760px)` | [`globals.css:780`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/globals.css) |
 | **Currency Token** | Hardcoded to Philippine Peso (`PHP`, `₱`) across UI formatters and AI prompts | [`formatters.ts:4`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/formatters.ts#L4), [`ai_models.py:123`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/ai_models.py#L123) |
+| **Toast Queue** | Maximum 4 concurrent toasts; default duration 4,000ms; viewport offset top-right 24px (mobile top-center 16px) | [`ToastContext.tsx:14`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/toast/ToastContext.tsx#L14), [`toast.module.css:4-16`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/toast/toast.module.css#L4-L16) |

@@ -14,11 +14,15 @@ import { useDashboardUser } from "@/context/DashboardUserContext";
 import { mergeDashboardDataCache, useFinancial } from "@/context/FinancialContext";
 import { fetchAIForecastInsights, type AIForecastInsights } from "@/utils/forecastApi";
 import { formatCurrency } from "@/utils/formatters";
+import { useToast } from "@/component/toast";
+// advisor-grid / advisor-card / advisor-score / advisor-icon live in the advisor stylesheet
+import "../financial-advisor/style.css";
 import "./style.css";
 
 export default function ForecastPage() {
   const { user } = useDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
+  const { toast } = useToast();
   const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
   const hasInitialForecastData = Boolean(userCache.forecastInsights);
 
@@ -45,13 +49,20 @@ export default function ForecastPage() {
       });
 
       setInsights(data);
+      if (forceRefresh) {
+        toast("Refreshed predictive financial forecast.", "success");
+      }
       setDashboardCache((currentCache) =>
         mergeDashboardDataCache(currentCache, user.uid, {
           forecastInsights: data,
         })
       );
     } catch (err) {
-      setError("Failed to generate AI forecast.");
+      const errMsg = "Failed to generate AI forecast.";
+      setError(errMsg);
+      if (forceRefresh) {
+        toast(errMsg, "error");
+      }
       console.error(err);
     } finally {
       setLoading(false);
@@ -70,7 +81,7 @@ export default function ForecastPage() {
   }, [setDashboardCache, user.uid]);
 
   if (loading) {
-    return <DashboardPageSkeleton variant="home" />;
+    return <DashboardPageSkeleton variant="forecast" />;
   }
 
   return (

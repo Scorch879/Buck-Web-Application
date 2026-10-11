@@ -1,10 +1,10 @@
-.dashboard {
-  min-height: 100dvh;
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.75rem, 1.5vw, 1rem);
   width: 100%;
-  color: var(--buck-ink);
-  background: var(--buck-page-background);
-  font-family: "Segoe UI", Helvetica, Arial, sans-serif;
-  overflow-y: auto;
+  margin: 0 auto;
+  padding: clamp(0.75rem, 1.5vw, 1rem);
 }
 
 .graph-panel,
@@ -19,8 +19,8 @@
 .graph-panel {
   position: relative;
   width: 100%;
-  margin-bottom: 2rem;
-  padding: clamp(1rem, 3vw, 2rem);
+  margin-bottom: 1.25rem;
+  padding: clamp(1rem, 2vw, 1.5rem);
   overflow: hidden;
   transition:
     border-color 180ms ease,
@@ -121,7 +121,7 @@ html[data-buck-theme="dark"] .empty-goals-popup:hover {
     transform 180ms ease;
 }
 
-.create-goal-button {
+.empty-goals-popup .create-goal-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -144,13 +144,13 @@ html[data-buck-theme="dark"] .empty-goals-popup:hover {
     transform 180ms ease;
 }
 
-html[data-buck-theme="dark"] .create-goal-button {
+html[data-buck-theme="dark"] .empty-goals-popup .create-goal-button {
   color: #241409;
   background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
 }
 
-.create-goal-button:hover,
-.create-goal-button:focus-visible {
+.empty-goals-popup .create-goal-button:hover,
+.empty-goals-popup .create-goal-button:focus-visible {
   color: #241409;
   background: linear-gradient(135deg, var(--buck-orange), var(--buck-coral));
   border-color: transparent;
@@ -158,8 +158,8 @@ html[data-buck-theme="dark"] .create-goal-button {
   transform: translateY(-2px);
 }
 
-html[data-buck-theme="dark"] .create-goal-button:hover,
-html[data-buck-theme="dark"] .create-goal-button:focus-visible {
+html[data-buck-theme="dark"] .empty-goals-popup .create-goal-button:hover,
+html[data-buck-theme="dark"] .empty-goals-popup .create-goal-button:focus-visible {
   color: #241409;
   background: linear-gradient(135deg, #ffd36c, var(--buck-orange));
 }

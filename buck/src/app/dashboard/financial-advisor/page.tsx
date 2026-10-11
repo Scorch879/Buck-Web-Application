@@ -18,6 +18,7 @@ import {
   type BuckGoal,
 } from "@/utils/supabaseData";
 import { fetchAIAdvisorInsights, type AIAdvisorInsights } from "@/utils/advisorApi";
+import { useToast } from "@/component/toast";
 import "./style.css";
 
 function getCurrentWeekStart() {
@@ -54,6 +55,7 @@ function getGoalProgress(goal: BuckGoal | undefined) {
 export default function FinancialAdvisorPage() {
   const { user } = useDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
+  const { toast } = useToast();
   const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
   const hasInitialAdvisorData = Boolean(
     userCache.expenses &&
@@ -71,15 +73,19 @@ export default function FinancialAdvisorPage() {
   const [error, setError] = useState("");
   const hadInitialAdvisorData = useRef(hasInitialAdvisorData);
 
-  const [aiInsights, setAiInsights] = useState<AIAdvisorInsights | null>(null);
-  const [loadingAi, setLoadingAi] = useState(true);
+  const [aiInsights, setAiInsights] = useState<AIAdvisorInsights | null>(
+    () => userCache.aiInsights ?? null
+  );
+  const [loadingAi, setLoadingAi] = useState(() => !userCache.aiInsights);
   const [refreshingAi, setRefreshingAi] = useState(false);
 
   const loadAI = async (forceRefresh = false) => {
     if (forceRefresh) {
       setRefreshingAi(true);
     } else {
-      setLoadingAi(true);
+      if (!userCache.aiInsights) {
+        setLoadingAi(true);
+      }
     }
     try {
       const insights = await fetchAIAdvisorInsights({
@@ -87,8 +93,19 @@ export default function FinancialAdvisorPage() {
         forceRefresh,
       });
       setAiInsights(insights);
+      setDashboardCache((currentCache) =>
+        mergeDashboardDataCache(currentCache, user.uid, {
+          aiInsights: insights,
+        })
+      );
+      if (forceRefresh) {
+        toast("Refreshed AI advisory insights.", "success");
+      }
     } catch (err) {
       console.error("Failed to fetch AI insights:", err);
+      if (forceRefresh) {
+        toast("Could not refresh AI insights.", "error");
+      }
     } finally {
       setLoadingAi(false);
       setRefreshingAi(false);
@@ -236,7 +253,7 @@ export default function FinancialAdvisorPage() {
   }, [activeGoal]);
 
   if (loading) {
-    return <DashboardPageSkeleton variant="home" />;
+    return <DashboardPageSkeleton variant="financial-advisor" />;
   }
 
   return (

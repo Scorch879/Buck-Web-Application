@@ -1,6 +1,5 @@
 "use client";
 
-import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useDashboardUser } from "@/context/DashboardUserContext";
@@ -20,16 +19,13 @@ import {
   type BuckExpense,
 } from "@/utils/supabaseData";
 import WeeklyPieChart, { type WeeklyPieSlice } from "./WeeklyPieChart";
+import WeeklyBarChart, { fullDayNames, type WeeklyDatum } from "./WeeklyBarChart";
 import AIAdvisorPlaceholderCard from "./AIAdvisorPlaceholderCard";
+import { BUCK_PIE_PALETTE, CHART_THEME } from "./chartTheme";
 import "./style.css";
 
 type Category = BuckCategory;
 type Expense = BuckExpense;
-
-type WeeklyDatum = {
-  day: string;
-  amount: number;
-};
 
 type SummaryItem = {
   label: string;
@@ -117,31 +113,92 @@ function getFilteredExpenses(
   });
 }
 
-function getWeeklyData(weeklyExpenses: Expense[]) {
-  const { start } = getCurrentWeekRange();
+const jsDayToWeekDaysIndex: Record<number, number> = {
+  1: 0, // Mon
+  2: 1, // Tue
+  3: 2, // Wed
+  4: 3, // Thu
+  5: 4, // Fri
+  6: 5, // Sat
+  0: 6, // Sun
+};
 
-  return weekDays.map((day, index) => {
-    const date = new Date(start);
-    date.setDate(start.getDate() + index);
+function getDailyExpensesData(
+  filteredExpenses: Expense[],
+  timeframe: TimeframeFilter
+): WeeklyDatum[] {
+  if (timeframe === "week") {
+    const { start } = getCurrentWeekRange();
+    return weekDays.map((day, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
 
-    const amount = weeklyExpenses
-      .filter((expense) => {
-        const expenseDate = parseExpenseDate(expense);
-        return expenseDate ? isSameCalendarDate(expenseDate, date) : false;
-      })
-      .reduce((sum, expense) => sum + toNumber(expense.amount), 0);
+      const amount = filteredExpenses
+        .filter((expense) => {
+          const expenseDate = parseExpenseDate(expense);
+          return expenseDate ? isSameCalendarDate(expenseDate, date) : false;
+        })
+        .reduce((sum, expense) => sum + toNumber(expense.amount), 0);
 
-    return { day, amount };
-  });
+      return { day, amount };
+    });
+  }
+
+  // For "month" and "all": aggregate expenses by day of the week (Mon to Sun)
+  const dayTotals: number[] = [0, 0, 0, 0, 0, 0, 0];
+
+  for (const expense of filteredExpenses) {
+    const expenseDate = parseExpenseDate(expense);
+    if (expenseDate) {
+      const jsDay = expenseDate.getDay();
+      const idx = jsDayToWeekDaysIndex[jsDay];
+      if (idx !== undefined) {
+        dayTotals[idx] += toNumber(expense.amount);
+      }
+    }
+  }
+
+  return weekDays.map((day, idx) => ({
+    day,
+    amount: dayTotals[idx],
+  }));
 }
 
-const PIE_COLOR_PALETTE = [
-  "#f47536", // Primary Buck Orange
-  "#ffc547", // Warm Amber / Gold
-  "#ff3838", // Coral Red
-  "#ffa15b", // Warm Peach / Apricot
-  "#8c7a6b", // Muted Slate Brown for Others
-];
+function matchesDayFilter(
+  expense: Expense,
+  selectedDay: string | null,
+  timeframe: TimeframeFilter
+): boolean {
+  if (!selectedDay) return true;
+  const expenseDate = parseExpenseDate(expense);
+  if (!expenseDate) return false;
+
+  if (timeframe === "week") {
+    const { start } = getCurrentWeekRange();
+    const dayIndex = weekDays.indexOf(selectedDay);
+    if (dayIndex === -1) return false;
+    const targetDate = new Date(start);
+    targetDate.setDate(start.getDate() + dayIndex);
+    return isSameCalendarDate(expenseDate, targetDate);
+  }
+
+  const jsDay = expenseDate.getDay();
+  const dayIndex = jsDayToWeekDaysIndex[jsDay];
+  return weekDays[dayIndex] === selectedDay;
+}
+
+function matchesCategoryFilter(
+  expenseCategory: string | undefined | null,
+  selectedCategory: string | null,
+  topCategoryNames: Set<string>
+): boolean {
+  if (!selectedCategory) return true;
+  const cat = expenseCategory?.trim() || "Uncategorized";
+  if (selectedCategory === "Others" || selectedCategory === "Others (Combined)") {
+    return !topCategoryNames.has(cat);
+  }
+  return cat.toLowerCase() === selectedCategory.toLowerCase();
+}
 
 function getCategoryPieData(filteredExpenses: Expense[]): {
   slices: WeeklyPieSlice[];
@@ -171,14 +228,14 @@ function getCategoryPieData(filteredExpenses: Expense[]): {
     rawSlices = sorted.map(([category, amount], idx) => ({
       category,
       amount,
-      color: PIE_COLOR_PALETTE[idx % PIE_COLOR_PALETTE.length],
+      color: BUCK_PIE_PALETTE[idx % BUCK_PIE_PALETTE.length],
     }));
   } else {
     // Top 4 categories
     const top4 = sorted.slice(0, 4).map(([category, amount], idx) => ({
       category,
       amount,
-      color: PIE_COLOR_PALETTE[idx],
+      color: BUCK_PIE_PALETTE[idx],
     }));
     // 5th element is "Others" combining all remaining categories
     const othersAmount = sorted
@@ -189,7 +246,7 @@ function getCategoryPieData(filteredExpenses: Expense[]): {
       {
         category: "Others",
         amount: othersAmount,
-        color: PIE_COLOR_PALETTE[4],
+        color: CHART_THEME.othersColor,
       },
     ];
   }
@@ -200,63 +257,6 @@ function getCategoryPieData(filteredExpenses: Expense[]): {
   }));
 
   return { slices, total };
-}
-
-function getSummaryData(categories: Category[], expenses: Expense[]) {
-  return categories
-    .map<SummaryItem>((category) => {
-      const amount = expenses
-        .filter((expense) => expense.category === category.name)
-        .reduce((sum, expense) => sum + toNumber(expense.amount), 0);
-
-      return {
-        label: category.name,
-        amount,
-        description:
-          categoryDescriptions[category.name] || "Custom budget category.",
-      };
-    })
-    .filter((item) => item.amount > 0);
-}
-
-function WeeklyBarChart({ data }: { data: WeeklyDatum[] }) {
-  const maxAmount = Math.max(30, ...data.map((item) => item.amount));
-  const yLabels = Array.from({ length: 7 }, (_, index) =>
-    Math.round(maxAmount - (maxAmount / 6) * index)
-  );
-  const hasData = data.some((item) => item.amount > 0);
-
-  return (
-    <div className="graph-container">
-      <div className="graph-axis" aria-hidden="true">
-        {yLabels.map((label) => (
-          <span key={label}>{label}</span>
-        ))}
-      </div>
-
-      <div className="graph-bars">
-        {hasData ? (
-          data.map((item) => {
-            const height = maxAmount === 0 ? 0 : (item.amount / maxAmount) * 100;
-            const barStyle = { "--bar-height": `${height}%` } as CSSProperties;
-
-            return (
-              <div
-                key={item.day}
-                className="graph-bar"
-                style={barStyle}
-                title={`${item.day}: ${formatCurrency(item.amount)}`}
-              >
-                <span className="graph-bar-label">{item.day}</span>
-              </div>
-            );
-          })
-        ) : (
-          <div className="empty-chart-state">No data available</div>
-        )}
-      </div>
-    </div>
-  );
 }
 
 export default function Dashboard() {
@@ -394,82 +394,319 @@ export default function Dashboard() {
   }, [setDashboardCache, user.uid]);
 
   const [timeframe, setTimeframe] = useState<TimeframeFilter>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
-  const weeklyExpenses = useMemo(
-    () => getFilteredExpenses(expenses, "week"),
-    [expenses]
-  );
-  const weeklyData = useMemo(
-    () => getWeeklyData(weeklyExpenses),
-    [weeklyExpenses]
-  );
   const pieExpenses = useMemo(
     () => getFilteredExpenses(expenses, timeframe),
     [expenses, timeframe]
   );
+
+  const dayFilteredExpenses = useMemo(() => {
+    if (!selectedDay) return pieExpenses;
+    return pieExpenses.filter((e) => matchesDayFilter(e, selectedDay, timeframe));
+  }, [pieExpenses, selectedDay, timeframe]);
+
   const categoryPieData = useMemo(
-    () => getCategoryPieData(pieExpenses),
-    [pieExpenses]
+    () => getCategoryPieData(dayFilteredExpenses),
+    [dayFilteredExpenses]
   );
-  const summaryData = useMemo(
-    () => getSummaryData(categories, expenses),
-    [categories, expenses]
+
+  const top4CategoryNames = useMemo(
+    () =>
+      new Set(
+        categoryPieData.slices
+          .filter((s) => s.category !== "Others")
+          .map((s) => s.category)
+      ),
+    [categoryPieData.slices]
   );
+
+  const isSubCategoryOfOthers = useMemo(() => {
+    if (!selectedCategory) return false;
+    if (selectedCategory === "Others" || selectedCategory === "Others (Combined)") return false;
+    return !top4CategoryNames.has(selectedCategory);
+  }, [selectedCategory, top4CategoryNames]);
+
+  const selectedCategoryColor = useMemo(() => {
+    if (!selectedCategory) return undefined;
+    const slice = categoryPieData.slices.find(
+      (s) => s.category.toLowerCase() === selectedCategory.toLowerCase()
+    );
+    if (slice) return slice.color;
+
+    // Fallback to Others slice color if grouped under Others
+    const othersSlice = categoryPieData.slices.find((s) => s.category === "Others");
+    return othersSlice?.color || CHART_THEME.othersColor;
+  }, [categoryPieData.slices, selectedCategory]);
+
+  const selectedCategoryAmount = useMemo(() => {
+    if (!selectedCategory) return undefined;
+    if (selectedCategory === "Others" || selectedCategory === "Others (Combined)") {
+      const othersSlice = categoryPieData.slices.find((s) => s.category === "Others");
+      return othersSlice?.amount;
+    }
+    const catExpenses = dayFilteredExpenses.filter(
+      (e) =>
+        (e.category?.trim() || "Uncategorized").toLowerCase() ===
+        selectedCategory.toLowerCase()
+    );
+    return catExpenses.reduce((sum, e) => sum + toNumber(e.amount), 0);
+  }, [categoryPieData.slices, dayFilteredExpenses, selectedCategory]);
+
+  const handleSelectDay = (day: string) => {
+    if (selectedDay === day) {
+      setSelectedDay(null);
+    } else {
+      setSelectedDay(day);
+      setSelectedCategory(null);
+    }
+  };
+
+  // If timeframe changes and selected category no longer exists in current timeframe, reset it
+  useEffect(() => {
+    if (selectedCategory && pieExpenses.length > 0) {
+      if (selectedCategory === "Others" || selectedCategory === "Others (Combined)") {
+        const hasOthers = categoryPieData.slices.some((s) => s.category === "Others");
+        if (!hasOthers) setSelectedCategory(null);
+      } else {
+        const exists = pieExpenses.some(
+          (e) =>
+            (e.category?.trim() || "Uncategorized").toLowerCase() ===
+            selectedCategory.toLowerCase()
+        );
+        if (!exists) {
+          setSelectedCategory(null);
+        }
+      }
+    }
+  }, [categoryPieData.slices, pieExpenses, selectedCategory]);
+
+  // If timeframe changes and selected day no longer has expenses, reset it
+  useEffect(() => {
+    if (selectedDay && pieExpenses.length > 0) {
+      const hasDayExpenses = pieExpenses.some((e) =>
+        matchesDayFilter(e, selectedDay, timeframe)
+      );
+      if (!hasDayExpenses) {
+        setSelectedDay(null);
+      }
+    }
+  }, [pieExpenses, selectedDay, timeframe]);
+
+  const barChartExpenses = useMemo(() => {
+    return pieExpenses.filter((expense) =>
+      matchesCategoryFilter(expense.category, selectedCategory, top4CategoryNames)
+    );
+  }, [pieExpenses, selectedCategory, top4CategoryNames]);
+
+  const weeklyData = useMemo(
+    () => getDailyExpensesData(barChartExpenses, timeframe),
+    [barChartExpenses, timeframe]
+  );
+
+  const summaryData = useMemo(() => {
+    const isOthersSelection =
+      selectedCategory === "Others" || selectedCategory === "Others (Combined)";
+    const activeDayName = selectedDay ? (fullDayNames[selectedDay] || selectedDay) : null;
+
+    if (selectedCategory && !isOthersSelection) {
+      const catExpenses = dayFilteredExpenses.filter(
+        (e) =>
+          (e.category?.trim() || "Uncategorized").toLowerCase() ===
+          selectedCategory.toLowerCase()
+      );
+      const totalSpent = catExpenses.reduce(
+        (sum, e) => sum + toNumber(e.amount),
+        0
+      );
+      return [
+        {
+          label: selectedCategory,
+          amount: totalSpent,
+          description:
+            categoryDescriptions[selectedCategory] ||
+            (activeDayName
+              ? `Spending under ${selectedCategory} on ${activeDayName}.`
+              : "Tracked spending under this category for the selected timeframe."),
+        },
+      ];
+    }
+
+    if (isOthersSelection) {
+      const othersExpenses = dayFilteredExpenses.filter((e) => {
+        const cat = e.category?.trim() || "Uncategorized";
+        return !top4CategoryNames.has(cat);
+      });
+
+      const othersMap = new Map<string, number>();
+      for (const exp of othersExpenses) {
+        const cat = exp.category?.trim() || "Uncategorized";
+        othersMap.set(cat, (othersMap.get(cat) || 0) + toNumber(exp.amount));
+      }
+
+      const items: SummaryItem[] = [];
+      for (const [catName, amt] of othersMap.entries()) {
+        items.push({
+          label: catName,
+          amount: amt,
+          description:
+            categoryDescriptions[catName] ||
+            (activeDayName
+              ? `Grouped under Others on ${activeDayName}.`
+              : "Category grouped under Others."),
+        });
+      }
+
+      if (items.length === 0 && othersExpenses.length > 0) {
+        items.push({
+          label: "Others (Combined)",
+          amount: othersExpenses.reduce((sum, e) => sum + toNumber(e.amount), 0),
+          description: activeDayName
+            ? `Combined expenses outside the top 4 categories on ${activeDayName}.`
+            : "Combined expenses outside the top 4 categories.",
+        });
+      }
+
+      return items.sort((a, b) => b.amount - a.amount);
+    }
+
+    // Default: All categories in current dayFilteredExpenses
+    const categoryTotals = new Map<string, number>();
+    for (const exp of dayFilteredExpenses) {
+      const cat = exp.category?.trim() || "Uncategorized";
+      categoryTotals.set(
+        cat,
+        (categoryTotals.get(cat) || 0) + toNumber(exp.amount)
+      );
+    }
+
+    const allCatNames = new Set([
+      ...(selectedDay ? [] : categories.map((c) => c.name)),
+      ...Array.from(categoryTotals.keys()),
+    ]);
+
+    return Array.from(allCatNames)
+      .map<SummaryItem>((name) => ({
+        label: name,
+        amount: categoryTotals.get(name) || 0,
+        description:
+          categoryDescriptions[name] ||
+          (activeDayName
+            ? `Spending under ${name} on ${activeDayName}.`
+            : "Custom budget category."),
+      }))
+      .filter((item) => item.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+  }, [categories, dayFilteredExpenses, selectedCategory, selectedDay, top4CategoryNames]);
 
   if (loadingDashboardData) {
     return <DashboardPageSkeleton variant="home" />;
   }
+
+  const timeframeLabel =
+    timeframe === "week"
+      ? "This Week"
+      : timeframe === "month"
+      ? "This Month"
+      : "All Time";
 
   return (
     <div className="dashboard-container">
       {/* 1. Category Breakdown Pie Graph & Weekly Expenses by Day Bar Graph */}
       <section className="dashboard-content" aria-label="Spending overview">
         <article className="spending-card" aria-label="Category spending breakdown">
-          <div className="card-heading-row">
+          <div className="spending-card-header">
             <div className="card-heading">
               <p className="card-eyebrow">Category Spending</p>
               <h2 className="spending-card-title">Category Breakdown</h2>
+              <div className="pie-day-filter-slot">
+                {selectedDay && (
+                  <div className="chart-active-filter-group">
+                    <div className="chart-active-filter-badge">
+                      <span
+                        className="filter-badge-dot"
+                        style={{ backgroundColor: "var(--buck-orange)" }}
+                        aria-hidden="true"
+                      />
+                      <span className="filter-badge-label">
+                        <span className="filter-badge-prefix">Day:</span>
+                        <strong className="filter-badge-name">
+                          {fullDayNames[selectedDay] || selectedDay}
+                        </strong>
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="filter-clear-btn"
+                      onClick={() => setSelectedDay(null)}
+                      title="Clear day filter"
+                      aria-label="Clear day filter"
+                    >
+                      ✕ All Days
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-            <div
-              className="timeframe-toggle-group"
-              role="group"
-              aria-label="Category breakdown timeframe filter"
-            >
-              <button
-                type="button"
-                className={`timeframe-btn ${timeframe === "all" ? "timeframe-btn--active" : ""}`}
-                onClick={() => setTimeframe("all")}
+            <div className="spending-timeframe-container">
+              <div
+                className="timeframe-toggle-group"
+                role="group"
+                aria-label="Category breakdown timeframe filter"
               >
-                All Time
-              </button>
-              <button
-                type="button"
-                className={`timeframe-btn ${timeframe === "month" ? "timeframe-btn--active" : ""}`}
-                onClick={() => setTimeframe("month")}
-              >
-                This Month
-              </button>
-              <button
-                type="button"
-                className={`timeframe-btn ${timeframe === "week" ? "timeframe-btn--active" : ""}`}
-                onClick={() => setTimeframe("week")}
-              >
-                This Week
-              </button>
+                <button
+                  type="button"
+                  className={`timeframe-btn ${timeframe === "all" ? "timeframe-btn--active" : ""}`}
+                  onClick={() => {
+                    setTimeframe("all");
+                    setSelectedDay(null);
+                  }}
+                >
+                  All Time
+                </button>
+                <button
+                  type="button"
+                  className={`timeframe-btn ${timeframe === "month" ? "timeframe-btn--active" : ""}`}
+                  onClick={() => {
+                    setTimeframe("month");
+                    setSelectedDay(null);
+                  }}
+                >
+                  This Month
+                </button>
+                <button
+                  type="button"
+                  className={`timeframe-btn ${timeframe === "week" ? "timeframe-btn--active" : ""}`}
+                  onClick={() => {
+                    setTimeframe("week");
+                    setSelectedDay(null);
+                  }}
+                >
+                  This Week
+                </button>
+              </div>
             </div>
           </div>
           <WeeklyPieChart
             slices={categoryPieData.slices}
             total={categoryPieData.total}
+            selectedCategory={selectedCategory}
+            selectedCategoryAmount={selectedCategoryAmount}
+            onSelectCategory={setSelectedCategory}
             centerLabel={
-              timeframe === "week"
+              selectedDay
+                ? `Total on ${fullDayNames[selectedDay] || selectedDay}`
+                : timeframe === "week"
                 ? "Total this week"
                 : timeframe === "month"
                 ? "Total this month"
                 : "Total all-time"
             }
             emptyMessage={
-              timeframe === "week"
+              selectedDay
+                ? `No expenses recorded on ${fullDayNames[selectedDay] || selectedDay}`
+                : timeframe === "week"
                 ? "No expenses recorded this week"
                 : timeframe === "month"
                 ? "No expenses recorded this month"
@@ -479,43 +716,227 @@ export default function Dashboard() {
         </article>
 
         <article className="graph-card">
-          <div className="card-heading">
-            <p className="card-eyebrow">Weekly Summary</p>
-            <h2 className="graph-title">Expenses by day</h2>
+          <div className="card-heading-row">
+            <div className="card-heading">
+              <p className="card-eyebrow">
+                {timeframe === "week"
+                  ? "Weekly Summary"
+                  : timeframe === "month"
+                  ? "Monthly Summary"
+                  : "All-Time Summary"}
+              </p>
+              <div className="summary-title-row">
+                <h2 className="graph-title">Expenses by day</h2>
+                {(selectedCategory || selectedDay) && (
+                  <div className="chart-active-filter-group">
+                    {selectedCategory && (
+                      <>
+                        <div className="chart-active-filter-badge">
+                          <span
+                            className="filter-badge-dot"
+                            style={{
+                              backgroundColor: selectedCategoryColor || "var(--buck-orange)",
+                            }}
+                            aria-hidden="true"
+                          />
+                          <span className="filter-badge-label">
+                            <span className="filter-badge-prefix">Category:</span>
+                            <strong className="filter-badge-name">{selectedCategory}</strong>
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="filter-clear-btn"
+                          onClick={() => setSelectedCategory(null)}
+                          title="Clear category filter"
+                          aria-label="Clear category filter"
+                        >
+                          ✕ Clear
+                        </button>
+                      </>
+                    )}
+                    {selectedDay && (
+                      <>
+                        <div className="chart-active-filter-badge">
+                          <span
+                            className="filter-badge-dot"
+                            style={{ backgroundColor: "var(--buck-orange)" }}
+                            aria-hidden="true"
+                          />
+                          <span className="filter-badge-label">
+                            <span className="filter-badge-prefix">Day:</span>
+                            <strong className="filter-badge-name">
+                              {fullDayNames[selectedDay] || selectedDay}
+                            </strong>
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="filter-clear-btn"
+                          onClick={() => setSelectedDay(null)}
+                          title="Clear day filter"
+                          aria-label="Clear day filter"
+                        >
+                          ✕ Clear
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-          <WeeklyBarChart data={weeklyData} />
+          <WeeklyBarChart
+            data={weeklyData}
+            categoryColor={selectedCategoryColor}
+            selectedDay={selectedDay}
+            onSelectDay={handleSelectDay}
+          />
         </article>
       </section>
 
       {/* 2. Financial Summary (Categories) - placed directly below Pie and Bar graph cards */}
       <section className="summary-card" aria-label="Categories financial summary">
-        <div className="card-heading">
-          <p className="card-eyebrow">Categories</p>
-          <h2 className="summary-title">Financial Summary</h2>
+        <div className="card-heading-row">
+          <div className="card-heading">
+            <p className="card-eyebrow">Categories</p>
+            <div className="summary-title-row">
+              <h2 className="summary-title">Financial Summary</h2>
+              {(selectedCategory || selectedDay) && (
+                <div className="summary-filter-pill-group">
+                  {selectedDay && (
+                    <>
+                      <div
+                        className="summary-filter-pill summary-filter-pill--active"
+                        aria-label={`Filtered by day: ${fullDayNames[selectedDay] || selectedDay}`}
+                      >
+                        <span
+                          className="summary-filter-pill-dot"
+                          style={{ backgroundColor: "var(--buck-orange)" }}
+                          aria-hidden="true"
+                        />
+                        <span className="summary-filter-pill-label">
+                          <span className="summary-filter-pill-prefix">Day:</span>
+                          <strong className="summary-filter-pill-category-name">
+                            {fullDayNames[selectedDay] || selectedDay}
+                          </strong>
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="summary-filter-action-btn"
+                        onClick={() => setSelectedDay(null)}
+                        title="Show all days"
+                        aria-label="Show all days"
+                      >
+                        ✕ All Days
+                      </button>
+                    </>
+                  )}
+                  {selectedCategory && (
+                    <>
+                      <div
+                        className="summary-filter-pill summary-filter-pill--active"
+                        aria-label={`Filtered by category: ${selectedCategory}`}
+                      >
+                        <span
+                          className="summary-filter-pill-dot"
+                          style={{
+                            backgroundColor: selectedCategoryColor || "var(--buck-orange)",
+                          }}
+                          aria-hidden="true"
+                        />
+                        <span className="summary-filter-pill-label">
+                          <span className="summary-filter-pill-prefix">Category:</span>
+                          <strong className="summary-filter-pill-category-name">{selectedCategory}</strong>
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="summary-filter-action-btn"
+                        onClick={() => setSelectedCategory(null)}
+                        title="Show all categories"
+                        aria-label="Show all categories"
+                      >
+                        ✕ Show All
+                      </button>
+                      {isSubCategoryOfOthers && (
+                        <button
+                          type="button"
+                          className="summary-filter-back-btn"
+                          onClick={() => setSelectedCategory("Others")}
+                          title="Back to Others breakdown"
+                          aria-label="Back to Others breakdown"
+                        >
+                          ← Others
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
         <div className="summary-content">
           {summaryData.length > 0 ? (
-            summaryData.map((item) => (
-              <article key={item.label} className="summary-item">
-                <div className="summary-item-value">
-                  {formatCurrency(item.amount)}
-                </div>
-                <div className="summary-item-label">{item.label}</div>
-                <p className="summary-item-description">
-                  {item.description}
-                </p>
-              </article>
-            ))
+            summaryData.map((item) => {
+              const isSelected =
+                selectedCategory?.toLowerCase() === item.label.toLowerCase();
+              return (
+                <article
+                  key={item.label}
+                  className={`summary-item summary-item--clickable ${
+                    isSelected ? "summary-item--selected" : ""
+                  }`}
+                  onClick={() =>
+                    setSelectedCategory(
+                      isSelected
+                        ? isSubCategoryOfOthers
+                          ? "Others"
+                          : null
+                        : item.label
+                    )
+                  }
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      setSelectedCategory(
+                        isSelected
+                          ? isSubCategoryOfOthers
+                            ? "Others"
+                            : null
+                          : item.label
+                      );
+                    }
+                  }}
+                  aria-pressed={isSelected}
+                  title={`Click to filter by ${item.label}`}
+                >
+                  <div className="summary-item-value">
+                    {formatCurrency(item.amount)}
+                  </div>
+                  <div className="summary-item-label">{item.label}</div>
+                  <p className="summary-item-description">
+                    {item.description}
+                  </p>
+                </article>
+              );
+            })
           ) : (
             <div className="empty-summary-state">
-              No summary data available
+              {selectedDay
+                ? `No expense details available for ${fullDayNames[selectedDay] || selectedDay}`
+                : "No summary data available for this selection"}
             </div>
           )}
         </div>
       </section>
 
-      {/* 3. AI Financial Advisor Placeholder Card */}
+      {/* 3. AI Financial Advisor Card */}
       <AIAdvisorPlaceholderCard
+        userId={user.uid}
         activeWalletBudget={userCache.activeWalletBudget}
         totalExpensesCount={expenses.length}
       />

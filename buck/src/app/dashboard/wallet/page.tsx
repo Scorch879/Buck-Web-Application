@@ -240,9 +240,9 @@ export default function WalletPage() {
               <span className="wallet-card-header-icon" aria-hidden="true">
                 <FaWallet />
               </span>
-              <div>
+              <div className="wallet-card-title-wrap">
                 <p className="settings-eyebrow">Your Wallets</p>
-                <h2>Manage your active wallets</h2>
+                <h2 className="wallet-card-title">Manage your active wallets</h2>
               </div>
             </div>
 
@@ -400,9 +400,9 @@ export default function WalletPage() {
               <span className="wallet-card-header-icon" aria-hidden="true">
                 <FaHistory />
               </span>
-              <div>
+              <div className="wallet-card-title-wrap">
                 <p className="settings-eyebrow">Log</p>
-                <h2>History of Wallets</h2>
+                <h2 className="wallet-card-title">History of Wallets</h2>
               </div>
             </div>
           </div>
