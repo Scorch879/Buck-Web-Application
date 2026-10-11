@@ -1,0 +1,178 @@
+/* ==========================================================================
+   BUCK BUDGET TRACKER - HIGH-FIDELITY SKELETAL LOADING SYSTEM
+   Guarantees 1:1 layout, geometry, card anatomy, and responsive parity
+   across all dashboard routes to completely eliminate Cumulative Layout Shift (CLS).
+   ========================================================================== */
+
+/* Shimmer Animation Keyframe */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Base Skeleton Primitives */
+.skeleton-line,
+.skeleton-avatar,
+.skeleton-circle,
+.skeleton-pill,
+.skeleton-input,
+.skeleton-button,
+.skeleton-bar-seg {
+  display: block;
+  overflow: hidden;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 197, 71, 0.08) 0%,
+    rgba(244, 117, 54, 0.18) 44%,
+    rgba(255, 197, 71, 0.08) 88%
+  );
+  background-size: 220% 100%;
+  border: 1px solid rgba(244, 117, 54, 0.12);
+  animation: skeleton-shimmer 1.35s ease-in-out infinite;
+}
+
+html[data-buck-theme="dark"] .skeleton-line,
+html[data-buck-theme="dark"] .skeleton-avatar,
+html[data-buck-theme="dark"] .skeleton-circle,
+html[data-buck-theme="dark"] .skeleton-pill,
+html[data-buck-theme="dark"] .skeleton-input,
+html[data-buck-theme="dark"] .skeleton-button,
+html[data-buck-theme="dark"] .skeleton-bar-seg {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 197, 71, 0.05) 0%,
+    rgba(255, 197, 71, 0.16) 44%,
+    rgba(244, 117, 54, 0.07) 88%
+  );
+  background-size: 220% 100%;
+  border-color: rgba(255, 211, 154, 0.1);
+}
+
+/* Skeleton roots reuse real page classes; block hover/focus effects on them */
+.dashboard-skeleton {
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Text placeholder: the real (static) label rendered invisible over shimmer,
+   so its line box and width match the loaded text exactly. */
+.skeleton-text,
+.dashboard-skeleton .skeleton-text {
+  color: transparent !important;
+  box-shadow: none;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 197, 71, 0.08) 0%,
+    rgba(244, 117, 54, 0.18) 44%,
+    rgba(255, 197, 71, 0.08) 88%
+  );
+  background-size: 220% 100%;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  animation: skeleton-shimmer 1.35s ease-in-out infinite;
+}
+
+/* low specificity on purpose: buttons/pills keep their own radius */
+.skeleton-text {
+  border-radius: 4px;
+}
+
+html[data-buck-theme="dark"] .skeleton-text,
+html[data-buck-theme="dark"] .dashboard-skeleton .skeleton-text {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 197, 71, 0.05) 0%,
+    rgba(255, 197, 71, 0.16) 44%,
+    rgba(244, 117, 54, 0.07) 88%
+  );
+  background-size: 220% 100%;
+}
+
+.dashboard-skeleton .skeleton-text * {
+  color: transparent !important;
+}
+
+/* Placeholders that reuse real button/badge classes (e.g. .settings-button--danger)
+   keep the control's box but must not show its solid fill, label or glow.
+   Specificity 0,5,0 to beat dashboard.css's `.dashboard :is(.settings-button, ...):not(...)`
+   unified-button rule (0,4,0 + !important). */
+.dashboard .dashboard-skeleton .skeleton-text.skeleton-text.skeleton-text,
+.dashboard-skeleton .skeleton-text {
+  color: transparent !important;
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 197, 71, 0.08) 0%,
+    rgba(244, 117, 54, 0.18) 44%,
+    rgba(255, 197, 71, 0.08) 88%
+  ) !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border-color: rgba(244, 117, 54, 0.14) !important;
+}
+
+html[data-buck-theme="dark"] .dashboard .dashboard-skeleton .skeleton-text.skeleton-text.skeleton-text,
+html[data-buck-theme="dark"] .dashboard-skeleton .skeleton-text {
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 197, 71, 0.05) 0%,
+    rgba(255, 197, 71, 0.16) 44%,
+    rgba(244, 117, 54, 0.07) 88%
+  ) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-line,
+  .skeleton-avatar,
+  .skeleton-circle,
+  .skeleton-pill,
+  .skeleton-input,
+  .skeleton-button,
+  .skeleton-bar-seg,
+  .skeleton-text {
+    animation: none;
+  }
+}
+
+/* Base Skeleton Card Container (Guarantees visible card boundaries & surface) */
+.skeleton-card {
+  position: relative;
+  overflow: hidden;
+  color: var(--buck-ink);
+  background: var(--buck-surface);
+  border: 1px solid var(--buck-line);
+  border-radius: 10px;
+  box-shadow: var(--buck-shadow);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+html[data-buck-theme="dark"] .skeleton-card {
+  background: var(--buck-surface);
+  border-color: var(--buck-line);
+}
+
+/* ==========================================================================
+   2. HOME TAB SKELETAL ARCHITECTURE
+   HomeSkeleton renders the real home/style.css classes; only overrides live here.
+   ========================================================================== */
+.dashboard-skeleton .graph-bar {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 197, 71, 0.08) 0%,
+    rgba(244, 117, 54, 0.18) 44%,
+    rgba(255, 197, 71, 0.08) 88%
+  );
+  background-size: 220% 100%;
+  animation: skeleton-shimmer 1.35s ease-in-out infinite;
+}
+
+.dashboard-skeleton .spending-pie-legend-dot {
+  border: 0;
+}
+
+.dashboard-skeleton .timeframe-btn {
+  padding: 0.42rem 0.95rem;
+}

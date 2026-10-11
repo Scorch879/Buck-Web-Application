@@ -13,21 +13,21 @@ import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import { FaWallet } from "react-icons/fa";
 import type { BuckUser } from "@/utils/authUser";
 
-function getSkeletonVariant(pathname: string | null) {
-  if (pathname?.startsWith("/dashboard/settings")) {
-    return "settings";
+function getSkeletonVariant(pathname: string | null): import("@/component/DashboardSkeletons").DashboardSkeletonVariant {
+  if (pathname?.startsWith("/dashboard/expenses")) {
+    return "expenses";
   }
 
   if (pathname?.startsWith("/dashboard/wallet")) {
-    return "settings";
-  }
-
-  if (pathname?.startsWith("/dashboard/expenses")) {
-    return "statistics";
+    return "wallet";
   }
 
   if (pathname?.startsWith("/dashboard/financial-advisor")) {
-    return "home";
+    return "financial-advisor";
+  }
+
+  if (pathname?.startsWith("/dashboard/forecast")) {
+    return "forecast";
   }
 
   if (pathname?.startsWith("/dashboard/goals")) {
@@ -38,8 +38,17 @@ function getSkeletonVariant(pathname: string | null) {
     return "statistics";
   }
 
+  if (pathname?.startsWith("/dashboard/settings")) {
+    return "settings";
+  }
+
+  if (pathname?.startsWith("/dashboard/admin")) {
+    return "admin";
+  }
+
   return "home";
 }
+
 
 function getPageChrome(pathname: string | null) {
   if (pathname?.startsWith("/dashboard/wallet")) {

@@ -15,6 +15,8 @@ import { mergeDashboardDataCache, useFinancial } from "@/context/FinancialContex
 import { fetchAIForecastInsights, type AIForecastInsights } from "@/utils/forecastApi";
 import { formatCurrency } from "@/utils/formatters";
 import { useToast } from "@/component/toast";
+// advisor-grid / advisor-card / advisor-score / advisor-icon live in the advisor stylesheet
+import "../financial-advisor/style.css";
 import "./style.css";
 
 export default function ForecastPage() {

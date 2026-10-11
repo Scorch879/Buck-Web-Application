@@ -1,11 +1,11 @@
 .admin-page {
   display: flex;
   flex-direction: column;
-  gap: clamp(0.8rem, 1.5vw, 1.2rem);
+  gap: clamp(0.75rem, 1.5vw, 1rem);
   width: 100%;
   flex: 1;
   margin: 0;
-  padding: clamp(0.65rem, 1.5vw, 0.95rem);
+  padding: clamp(0.75rem, 1.5vw, 1rem);
   min-height: 0;
 }
 
@@ -28,6 +28,9 @@
 .admin-search-input {
   flex: 1;
   min-width: 200px;
+  /* same height as the CustomSelect trigger beside it */
+  min-height: 42px;
+  box-sizing: border-box;
   background: var(--buck-bg);
   border: 1px solid var(--buck-line);
   color: var(--buck-ink);
@@ -42,25 +45,19 @@
   border-color: var(--buck-orange);
 }
 
+/* Applied to CustomSelect's wrapper div (it renders its own trigger, border and
+   chevron), so this only sizes the filter beside the search box. */
 .admin-filter-select {
-  background: var(--buck-bg);
-  border: 1px solid var(--buck-line);
-  color: var(--buck-ink);
-  padding: 0.6rem 2rem 0.6rem 1rem;
-  border-radius: 8px;
-  font-family: inherit;
-  font-size: 0.9rem;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23a0a0a0%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.7rem top 50%;
-  background-size: 0.65rem auto;
+  flex: 0 0 190px;
+  width: 190px;
+  min-width: 0;
 }
 
-.admin-filter-select:focus {
-  outline: none;
-  border-color: var(--buck-orange);
+@media (max-width: 560px) {
+  .admin-filter-select {
+    flex: 1 1 140px;
+    width: auto;
+  }
 }
 
 .admin-feedback-list {

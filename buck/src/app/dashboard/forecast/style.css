@@ -1,9 +1,9 @@
 .forecast-page {
   display: grid;
-  gap: clamp(1rem, 2vw, 1.25rem);
+  gap: clamp(0.75rem, 1.5vw, 1rem);
   width: 100%;
   margin: 0;
-  padding: clamp(1rem, 2.6vw, 1.6rem);
+  padding: clamp(0.75rem, 1.5vw, 1rem);
 }
 
 .forecast-hero,
@@ -144,6 +144,6 @@ html[data-buck-theme="dark"] .forecast-card:focus-within {
 
 @media (max-width: 560px) {
   .forecast-page {
-    padding: 0.85rem;
+    padding: 0.75rem;
   }
 }

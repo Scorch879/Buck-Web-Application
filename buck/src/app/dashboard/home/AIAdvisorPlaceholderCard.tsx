@@ -1,151 +1,156 @@
 "use client";
 
-import React from "react";
-import {
-  FaBrain,
-  FaRobot,
-  FaBolt,
-  FaBullseye,
-  FaLightbulb,
-  FaShieldAlt,
-  FaCircle,
-} from "react-icons/fa";
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import { FaLightbulb, FaReceipt, FaArrowRight } from "react-icons/fa";
+import { fetchAIAdvisorInsights, type AIAdvisorInsights } from "@/utils/advisorApi";
+import { mergeDashboardDataCache, useFinancial } from "@/context/FinancialContext";
 
 interface AIAdvisorPlaceholderCardProps {
+  userId?: string;
   activeWalletBudget?: number | null;
   totalExpensesCount?: number;
 }
 
 export default function AIAdvisorPlaceholderCard({
+  userId,
   activeWalletBudget,
   totalExpensesCount = 0,
 }: AIAdvisorPlaceholderCardProps) {
+  const { dashboardCache, setDashboardCache } = useFinancial();
+  const userCache = userId && dashboardCache.userId === userId ? dashboardCache : {};
+  const [aiInsights, setAiInsights] = useState<AIAdvisorInsights | null>(
+    () => userCache.aiInsights ?? null
+  );
+  const [loadingAi, setLoadingAi] = useState(
+    () => !userCache.aiInsights && Boolean(userId)
+  );
+
+  useEffect(() => {
+    if (!userId) {
+      setLoadingAi(false);
+      return;
+    }
+
+    if (userCache.aiInsights) {
+      setAiInsights(userCache.aiInsights);
+      setLoadingAi(false);
+      return;
+    }
+
+    let active = true;
+    setLoadingAi(true);
+
+    fetchAIAdvisorInsights({ userId, forceRefresh: false })
+      .then((insights) => {
+        if (!active) return;
+        setAiInsights(insights);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, userId, {
+            aiInsights: insights,
+          })
+        );
+      })
+      .catch((err) => {
+        console.error("Home AI Advisor: could not load cached insights", err);
+      })
+      .finally(() => {
+        if (active) {
+          setLoadingAi(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [userId, userCache.aiInsights, setDashboardCache]);
+
   return (
     <article
       className="interpretation-card ai-advisor-card"
-      aria-label="AI Financial Advisor overview and status"
+      aria-label="AI Financial Advisor overview and recommendations"
     >
-      <div className="card-heading">
-        <p className="card-eyebrow">Buck AI Intel</p>
-        <div className="interpretation-title-row">
-          <div className="ai-advisor-title-wrap">
-            <h2 className="interpretation-title">AI Financial Advisor</h2>
-            <span className="ai-advisor-subtitle">
-              Predictive Cash Flow & Autonomous Spending Strategy
-            </span>
+      <div className="home-ai-header">
+        <div className="home-ai-header-info">
+          <div className="home-ai-eyebrow-row">
+            <p className="card-eyebrow">Financial Advisor</p>
+            {aiInsights?.createdAt && (
+              <span className="home-ai-timestamp">
+                {aiInsights.cached ? "Cached" : "Updated"}:{" "}
+                {new Date(aiInsights.createdAt).toLocaleDateString()}
+              </span>
+            )}
           </div>
-          <span className="ai-status-badge" aria-label="AI Status">
-            <span className="ai-status-pulse-dot" aria-hidden="true" />
-            <FaBrain aria-hidden="true" />
-            Model Inference In Development
-          </span>
-        </div>
-      </div>
-
-      {/* Model Architecture & Telemetry Chips */}
-      <div className="ai-model-telemetry-grid">
-        <div className="ai-telemetry-item">
-          <span className="ai-telemetry-label">Reasoning Engine</span>
-          <div className="ai-telemetry-val-row">
-            <FaBolt className="ai-telemetry-icon" aria-hidden="true" />
-            <strong className="ai-telemetry-val">LLaMA 3.3 70B Turbo</strong>
-          </div>
-          <span className="ai-telemetry-sub">Zero-shot categorization & NLP reasoning</span>
-        </div>
-
-        <div className="ai-telemetry-item">
-          <span className="ai-telemetry-label">Predictive Forecaster</span>
-          <div className="ai-telemetry-val-row">
-            <FaBrain className="ai-telemetry-icon" aria-hidden="true" />
-            <strong className="ai-telemetry-val">Prophet Time-Series</strong>
-          </div>
-          <span className="ai-telemetry-sub">Algorithmic cash-flow & budget trajectory</span>
-        </div>
-
-        <div className="ai-telemetry-item">
-          <span className="ai-telemetry-label">Analysis Cadence</span>
-          <div className="ai-telemetry-val-row">
-            <FaShieldAlt className="ai-telemetry-icon" aria-hidden="true" />
-            <strong className="ai-telemetry-val">Continuous & Weekly</strong>
-          </div>
-          <span className="ai-telemetry-sub">Velocity audits against active wallet</span>
-        </div>
-
-        <div className="ai-telemetry-item">
-          <span className="ai-telemetry-label">Currency Benchmark</span>
-          <div className="ai-telemetry-val-row">
-            <FaCircle className="ai-telemetry-icon ai-telemetry-icon--dot" aria-hidden="true" />
-            <strong className="ai-telemetry-val">Philippine Peso (PHP)</strong>
-          </div>
-          <span className="ai-telemetry-sub">Localized financial heuristics & envelopes</span>
-        </div>
-      </div>
-
-      {/* 3 Core AI Intelligence Capability Previews */}
-      <div className="ai-capabilities-grid">
-        <div className="ai-capability-card">
-          <div className="ai-capability-header">
-            <span className="ai-capability-icon-wrap ai-capability-icon-wrap--amber">
-              <FaBolt aria-hidden="true" />
-            </span>
-            <h3 className="ai-capability-title">Runaway Category Alerts</h3>
-          </div>
-          <p className="ai-capability-desc">
-            Continuous outlier detection algorithms audit transactions in real-time,
-            flagging unusual category velocity (e.g., Food or Bills) before monthly limits
-            are breached.
+          <h2 className="home-ai-title">Advice that sounds like a next step.</h2>
+          <p className="home-ai-desc">
+            Buck turns your current wallet, expense rhythm, and active goal into
+            plain recommendations you can act on today.
           </p>
         </div>
 
-        <div className="ai-capability-card">
-          <div className="ai-capability-header">
-            <span className="ai-capability-icon-wrap ai-capability-icon-wrap--gold">
-              <FaBullseye aria-hidden="true" />
-            </span>
-            <h3 className="ai-capability-title">Autonomous Goal Pacing</h3>
-          </div>
-          <p className="ai-capability-desc">
-            Evaluates discretionary headroom in your active wallet and calculates
-            optimal weekly transfers toward savings goals without triggering liquidity
-            stress.
-          </p>
-        </div>
+        <div className="home-ai-header-actions">
+          <Link
+            href="/dashboard/financial-advisor"
+            className="home-ai-link-btn"
+            title="Open full Financial Advisor"
+          >
+            View Full Advisor <FaArrowRight aria-hidden="true" />
+          </Link>
 
-        <div className="ai-capability-card">
-          <div className="ai-capability-header">
-            <span className="ai-capability-icon-wrap ai-capability-icon-wrap--orange">
-              <FaLightbulb aria-hidden="true" />
-            </span>
-            <h3 className="ai-capability-title">Concise 2-Sentence Advice</h3>
-          </div>
-          <p className="ai-capability-desc">
-            Replaces generic financial platitudes with highly actionable, context-rich
-            coaching recommendations tailored specifically to your tracked expenses.
-          </p>
-        </div>
-      </div>
-
-      {/* Shimmering Generative AI Calibration Notice Banner */}
-      <div className="ai-calibration-banner">
-        <div className="ai-calibration-icon-box" aria-hidden="true">
-          <FaRobot />
-        </div>
-        <div className="ai-calibration-content">
-          <div className="ai-calibration-header-line">
-            <strong className="ai-calibration-title">
-              Buck AI Advisory Pipeline · Calibrating
+          <div
+            className="advisor-score home-ai-score"
+            aria-label="Financial health score"
+          >
+            <span>Health Score</span>
+            <strong>
+              {aiInsights?.financialHealthScore !== null &&
+              aiInsights?.financialHealthScore !== undefined
+                ? `${aiInsights.financialHealthScore}`
+                : "—"}
             </strong>
-            <span className="ai-calibration-badge">
-              <span className="ai-pulse-dot" aria-hidden="true" />
-              Telemetry Pipeline Active ({totalExpensesCount} events ingested)
+          </div>
+        </div>
+      </div>
+
+      <div className="home-ai-grid">
+        <section className="home-ai-card">
+          <div className="home-ai-card-icon-wrap">
+            <span className="advisor-icon" aria-hidden="true">
+              <FaLightbulb />
             </span>
           </div>
-          <p className="ai-calibration-desc">
-            The machine learning backend microservice is currently in development and model calibration.
-            Once live inference is fully coupled, real-time autonomous recommendations, predictive
-            category forecasting, and dynamic savings optimizations will generate directly into this card.
-          </p>
-        </div>
+          <div className="home-ai-card-content">
+            <p className="advisor-eyebrow">AI Suggestion</p>
+            <h3 className="home-ai-card-title">What to do next</h3>
+            <p className="home-ai-card-text">
+              {loadingAi
+                ? "Analyzing your financial data..."
+                : (aiInsights?.suggestion || "")}
+            </p>
+          </div>
+        </section>
+
+        <section className="home-ai-card">
+          <div className="home-ai-card-icon-wrap">
+            <span
+              className="advisor-icon advisor-icon--gold"
+              aria-hidden="true"
+            >
+              <FaReceipt />
+            </span>
+          </div>
+          <div className="home-ai-card-content">
+            <p className="advisor-eyebrow" style={{ color: "var(--buck-gold)" }}>
+              AI Advice
+            </p>
+            <h3 className="home-ai-card-title">Detailed Analysis</h3>
+            <p className="home-ai-card-text">
+              {loadingAi
+                ? "Generating deep-dive analysis..."
+                : (aiInsights?.advice || "")}
+            </p>
+          </div>
+        </section>
       </div>
     </article>
   );

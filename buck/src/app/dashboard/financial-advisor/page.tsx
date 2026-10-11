@@ -73,15 +73,19 @@ export default function FinancialAdvisorPage() {
   const [error, setError] = useState("");
   const hadInitialAdvisorData = useRef(hasInitialAdvisorData);
 
-  const [aiInsights, setAiInsights] = useState<AIAdvisorInsights | null>(null);
-  const [loadingAi, setLoadingAi] = useState(true);
+  const [aiInsights, setAiInsights] = useState<AIAdvisorInsights | null>(
+    () => userCache.aiInsights ?? null
+  );
+  const [loadingAi, setLoadingAi] = useState(() => !userCache.aiInsights);
   const [refreshingAi, setRefreshingAi] = useState(false);
 
   const loadAI = async (forceRefresh = false) => {
     if (forceRefresh) {
       setRefreshingAi(true);
     } else {
-      setLoadingAi(true);
+      if (!userCache.aiInsights) {
+        setLoadingAi(true);
+      }
     }
     try {
       const insights = await fetchAIAdvisorInsights({
@@ -89,6 +93,11 @@ export default function FinancialAdvisorPage() {
         forceRefresh,
       });
       setAiInsights(insights);
+      setDashboardCache((currentCache) =>
+        mergeDashboardDataCache(currentCache, user.uid, {
+          aiInsights: insights,
+        })
+      );
       if (forceRefresh) {
         toast("Refreshed AI advisory insights.", "success");
       }

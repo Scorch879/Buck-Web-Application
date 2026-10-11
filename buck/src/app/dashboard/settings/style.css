@@ -1,10 +1,10 @@
 .settings-page {
   display: flex;
   flex-direction: column;
-  gap: clamp(0.65rem, 1.2vw, 0.9rem);
+  gap: clamp(0.75rem, 1.5vw, 1rem);
   width: 100%;
   margin: 0;
-  padding: clamp(0.65rem, 1.5vw, 0.95rem);
+  padding: clamp(0.75rem, 1.5vw, 1rem);
 }
 
 .settings-hero,
@@ -1148,7 +1148,7 @@ html[data-buck-theme="dark"] .settings-modal {
 
 .settings-page {
   width: 100%;
-  gap: clamp(0.6rem, 1.2vw, 0.85rem);
+  gap: clamp(0.75rem, 1.5vw, 1rem);
 }
 
 .settings-hero {
