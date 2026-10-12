@@ -131,8 +131,8 @@ export default function HomeSkeleton() {
               <span className="skeleton-input" style={{ width: "100%", height: "38px", borderRadius: "8px" }} />
             </div>
             <div className="summary-table-controls-group">
-              <span className="skeleton-input" style={{ width: "130px", height: "38px", borderRadius: "8px" }} />
-              <span className="skeleton-input" style={{ width: "140px", height: "38px", borderRadius: "8px" }} />
+              <span className="skeleton-input summary-table-custom-select summary-table-custom-select--filter" style={{ display: "block", height: "38px", borderRadius: "8px" }} />
+              <span className="skeleton-input summary-table-custom-select summary-table-custom-select--sort" style={{ display: "block", height: "38px", borderRadius: "8px" }} />
             </div>
           </div>
 

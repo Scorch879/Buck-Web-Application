@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   FaTrash,
   FaSearch,
   FaTimes,
   FaPlus,
-  FaExclamationTriangle,
   FaSortAmountDown,
-  FaListUl,
+  FaChevronLeft,
+  FaChevronRight,
 } from "react-icons/fa";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useDashboardUser } from "@/context/DashboardUserContext";
@@ -19,7 +19,6 @@ import {
 } from "@/context/FinancialContext";
 import { formatCurrency, toNumber } from "@/utils/formatters";
 import {
-  addExpenseWithWalletDeduction,
   deleteExpenseAndRestoreWallet,
   ensureDefaultCategories,
   getActiveWallet,
@@ -30,14 +29,76 @@ import {
   type BuckWallet,
 } from "@/utils/supabaseData";
 import "./style.css";
-import CustomSelect from "@/component/CustomSelect";
-import CustomDatePicker from "@/component/CustomDatePicker";
 import { useToast } from "@/component/toast/ToastContext";
+import CustomSelect, { type SelectOption } from "@/component/CustomSelect";
 import ExpenseKPICards from "./ExpenseKPICards";
 import ExpenseCategoryVisualizer from "./ExpenseCategoryVisualizer";
 import { getCategoryTheme } from "./categoryUtils";
+import AddExpenseModal from "./AddExpenseModal";
 
-const QUICK_AMOUNTS = [50, 100, 200, 500, 1000];
+const PAGE_SIZE = 8;
+
+type SortKey = "newest" | "oldest" | "highest" | "lowest";
+
+const SORT_OPTIONS: SelectOption[] = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+  { value: "highest", label: "Highest amount" },
+  { value: "lowest", label: "Lowest amount" },
+];
+
+const PAGE_VARIANTS = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 18 : direction < 0 ? -18 : 0,
+    y: direction === 0 ? 8 : 0,
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    y: 0,
+    opacity: 1,
+  },
+  exit: (direction: number) => ({
+    x: direction > 0 ? -18 : direction < 0 ? 18 : 0,
+    y: 0,
+    opacity: 0,
+  }),
+};
+
+function getPaginationPages(
+  current: number,
+  total: number
+): (number | "ellipsis-start" | "ellipsis-end")[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+
+  if (current <= 4) {
+    return [1, 2, 3, 4, 5, "ellipsis-end", total];
+  }
+
+  if (current >= total - 3) {
+    return [
+      1,
+      "ellipsis-start",
+      total - 4,
+      total - 3,
+      total - 2,
+      total - 1,
+      total,
+    ];
+  }
+
+  return [
+    1,
+    "ellipsis-start",
+    current - 1,
+    current,
+    current + 1,
+    "ellipsis-end",
+    total,
+  ];
+}
 
 export default function ExpensesPage() {
   const { user } = useDashboardUser();
@@ -60,21 +121,44 @@ export default function ExpensesPage() {
   );
   const [activeWallet, setActiveWallet] = useState<BuckWallet | null>(null);
 
-  // Form states
-  const [amount, setAmount] = useState("");
-  const [categoryName, setCategoryName] = useState("");
-  const [description, setDescription] = useState("");
-  const [spentOn, setSpentOn] = useState("");
   const [loading, setLoading] = useState(() => !hasInitialExpensesData);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const hadInitialExpensesData = useRef(hasInitialExpensesData);
 
+  // Modal overlay state
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
   // Filter & Search states
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "highest" | "lowest">("newest");
-  const [showAll, setShowAll] = useState(false);
+  const [sortBy, setSortBy] = useState<SortKey>("newest");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageDirection, setPageDirection] = useState<number>(0);
+  const prefersReducedMotion = useReducedMotion();
+
+  // Reset to page 1 from the handlers that change the result set (no extra render on mount).
+  const resetToFirstPage = () => {
+    setPageDirection(0);
+    setCurrentPage(1);
+  };
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    resetToFirstPage();
+  };
+  const handleCategoryChange = (value: string | null) => {
+    setSelectedCategory(value);
+    resetToFirstPage();
+  };
+  const handleSortChange = (value: SortKey) => {
+    setSortBy(value);
+    resetToFirstPage();
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPageDirection(newPage > currentPage ? 1 : -1);
+    setCurrentPage(newPage);
+  };
 
   useEffect(() => {
     let active = true;
@@ -87,9 +171,6 @@ export default function ExpensesPage() {
       }
 
       setCategories(nextCategories);
-      setCategoryName((currentCategoryName) =>
-        currentCategoryName || nextCategories[0]?.name || "Uncategorized"
-      );
       setDashboardCache((currentCache) =>
         mergeDashboardDataCache(currentCache, user.uid, {
           categories: nextCategories,
@@ -207,74 +288,34 @@ export default function ExpensesPage() {
     });
   }, [expenses, selectedCategory, searchQuery, sortBy]);
 
-  const displayedExpenses = showAll
-    ? filteredExpenses
-    : filteredExpenses.slice(0, 8);
+  const totalItems = filteredExpenses.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = totalItems === 0 ? 0 : (safeCurrentPage - 1) * PAGE_SIZE;
+  const endIndex = Math.min(startIndex + PAGE_SIZE, totalItems);
+  const displayedExpenses = filteredExpenses.slice(startIndex, endIndex);
 
-  const numAmount = Number(amount);
-  const isOverBudget =
-    Number.isFinite(numAmount) &&
-    numAmount > 0 &&
-    walletBudget > 0 &&
-    numAmount > walletBudget;
+  // Keep state in sync when the last item on the final page is deleted.
+  useEffect(() => {
+    if (currentPage !== safeCurrentPage) setCurrentPage(safeCurrentPage);
+  }, [currentPage, safeCurrentPage]);
 
-  const handleQuickAdd = (preset: number) => {
-    const current = Number(amount) || 0;
-    setAmount((current + preset).toString());
-  };
+  const handleExpenseAdded = async () => {
+    const [nextExpenses, nextActiveWallet] = await Promise.all([
+      listExpenses(user.uid),
+      getActiveWallet(user.uid),
+    ]);
+    const nextWalletBudget = nextActiveWallet?.budget ?? 0;
 
-  const handleAddExpense = async (event: FormEvent) => {
-    event.preventDefault();
-
-    if (saving) {
-      return;
-    }
-
-    const nextAmount = Number(amount);
-
-    if (!Number.isFinite(nextAmount) || nextAmount <= 0) {
-      setError("Enter a valid expense amount.");
-      return;
-    }
-
-    setSaving(true);
-    setError("");
-
-    try {
-      await addExpenseWithWalletDeduction(user.uid, {
-        amount: nextAmount,
-        categoryName: categoryName || "Uncategorized",
-        date: spentOn || new Date().toISOString().slice(0, 10),
-        description: description.trim() || "Expense",
-      });
-
-      const [nextExpenses, nextActiveWallet] = await Promise.all([
-        listExpenses(user.uid),
-        getActiveWallet(user.uid),
-      ]);
-      const nextWalletBudget = nextActiveWallet?.budget ?? 0;
-
-      setExpenses(nextExpenses);
-      setActiveWallet(nextActiveWallet);
-      setWalletBudget(nextWalletBudget);
-      setAmount("");
-      setDescription("");
-      setSpentOn("");
-      setDashboardCache((currentCache) =>
-        mergeDashboardDataCache(currentCache, user.uid, {
-          expenses: nextExpenses,
-          activeWalletBudget: nextWalletBudget,
-        })
-      );
-      toast("Expense added successfully", "success");
-    } catch (nextError) {
-      setError(
-        nextError instanceof Error ? nextError.message : "Could not add expense."
-      );
-      toast(nextError instanceof Error ? nextError.message : "Could not add expense.", "error");
-    } finally {
-      setSaving(false);
-    }
+    setExpenses(nextExpenses);
+    setActiveWallet(nextActiveWallet);
+    setWalletBudget(nextWalletBudget);
+    setDashboardCache((currentCache) =>
+      mergeDashboardDataCache(currentCache, user.uid, {
+        expenses: nextExpenses,
+        activeWalletBudget: nextWalletBudget,
+      })
+    );
   };
 
   const handleDeleteExpense = async (expense: BuckExpense) => {
@@ -323,7 +364,14 @@ export default function ExpensesPage() {
     <div className="expenses-page">
       {error ? <div className="expenses-message">{error}</div> : null}
 
-      {/* ── RICH DATA VISUALIZATION KPIS ── */}
+      {/* ── TOP KPI: CATEGORY SPENDING ALLOCATION BAR & LEGEND ── */}
+      <ExpenseCategoryVisualizer
+        expenses={expenses}
+        selectedCategory={selectedCategory}
+        onSelectCategory={handleCategoryChange}
+      />
+
+      {/* ── KPI CARDS ── */}
       <ExpenseKPICards
         walletBudget={walletBudget}
         totalTracked={totalTracked}
@@ -332,292 +380,267 @@ export default function ExpensesPage() {
         expenses={expenses}
       />
 
-      {/* ── PROPORTIONAL CATEGORY VISUALIZER & FILTERS ── */}
-      <ExpenseCategoryVisualizer
-        expenses={expenses}
-        selectedCategory={selectedCategory}
-        onSelectCategory={setSelectedCategory}
-      />
-
-      {/* ── EXPENSES MAIN WORKSPACE LAYOUT ── */}
-      <section className="expenses-layout">
-        {/* ADD SPENDING FORM */}
-        <form className="expenses-card expenses-form" onSubmit={handleAddExpense}>
+      {/* ── EXPENSE TRACKER LIST ── */}
+      <section className="expenses-card expenses-list">
+        <div className="expenses-list-header">
           <div>
-            <p className="expenses-eyebrow">New expense</p>
-            <h2>Add spending</h2>
+            <p className="expenses-eyebrow">Transaction Records</p>
+            <h2>Expense tracker</h2>
           </div>
-
-          <label>
-            Amount (PHP)
-            <input
-              value={amount}
-              inputMode="decimal"
-              onChange={(event) => setAmount(event.target.value)}
-              placeholder="0.00"
-              disabled={saving}
-            />
-          </label>
-
-          {/* Quick Amount Presets */}
-          <div className="expenses-quick-amounts" aria-label="Quick amount shortcuts">
-            <span className="expenses-quick-label">Quick add:</span>
-            <div className="expenses-quick-chips">
-              {QUICK_AMOUNTS.map((val) => (
-                <button
-                  key={val}
-                  type="button"
-                  className="expenses-quick-chip"
-                  onClick={() => handleQuickAdd(val)}
-                  disabled={saving}
-                >
-                  +{val}
-                </button>
-              ))}
-              {amount ? (
-                <button
-                  type="button"
-                  className="expenses-quick-chip expenses-quick-chip--clear"
-                  onClick={() => setAmount("")}
-                  disabled={saving}
-                  title="Clear amount"
-                >
-                  Clear
-                </button>
-              ) : null}
-            </div>
-          </div>
-
-          {/* Budget Warning Callout */}
-          {isOverBudget ? (
-            <motion.div
-              className="expenses-overbudget-alert"
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <FaExclamationTriangle aria-hidden="true" />
-              <span>
-                Amount exceeds current wallet balance ({formatCurrency(walletBudget)}).
-              </span>
-            </motion.div>
-          ) : null}
-
-          <label>
-            Category
-            <CustomSelect
-              value={categoryName}
-              onChange={(val) => setCategoryName(val)}
-              disabled={saving}
-              options={[
-                ...categories.map((c) => ({ value: c.name, label: c.name })),
-                ...(!categories.some((c) => c.name === "Uncategorized")
-                  ? [{ value: "Uncategorized", label: "Uncategorized" }]
-                  : []),
-              ]}
-            />
-          </label>
-
-          <label>
-            Date
-            <CustomDatePicker
-              value={spentOn}
-              onChange={(val) => setSpentOn(val)}
-            />
-          </label>
-
-          <label>
-            Description
-            <input
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder="Lunch, fare, grocery, coffee..."
-              disabled={saving}
-            />
-          </label>
-
-          <motion.button
-            className="expenses-primary-button"
-            type="submit"
-            disabled={saving}
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            {saving ? (
-              "Adding..."
-            ) : (
-              <span className="expenses-btn-content">
-                <FaPlus aria-hidden="true" /> Add Expense
-              </span>
-            )}
-          </motion.button>
-        </form>
-
-        {/* RECENT EXPENSE TRACKER */}
-        <section className="expenses-card expenses-list">
-          <div className="expenses-list-header">
-            <div>
-              <p className="expenses-eyebrow">Transaction Records</p>
-              <h2>Expense tracker</h2>
-            </div>
+          <div className="expenses-list-header-actions">
             <span className="expenses-list-count-badge">
               {filteredExpenses.length} {filteredExpenses.length === 1 ? "match" : "matches"}
             </span>
+            <motion.button
+              type="button"
+              className="expenses-add-trigger-btn"
+              onClick={() => setIsAddModalOpen(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              aria-label="Add new expense"
+            >
+              <FaPlus aria-hidden="true" />
+              <span>Add Spending</span>
+            </motion.button>
           </div>
+        </div>
 
-          {/* Search & Sort Controls Toolbar */}
-          <div className="expenses-list-toolbar">
-            <div className="expenses-search-box">
-              <FaSearch aria-hidden="true" className="expenses-search-icon" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search description or category..."
-                aria-label="Search expenses"
-              />
-              {searchQuery ? (
-                <button
-                  type="button"
-                  className="expenses-search-clear"
-                  onClick={() => setSearchQuery("")}
-                  aria-label="Clear search"
-                >
-                  <FaTimes aria-hidden="true" />
-                </button>
-              ) : null}
-            </div>
-
-            <div className="expenses-sort-box">
-              <FaSortAmountDown aria-hidden="true" className="expenses-sort-icon" />
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                aria-label="Sort expenses"
-                className="expenses-sort-select"
+        {/* Search & Sort Controls Toolbar */}
+        <div className="expenses-list-toolbar">
+          <div className="expenses-search-box">
+            <FaSearch aria-hidden="true" className="expenses-search-icon" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Search description or category..."
+              aria-label="Search expenses"
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                className="expenses-search-clear"
+                onClick={() => handleSearchChange("")}
+                aria-label="Clear search"
               >
-                <option value="newest">Newest first</option>
-                <option value="oldest">Oldest first</option>
-                <option value="highest">Highest amount</option>
-                <option value="lowest">Lowest amount</option>
-              </select>
-            </div>
+                <FaTimes aria-hidden="true" />
+              </button>
+            ) : null}
           </div>
 
-          {/* List items */}
-          {displayedExpenses.length ? (
-            <div className="expenses-list-items">
-              <AnimatePresence>
-                {displayedExpenses.map((expense) => {
-                  const theme = getCategoryTheme(expense.category);
-                  const IconComp = theme.icon;
+          <div className="expenses-sort-box">
+            <CustomSelect
+              value={sortBy}
+              onChange={(val) =>
+                handleSortChange(val as SortKey)
+              }
+              options={SORT_OPTIONS}
+              icon={<FaSortAmountDown aria-hidden="true" />}
+              size="sm"
+              className="expenses-custom-select expenses-custom-select--sort"
+            />
+          </div>
+        </div>
 
-                  return (
-                    <motion.article
-                      key={expense.id}
-                      className="expenses-list-item"
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <div className="expenses-list-item-main">
-                        <span
-                          className="expenses-list-item-category-icon"
-                          style={{
-                            backgroundColor: theme.bg,
-                            color: theme.color,
-                            borderColor: theme.border,
-                          }}
-                          aria-hidden="true"
-                        >
-                          <IconComp />
-                        </span>
+        {/* List items */}
+        {displayedExpenses.length ? (
+          <>
+            <div className="expenses-list-items-container">
+              <AnimatePresence mode="wait" initial={false} custom={pageDirection}>
+                <motion.div
+                  key={safeCurrentPage}
+                  custom={pageDirection}
+                  variants={PAGE_VARIANTS}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: prefersReducedMotion ? 0 : 0.16, ease: "easeOut" }}
+                  className="expenses-list-items"
+                >
+                  {displayedExpenses.map((expense) => {
+                    const theme = getCategoryTheme(expense.category);
+                    const IconComp = theme.icon;
 
-                        <div className="expenses-list-item-details">
-                          <strong className="expenses-list-item-title">
-                            {expense.description || expense.category}
-                          </strong>
-                          <div className="expenses-list-item-sub">
-                            <span
-                              className="expenses-list-item-pill"
-                              style={{
-                                color: theme.color,
-                                backgroundColor: theme.bg,
-                                borderColor: theme.border,
-                              }}
-                            >
-                              {expense.category}
-                            </span>
-                            <span className="expenses-list-item-date">
-                              {expense.date}
-                            </span>
+                    return (
+                      <article
+                        key={expense.id}
+                        className="expenses-list-item"
+                      >
+                        <div className="expenses-list-item-main">
+                          <span
+                            className="expenses-list-item-category-icon"
+                            style={{
+                              backgroundColor: theme.bg,
+                              color: theme.color,
+                              borderColor: theme.border,
+                            }}
+                            aria-hidden="true"
+                          >
+                            <IconComp />
+                          </span>
+
+                          <div className="expenses-list-item-details">
+                            <strong className="expenses-list-item-title">
+                              {expense.description || expense.category}
+                            </strong>
+                            <div className="expenses-list-item-sub">
+                              <span
+                                className="expenses-list-item-pill"
+                                style={{
+                                  color: theme.color,
+                                  backgroundColor: theme.bg,
+                                  borderColor: theme.border,
+                                }}
+                              >
+                                {expense.category}
+                              </span>
+                              <span className="expenses-list-item-date">
+                                {expense.date}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="expenses-list-item-actions">
-                        <strong className="expenses-list-item-amount">
-                          {formatCurrency(expense.amount)}
-                        </strong>
-                        <button
-                          type="button"
-                          onClick={() => void handleDeleteExpense(expense)}
-                          disabled={saving}
-                          aria-label={`Delete ${expense.description || "expense"}`}
-                          className="expenses-list-delete-btn"
-                        >
-                          <FaTrash aria-hidden="true" />
-                        </button>
-                      </div>
-                    </motion.article>
-                  );
-                })}
+                        <div className="expenses-list-item-actions">
+                          <strong className="expenses-list-item-amount">
+                            {formatCurrency(expense.amount)}
+                          </strong>
+                          <button
+                            type="button"
+                            onClick={() => void handleDeleteExpense(expense)}
+                            disabled={saving}
+                            aria-label={`Delete ${expense.description || "expense"}`}
+                            className="expenses-list-delete-btn"
+                          >
+                            <FaTrash aria-hidden="true" />
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </motion.div>
               </AnimatePresence>
+            </div>
 
-              {/* Show more / Show less toggle */}
-              {filteredExpenses.length > 8 ? (
-                <div className="expenses-list-pagination">
+            {/* Centered Pagination Controls with Right-Aligned Showing Info */}
+            {totalPages > 1 && (
+              <div
+                className="expenses-pagination"
+                role="navigation"
+                aria-label="Expense tracker pagination"
+              >
+                <div className="expenses-pagination-spacer" aria-hidden="true" />
+
+                <div className="expenses-pagination-nav">
                   <button
                     type="button"
-                    className="expenses-pagination-toggle"
-                    onClick={() => setShowAll((prev) => !prev)}
+                    className="expenses-page-btn expenses-page-btn--nav"
+                    onClick={() =>
+                      handlePageChange(Math.max(1, safeCurrentPage - 1))
+                    }
+                    disabled={safeCurrentPage <= 1}
+                    aria-label="Previous page"
+                    title="Previous page"
                   >
-                    <FaListUl aria-hidden="true" />
-                    <span>
-                      {showAll
-                        ? "Show recent (8)"
-                        : `Show all (${filteredExpenses.length})`}
-                    </span>
+                    <FaChevronLeft aria-hidden="true" />
+                    <span>Prev</span>
                   </button>
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="expenses-empty">
-              {searchQuery || selectedCategory ? (
-                <div className="expenses-empty-filtered">
-                  <p>No transactions match your search or filter criteria.</p>
+
+                  <div className="expenses-page-numbers">
+                    {getPaginationPages(safeCurrentPage, totalPages).map(
+                      (p) => {
+                        if (typeof p === "string") {
+                          return (
+                            <span
+                              key={p}
+                              className="expenses-page-ellipsis"
+                              aria-hidden="true"
+                            >
+                              …
+                            </span>
+                          );
+                        }
+
+                        const isActive = p === safeCurrentPage;
+                        return (
+                          <button
+                            key={p}
+                            type="button"
+                            className={`expenses-page-btn ${
+                              isActive ? "expenses-page-btn--active" : ""
+                            }`}
+                            onClick={() => handlePageChange(p)}
+                            aria-label={`Page ${p}`}
+                            aria-current={isActive ? "page" : undefined}
+                          >
+                            {p}
+                          </button>
+                        );
+                      }
+                    )}
+                  </div>
+
                   <button
                     type="button"
-                    className="expenses-empty-clear-btn"
-                    onClick={() => {
-                      setSearchQuery("");
-                      setSelectedCategory(null);
-                    }}
+                    className="expenses-page-btn expenses-page-btn--nav"
+                    onClick={() =>
+                      handlePageChange(Math.min(totalPages, safeCurrentPage + 1))
+                    }
+                    disabled={safeCurrentPage >= totalPages}
+                    aria-label="Next page"
+                    title="Next page"
                   >
-                    Clear Filters
+                    <span>Next</span>
+                    <FaChevronRight aria-hidden="true" />
                   </button>
                 </div>
-              ) : (
-                <div className="expenses-empty-new">
-                  <p>No expenses tracked yet.</p>
-                  <span>Add your first spending above to visualize your cash flow!</span>
+
+                <div className="expenses-pagination-info">
+                  <span className="expenses-pagination-info-full">
+                    Showing <strong>{startIndex + 1}</strong>–<strong>{endIndex}</strong> of <strong>{totalItems}</strong>
+                  </span>
+                  <span className="expenses-pagination-info-short">
+                    <strong>{startIndex + 1}</strong>–<strong>{endIndex}</strong> of <strong>{totalItems}</strong>
+                  </span>
                 </div>
-              )}
-            </div>
-          )}
-        </section>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="expenses-empty">
+            {searchQuery || selectedCategory ? (
+              <div className="expenses-empty-filtered">
+                <p>No transactions match your search or filter criteria.</p>
+                <button
+                  type="button"
+                  className="expenses-empty-clear-btn"
+                  onClick={() => {
+                    setSearchQuery("");
+                    handleCategoryChange(null);
+                  }}
+                >
+                  Clear Filters
+                </button>
+              </div>
+            ) : (
+              <div className="expenses-empty-new">
+                <p>No expenses tracked yet.</p>
+                <span>Add your first spending using the button above to visualize your cash flow!</span>
+              </div>
+            )}
+          </div>
+        )}
       </section>
+
+      {/* ── OVERLAY MODAL: ADD SPENDING ── */}
+      <AddExpenseModal
+        open={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        categories={categories}
+        walletBudget={walletBudget}
+        userId={user.uid}
+        onExpenseAdded={handleExpenseAdded}
+      />
     </div>
   );
 }

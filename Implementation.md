@@ -415,6 +415,50 @@ Returns a composite score (0 to 5) and localized validation messages.
   - Bound within SVG `<clipPath>` (`r=66`) with an outer ring border (`strokeWidth=4`) and inner shadow (`box-shadow: inset 0 3px 12px rgba(0,0,0,0.4)`).
   - Floating centered typography displays "SAVED" and percentage with multi-tier drop shadows, and automatic high-contrast fallback (`.progress-liquid-text--low-progress`) in light mode.
 
+### 3.28 Expenses Dashboard 2-Column Asymmetric Layout & Overlay Modal Architecture ([`page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/expenses/page.tsx), [`AddExpenseModal.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/expenses/AddExpenseModal.tsx), [`style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/expenses/style.css), [`ExpensesSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/ExpensesSkeleton.tsx))
+- **Asymmetric 2-Column Grid Geometry**:
+  - Reorganized `.expenses-page` to `display: grid; grid-template-columns: minmax(320px, 360px) minmax(0, 1fr); gap: var(--space-4, 1rem); align-items: start;`.
+  - Column 1 (Left): `<ExpenseKPICards />` (`display: flex; flex-direction: column; width: 100%; gap: var(--space-4, 1rem);`) rendering Active Wallet Balance with status badge/progress meter, Cumulative Total Tracked with monthly and daily stat grid, and Average Expense card with min/max values.
+  - Column 2 (Right): `<section className="expenses-card expenses-list">` occupying all remaining space, housing the header, search/sort toolbar, transaction rows, pagination controls, and empty state handlers.
+  - Responsive Breakpoint: Mobile/tablet `@media (max-width: 980px)` collapses grid to `grid-template-columns: 1fr;`.
+- **Standalone Add Expense Overlay Modal (`AddExpenseModal.tsx`)**:
+  - Extracted the inline expense form into a dedicated modal rendered via React portal (`createPortal`) on `document.body` with body scroll locking.
+  - Features backdrop blur (`rgba(0, 0, 0, 0.65)`, `backdrop-filter: blur(8px)`), accessible `Escape` key dismiss listener, and backdrop click handler.
+  - Framer Motion animation (`initial={{ opacity: 0, scale: 0.94, y: 16 }}`).
+  - Form controls: amount input with quick-add chips (`+50`, `+100`, `+200`, `+500`, `+1000`), budget exhaustion warning (`Budget will be depleted by ₱...`), [`CustomSelect`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/CustomSelect.tsx) category picker, [`CustomDatePicker`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/CustomDatePicker.tsx), and description input.
+  - Records the expense and debits the active wallet in one transaction via `addExpenseWithWalletDeduction`, which calls the `add_expense_atomic` RPC ([`202610130001_add_expense_atomic.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610130001_add_expense_atomic.sql); conditional `UPDATE ... WHERE budget >= amount` row-locks the wallet). The modal resets its fields only on open, validates amounts with `parseMoneyInput` (max 12 digits, 2 decimals, quick-add in 2-decimal rounding), uses local-time dates (`toLocalDateString`), moves focus to the amount field and restores it on close. The success toast and `onClose` fire before `onExpenseAdded`, so a failed list refresh shows a separate "Saved, but the list failed to refresh" toast instead of a false save error. Page changes animate via `pageDirection` and honour `prefers-reduced-motion`.
+- **Top Header Trigger Button (`.expenses-add-trigger-btn`)**:
+  - Integrated into `.expenses-list-header-actions` alongside `.expenses-list-count-badge`.
+  - Styled with Buck primary orange/coral gradient (`linear-gradient(135deg, var(--buck-orange), #ff9858)`), subtle box shadow, and tactile micro-interactions (`whileHover={{ scale: 1.02 }}`, `whileTap={{ scale: 0.97 }}`).
+- **Category Spending Allocation Visualizer (`ExpenseCategoryVisualizer.tsx`) as Top Primary KPI**:
+  - Re-anchored `<ExpenseCategoryVisualizer />` at the very top of `.expenses-page` spanning full-width (`grid-column: 1 / -1; width: 100%`) as the primary top KPI card above both the left KPI cards column and right Expense Tracker column.
+  - **Thicker Clickable Segmented Bar Track**: Increased bar track height from 10px to 24px (`height: 24px; border-radius: 8px; padding: 2px;`) providing an accessible click and touch target. Each segment has tactile hover feedback (`transform: scaleY(1.08); filter: brightness(1.15)`), active focus highlights (`box-shadow: 0 0 0 2px var(--buck-surface), 0 0 0 4px var(--buck-orange)`), and dimming of unselected slices (`opacity: 0.32; filter: grayscale(30%)`). Segments implement full keyboard accessibility (`role="button"`, `tabIndex={0}`, `aria-label`, `aria-pressed`).
+  - **Streamlined Chart Legend (`.expenses-category-legend`)**: Replaced bulky pillbox buttons and counter badges with an elegant chart legend. Each item (`.expenses-legend-item`) features a category color dot (`.expenses-legend-dot`), category label (`.expenses-legend-name`), and percentage share (`.expenses-legend-pct`).
+  - **Interactive Cross-Filtering**: Clicking either a bar segment or a legend item toggles category filtering in the Expense Tracker table below (`onSelectCategory`). When active, an inline clear button (`.expenses-category-clear-btn`, `Clear filter ({category})`) appears in the visualizer header, and clicking the active item again resets the filter.
+- **Design System CustomSelect Integration**:
+  - Replaced native browser `<select>` in `.expenses-sort-box` with [`CustomSelect.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/CustomSelect.tsx) (`size="sm"`), equipped with leading `FaSortAmountDown` icon, animated chevron indicator, and dark-mode aware popover (`#17100c` dark / `#fffaf6` light background, `rgba(244, 117, 54, 0.18)` selection highlight).
+- **Centered Windowed Pagination System (`.expenses-pagination`)**:
+  - Replaced the previous "Show all" expand button with a centered pagination navigation system.
+  - Enforces a fixed page size of 8 items (`PAGE_SIZE = 8`) to maintain card height stability.
+  - Implemented dynamic page-number windowing with ellipses (`getPaginationPages`) when total pages exceed 7 (e.g. 43 pages for 344 entries):
+    - Close to start ($N \le 4$): `[1, 2, 3, 4, 5, "...", totalPages]`
+    - Close to end ($N \ge \text{total} - 3$): `[1, "...", total-4, total-3, total-2, total-1, total]`
+    - Middle: `[1, "...", N-1, N, N+1, "...", total]`
+  - Renders left (`FaChevronLeft`) and right (`FaChevronRight`) navigation arrow buttons with disabled boundary states.
+  - Formatted into a responsive 3-column grid (`display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.5rem;`) with an invisible left balancing spacer (`.expenses-pagination-spacer`) keeping navigation buttons dead-center. Displays `Showing {start}–{end} of {total}` on wide screens and compact `{start}–{end} of {total}` on medium screens without overlapping navigation controls.
+  - Automatically resets `currentPage` to 1 and `pageDirection` to 0 whenever `searchQuery`, `selectedCategory`, or `sortBy` transitions.
+- **Directional Page-Shift Animation & Snug Whitespace Elimination (`.expenses-list-items-container` & `.expenses-pagination`)**:
+  - Encapsulated list items within `.expenses-list-items-container` (`overflow: hidden; width: 100%; position: relative;`) with `AnimatePresence mode="wait"` to permanently eradicate the jarring vertical push-up glitch caused by unkeyed item stacking during pagination.
+  - Eliminated excessive whitespace chasm beneath the last transaction item by removing the artificial `min-height: 674px` constraint and tightening `.expenses-pagination` (`margin-top: 0.35rem; padding-top: 0.55rem; min-height: 34px;`), elevating the pagination bar cleanly and snugly below the items (~19.2px total gap).
+  - Isolated pagination outside the items grid into a dedicated card footer, preventing vertical layout jumping.
+  - Re-anchored Framer Motion `<AnimatePresence mode="wait" initial={false} custom={pageDirection}>` to the page container with directional physics (`PAGE_VARIANTS`):
+    - Forward page shift ($D = 1$): previous page exits left (`x: -18, opacity: 0`), incoming page slides in from right (`x: 18 -> 0, opacity: 0 -> 1`) in 160ms.
+    - Backward page shift ($D = -1$): previous page exits right (`x: 18, opacity: 0`), incoming page slides in from left (`x: -18 -> 0, opacity: 0 -> 1`) in 160ms.
+    - Filter/search reset ($D = 0$): clean in-place fade up (`y: 8 -> 0, opacity: 0 -> 1`).
+- **1:1 Skeletal Loading Parity (`ExpensesSkeleton.tsx`)**:
+  - Updated skeleton DOM with top visualizer placeholder (header, 24px segmented shimmer bar track, and 6-item legend shimmer row), along with the left 3 stacked KPI card skeletons and right tracker table skeleton with Add Spending trigger button placeholder, search/sort toolbar (using `skeleton-input` with exact 175px/38px bounds), `.expenses-list-items-container` wrapper with 8 list item skeletons, and 3-column pagination skeleton (matching Prev/Next buttons, page number blocks, spacer, and range text).
+  - Guarantees 0px Cumulative Layout Shift (CLS = 0) during route transitions and hydration.
+
 ---
 
 ## 4. Hardcoded System Constraints & Edge Cases

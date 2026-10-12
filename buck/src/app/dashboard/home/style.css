@@ -1181,8 +1181,8 @@ html[data-buck-theme="dark"] .graph-bars-empty-overlay {
 /* Stretched search box - eliminates dead space */
 .summary-table-search-box {
   position: relative;
-  flex: 1 1 200px;
-  min-width: 180px;
+  flex: 1 1 220px;
+  min-width: 220px;
   display: flex;
   align-items: center;
 }
@@ -1235,41 +1235,62 @@ html[data-buck-theme="dark"] .summary-table-search-input {
   color: var(--buck-ink);
 }
 
-/* Active filter pills placed directly beside the search bar */
-.summary-table-toolbar .summary-filter-pill-group {
+/* Active pie/bar filters sit between the search box and the dropdowns.
+   The search box (flex: 1 1 220px) gives up width; the pills never wrap internally. */
+.summary-table-toolbar .summary-table-active-filters {
   display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.45rem;
   flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 0.45rem;
+  white-space: nowrap;
 }
 
+/* Filter + sort dropdowns sit side by side on one row next to the search box.
+   CustomSelect's container is width: 100% (CSS module), so the sizes here use
+   a parent-qualified selector to win on specificity. */
 .summary-table-controls-group {
   display: flex;
   align-items: center;
   gap: 0.55rem;
   flex: 0 0 auto;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
-/* CustomSelect Dropdown integration adhering to Buck design system */
-.summary-table-custom-select {
+.summary-table-controls-group .summary-table-custom-select {
   flex: 0 0 auto;
-  width: auto;
+  min-width: 0;
 }
 
-.summary-table-custom-select--filter {
-  min-width: 180px;
+.summary-table-controls-group .summary-table-custom-select--filter {
+  width: 200px;
 }
 
-.summary-table-custom-select--sort {
-  min-width: 160px;
+.summary-table-controls-group .summary-table-custom-select--sort {
+  width: 180px;
 }
 
+/* Narrow cards: search takes the full first row, the two dropdowns share the second */
 @media (max-width: 720px) {
-  .summary-table-custom-select {
-    flex: 1 1 140px;
-    min-width: 140px;
+  /* Search on row 1, active pills on row 2 (when present), dropdowns on the last row */
+  .summary-table-search-box {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .summary-table-toolbar .summary-table-active-filters {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+
+  .summary-table-controls-group {
+    flex: 1 1 100%;
+  }
+
+  .summary-table-controls-group .summary-table-custom-select--filter,
+  .summary-table-controls-group .summary-table-custom-select--sort {
+    flex: 1 1 0;
+    width: auto;
   }
 }
 

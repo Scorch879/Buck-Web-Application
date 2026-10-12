@@ -31,9 +31,7 @@ export default function ExpenseKPICards({
   // 1. Compute Wallet Utilization Metrics
   const {
     spentFromWallet,
-    totalWalletCapacity,
     percentRemaining,
-    percentSpent,
     walletHealthStatus,
   } = useMemo(() => {
     // Deduce spending tied to active wallet or total if only 1 wallet exists
@@ -103,7 +101,7 @@ export default function ExpenseKPICards({
   }, [activeWallet, expenses, walletBudget]);
 
   // 2. Compute 7-Day Spending Micro-Histogram & Monthly Velocity
-  const { last7Days, maxDailySpend, weekTotal, monthTotal } = useMemo(() => {
+  const { weekTotal, monthTotal } = useMemo(() => {
     const today = new Date();
     today.setHours(23, 59, 59, 999);
 
@@ -158,7 +156,7 @@ export default function ExpenseKPICards({
   }, [expenses]);
 
   // 3. Compute Min / Max & Outlier Metrics for Average Card
-  const { minExpense, maxExpense, maxExpenseItem, positionRatio } = useMemo(() => {
+  const { minExpense, maxExpense, maxExpenseItem } = useMemo(() => {
     if (!expenses.length) {
       return {
         minExpense: 0,
