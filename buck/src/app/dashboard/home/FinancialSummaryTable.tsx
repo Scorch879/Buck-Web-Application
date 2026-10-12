@@ -326,6 +326,7 @@ export default function FinancialSummaryTable({
         {/* Toolbar Dropdowns: Filter & Sort via CustomSelect */}
         <div className="summary-table-controls-group">
           <CustomSelect
+            fit
             value={filterBy}
             onChange={(val) => setFilterBy(val as SummaryFilterOption)}
             options={filterOptions}
@@ -335,6 +336,7 @@ export default function FinancialSummaryTable({
           />
 
           <CustomSelect
+            fit
             value={sortBy}
             onChange={(val) => setSortBy(val as SummarySortOption)}
             options={sortOptions}

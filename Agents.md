@@ -39,6 +39,9 @@ Maintains the single source of truth across all Markdown documentation ([`Agents
 #### Purpose & Responsibilities
 Maintains and enhances user-facing components, design tokens, responsive layouts, client cache synchronization, and Framer Motion visual interactions.
 
+#### UI Standards
+- **Dropdown Standard (ADR-040)**: Every dropdown uses `@/component/CustomSelect` (no native `<select>`). Option items are regular weight (`400`); the selected option is `500` and marked by colour and background, never bold; the trigger is `600`. Toolbar filters and sorts pass `fit` so the trigger sizes to its longest option and never truncates labels with "…". Do not give them fixed widths.
+
 #### Core Subsystems Owned
 - **Scroll & Visual Trackers**: [`usePointerGradient.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/hooks/usePointerGradient.ts), modal SVG glow containers, header scroll indicators.
 - **Client Cache Layer**: [`FinancialContext.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/context/FinancialContext.tsx) and [`FinancialProvider.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/context/FinancialProvider.tsx).

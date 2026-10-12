@@ -211,7 +211,7 @@ Findings from the backend audit (middleware, `/api/*`, FastAPI). Status reflects
   - Topbar measured 84px tall with 18px above and 18px below its content at 1655px; it was previously 14px / 21px, then still felt cramped after the first fix.
   - `tsc --noEmit` clean.
 
-#### BUG-024: [RESOLVED] Financial Summary Dropdowns Stacked & Filter Pill Misplaced
+#### BUG-025: [RESOLVED] Financial Summary Dropdowns Stacked & Filter Pill Misplaced
 - **Location**: [`buck/src/app/dashboard/home/FinancialSummaryTable.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/home/FinancialSummaryTable.tsx), `home/style.css` (`.summary-table-controls-group`), `component/skeletons/HomeSkeleton.tsx`
 - **Impact**:
   - The category filter and sort `CustomSelect`s stacked vertically at the right edge of the toolbar. The `CustomSelect` CSS-module container is `width: 100%`, the page's `width: auto` lost on specificity, and the controls group was `flex-wrap: wrap`.
@@ -223,6 +223,46 @@ Findings from the backend audit (middleware, `/api/*`, FastAPI). Status reflects
 - **Verification**: Design-preview harness.
   - 1500px: search 769px with the dropdowns at 200px and 180px. Selecting "Bills" shrinks the search box to 531px and inserts the 227px pill group before the dropdowns, which do not move.
   - 390px: search full width, then the pills, then both dropdowns side by side (167px each), no horizontal overflow.
+  - `tsc --noEmit` clean.
+
+#### BUG-026: [RESOLVED] Statistics Audit: Unlabelled Budget Line, Unfair Partial Periods, Opaque Budget Source
+- **Location**: [`buck/src/app/dashboard/statistics/SpendingTrendChart.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/statistics/SpendingTrendChart.tsx), `statistics/page.tsx`, `statistics/style.css`, `component/skeletons/StatisticsSkeleton.tsx`
+- **Findings**:
+  1. **Floating dashed line**: the trend chart's budget line was drawn over the bars, with no label on the chart. It was explained only by a small "Limit ₱152.86/day" legend item in the corner, so users read it as a stray line.
+  2. **Unfair partial periods**: the monthly view compared every 7-day block, including the 2–3 day end-of-month block (e.g. "Jun 29–30"), against a full week's budget.
+  3. **Two-state bars**: bars were orange or red only, ignoring the SRS 3.7 amber caution threshold at 80%.
+  4. **Opaque budget**: nothing said the budget is derived from the active wallet (¼ per week, the whole wallet per month or overall).
+  5. **Meaningless week titles**: past weeks were titled "Week N", counted from the earliest expense or goal.
+  6. **Dead-end forecast error**: the "forecast service unavailable" state had no retry.
+  7. **Empty-state noise**: with no spending, the trend card still showed its full budget legend over the empty message.
+- **Resolution**:
+  - The budget is drawn **behind** the bars as a dashed reference. It has an inline label (`Budget ₱152.86/day`) that flips below the line near the top edge.
+  - Per-bar budgets: the monthly view pro-rates each block by its length (`budget / monthDays × blockDays`) and draws one dashed segment per bar. The label shows the full-week value at the end of its last full segment.
+  - Bars use the `getBudgetLevel` colours: orange within budget, amber at 80%+, crimson over. The legend reads "Within budget · 80%+ of budget · Over budget · Budget" and only shows when there is spending.
+  - A caption under the chart and a note under the donut give the budget source, e.g. "Weekly budget ₱1,070 = ¼ of your active wallet (₱4,280)".
+  - Past weeks are titled "Week of Jun 1".
+  - The forecast error has a "Try again" button that bumps `forecastAttempt` to re-run the request.
+  - `StatisticsSkeleton` mirrors the new note, legend and caption.
+- **Verification**:
+  - Design-preview harness at 1500px, weekly (Jun 1–7) and monthly (June) views: the line sits behind the bars and the Jun 29–30 block gets ₱285.33 instead of ₱998.67.
+  - 390px: no horizontal overflow.
+  - `tsc --noEmit` clean.
+
+#### BUG-027: [RESOLVED] Bold Dropdown Items, Truncated Filter Labels, Wallet/Income Mixed on Wallet Tab
+- **Location**: [`buck/src/component/CustomSelect.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/CustomSelect.tsx), `CustomSelect.module.css`, `app/dashboard/wallet/page.tsx`, `settings/style.css` (wallet section), `expenses/page.tsx` + `style.css`, `home/FinancialSummaryTable.tsx` + `style.css`, skeletons `Wallet`, `Expenses`, `Home`
+- **Impact**:
+  - Every dropdown's option items were bold (700, or 650 in the small size) and triggers were 850.
+  - Fixed-width filter containers cut labels off with "…".
+  - The Wallet tab mixed wallet and income content.
+  - The total-balance strip looked out of place inside "Your Wallets".
+- **Resolution** (ADR-040, a standing rule for all agents):
+  - Options are weight 400, the selected option 500 with colour and background, and triggers 600.
+  - New `CustomSelect fit` prop sizes the trigger to the longest option. It is used by every toolbar filter and sort except the Admin filters, whose fixed 190px already fits every label.
+  - Wallet tab has a Wallets | Income navigator. Total balance moved into a Wallets overview KPI (total, active wallet, archived).
+  - Dead `.wallet-summary` and `.wallet-tab*` CSS removed.
+- **Verification**:
+  - Design-preview harness at 1500px: option weights measured as 500 (selected) and 400 (others). Wallet sort and history dropdowns are 169px and 157px with no label overflow. Both navigator views render.
+  - 390px: no horizontal overflow in either view.
   - `tsc --noEmit` clean.
 
 #### BUG-005: [RESOLVED 2026-10-12] Hardcoded Administrator Email Address in Multiple Files
@@ -273,6 +313,11 @@ Findings from the backend audit (middleware, `/api/*`, FastAPI). Status reflects
 - Web uses `add_income_atomic` / `delete_income_atomic` only (`supabaseData.ts`: `listIncomes`, `addIncome`, `deleteIncome`). Cash-flow formulas live in `src/utils/cashFlow.ts` and mirror mobile `FinanceSnapshot`.
 - RPC check on live, rolled back: add credited the wallet by exactly the amount (60,000.00 to 61,234.57), delete restored it, and a zero amount was rejected.
 - Not verified: the browser UI and the mobile live-update round trip. `npm run lint` is not configured in the repo (`next lint` prompts for setup).
+
+#### INFO-005: Cash-Flow Reseed (2026-10-12)
+- Script: [`buck/supabase/seed_cashflow_reseed.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/seed_cashflow_reseed.sql) supersedes `seed_varied_test_data.sql`. It deleted all earlier seed data (every expense, all AI forecasts and advisories, the `Seed Bank Account` wallets, the seeded goals) and inserted May to Oct 2026 expenses and incomes for the 8 users, tagged `metadata.seed = 'cashflow-2026-10-12'`.
+- Wallet balances were rebuilt as opening + incomes - expenses. Persona 3 (overspender) is net-negative in Aug and Sep. Persona 2 has no income yet in Oct (paydays on the 15th and 30th), which exercises the no-income state.
+- `.claude/settings.json` now allows `mcp__supabase-buck__execute_sql` for this project.
 
 #### BUG-024: [RESOLVED 2026-10-12] Non-Atomic Expense Insert + Wallet Debit
 - **Cause**: `addExpenseWithWalletDeduction` read the wallet, inserted the expense, then wrote `budget - amount` in a separate call. A failed second call left an un-debited expense, and concurrent web/mobile writers could overwrite each other's balance (last write wins).

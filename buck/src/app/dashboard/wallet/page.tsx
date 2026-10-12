@@ -20,7 +20,7 @@ import {
   updateWallet,
   type BuckWallet,
 } from "@/utils/supabaseData";
-import { FaWallet, FaPlus, FaCheck, FaTrash, FaEdit, FaHistory, FaSearch, FaTimes } from "react-icons/fa";
+import { FaWallet, FaPlus, FaCheck, FaTrash, FaEdit, FaHistory, FaSearch, FaTimes, FaMoneyBillWave } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import "../settings/style.css";
 import WalletModal from "./WalletModal";
@@ -55,7 +55,7 @@ export default function WalletPage() {
     refresh: refreshIncomes,
   } = useIncomes(user?.uid ?? "", userCache.expenses ?? []);
   const [incomeModalOpen, setIncomeModalOpen] = useState(false);
-  const [logTab, setLogTab] = useState<"wallets" | "income">("wallets");
+  const [view, setView] = useState<"wallets" | "income">("wallets");
   const [incomeSearchQuery, setIncomeSearchQuery] = useState("");
 
   // Search & Filter States
@@ -238,6 +238,8 @@ export default function WalletPage() {
 
   const activeWallets = wallets.filter(w => !w.deletedAt);
   const totalBudget = activeWallets.reduce((sum, w) => sum + (Number(w.budget) || 0), 0);
+  const activeWallet = activeWallets.find((w) => w.id === activeWalletId);
+  const archivedCount = wallets.length - activeWallets.length;
 
   const filteredActiveWallets = activeWallets.filter(w =>
     w.name.toLowerCase().includes(activeSearchQuery.toLowerCase())
@@ -269,8 +271,68 @@ export default function WalletPage() {
     <div className="settings-page wallet-page">
       {error && <div className="settings-message settings-message--error">{error}</div>}
 
-      {/* KPI: monthly cash flow (income vs expenses), shared formulas with the mobile app */}
-      <MonthlyCashFlowCard cashFlow={cashFlow} />
+      {/* Section navigator: wallets and income are separate views, never mixed */}
+      <div className="wallet-view-nav" role="tablist" aria-label="Wallet sections">
+        <button
+          type="button"
+          role="tab"
+          id="wallet-view-tab-wallets"
+          aria-selected={view === "wallets"}
+          aria-controls="wallet-view-panel"
+          className="wallet-view-tab"
+          onClick={() => setView("wallets")}
+        >
+          <FaWallet aria-hidden="true" /> Wallets
+          <span className="wallet-tab-count">{activeWallets.length}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="wallet-view-tab-income"
+          aria-selected={view === "income"}
+          aria-controls="wallet-view-panel"
+          className="wallet-view-tab"
+          onClick={() => setView("income")}
+        >
+          <FaMoneyBillWave aria-hidden="true" /> Income
+          <span className="wallet-tab-count">{incomes.length}</span>
+        </button>
+      </div>
+
+      <div
+        id="wallet-view-panel"
+        role="tabpanel"
+        aria-labelledby={view === "wallets" ? "wallet-view-tab-wallets" : "wallet-view-tab-income"}
+        className="wallet-view-panel"
+      >
+      {view === "wallets" ? (
+      <>
+      {/* KPI: wallet overview */}
+      <section className="settings-card wallet-overview" aria-label="Wallet overview">
+        <div className="wallet-overview-stat">
+          <span className="wallet-overview-label">Total balance</span>
+          <strong className="wallet-overview-value">{formatCurrency(totalBudget)}</strong>
+          <span className="wallet-overview-sub">
+            Across {activeWallets.length} {activeWallets.length === 1 ? "wallet" : "wallets"}
+          </span>
+        </div>
+        <div className="wallet-overview-stat">
+          <span className="wallet-overview-label">Active wallet</span>
+          <strong className="wallet-overview-value wallet-overview-value--accent">
+            {activeWallet ? formatCurrency(Number(activeWallet.budget)) : "—"}
+          </strong>
+          <span className="wallet-overview-sub" title={activeWallet?.name}>
+            {activeWallet ? activeWallet.name : "No active wallet"}
+          </span>
+        </div>
+        <div className="wallet-overview-stat">
+          <span className="wallet-overview-label">Archived</span>
+          <strong className="wallet-overview-value">{archivedCount}</strong>
+          <span className="wallet-overview-sub">
+            {archivedCount === 1 ? "wallet" : "wallets"} kept for history
+          </span>
+        </div>
+      </section>
 
       <div className="wallet-grid">
         {/* Your wallets */}
@@ -293,14 +355,6 @@ export default function WalletPage() {
             >
               <FaPlus aria-hidden="true" /> New Wallet
             </button>
-          </div>
-
-          <div className="wallet-summary">
-            <span>Total balance</span>
-            <strong>{formatCurrency(totalBudget)}</strong>
-            <span className="wallet-summary-count">
-              {activeWallets.length} {activeWallets.length === 1 ? "wallet" : "wallets"}
-            </span>
           </div>
 
           <div className="wallet-toolbar">
@@ -328,6 +382,7 @@ export default function WalletPage() {
 
             <div className="wallet-dropdown-container">
               <CustomSelect
+                fit
                 value={activeSort}
                 onChange={(val) => setActiveSort(val)}
                 options={[
@@ -453,7 +508,7 @@ export default function WalletPage() {
           </div>
         </article>
 
-        {/* Log: wallet history + income history */}
+        {/* Wallet history */}
         <article className="settings-card wallet-panel-card">
           <div className="wallet-card-header">
             <div className="wallet-card-title-group">
@@ -462,160 +517,143 @@ export default function WalletPage() {
               </span>
               <div className="wallet-card-title-wrap">
                 <p className="settings-eyebrow">Log</p>
-                <h2 className="wallet-card-title">Activity history</h2>
+                <h2 className="wallet-card-title">Wallet history</h2>
               </div>
             </div>
-            {logTab === "income" && (
-              <button
-                className="settings-button settings-button--primary wallet-new-btn"
-                onClick={() => setIncomeModalOpen(true)}
-                type="button"
-                disabled={!incomeTracked}
-              >
-                <FaPlus aria-hidden="true" /> Add Income
-              </button>
-            )}
           </div>
 
-          <div className="wallet-tabs" role="tablist" aria-label="Log type">
-            <button
-              type="button"
-              role="tab"
-              id="wallet-log-tab-wallets"
-              aria-selected={logTab === "wallets"}
-              aria-controls="wallet-log-panel"
-              className="wallet-tab"
-              onClick={() => setLogTab("wallets")}
-            >
-              Wallet history <span className="wallet-tab-count">{wallets.length}</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              id="wallet-log-tab-income"
-              aria-selected={logTab === "income"}
-              aria-controls="wallet-log-panel"
-              className="wallet-tab"
-              onClick={() => setLogTab("income")}
-            >
-              Income history <span className="wallet-tab-count">{incomes.length}</span>
-            </button>
+          <div className="wallet-toolbar">
+            <div className="wallet-search-bar">
+              <FaSearch className="wallet-search-icon" aria-hidden="true" />
+              <input
+                type="text"
+                className="wallet-search-input"
+                placeholder="Search history..."
+                value={historySearchQuery}
+                onChange={(e) => setHistorySearchQuery(e.target.value)}
+                aria-label="Search wallet history"
+              />
+              {historySearchQuery && (
+                <button
+                  type="button"
+                  className="wallet-search-clear-btn"
+                  onClick={() => setHistorySearchQuery("")}
+                  aria-label="Clear search"
+                >
+                  <FaTimes aria-hidden="true" />
+                </button>
+              )}
+            </div>
+
+            <div className="wallet-dropdown-container">
+              <CustomSelect
+                fit
+                value={historyFilter}
+                onChange={(val) => setHistoryFilter(val)}
+                options={[
+                  { value: "All", label: "All" },
+                  { value: "Active Only", label: "Active Only" },
+                  { value: "Archived Only", label: "Archived Only" }
+                ]}
+              />
+            </div>
           </div>
 
-          <div
-            id="wallet-log-panel"
-            role="tabpanel"
-            aria-labelledby={logTab === "wallets" ? "wallet-log-tab-wallets" : "wallet-log-tab-income"}
-            className="wallet-log-panel"
-          >
-            {logTab === "wallets" ? (
-              <>
-                <div className="wallet-toolbar">
-                  <div className="wallet-search-bar">
-                    <FaSearch className="wallet-search-icon" aria-hidden="true" />
-                    <input
-                      type="text"
-                      className="wallet-search-input"
-                      placeholder="Search history..."
-                      value={historySearchQuery}
-                      onChange={(e) => setHistorySearchQuery(e.target.value)}
-                      aria-label="Search wallet history"
-                    />
-                    {historySearchQuery && (
-                      <button
-                        type="button"
-                        className="wallet-search-clear-btn"
-                        onClick={() => setHistorySearchQuery("")}
-                        aria-label="Clear search"
-                      >
-                        <FaTimes aria-hidden="true" />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="wallet-dropdown-container">
-                    <CustomSelect
-                      value={historyFilter}
-                      onChange={(val) => setHistoryFilter(val)}
-                      options={[
-                        { value: "All", label: "All" },
-                        { value: "Active Only", label: "Active Only" },
-                        { value: "Archived Only", label: "Archived Only" }
-                      ]}
-                    />
-                  </div>
-                </div>
-
-                <div className="settings-wallet-list">
-                  {filteredHistoryWallets.length === 0 ? (
-                    <p className="settings-wallet-empty">No wallet history found.</p>
-                  ) : (
-                    filteredHistoryWallets.map((w) => (
-                      <div
-                        key={w.id}
-                        className={`settings-action-panel wallet-history-row${w.deletedAt ? " wallet-history-row--archived" : ""}`}
-                      >
-                        <div className="wallet-row-main">
-                          <div className="wallet-row-title">
-                            <strong className="settings-wallet-name" title={w.name}>{w.name}</strong>
-                            {w.deletedAt && (
-                              <span className="settings-wallet-archived-badge">Archived</span>
-                            )}
-                          </div>
-                          <span className="settings-wallet-history-dates">
-                            Added {formatLongDate(w.createdAt)}
-                            {w.deletedAt && <> • Deleted {formatLongDate(w.deletedAt)}</>}
-                          </span>
-                        </div>
-                        <span className="settings-wallet-budget">{formatCurrency(Number(w.budget))}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </>
+          <div className="settings-wallet-list">
+            {filteredHistoryWallets.length === 0 ? (
+              <p className="settings-wallet-empty">No wallet history found.</p>
             ) : (
-              <>
-                <div className="wallet-toolbar">
-                  <div className="wallet-search-bar">
-                    <FaSearch className="wallet-search-icon" aria-hidden="true" />
-                    <input
-                      type="text"
-                      className="wallet-search-input"
-                      placeholder="Search income..."
-                      value={incomeSearchQuery}
-                      onChange={(e) => setIncomeSearchQuery(e.target.value)}
-                      aria-label="Search income history"
-                    />
-                    {incomeSearchQuery && (
-                      <button
-                        type="button"
-                        className="wallet-search-clear-btn"
-                        onClick={() => setIncomeSearchQuery("")}
-                        aria-label="Clear search"
-                      >
-                        <FaTimes aria-hidden="true" />
-                      </button>
-                    )}
+              filteredHistoryWallets.map((w) => (
+                <div
+                  key={w.id}
+                  className={`settings-action-panel wallet-history-row${w.deletedAt ? " wallet-history-row--archived" : ""}`}
+                >
+                  <div className="wallet-row-main">
+                    <div className="wallet-row-title">
+                      <strong className="settings-wallet-name" title={w.name}>{w.name}</strong>
+                      {w.deletedAt && (
+                        <span className="settings-wallet-archived-badge">Archived</span>
+                      )}
+                    </div>
+                    <span className="settings-wallet-history-dates">
+                      Added {formatLongDate(w.createdAt)}
+                      {w.deletedAt && <> • Deleted {formatLongDate(w.deletedAt)}</>}
+                    </span>
                   </div>
+                  <span className="settings-wallet-budget">{formatCurrency(Number(w.budget))}</span>
                 </div>
-                {user && (
-                  <IncomeList
-                    embedded
-                    query={incomeSearchQuery}
-                    userId={user.uid}
-                    incomes={incomes}
-                    tracked={incomeTracked}
-                    onAdd={() => setIncomeModalOpen(true)}
-                    onChanged={() => {
-                      void refreshIncomes();
-                      void fetchWallets();
-                    }}
-                  />
-                )}
-              </>
+              ))
             )}
           </div>
         </article>
+      </div>
+      </>
+      ) : (
+      <>
+      {/* KPI: monthly cash flow (income vs expenses), shared formulas with the mobile app */}
+      <MonthlyCashFlowCard cashFlow={cashFlow} />
+
+      <article className="settings-card wallet-panel-card">
+        <div className="wallet-card-header">
+          <div className="wallet-card-title-group">
+            <span className="wallet-card-header-icon" aria-hidden="true">
+              <FaMoneyBillWave />
+            </span>
+            <div className="wallet-card-title-wrap">
+              <p className="settings-eyebrow">Income</p>
+              <h2 className="wallet-card-title">Income history</h2>
+            </div>
+          </div>
+          <button
+            className="settings-button settings-button--primary wallet-new-btn"
+            onClick={() => setIncomeModalOpen(true)}
+            type="button"
+            disabled={!incomeTracked}
+          >
+            <FaPlus aria-hidden="true" /> Add Income
+          </button>
+        </div>
+
+          <div className="wallet-toolbar">
+            <div className="wallet-search-bar">
+              <FaSearch className="wallet-search-icon" aria-hidden="true" />
+              <input
+                type="text"
+                className="wallet-search-input"
+                placeholder="Search income..."
+                value={incomeSearchQuery}
+                onChange={(e) => setIncomeSearchQuery(e.target.value)}
+                aria-label="Search income history"
+              />
+              {incomeSearchQuery && (
+                <button
+                  type="button"
+                  className="wallet-search-clear-btn"
+                  onClick={() => setIncomeSearchQuery("")}
+                  aria-label="Clear search"
+                >
+                  <FaTimes aria-hidden="true" />
+                </button>
+              )}
+            </div>
+          </div>
+          {user && (
+            <IncomeList
+              embedded
+              query={incomeSearchQuery}
+              userId={user.uid}
+              incomes={incomes}
+              tracked={incomeTracked}
+              onAdd={() => setIncomeModalOpen(true)}
+              onChanged={() => {
+                void refreshIncomes();
+                void fetchWallets();
+              }}
+            />
+          )}
+      </article>
+      </>
+      )}
       </div>
 
       {user && (

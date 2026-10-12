@@ -443,6 +443,10 @@ html[data-buck-theme="dark"] .stats-level--caution {
   background: var(--buck-coral);
 }
 
+.stats-swatch--caution {
+  background: #f59e0b;
+}
+
 .stats-swatch--limit {
   width: 16px;
   height: 0;
@@ -452,6 +456,18 @@ html[data-buck-theme="dark"] .stats-level--caution {
 
 html[data-buck-theme="dark"] .stats-swatch--limit {
   border-top-color: var(--buck-gold);
+}
+
+.stats-chart-caption {
+  margin: -0.35rem 0 0;
+  color: var(--buck-muted);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.stats-note strong {
+  color: var(--buck-ink);
+  font-weight: 700;
 }
 
 .stats-trend-chart,

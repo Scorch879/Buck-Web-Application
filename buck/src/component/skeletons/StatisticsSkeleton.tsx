@@ -67,6 +67,7 @@ export default function StatisticsSkeleton() {
               </div>
             ))}
           </dl>
+          <p className="stats-note"><span className="skeleton-text">Weekly budget ₱0,000 = ¼ of your active wallet (₱0,000).</span></p>
         </section>
 
         <section className="stats-card stats-categories">
@@ -103,7 +104,7 @@ export default function StatisticsSkeleton() {
               <h3><span className="skeleton-text">Daily spending</span></h3>
             </div>
             <ul className="stats-legend">
-              <li><span className="skeleton-text">Spent · Over limit · Limit ₱000.00/day</span></li>
+              <li><span className="skeleton-text">Within budget · 80%+ of budget · Over budget · Budget</span></li>
             </ul>
           </div>
           <div className="stats-trend-chart" style={{ display: "flex", alignItems: "flex-end", gap: "0.75rem", padding: "0 0.5rem 1.5rem 2.5rem", boxSizing: "border-box" }}>
@@ -111,6 +112,7 @@ export default function StatisticsSkeleton() {
               <span key={i} className="skeleton-line" style={{ flex: 1, height: `${h}%`, borderRadius: 6 }} />
             ))}
           </div>
+          <p className="stats-chart-caption"><span className="skeleton-text">Dashed line: your budget per day, spread evenly from ¼ of your active wallet.</span></p>
         </section>
 
         <section className="stats-card stats-recent">

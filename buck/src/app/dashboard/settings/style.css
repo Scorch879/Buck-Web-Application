@@ -1543,8 +1543,8 @@ html[data-buck-theme="dark"] .wallet-search-input {
 }
 
 /* Dropdown Container */
+/* Sized by the CustomSelect inside (fit mode = longest option, never truncated) */
 .wallet-dropdown-container {
-  width: 165px;
   flex-shrink: 0;
 }
 
@@ -1801,28 +1801,8 @@ html[data-buck-theme="dark"] .settings-wallet-archived-badge {
   margin-top: 0;
 }
 
-.wallet-summary {
-  display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
-  padding: 0.7rem 0.9rem;
-  background: rgba(255, 197, 71, 0.08);
-  border: 1px solid var(--buck-line);
-  border-radius: 8px;
-  color: var(--buck-muted);
-  font-size: 0.82rem;
-  font-weight: 600;
-}
 
-.wallet-summary strong {
-  color: var(--buck-ink);
-  font-size: 1.15rem;
-  font-weight: 700;
-}
 
-.wallet-summary-count {
-  margin-left: auto;
-}
 
 .wallet-row,
 .wallet-history-row {
@@ -1962,39 +1942,9 @@ html[data-buck-theme="dark"] .wallet-row--active {
 }
 
 /* Log tabs */
-.wallet-tabs {
-  display: flex;
-  gap: 0.25rem;
-  border-bottom: 1px solid var(--buck-line);
-}
 
-.wallet-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  margin-bottom: -1px;
-  padding: 0.55rem 0.85rem;
-  color: var(--buck-muted);
-  background: none;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  font: inherit;
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    color 160ms ease,
-    border-color 160ms ease;
-}
 
-.wallet-tab:hover {
-  color: var(--buck-ink);
-}
 
-.wallet-tab[aria-selected="true"] {
-  color: var(--buck-orange);
-  border-bottom-color: var(--buck-orange);
-}
 
 .wallet-tab-count {
   min-width: 1.4rem;
@@ -2010,16 +1960,7 @@ html[data-buck-theme="dark"] .wallet-tab-count {
   background: rgba(255, 255, 255, 0.08);
 }
 
-.wallet-tab[aria-selected="true"] .wallet-tab-count {
-  color: var(--buck-orange);
-  background: rgba(244, 117, 54, 0.12);
-}
 
-.wallet-log-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
 
 @media (max-width: 560px) {
   .wallet-row {
@@ -2033,9 +1974,115 @@ html[data-buck-theme="dark"] .wallet-tab-count {
     justify-content: space-between;
   }
 
-  .wallet-tab {
+}
+
+/* Section navigator: Wallets | Income (separate views, never mixed) */
+.wallet-view-nav {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 0.25rem;
+  padding: 4px;
+  background: var(--buck-surface);
+  border: 1px solid var(--buck-line);
+  border-radius: 10px;
+  box-shadow: var(--buck-shadow);
+}
+
+.wallet-view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 38px;
+  padding: 0 1rem;
+  color: var(--buck-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.wallet-view-tab:hover {
+  color: var(--buck-ink);
+}
+
+.wallet-view-tab[aria-selected="true"] {
+  color: #ffffff;
+  background: var(--buck-orange);
+}
+
+html[data-buck-theme="dark"] .wallet-view-tab[aria-selected="true"] {
+  color: #241409;
+}
+
+.wallet-view-tab[aria-selected="true"] .wallet-tab-count {
+  color: inherit;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.wallet-view-panel {
+  display: grid;
+  gap: clamp(0.75rem, 1.5vw, 1rem);
+}
+
+/* Wallets view KPI */
+.wallet-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.wallet-overview-stat {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+}
+
+.wallet-overview-label {
+  color: var(--buck-muted);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.wallet-overview-value {
+  color: var(--buck-ink);
+  font-size: clamp(1.15rem, 2.4vw, 1.6rem);
+  font-weight: 750;
+}
+
+.wallet-overview-value--accent {
+  color: var(--buck-orange);
+}
+
+.wallet-overview-sub {
+  overflow: hidden;
+  color: var(--buck-muted);
+  font-size: 0.8rem;
+  font-weight: 550;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 560px) {
+  .wallet-view-nav {
+    display: flex;
+    align-self: stretch;
+  }
+
+  .wallet-view-tab {
     flex: 1;
     justify-content: center;
-    padding-inline: 0.4rem;
+  }
+
+  .wallet-overview {
+    grid-template-columns: 1fr;
   }
 }
