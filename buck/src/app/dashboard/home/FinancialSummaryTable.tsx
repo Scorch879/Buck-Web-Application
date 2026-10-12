@@ -183,7 +183,7 @@ export default function FinancialSummaryTable({
 
   return (
     <div className="summary-table-container">
-      {/* 1. Top Toolbar: Stretched Search bar + Active Filter Pills + CustomSelect Dropdowns */}
+      {/* 1. Top Toolbar: search box | active chart-filter pills | filter + sort dropdowns */}
       <div className="summary-table-toolbar">
         {/* Search input with clear button (stretches to fill available space) */}
         <div className="summary-table-search-box">
@@ -209,15 +209,17 @@ export default function FinancialSummaryTable({
           ) : null}
         </div>
 
-        {/* Active Filter Pills (Day & Category) directly beside the Search Bar with UX/UI Animations */}
-        <AnimatePresence mode="popLayout">
+        {/* Active pie/bar filters: between the search box and the dropdowns; the search box shrinks to make room */}
+        <AnimatePresence initial={false}>
           {(selectedDay || selectedCategory) && (
             <motion.div
-              className="summary-filter-pill-group"
-              initial={{ opacity: 0, scale: 0.88, x: 8 }}
+              className="summary-filter-pill-group summary-table-active-filters"
+              role="status"
+              aria-label="Active chart filters"
+              initial={{ opacity: 0, scale: 0.9, x: 8 }}
               animate={{ opacity: 1, scale: 1, x: 0 }}
-              exit={{ opacity: 0, scale: 0.88, x: 8 }}
-              transition={{ type: "spring", stiffness: 480, damping: 28 }}
+              exit={{ opacity: 0, scale: 0.9, x: 8 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
             >
               {selectedDay && (
                 <motion.div

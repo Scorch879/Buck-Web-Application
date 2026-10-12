@@ -211,6 +211,20 @@ Findings from the backend audit (middleware, `/api/*`, FastAPI). Status reflects
   - Topbar measured 84px tall with 18px above and 18px below its content at 1655px; it was previously 14px / 21px, then still felt cramped after the first fix.
   - `tsc --noEmit` clean.
 
+#### BUG-024: [RESOLVED] Financial Summary Dropdowns Stacked & Filter Pill Misplaced
+- **Location**: [`buck/src/app/dashboard/home/FinancialSummaryTable.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/home/FinancialSummaryTable.tsx), `home/style.css` (`.summary-table-controls-group`), `component/skeletons/HomeSkeleton.tsx`
+- **Impact**:
+  - The category filter and sort `CustomSelect`s stacked vertically at the right edge of the toolbar. The `CustomSelect` CSS-module container is `width: 100%`, the page's `width: auto` lost on specificity, and the controls group was `flex-wrap: wrap`.
+  - Selecting a category on the pie or bar inserted the "Category: X / ✕ Show All" pill group between the search box and the dropdowns, so the whole toolbar reflowed and shrank the search box.
+- **Resolution** (amends ADR-037):
+  - The controls group no longer wraps. The dropdowns are sized with a parent-qualified selector: filter 200px, sort 180px. At 720px and below the search box takes the first row and the two dropdowns share the second.
+  - The active pie/bar filter pills sit inline between the search box and the category dropdown, as the user asked (`.summary-table-active-filters`, `role="status"`). The search box (`flex: 1 1 220px`) shrinks to make room and the dropdowns stay where they are. A first attempt that put the pills on their own row under the toolbar was rejected.
+  - The `HomeSkeleton` dropdown placeholders use the same classes, so their widths match.
+- **Verification**: Design-preview harness.
+  - 1500px: search 769px with the dropdowns at 200px and 180px. Selecting "Bills" shrinks the search box to 531px and inserts the 227px pill group before the dropdowns, which do not move.
+  - 390px: search full width, then the pills, then both dropdowns side by side (167px each), no horizontal overflow.
+  - `tsc --noEmit` clean.
+
 #### BUG-005: [RESOLVED 2026-10-12] Hardcoded Administrator Email Address in Multiple Files
 - **Impact**: Inability to configure or rotate administrator credentials without modifying and redeploying core source code.
 - **Resolution**:
@@ -259,6 +273,13 @@ Findings from the backend audit (middleware, `/api/*`, FastAPI). Status reflects
 - Web uses `add_income_atomic` / `delete_income_atomic` only (`supabaseData.ts`: `listIncomes`, `addIncome`, `deleteIncome`). Cash-flow formulas live in `src/utils/cashFlow.ts` and mirror mobile `FinanceSnapshot`.
 - RPC check on live, rolled back: add credited the wallet by exactly the amount (60,000.00 to 61,234.57), delete restored it, and a zero amount was rejected.
 - Not verified: the browser UI and the mobile live-update round trip. `npm run lint` is not configured in the repo (`next lint` prompts for setup).
+
+#### BUG-024: [RESOLVED 2026-10-12] Non-Atomic Expense Insert + Wallet Debit
+- **Cause**: `addExpenseWithWalletDeduction` read the wallet, inserted the expense, then wrote `budget - amount` in a separate call. A failed second call left an un-debited expense, and concurrent web/mobile writers could overwrite each other's balance (last write wins).
+- **Resolution**: [`202610130001_add_expense_atomic.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610130001_add_expense_atomic.sql) (`security invoker`, `search_path = ''`, EXECUTE for `authenticated` only), applied to live project `glnuzqmnmzuxgujmxigx`. Verified: `prosecdef = false`, `anon` cannot execute, `authenticated` can. The data layer now calls the RPC.
+- **Related fixes in `AddExpenseModal.tsx`**: field reset only on open (category refreshes no longer wipe input), save vs list-refresh failures separated (no duplicate expense on retry), strict `numeric(14,2)` amount validation, UTC to local date, focus management.
+- **Live RPC check (rolled back)**: a debit of 10.005 reduced a wallet from 60000.00 to 59989.99 and stored amount 10.01 (rounded); an amount above the balance was rejected with "Expense exceeds your wallet balance."; a zero amount was rejected.
+- **Not verified**: the browser UI and the mobile round trip.
 
 ---
 
@@ -655,6 +676,90 @@ flowchart LR
         - [ ] Refresh `/dashboard/goals` on network throttling $\rightarrow$ verify `GoalsSkeleton.tsx` mirrors the 140px liquid gauge geometry (`.progress-liquid-container.skeleton-circle`) with 0px Cumulative Layout Shift.
       - [ ] **Build & Type Check**:
         - [ ] Verify `npx tsc --noEmit` completes with 0 errors.
+29. **Expenses Dashboard 2-Column Layout, Modal Overlay & Skeletal Parity Verification**:
+    - [ ] Navigate to `/dashboard/expenses`:
+      - [ ] **2-Column Layout Alignment**:
+        - [ ] Verify that KPI Cards (Wallet Balance, Total Tracked, Average Expense) are vertically stacked on the left column (`320px–360px`).
+        - [ ] Verify that the Expense Tracker Table occupies the entire right column.
+        - [ ] Verify that Category Spending Allocation sits at the very top of the expenses page spanning full-width as the primary top KPI card.
+      - [ ] **Add Spending Header Trigger Button**:
+        - [ ] Verify that "+ Add Spending" button lives cleanly in the top header of the Expense Tracker card beside the match count badge.
+        - [ ] Verify hover lift (`scale(1.02)`) and tap compression (`scale(0.97)`).
+      - [ ] **Add Expense Overlay Modal**:
+        - [ ] Click "+ Add Spending" $\rightarrow$ verify modal opens with backdrop blur and smooth spring entrance.
+        - [ ] Verify all form inputs: Amount, Quick-add chips (+50, +100, etc.), Category CustomSelect, CustomDatePicker, Description.
+        - [ ] Verify budget warning displays if entered amount exceeds available wallet balance.
+        - [ ] Press `Escape` or click backdrop $\rightarrow$ verify modal closes smoothly.
+        - [ ] Fill form and click "Add Expense" $\rightarrow$ verify expense is recorded, active wallet budget decrements, toast appears, and modal closes.
+      - [ ] **Design System CustomSelect Sort Dropdown**:
+        - [ ] Click Sort dropdown in the Expense Tracker toolbar $\rightarrow$ confirm it opens Buck's animated design system dropdown instead of the native browser/OS white menu.
+        - [ ] Verify dark mode: background is `#17100c` with subtle dark border and shadow, text is high-contrast, active item has orange tint (`rgba(244, 117, 54, 0.18)`).
+        - [ ] Verify light mode: background is `#fffaf6` with warm border.
+        - [ ] Select sort options ("Newest first", "Oldest first", "Highest amount", "Lowest amount") $\rightarrow$ confirm transaction records sort dynamically.
+        - [ ] Confirm prefix icon `FaSortAmountDown` and rotating `FaChevronDown` animate cleanly.
+      - [ ] **Centered Windowed Pagination Verification**:
+        - [ ] Verify entry counter text (`Showing 1–8 of 344 transactions`) sits on the right edge on the same line as the centered pagination buttons, saving vertical space.
+        - [ ] Verify responsive behavior: switches to compact format (`1–8 of 344`) on medium viewports, and cleanly stacks on extra-small mobile viewports (< 540px).
+        - [ ] Verify that when total pages exceed 7 (e.g. 43 pages), page numbers are dynamically windowed with ellipsis:
+          - On page 1: `[‹ Prev (disabled)] [1 (active)] [2] [3] [4] [5] […] [43] [Next ›]`
+          - On page 20: `[‹ Prev] [1] […] [19] [20 (active)] [21] […] [43] [Next ›]`
+          - On page 43: `[‹ Prev] [1] […] [39] [40] [41] [42] [43 (active)] [Next › (disabled)]`
+        - [ ] Click page numbers $\rightarrow$ verify list updates smoothly to show that page's transactions.
+        - [ ] Click "Prev" and "Next" arrow buttons $\rightarrow$ verify sequential navigation.
+        - [ ] Test filtering or searching $\rightarrow$ verify pagination immediately resets to page 1.
+      - [ ] **Responsive Single-Column Collapse**:
+        - [ ] Resize viewport below 980px $\rightarrow$ verify layout collapses smoothly into a single column.
+      - [ ] **1:1 Skeletal Loading Parity (Zero CLS)**:
+        - [ ] Reload `/dashboard/expenses` on network throttle $\rightarrow$ verify `ExpensesSkeleton.tsx` mirrors 2-column geometry and centered pagination skeleton with 0px Cumulative Layout Shift.
+      - [ ] **Build & Type Check**:
+        - [ ] Verify `npx tsc --noEmit` and `npm test` pass with 0 errors.
+
+30. **Expenses Dashboard Top Category Spending Allocation Visualizer, Thicker Clickable Bar & Chart Legend Verification**:
+    - [ ] Navigate to `/dashboard/expenses`:
+      - [ ] **Full-Width Top Primary KPI Placement**:
+        - [ ] Verify that the `Category Spending Allocation` card sits at the very top of the page, spanning 100% width across both columns (`grid-column: 1 / -1; width: 100%`) above the left KPI cards and right Expense Tracker table.
+        - [ ] Verify card styling seamlessly matches Buck surface, border, and shadow tokens.
+      - [ ] **Thicker Clickable Segmented Bar Track**:
+        - [ ] Verify the segmented bar track has a generous height of 24px (`height: 24px; border-radius: 8px; padding: 2px;`) providing an ergonomic click target.
+        - [ ] Hover over any bar segment $\rightarrow$ verify subtle brightness enhancement (`filter: brightness(1.15)`), scale lift (`transform: scaleY(1.08)`), and pointer cursor.
+        - [ ] Click a bar segment (e.g., Food) $\rightarrow$ verify:
+          - [ ] The selected segment gains an active focus ring (`box-shadow: 0 0 0 2px var(--buck-surface), 0 0 0 4px var(--buck-orange)`).
+          - [ ] Other unselected segments dim to 32% opacity with grayscale filter.
+          - [ ] An inline clear button `Clear filter (Food)` appears in the header.
+          - [ ] The Expense Tracker table below immediately filters to only show Food transactions.
+          - [ ] Click the selected segment again $\rightarrow$ filter clears and returns to showing all categories.
+      - [ ] **Streamlined Chart Legend (Replaces Heavy Pillbox Filters)**:
+        - [ ] Verify that bulky pillbox buttons and counter badges are completely removed.
+        - [ ] Verify a clean chart legend renders below the bar with color indicator dot, category name, and percentage share (e.g. `[●] Food 42.5%`).
+        - [ ] Click any legend item $\rightarrow$ verify it toggles category filtering in the table below, highlights with orange text and an elevated dot, while unselected legend items dim to 42% opacity.
+        - [ ] Click `Clear filter ({category})` in the header or click the active legend item again $\rightarrow$ verify filter resets.
+      - [ ] **1:1 Skeletal Loading Parity (Zero CLS)**:
+        - [ ] Reload `/dashboard/expenses` on network throttle $\rightarrow$ verify `ExpensesSkeleton.tsx` renders top visualizer skeleton with 24px shimmer bar track and 6-item legend row placeholders matching loaded layout with 0px Cumulative Layout Shift.
+      - [ ] **Build & Type Check**:
+        - [ ] Verify `npx tsc --noEmit` and `npm run build` pass with 0 errors.
+
+31. **Expenses Pagination Directional Slide Animation, Snug Whitespace Elimination & Layout Stability Verification**:
+    - [x] Navigate to `/dashboard/expenses`:
+      - [x] **Zero Element Stacking (Count Invariant)**:
+        - [x] Inspect `.expenses-list-item` count when shifting pages: confirmed item count remains strictly invariant at 8 items throughout the entire transition ($t = 0\text{ms}$ through $450\text{ms}$) with zero temporary 16-item doubling.
+      - [x] **Snug Geometry & Whitespace Removal**:
+        - [x] Confirm `.expenses-list-items-container` removed the artificial $674\text{px}$ minimum height void, allowing container to adapt snugly to content ($613.5\text{px}$ for 8 items).
+        - [x] Confirm gap from 8th item bottom to pagination border is reduced from $80.5\text{px}$ down to a clean, tight $\sim 19.2\text{px}$ (`margin-top: 0.35rem; padding-top: 0.55rem;`).
+      - [x] **Rock-Solid Container Geometry (Anti-Pushup)**:
+        - [x] Click through pages 1 $\rightarrow$ 2 $\rightarrow$ 3 $\rightarrow$ 4:
+        - [x] Verify that bottom pagination controls NEVER jump up or down by even 1 pixel ($Y$-position sampled identically at $1558\text{px}$ across all timestamps).
+        - [x] Verify that incoming items do NOT push up from the bottom or snap vertically into place.
+      - [x] **Directional Physics Animation (`PAGE_VARIANTS`)**:
+        - [x] Click Page 2 or "Next": confirmed page smoothly pushes/slides in from the right (`x: 18 -> 0, opacity: 0 -> 1`) while the outgoing page exits to the left.
+        - [x] Click Page 1 or "Prev": confirmed page smoothly pushes/slides in from the left (`x: -18 -> 0, opacity: 0 -> 1`) while the outgoing page exits to the right.
+        - [x] Apply a category or search filter: confirmed the list gently fades up in-place (`y: 8 -> 0, opacity: 0 -> 1`).
+      - [x] **Anti-Collision 3-Column Pagination Grid**:
+        - [x] Verify pagination controls are formatted into a 3-column grid (`display: grid; grid-template-columns: 1fr auto 1fr;`).
+        - [x] Verify navigation buttons remain centered in column 2.
+        - [x] Verify transaction range summary (`1–8 of 315`) is right-aligned in column 3 and NEVER overlaps or collides with the `Next ›` button across any viewport width.
+      - [x] **Build & Type Check**:
+        - [x] Verify `npx tsc --noEmit` and `npm test` pass with 0 errors (29/29 tests passed).
+
 
 
 

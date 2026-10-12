@@ -1001,7 +1001,7 @@ export async function addExpense(
       category_name: category?.name ?? categoryName,
       amount: expense.amount,
       description: expense.description,
-      spent_on: expense.date || new Date().toISOString().slice(0, 10),
+      spent_on: expense.date || toLocalDateString(new Date()),
     })
     .select(
       "id, user_id, wallet_id, goal_id, category_id, category_name, amount, description, spent_on, created_at"
@@ -1434,26 +1434,39 @@ export async function addExpenseWithWalletDeduction(
     });
   }
 
-  const activeWallet = await getActiveWallet(userId);
+  const supabase = getSupabaseClient();
+  const safeUserId = assertUuid(userId, "user id");
+  const activeWallet = await getActiveWallet(safeUserId);
 
   if (!activeWallet) {
     throw new Error("No active wallet. Please create or select a wallet first.");
   }
 
-  if (expense.amount > activeWallet.budget) {
-    throw new Error("Expense exceeds your wallet balance.");
+  const safeGoalId = expense.goalId
+    ? assertUuid(expense.goalId, "goal id")
+    : null;
+  const categoryName = expense.categoryName?.trim() || "Uncategorized";
+  const category =
+    categoryName === "Uncategorized"
+      ? null
+      : await getCategoryByName(safeUserId, categoryName);
+
+  // Single transaction: conditional wallet debit + expense insert (see add_expense_atomic).
+  const { data, error } = await supabase.rpc("add_expense_atomic", {
+    p_wallet_id: activeWallet.id,
+    p_amount: expense.amount,
+    p_category_id: category?.id ?? null,
+    p_category_name: category?.name ?? categoryName,
+    p_spent_on: expense.date || null,
+    p_description: expense.description,
+    p_goal_id: safeGoalId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
   }
 
-  const savedExpense = await addExpense(userId, {
-    ...expense,
-    walletId: activeWallet.id,
-  });
-
-  await updateWallet(userId, activeWallet.id, {
-    budget: activeWallet.budget - expense.amount,
-  });
-
-  return savedExpense;
+  return mapExpense(data as Record<string, unknown>);
 }
 
 export async function deleteExpenseAndRestoreWallet(

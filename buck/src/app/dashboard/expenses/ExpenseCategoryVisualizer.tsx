@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { motion } from "framer-motion";
-import { FaFilter, FaTimes, FaLayerGroup } from "react-icons/fa";
+import { FaLayerGroup, FaTimes } from "react-icons/fa";
 import { formatCurrency, toNumber } from "@/utils/formatters";
 import type { BuckExpense } from "@/utils/supabaseData";
 import { getCategoryTheme } from "./categoryUtils";
@@ -56,103 +55,101 @@ export default function ExpenseCategoryVisualizer({
       className="expenses-category-visualizer"
       aria-label="Category spending breakdown and filters"
     >
+      {/* Header */}
       <div className="expenses-category-vis-header">
         <div className="expenses-category-vis-title-group">
           <FaLayerGroup aria-hidden="true" className="expenses-category-vis-icon" />
           <div>
             <h3 className="expenses-category-vis-title">Category Spending Allocation</h3>
             <span className="expenses-category-vis-subtitle">
-              {categoryStats.length} {categoryStats.length === 1 ? "category" : "categories"} active across {expenses.length} expenses
+              {categoryStats.length} {categoryStats.length === 1 ? "category" : "categories"} active · Total {formatCurrency(totalAmount)}
             </span>
           </div>
         </div>
 
-        {selectedCategory ? (
-          <button
-            type="button"
-            className="expenses-category-clear-btn"
-            onClick={() => onSelectCategory(null)}
-            aria-label="Clear active category filter"
-          >
-            <FaTimes aria-hidden="true" />
-            <span>Clear filter ({selectedCategory})</span>
-          </button>
-        ) : null}
+        <div className="expenses-category-vis-actions">
+          {selectedCategory ? (
+            <button
+              type="button"
+              className="expenses-category-clear-btn"
+              onClick={() => onSelectCategory(null)}
+              aria-label={`Clear active category filter: ${selectedCategory}`}
+            >
+              <FaTimes aria-hidden="true" />
+              <span>Clear filter ({selectedCategory})</span>
+            </button>
+          ) : (
+            <span className="expenses-category-vis-hint">
+              Click bar or legend to filter
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Proportional Segmented Progress Bar */}
+      {/* Proportional Segmented Progress Bar (Thicker 24px and Clickable) */}
       <div
         className="expenses-category-bar-track"
-        role="progressbar"
-        aria-label="Proportional spending by category"
+        role="group"
+        aria-label="Proportional spending allocation bar"
       >
-        {categoryStats.map((item, idx) => {
-          const isSelected = selectedCategory === item.name;
+        {categoryStats.map((item) => {
+          const isSelected =
+            selectedCategory?.toLowerCase() === item.name.toLowerCase();
           const isDimmed = selectedCategory !== null && !isSelected;
 
           return (
-            <motion.div
+            <button
               key={item.name}
+              type="button"
               className={`expenses-category-bar-seg ${
                 isSelected ? "expenses-category-bar-seg--selected" : ""
               } ${isDimmed ? "expenses-category-bar-seg--dimmed" : ""}`}
               style={{
-                width: `${Math.max(1.5, item.percentage)}%`,
+                width: `${Math.max(2, item.percentage)}%`,
                 backgroundColor: item.theme.color,
               }}
-              title={`${item.name}: ${formatCurrency(item.total)} (${item.percentage.toFixed(1)}%)`}
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: 1 }}
-              transition={{ duration: 0.5, delay: idx * 0.04 }}
               onClick={() =>
-                onSelectCategory(selectedCategory === item.name ? null : item.name)
+                onSelectCategory(isSelected ? null : item.name)
               }
+              aria-label={`${item.name}: ${formatCurrency(item.total)} (${item.percentage.toFixed(1)}%)`}
+              aria-pressed={isSelected}
+              title={`${item.name}: ${formatCurrency(item.total)} (${item.percentage.toFixed(1)}%) - Click to filter`}
             />
           );
         })}
       </div>
 
-      {/* Interactive Category Filter Pills */}
-      <div className="expenses-category-chips-row">
-        <button
-          type="button"
-          className={`expenses-category-chip ${
-            selectedCategory === null ? "expenses-category-chip--active" : ""
-          }`}
-          onClick={() => onSelectCategory(null)}
-        >
-          <span className="expenses-category-chip-dot expenses-category-chip-dot--all" />
-          <span>All</span>
-          <span className="expenses-category-chip-badge">{expenses.length}</span>
-        </button>
-
+      {/* Streamlined Chart Legend (Replaces Heavy Pillbox Filters) */}
+      <div
+        className="expenses-category-legend"
+        role="group"
+        aria-label="Category spending breakdown legend"
+      >
         {categoryStats.map((cat) => {
-          const isSelected = selectedCategory === cat.name;
-          const IconComp = cat.theme.icon;
+          const isSelected =
+            selectedCategory?.toLowerCase() === cat.name.toLowerCase();
+          const isDimmed = selectedCategory !== null && !isSelected;
 
           return (
             <button
               key={cat.name}
               type="button"
-              className={`expenses-category-chip ${
-                isSelected ? "expenses-category-chip--active" : ""
-              }`}
+              className={`expenses-legend-item ${
+                isSelected ? "expenses-legend-item--selected" : ""
+              } ${isDimmed ? "expenses-legend-item--dimmed" : ""}`}
               onClick={() =>
-                onSelectCategory(selectedCategory === cat.name ? null : cat.name)
+                onSelectCategory(isSelected ? null : cat.name)
               }
-              style={{
-                borderColor: isSelected ? cat.theme.color : undefined,
-                backgroundColor: isSelected ? cat.theme.bg : undefined,
-              }}
+              aria-pressed={isSelected}
+              title={`Filter by ${cat.name}: ${formatCurrency(cat.total)} (${cat.percentage.toFixed(1)}%)`}
             >
               <span
-                className="expenses-category-chip-dot"
+                className="expenses-legend-dot"
                 style={{ backgroundColor: cat.theme.color }}
               />
-              <IconComp aria-hidden="true" className="expenses-category-chip-icon" />
-              <span>{cat.name}</span>
-              <span className="expenses-category-chip-badge">
-                {cat.count} · {formatCurrency(cat.total)}
+              <span className="expenses-legend-name">{cat.name}</span>
+              <span className="expenses-legend-pct">
+                {cat.percentage.toFixed(1)}%
               </span>
             </button>
           );
