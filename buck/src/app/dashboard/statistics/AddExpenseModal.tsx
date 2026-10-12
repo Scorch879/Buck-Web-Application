@@ -6,6 +6,7 @@ import CustomSelect from "@/component/CustomSelect";
 import CustomDatePicker from "@/component/CustomDatePicker";
 import { useToast } from "@/component/toast/ToastContext";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
+import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import {
   addCategory,
   addExpenseWithWalletDeduction,
@@ -80,8 +81,10 @@ export default function AddExpenseModal({
     setEditCategoryName("");
   };
 
+  // Category awaiting the three-step delete confirmation (ADR-041).
+  const [pendingCategory, setPendingCategory] = useState<BuckCategory | null>(null);
+
   const handleRemoveCategory = async (catId: string) => {
-    if (!window.confirm("Are you sure you want to delete this category?")) return;
     try {
       await deleteCategory(userId, catId);
       toast("Category deleted successfully", "success");
@@ -378,7 +381,7 @@ export default function AddExpenseModal({
                           Edit
                         </button>
                         <button
-                          onClick={() => handleRemoveCategory(cat.id)}
+                          onClick={() => setPendingCategory(cat)}
                           style={{
                             background: "none",
                             color: "var(--buck-coral)",
@@ -512,6 +515,19 @@ export default function AddExpenseModal({
         </motion.div>
       </motion.div>
     )}
+      <DangerDeleteDialog
+        key="delete-category"
+        open={Boolean(pendingCategory)}
+        itemType="category"
+        itemName={pendingCategory?.name ?? ""}
+        consequences={["Existing expenses keep their category name but lose the link to this category."]}
+        onCancel={() => setPendingCategory(null)}
+        onConfirm={async () => {
+          if (!pendingCategory) return;
+          await handleRemoveCategory(pendingCategory.id);
+          setPendingCategory(null);
+        }}
+      />
     </AnimatePresence>
   );
 }

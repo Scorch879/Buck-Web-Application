@@ -25,6 +25,13 @@ This catalog documents the functions, tools, database interactions, API endpoint
 | [`addCategory(userId, name)`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L673) | `userId: string`, `name: string` | `Promise<BuckCategory>` | Inserts a custom category for the user. |
 | [`updateCategoryName(userId, categoryId, name)`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L696) | `userId: string`, `categoryId: string`, `name: string` | `Promise<BuckCategory>` | Renames an existing category owned by user. |
 | [`deleteCategory(userId, categoryId)`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L719) | `userId: string`, `categoryId: string` | `Promise<void>` | Deletes category record (expenses retain category name or fall back to Uncategorized). |
+| `listIncomeCategories(userId)` | `userId: string` | `Promise<BuckCategory[] \| null>` | Income categories (`kind = 'income'`), seeding the 7 defaults on first use; `null` until migration `202610130002` is applied (ADR-042). |
+| `addCategory(userId, name, kind?)` | `name: string`, `kind: 'expense' \| 'income'` (default `'expense'`) | `Promise<BuckCategory>` | Adds a custom category of the given kind; duplicate names (per kind) throw a readable error. |
+| `renameCategory(userId, category, newName)` | `category: BuckCategory`, `newName: string` | `Promise<void>` | Renames and copies the name onto `expenses.category_name` / `incomes.source`. |
+| `deleteCategoryAndReassign(userId, category, fallback)` | `category`, `fallback: BuckCategory \| null` | `Promise<number>` | Moves the category's items to `Uncategorized` / `Other`, deletes it, returns the number of items moved. |
+| `listUncategorizedExpenses(userId)` / `listUncategorizedIncomes(userId, incomeCategories)` | `userId`, income categories | `Promise<BuckExpense[]>` / `Promise<BuckIncome[]>` | Items still in the fallback bucket (input for AI auto-categorize). |
+| `setExpenseCategory(userId, expenseId, category)` / `setIncomeCategory(userId, incomeId, name)` | ids + target category | `Promise<void>` | Re-files one item (used by AI auto-categorize). |
+| `categorizeItem(kind, description, categories)` (`utils/aiApi.ts`) | `kind`, `description`, user category names | `Promise<string \| null>` | Asks `/ai/categorize_expense/` for a category and accepts only a name from the user's list. |
 
 ### 1.3 Wallets Management
 

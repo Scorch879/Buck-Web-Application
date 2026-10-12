@@ -41,6 +41,7 @@ Maintains and enhances user-facing components, design tokens, responsive layouts
 
 #### UI Standards
 - **Dropdown Standard (ADR-040)**: Every dropdown uses `@/component/CustomSelect` (no native `<select>`). Option items are regular weight (`400`); the selected option is `500` and marked by colour and background, never bold; the trigger is `600`. Toolbar filters and sorts pass `fit` so the trigger sizes to its longest option and never truncates labels with "…". Do not give them fixed widths.
+- **Deletion Standard (ADR-041)**: Every user-facing delete uses `@/component/DangerDeleteDialog`, a three-step GitHub-style flow: (1) a warning plus slide-to-delete, (2) a red "I understand, continue" button or Cancel, (3) typing the item's exact name to enable the final red Delete. Never use `window.confirm` or a single-click confirm. Destructive buttons are always red-tinted with hit targets of at least 36px. Settings account deletion keeps its stronger flow (DELETE, password, email confirmation, 10-day recovery).
 
 #### Core Subsystems Owned
 - **Scroll & Visual Trackers**: [`usePointerGradient.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/hooks/usePointerGradient.ts), modal SVG glow containers, header scroll indicators.

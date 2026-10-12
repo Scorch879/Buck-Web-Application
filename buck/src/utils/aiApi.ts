@@ -47,3 +47,40 @@ export async function getSavingTip(category: string, userContext: string = "", t
   if (data.tip) return data.tip;
   throw new Error(data.error || 'Unknown error from AI');
 } 
+
+const CATEGORIZE_PATH = '/ai/categorize_expense/';
+
+export type CategorizeKind = 'expense' | 'income';
+
+/**
+ * Asks the AI categorizer to file one item under one of the USER'S categories
+ * (Design.md ADR-042). The request carries `kind` and the user's category
+ * names; the backend currently ignores both and answers from the 17 canonical
+ * expense categories (handoff in QA_Report BUG-029). Until it honours them,
+ * only answers that match a user category are accepted.
+ *
+ * Returns the matching category name, or null when nothing fits ("Uncategorized",
+ * unknown names, or AI unavailable).
+ */
+export async function categorizeItem(
+  kind: CategorizeKind,
+  description: string,
+  categories: string[]
+): Promise<string | null> {
+  const text = description.trim().slice(0, 300);
+  if (!text || categories.length === 0) return null;
+
+  try {
+    const response = await aiBackendFetch(CATEGORIZE_PATH, {
+      method: 'POST',
+      body: JSON.stringify({ description: text, kind, categories }),
+    });
+    if (!response.ok) return null;
+    const data: { category?: unknown } = await response.json();
+    const answer = typeof data.category === 'string' ? data.category.trim().toLowerCase() : '';
+    if (!answer) return null;
+    return categories.find((c) => c.toLowerCase() === answer) ?? null;
+  } catch {
+    return null;
+  }
+}

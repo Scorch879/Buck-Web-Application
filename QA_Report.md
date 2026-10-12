@@ -265,6 +265,51 @@ Findings from the backend audit (middleware, `/api/*`, FastAPI). Status reflects
   - 390px: no horizontal overflow in either view.
   - `tsc --noEmit` clean.
 
+#### BUG-028: [RESOLVED] Unsafe / Inconsistent Delete Confirmations; Wallet Navigator & Row Actions
+- **Location**: `buck/src/app/dashboard/{expenses,goals,wallet}/page.tsx`, `wallet/WalletModal.tsx`, `statistics/AddExpenseModal.tsx`, `component/income/IncomeList.tsx`, `settings/style.css` (wallet section), `component/skeletons/WalletSkeleton.tsx`
+- **Impact**:
+  - **Expenses** were deleted with one click and no confirmation; the amount was also returned to the wallet.
+  - **Goals and categories** used the browser's `window.confirm`.
+  - **Wallets and income** used a single confirm click.
+  - **Wallet tab**: the navigator floated outside any card, rows carried an unneeded share bar, and the action buttons were small with a non-red Delete.
+- **Resolution** (ADR-041, a standing rule for all agents):
+  - New `DangerDeleteDialog` with three steps: slide-to-delete with a warning, then a red "I understand" button or Cancel, then type the exact name to enable Delete. It is applied to every delete above.
+  - The Wallet navigator moved into a page-header card. Share bars were removed, and row actions are now labelled 36px buttons with a red Delete.
+  - The income delete button is red-tinted and 36px.
+  - Dead `.wallet-icon-btn` and `.wallet-row-share*` CSS removed.
+- **Verification**: Design-preview harness, 1500px:
+  - The slide advanced to step 2, and "I understand" advanced to step 3.
+  - In step 3, Delete stayed disabled when the field was empty and for "savings buffer" (wrong case), and enabled only for the exact "Savings Buffer".
+  - The final click deleted the wallet and showed the "Wallet deleted successfully" toast.
+  - 390px: no overflow, dialog 358px wide with a 16px gutter.
+  - `tsc --noEmit` clean.
+
+#### BUG-029: [OPEN: backend + DB handoff] Categories Not User-Manageable; Income Uncategorizable; AI Ignores User Categories
+- **Location**: `buck/src/utils/supabaseData.ts`, `utils/aiApi.ts`, `app/dashboard/categories/*` (new), `component/income/IncomeList.tsx`, `AddIncomeModal.tsx`, `supabase/migrations/202610130002_income_categories.sql` (new), `BuckAI_Backend/main.py` + `ai_models.py`
+- **Impact**:
+  - Users had no real place to manage categories; expense category editing lived inside the Statistics "Add Expense" dialog.
+  - Income could only use 7 hard-coded sources.
+  - The AI categorizer only knows the 17 canonical names, so custom categories were never chosen.
+  - Income history was a plain list with little information.
+- **Resolved (web, ADR-042)**:
+  - New Categories tab (Expense | Income) with add, rename, delete (three-step dialog) and protected fallbacks.
+  - Kind-aware data layer.
+  - `categorizeItem()` hook and an "Auto-categorize with AI" action.
+  - Income history as a sortable table with a summary strip.
+  - Add Income lists the user's income categories.
+- **Open / handoff**:
+  1. ~~Apply migration~~ **Done 2026-10-12**: `202610130002_income_categories.sql` applied to live Supabase. 56 income categories were seeded (8 profiles × 7) and all 77 existing incomes were linked to a category. The migration also adds a kind check to `ensure_expense_relations_owner()`. The security advisor shows no new findings.
+  2. **Backend & ML Engineer**:
+     - Extend `CategorizeInput` with optional `kind: Literal['expense','income']` and `categories: list[str]` (max about 60 names, each 1–40 characters, PII-scrubbed).
+     - In `get_expense_category`, prompt with the supplied `categories` (falling back to `REFERENCE_CATEGORIES` when absent). Return exactly one supplied name, or "Uncategorized" / "Other".
+     - Today the endpoint ignores these fields (Pydantic drops them), so the client accepts only answers that match a user category.
+     - Optional: a batch endpoint for uncategorized items, to replace the client's 25-at-a-time loop.
+  3. Mobile app: read `categories.kind` and `incomes.category_id` after the migration so both clients share user categories.
+- **Verification (web)**:
+  - Design-preview harness, 1500px: Categories Expense and Income tabs render (Income shows the 7 defaults, with "Other" marked Fallback). The Income history table renders sortable columns and the summary strip.
+  - 390px: no page overflow (the tables scroll inside their frames).
+  - `tsc --noEmit` clean.
+
 #### BUG-005: [RESOLVED 2026-10-12] Hardcoded Administrator Email Address in Multiple Files
 - **Impact**: Inability to configure or rotate administrator credentials without modifying and redeploying core source code.
 - **Resolution**:

@@ -10,6 +10,7 @@ import SettingsSkeleton from "./SettingsSkeleton";
 import FinancialAdvisorSkeleton from "./FinancialAdvisorSkeleton";
 import ForecastSkeleton from "./ForecastSkeleton";
 import AdminSkeleton from "./AdminSkeleton";
+import CategoriesSkeleton from "./CategoriesSkeleton";
 import "./skeletons.css";
 
 export type DashboardSkeletonVariant =
@@ -21,7 +22,8 @@ export type DashboardSkeletonVariant =
   | "wallet"
   | "financial-advisor"
   | "forecast"
-  | "admin";
+  | "admin"
+  | "categories";
 
 export {
   ExpensesSkeleton,
@@ -33,6 +35,7 @@ export {
   FinancialAdvisorSkeleton,
   ForecastSkeleton,
   AdminSkeleton,
+  CategoriesSkeleton,
 };
 
 /**
@@ -49,6 +52,8 @@ export function DashboardPageSkeleton({
       return <ExpensesSkeleton />;
     case "wallet":
       return <WalletSkeleton />;
+    case "categories":
+      return <CategoriesSkeleton />;
     case "goals":
       return <GoalsSkeleton />;
     case "statistics":

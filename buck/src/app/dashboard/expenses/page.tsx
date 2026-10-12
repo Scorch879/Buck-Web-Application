@@ -35,6 +35,7 @@ import ExpenseKPICards from "./ExpenseKPICards";
 import ExpenseCategoryVisualizer from "./ExpenseCategoryVisualizer";
 import { getCategoryTheme } from "./categoryUtils";
 import AddExpenseModal from "./AddExpenseModal";
+import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 
 const PAGE_SIZE = 8;
 
@@ -123,6 +124,8 @@ export default function ExpensesPage() {
 
   const [loading, setLoading] = useState(() => !hasInitialExpensesData);
   const [saving, setSaving] = useState(false);
+  // Expense awaiting the three-step delete confirmation (ADR-041).
+  const [pendingDeleteExpense, setPendingDeleteExpense] = useState<BuckExpense | null>(null);
   const [error, setError] = useState("");
   const hadInitialExpensesData = useRef(hasInitialExpensesData);
 
@@ -508,7 +511,7 @@ export default function ExpensesPage() {
                           </strong>
                           <button
                             type="button"
-                            onClick={() => void handleDeleteExpense(expense)}
+                            onClick={() => setPendingDeleteExpense(expense)}
                             disabled={saving}
                             aria-label={`Delete ${expense.description || "expense"}`}
                             className="expenses-list-delete-btn"
@@ -641,6 +644,26 @@ export default function ExpensesPage() {
         walletBudget={walletBudget}
         userId={user.uid}
         onExpenseAdded={handleExpenseAdded}
+      />
+
+      <DangerDeleteDialog
+        open={Boolean(pendingDeleteExpense)}
+        itemType="expense"
+        itemName={pendingDeleteExpense?.description || pendingDeleteExpense?.category || "expense"}
+        consequences={
+          pendingDeleteExpense
+            ? [
+                `${formatCurrency(pendingDeleteExpense.amount)} (${pendingDeleteExpense.category}) is removed from your records.`,
+                "The amount is returned to the wallet it was paid from.",
+              ]
+            : []
+        }
+        onCancel={() => setPendingDeleteExpense(null)}
+        onConfirm={async () => {
+          if (!pendingDeleteExpense) return;
+          await handleDeleteExpense(pendingDeleteExpense);
+          setPendingDeleteExpense(null);
+        }}
       />
     </div>
   );

@@ -1859,26 +1859,8 @@ html[data-buck-theme="dark"] .wallet-row--active {
   box-shadow: none;
 }
 
-.wallet-row-share {
-  height: 5px;
-  max-width: 220px;
-  overflow: hidden;
-  background: rgba(244, 117, 54, 0.12);
-  border-radius: 999px;
-}
 
-.wallet-row-share > span {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, var(--buck-gold), var(--buck-orange));
-  border-radius: inherit;
-}
 
-.wallet-row-share-label {
-  color: var(--buck-muted);
-  font-size: 0.74rem;
-  font-weight: 500;
-}
 
 .wallet-row-side {
   display: flex;
@@ -1900,34 +1882,8 @@ html[data-buck-theme="dark"] .wallet-row--active {
   gap: 0.4rem;
 }
 
-.wallet-icon-btn {
-  display: inline-grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  color: var(--buck-muted);
-  background: transparent;
-  border: 1px solid var(--buck-line);
-  border-radius: 8px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition:
-    color 160ms ease,
-    background 160ms ease,
-    border-color 160ms ease;
-}
 
-.wallet-icon-btn:hover {
-  color: var(--buck-orange);
-  background: rgba(244, 117, 54, 0.08);
-  border-color: rgba(244, 117, 54, 0.4);
-}
 
-.wallet-icon-btn--danger:hover {
-  color: var(--buck-coral);
-  background: rgba(255, 56, 56, 0.08);
-  border-color: rgba(255, 56, 56, 0.4);
-}
 
 .wallet-history-row--archived {
   opacity: 0.72;
@@ -1976,16 +1932,24 @@ html[data-buck-theme="dark"] .wallet-tab-count {
 
 }
 
-/* Section navigator: Wallets | Income (separate views, never mixed) */
+/* Page header card: title left, Wallets | Income navigator right
+   (same pattern as the Statistics toolbar). */
+.wallet-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+}
+
+/* Segmented navigator inside the header card */
 .wallet-view-nav {
   display: inline-flex;
-  align-self: flex-start;
   gap: 0.25rem;
-  padding: 4px;
-  background: var(--buck-surface);
+  padding: 3px;
+  background: rgba(244, 117, 54, 0.08);
   border: 1px solid var(--buck-line);
   border-radius: 10px;
-  box-shadow: var(--buck-shadow);
 }
 
 .wallet-view-tab {
@@ -2072,9 +2036,13 @@ html[data-buck-theme="dark"] .wallet-view-tab[aria-selected="true"] {
 }
 
 @media (max-width: 560px) {
+  .wallet-page-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .wallet-view-nav {
     display: flex;
-    align-self: stretch;
   }
 
   .wallet-view-tab {
@@ -2084,5 +2052,64 @@ html[data-buck-theme="dark"] .wallet-view-tab[aria-selected="true"] {
 
   .wallet-overview {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Wallet row actions: labelled, comfortable hit targets (36px) */
+.wallet-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 36px;
+  padding: 0 0.8rem;
+  color: var(--buck-ink);
+  background: transparent;
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.wallet-action-btn:hover {
+  background: rgba(244, 117, 54, 0.08);
+  border-color: rgba(244, 117, 54, 0.4);
+}
+
+.wallet-action-btn--accent {
+  color: var(--buck-orange);
+  background: rgba(244, 117, 54, 0.1);
+  border-color: rgba(244, 117, 54, 0.35);
+}
+
+.wallet-action-btn--accent:hover {
+  color: #ffffff;
+  background: var(--buck-orange);
+  border-color: var(--buck-orange);
+}
+
+/* Destructive action: always red-tinted (ADR-041) */
+.wallet-action-btn--danger {
+  color: var(--buck-coral);
+  background: rgba(255, 56, 56, 0.08);
+  border-color: rgba(255, 56, 56, 0.35);
+}
+
+.wallet-action-btn--danger:hover {
+  color: #ffffff;
+  background: var(--buck-coral);
+  border-color: var(--buck-coral);
+}
+
+@media (max-width: 560px) {
+  .wallet-row-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 }

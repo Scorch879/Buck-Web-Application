@@ -22,6 +22,7 @@ import {
   setOnlyGoalActive,
 } from "@/component/goals";
 import ProgressBarCard from "./ProgressBarCard";
+import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import { getSavingTip } from "@/utils/aiApi";
 import { Line } from "react-chartjs-2";
 import {
@@ -184,12 +185,11 @@ const GoalsPage = () => {
   }, [currentMonthIdx]);
 
   // --- CRUD Handlers ---
+  // Opened by the Delete button; the three-step dialog (ADR-041) calls handleDeleteGoal.
+  const [confirmGoalDelete, setConfirmGoalDelete] = useState(false);
+
   const handleDeleteGoal = async () => {
     if (!selectedGoal) return;
-    const confirmDelete = window.confirm(
-      `Are you sure you want to delete the goal "${selectedGoal.goalName}"?`
-    );
-    if (!confirmDelete) return;
 
     const result = await deleteGoal(selectedGoal.id);
     if (result.success) {
@@ -847,7 +847,7 @@ const GoalsPage = () => {
                   <button
                     type="button"
                     className="goals-ghost-btn goals-ghost-btn--danger"
-                    onClick={handleDeleteGoal}
+                    onClick={() => setConfirmGoalDelete(true)}
                   >
                     Delete
                   </button>
@@ -1271,6 +1271,20 @@ const GoalsPage = () => {
           </div>
         </div>
       )}
+      <DangerDeleteDialog
+        open={confirmGoalDelete && Boolean(selectedGoal)}
+        itemType="goal"
+        itemName={selectedGoal?.goalName ?? ""}
+        consequences={[
+          "The goal, its progress and its AI recommendation are removed.",
+          "Expenses linked to it are kept but no longer linked to a goal.",
+        ]}
+        onCancel={() => setConfirmGoalDelete(false)}
+        onConfirm={async () => {
+          await handleDeleteGoal();
+          setConfirmGoalDelete(false);
+        }}
+      />
       <AnimatePresence>
         {showModal && (
           <CreateGoalModal

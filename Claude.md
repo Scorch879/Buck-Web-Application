@@ -482,6 +482,7 @@ flowchart TD
 - **Client Cache Rule**: High-frequency dashboard navigation must utilize [`FinancialContext.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/context/FinancialContext.tsx) to prevent redundant database queries.
 - **Modal Bounds Standard**: All desktop modals must conform to `width: min(880px, 100%)` and `max-height: min(82dvh, 760px)`.
 - **Dropdown Standard (ADR-040)**: Every dropdown uses `@/component/CustomSelect` (no native `<select>`). Option items are regular weight (`400`); the selected option is `500` and marked by colour and background, never bold; the trigger is `600`. Toolbar filters and sorts pass `fit` so the trigger sizes to its longest option and never truncates labels with "…". Do not give them fixed widths.
+- **Deletion Standard (ADR-041)**: Every user-facing delete uses `@/component/DangerDeleteDialog`, a three-step GitHub-style flow: (1) a warning plus slide-to-delete, (2) a red "I understand, continue" button or Cancel, (3) typing the item's exact name to enable the final red Delete. Never use `window.confirm` or a single-click confirm. Destructive buttons are always red-tinted with hit targets of at least 36px. Settings account deletion keeps its stronger flow (DELETE, password, email confirmation, 10-day recovery).
 - **1:1 Skeletal Loading Parity Policy**: Loading skeletons in [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx) must have 1:1 layout, geometry, card anatomy, and toolbar parity with rendered screens (especially Expenses and Wallets) to eliminate Cumulative Layout Shift (CLS).
 
 ### 4.3 Backend & ML Engineer
@@ -524,9 +525,13 @@ flowchart TD
 - **Official Currency**: Philippine Peso (`PHP` / `₱`).
 - **Precision**: Strictly `numeric(14, 2)` across database DDL, TypeScript interfaces, and API payloads.
 
-### 6.2 The 17 Canonical Expense Categories
-All classification models, database seeds, and UI filter selectors must strictly conform to these 17 categories:
+### 6.2 Categories: 17 Default Expense Categories + User-Managed (ADR-042)
+Categories are **fully custom per user**. Every new account is seeded with these 17 default expense categories (plus the `Uncategorized` fallback):
 1. `Food` | 2. `Fare` | 3. `Gas Money` | 4. `Video Games` | 5. `Shopping` | 6. `Bills` | 7. `Education` | 8. `Electronics` | 9. `Entertainment` | 10. `Health` | 11. `Home` | 12. `Insurance` | 13. `Social` | 14. `Sport` | 15. `Tax` | 16. `Telephone` | 17. `Transportation`
+
+Each account also gets 7 default income categories: `Salary`, `Allowance`, `Freelance`, `Business`, `Investment`, `Gift`, `Other` (fallback).
+- Users add, rename and delete categories on the **Categories** tab (`categories.kind = 'expense' | 'income'`). The fallbacks `Uncategorized` (expense) and `Other` (income) are protected.
+- AI classification must choose from the **user's own** categories (`categorizeItem()` in `utils/aiApi.ts` sends them). Anything that doesn't fit stays in the fallback for auto-categorize.
 
 ### 6.3 Mobile OCR Receipt Scanning
 - Exclusive to the Flutter mobile application via native camera hardware.

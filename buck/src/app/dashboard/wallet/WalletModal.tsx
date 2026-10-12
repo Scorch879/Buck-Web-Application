@@ -8,6 +8,7 @@ import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial } from "@/context/FinancialContext";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 import { formatCurrency } from "@/utils/formatters";
+import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import {
   addWallet,
   deleteWallet,
@@ -341,31 +342,14 @@ export default function WalletModal({
                         >
                           Edit
                         </button>
-                        {confirmDeleteId === w.id ? (
-                          <>
-                            <button
-                              onClick={() => handleDelete(w.id)}
-                              className={styles.deleteBtn}
-                            >
-                              Confirm?
-                            </button>
-                            <button
-                              onClick={() => setConfirmDeleteId(null)}
-                              className={styles.cancelBtn}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => setConfirmDeleteId(w.id)}
-                            className={styles.deleteBtn}
-                            disabled={w.budget > 0}
-                            title={w.budget > 0 ? "Empty wallet first to delete" : ""}
-                          >
-                            Delete
-                          </button>
-                        )}
+                        <button
+                          onClick={() => setConfirmDeleteId(w.id)}
+                          className={styles.deleteBtn}
+                          disabled={w.budget > 0}
+                          title={w.budget > 0 ? "Empty wallet first to delete" : ""}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </>
                   )}
@@ -378,6 +362,16 @@ export default function WalletModal({
           Close
         </button>
       </motion.div>
+      <DangerDeleteDialog
+        open={Boolean(confirmDeleteId)}
+        itemType="wallet"
+        itemName={wallets.find((w) => w.id === confirmDeleteId)?.name ?? ""}
+        consequences={["The wallet is archived and stays in Wallet history; it cannot be restored."]}
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={async () => {
+          if (confirmDeleteId) await handleDelete(confirmDeleteId);
+        }}
+      />
     </motion.div>,
     document.body
   );
