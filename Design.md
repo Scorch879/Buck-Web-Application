@@ -1064,7 +1064,7 @@ Buck-Web-Application/
 
 ---
 
-- **Amended (QA BUG-024)**: The toolbar order is search box, then the active day/category filter pills, then the filter and sort dropdowns. The dropdowns stay side by side at 200px and 180px and do not move when a pie or bar slice is selected; the search box (`flex: 1 1 220px`) shrinks to make room. At 720px and below the toolbar uses three rows: search, pills, then both dropdowns.
+- **Amended (QA BUG-025)**: The toolbar order is search box, then the active day/category filter pills, then the filter and sort dropdowns. The dropdowns stay side by side at 200px and 180px and do not move when a pie or bar slice is selected; the search box (`flex: 1 1 220px`) shrinks to make room. At 720px and below the toolbar uses three rows: search, pills, then both dropdowns.
 
 ### ADR-038: Goals Progress Gauge Dual-Layer Liquid Wave Effect with Framer Motion Spring Height & Hardware-Accelerated Parallax
 
@@ -1133,3 +1133,28 @@ Buck-Web-Application/
      - **Directional Slide & Fade Physics (`PAGE_VARIANTS`)**: Re-anchored `<AnimatePresence mode="wait" initial={false} custom={pageDirection}>` to the page container keyed by `safeCurrentPage`. Navigating forward slides the incoming page smoothly from the right (`x: 18 -> 0, opacity: 0 -> 1`), navigating backward slides in from the left (`x: -18 -> 0, opacity: 0 -> 1`), and filtering fades up smoothly (`y: 8 -> 0, opacity: 0 -> 1`).
      - **Anti-Collision 3-Column Pagination Grid**: Restructured `.expenses-pagination` to `display: grid; grid-template-columns: 1fr auto 1fr;` with an invisible left balancing spacer, keeping navigation controls dead-center while preventing right-aligned showing range counters (`1–8 of 315`) from colliding with the `Next ›` button.
 - **Consequences**: Produces an optically balanced, uncluttered desktop workspace where high-level financial metrics are persistently visible on the left while transactional records take primary focus on the right. Eliminates endless vertical list scrolling when users have hundreds of entries through centered, windowed pagination controls with buttery smooth, directional page transitions and zero vertical pushup jumping.
+
+### ADR-040: Dropdown Typography & Fit-Width Standard; Wallet Tab Section Navigator
+
+- **Status**: Implemented. **Standing rule for every agent** that touches a dropdown, filter or sort control. Supersedes ADR-036 items 1 and 3 (Log card tabs) and the total-balance strip in item 4.
+- **Context** (QA BUG-027):
+  - Dropdown option items rendered bold: `CustomSelect.module.css` set `.option` to 700 and `.sizeSm .option` to 650, with the trigger at 850.
+  - Fixed-width dropdown containers truncated labels with "…": Wallet toolbar 165px, Expenses sort 175px, Financial Summary 200/180px.
+  - The Wallet tab mixed wallet and income content: the cash-flow KPI above the wallets, and a Log card whose tabs switched between wallet history and income history.
+  - The total-balance strip inside "Your Wallets" looked out of place.
+- **Decision**:
+  1. **Dropdown typography (all dropdowns, app-wide)**: every dropdown in the web app is `@/component/CustomSelect`; do not use a native `<select>`.
+     - Option items: `font-weight: 400`.
+     - Selected option: `font-weight: 500`, marked by orange text and a tinted background, **never by boldness**.
+     - Trigger (current value): `font-weight: 600`, in both the default and `size="sm"`.
+     - Page CSS must not raise option weight. Do not add `font-weight` overrides to `[class*="option"]`.
+  2. **No truncated filter labels**: toolbar filters and sorts pass `fit` to `CustomSelect`. The trigger then sizes itself to the **longest** option label (all labels share one grid cell; the hidden ones reserve the width). The label never shows "…" and the width does not change when the selection changes.
+     - Do not give these dropdowns fixed widths.
+     - In narrow layouts, let the controls wrap (`flex: 1 1 auto`) instead of shrinking below the label.
+     - Skeletons render the same disabled `CustomSelect fit` with the same option labels, so widths match by construction.
+     - Applied to: Wallet sort and history filter, Expenses sort, and the Financial Summary filter and sort. Admin filters keep their fixed 190px because every label fits.
+  3. **Wallet tab navigator**: a page-level `role="tablist"` switch (`.wallet-view-nav`) with two views that are never mixed.
+     - **Wallets**: a wallet overview KPI card (total balance across active wallets, the active wallet's balance and name, archived count), then "Your Wallets" beside "Wallet history".
+     - **Income**: the Monthly cash flow KPI, then the "Income history" card with Add Income and search (`IncomeList embedded`).
+     - The total-balance strip is removed from "Your Wallets"; the figure lives in the overview KPI.
+     - `WalletSkeleton` mirrors the Wallets view.

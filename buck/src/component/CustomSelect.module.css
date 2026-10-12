@@ -15,7 +15,8 @@
   border: 1px solid var(--buck-line);
   border-radius: 8px;
   font-size: 1rem;
-  font-weight: 850;
+  /* Trigger shows the current choice: medium weight, never heavy (ADR-013). */
+  font-weight: 600;
   cursor: pointer;
   outline: none;
   transition:
@@ -61,6 +62,35 @@ html[data-buck-theme="dark"] .trigger {
   white-space: nowrap;
 }
 
+/* fit: trigger is as wide as the longest option label (never truncated) */
+.fit {
+  width: max-content;
+  max-width: 100%;
+}
+
+.fit .triggerContent {
+  overflow: visible;
+}
+
+.labelStack {
+  display: grid;
+  white-space: nowrap;
+}
+
+.labelSizer,
+.labelCurrent {
+  grid-area: 1 / 1;
+}
+
+.labelSizer {
+  visibility: hidden;
+}
+
+.sizeSm .labelStack {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .icon {
   flex-shrink: 0;
   margin-left: 0.5rem;
@@ -77,13 +107,13 @@ html[data-buck-theme="dark"] .trigger {
   min-height: 38px;
   padding: 0.45rem 0.75rem;
   font-size: 0.82rem;
-  font-weight: 650;
+  font-weight: 600;
   border-radius: 8px;
 }
 
 .sizeSm .label {
   font-size: 0.82rem;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .sizeSm .icon {
@@ -102,7 +132,6 @@ html[data-buck-theme="dark"] .trigger {
 .sizeSm .option {
   padding: 0.45rem 0.7rem;
   font-size: 0.82rem;
-  font-weight: 650;
 }
 
 .dropdown {
@@ -146,7 +175,9 @@ html[data-buck-theme="dark"] .dropdown {
   color: #241409;
   border-radius: 6px;
   cursor: pointer;
-  font-weight: 700;
+  /* Dropdown items are regular weight (Design.md "Dropdown Typography").
+     The selected item is marked by colour and background, not boldness. */
+  font-weight: 400;
   transition: background 120ms ease, color 120ms ease;
 }
 
@@ -166,6 +197,7 @@ html[data-buck-theme="dark"] .option:hover {
 .selected {
   background: rgba(244, 117, 54, 0.15);
   color: var(--buck-orange);
+  font-weight: 500;
 }
 
 html[data-buck-theme="dark"] .selected {

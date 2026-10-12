@@ -430,6 +430,7 @@ export default function ExpensesPage() {
 
           <div className="expenses-sort-box">
             <CustomSelect
+              fit
               value={sortBy}
               onChange={(val) =>
                 handleSortChange(val as SortKey)

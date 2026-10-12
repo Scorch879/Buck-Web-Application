@@ -19,6 +19,12 @@ interface CustomSelectProps {
   id?: string;
   icon?: React.ReactNode;
   size?: "default" | "sm";
+  /**
+   * Size the trigger to the longest option label instead of filling the
+   * parent. The label is never truncated and the width does not change when
+   * the selection changes.
+   */
+  fit?: boolean;
 }
 
 export default function CustomSelect({
@@ -30,6 +36,7 @@ export default function CustomSelect({
   id,
   icon,
   size = "default",
+  fit = false,
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -53,8 +60,8 @@ export default function CustomSelect({
   return (
     <div
       className={`${styles.container} ${size === "sm" ? styles.sizeSm : ""} ${
-        disabled ? styles.disabled : ""
-      } ${className}`}
+        fit ? styles.fit : ""
+      } ${disabled ? styles.disabled : ""} ${className}`}
       ref={containerRef}
       id={id}
     >
@@ -78,7 +85,20 @@ export default function CustomSelect({
       >
         <div className={styles.triggerContent}>
           {icon && <span className={styles.prefixIcon}>{icon}</span>}
-          <span className={styles.label}>{selectedOption?.label || value}</span>
+          {fit ? (
+            // Every label shares one grid cell; the hidden ones reserve the
+            // width of the longest option.
+            <span className={styles.labelStack}>
+              {options.map((opt) => (
+                <span key={opt.value} className={styles.labelSizer} aria-hidden="true">
+                  {opt.label}
+                </span>
+              ))}
+              <span className={styles.labelCurrent}>{selectedOption?.label || value}</span>
+            </span>
+          ) : (
+            <span className={styles.label}>{selectedOption?.label || value}</span>
+          )}
         </div>
         <FaChevronDown
           className={`${styles.icon} ${isOpen ? styles.iconOpen : ""}`}

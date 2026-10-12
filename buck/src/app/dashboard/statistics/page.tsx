@@ -126,6 +126,8 @@ const Statistics = () => {
   const [forecastData, setForecastData] = useState<ForecastResponse | null>(null);
   const [forecastLoading, setForecastLoading] = useState(false);
   const [forecastError, setForecastError] = useState("");
+  // Bumped by the Retry button to re-run the forecast request.
+  const [forecastAttempt, setForecastAttempt] = useState(0);
 
   const refreshWallet = async () => {
     const activeWallet = await getActiveWallet(user.uid);
@@ -314,7 +316,7 @@ const Statistics = () => {
         ? monthRanges[activeMonthIdx]?.label ?? ""
         : isCurrentPeriod
           ? "This week"
-          : `Week ${activeWeekIdx + 1}`;
+          : `Week of ${formatDayKey(weekRanges[activeWeekIdx]?.start ?? "")}`;
   const periodNoun = mode === "week" ? "week" : mode === "month" ? "month" : "period";
 
   // --- Period figures ---
@@ -347,7 +349,7 @@ const Statistics = () => {
 
   // --- Trend buckets: days of the week, 7-day blocks of the month, or months ---
   const trend = useMemo(() => {
-    if (!range) return { labels: [], values: [], limit: 0, unit: "day" };
+    if (!range) return { labels: [], values: [], budgets: [], unit: "day" };
     if (mode === "week") {
       const start = parseDayKey(range.start);
       const keys = WEEKDAYS.map((_, i) => {
@@ -360,7 +362,7 @@ const Statistics = () => {
         values: keys.map((k) =>
           sumAmounts(periodExpenses.filter((e) => storedDayKey(e.date) === k))
         ),
-        limit: budget / 7,
+        budgets: keys.map(() => budget / 7),
         unit: "day",
       };
     }
@@ -382,7 +384,8 @@ const Statistics = () => {
         values: blocks.map((b) =>
           sumAmounts(periodExpenses.filter((e) => isInRange(storedDayKey(e.date), b)))
         ),
-        limit: (budget / monthDays) * 7,
+        // Pro-rate by block length: the last block of a month is often 2-3 days.
+        budgets: blocks.map((b) => (budget / monthDays) * daysBetween(b.start, b.end)),
         unit: "week",
       };
     }
@@ -400,7 +403,7 @@ const Statistics = () => {
       values: months.map((m) =>
         sumAmounts(expenses.filter((e) => isInRange(storedDayKey(e.date), m)))
       ),
-      limit: budget,
+      budgets: months.map(() => budget),
       unit: "month",
     };
   }, [budget, expenses, mode, monthRanges, periodExpenses, range]);
@@ -462,7 +465,7 @@ const Statistics = () => {
     };
     // forecastGoalKey covers every goal field the request sends.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [forecastGoalKey, user.uid]);
+  }, [forecastGoalKey, forecastAttempt, user.uid]);
 
   const forecastChart = useMemo(() => {
     const perDay = forecastData?.forecast_per_day;
@@ -512,6 +515,12 @@ const Statistics = () => {
 
   const hasBudget = budget > 0;
   const remaining = budget - spent;
+  const budgetSource =
+    mode === "week"
+      ? `¼ of your active wallet (${formatCurrency(wallet)})`
+      : `your active wallet (${formatCurrency(wallet)})`;
+  const trendHasBudget = trend.budgets.some((b) => b > 0);
+  const trendHasSpending = trend.values.some((v) => v > 0);
 
   return (
     <div className="stats-page">
@@ -605,7 +614,12 @@ const Statistics = () => {
               <dd>{periodExpenses.length}</dd>
             </div>
           </dl>
-          {!hasBudget && (
+          {hasBudget ? (
+            <p className="stats-note">
+              {mode === "week" ? "Weekly" : mode === "month" ? "Monthly" : "Overall"} budget{" "}
+              <strong>{formatCurrency(budget)}</strong> = {budgetSource}.
+            </p>
+          ) : (
             <p className="stats-note">
               No wallet budget yet. <Link href="/dashboard/wallet">Set one in Wallet</Link>.
             </p>
@@ -645,29 +659,44 @@ const Statistics = () => {
                     : "Monthly spending"}
               </h3>
             </div>
+            {trendHasSpending && (
             <ul className="stats-legend" aria-label="Chart legend">
               <li>
-                <span className="stats-swatch stats-swatch--spent" /> Spent
+                <span className="stats-swatch stats-swatch--spent" />
+                {trendHasBudget ? "Within budget" : "Spent"}
               </li>
-              {trend.limit > 0 && (
+              {trendHasBudget && (
                 <>
                   <li>
-                    <span className="stats-swatch stats-swatch--over" /> Over limit
+                    <span className="stats-swatch stats-swatch--caution" /> 80%+ of budget
                   </li>
                   <li>
-                    <span className="stats-swatch stats-swatch--limit" /> Limit{" "}
-                    {formatCurrency(trend.limit)}/{trend.unit}
+                    <span className="stats-swatch stats-swatch--over" /> Over budget
+                  </li>
+                  <li>
+                    <span className="stats-swatch stats-swatch--limit" /> Budget
                   </li>
                 </>
               )}
             </ul>
+            )}
           </div>
-          {trend.values.some((v) => v > 0) ? (
-            <SpendingTrendChart
-              labels={trend.labels}
-              values={trend.values}
-              limit={trend.limit}
-            />
+          {trendHasSpending ? (
+            <>
+              <SpendingTrendChart
+                labels={trend.labels}
+                values={trend.values}
+                budgets={trend.budgets}
+                unit={trend.unit}
+              />
+              {trendHasBudget && (
+                <p className="stats-chart-caption">
+                  Dashed line: your budget per {trend.unit}, spread evenly from{" "}
+                  {budgetSource}
+                  {mode === "month" ? "; shorter blocks get a smaller share" : ""}.
+                </p>
+              )}
+            </>
           ) : (
             <p className="stats-empty stats-empty--chart">
               No spending recorded this {periodNoun}.
@@ -739,9 +768,16 @@ const Statistics = () => {
               <p>Loading forecast…</p>
             </div>
           ) : forecastError ? (
-            <p className="stats-empty stats-empty--chart stats-empty--compact stats-error">
-              The forecast service is unavailable right now. Try again later.
-            </p>
+            <div className="stats-empty stats-empty--chart stats-empty--compact" role="alert">
+              <p className="stats-error">The forecast service is unavailable right now.</p>
+              <button
+                type="button"
+                className="stats-add-btn"
+                onClick={() => setForecastAttempt((n) => n + 1)}
+              >
+                Try again
+              </button>
+            </div>
           ) : !forecastChart ? (
             <p className="stats-empty stats-empty--chart stats-empty--compact">
               {mode === "overall"

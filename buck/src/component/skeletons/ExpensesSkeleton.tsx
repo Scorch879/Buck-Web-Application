@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import CustomSelect from "@/component/CustomSelect";
 import "@/app/dashboard/expenses/style.css";
 import "./skeletons.css";
 
@@ -140,14 +141,20 @@ export default function ExpensesSkeleton() {
             <input placeholder="Search description or category..." disabled readOnly tabIndex={-1} aria-hidden="true" />
           </div>
           <div className="expenses-sort-box">
-            <span
-              className="skeleton-input expenses-custom-select"
-              style={{
-                display: "block",
-                width: "100%",
-                height: "38px",
-                borderRadius: "8px",
-              }}
+            {/* Real disabled CustomSelect in fit mode with the page's labels: same width by construction */}
+            <CustomSelect
+              fit
+              disabled
+              size="sm"
+              value="newest"
+              onChange={() => {}}
+              options={[
+                { value: "newest", label: "Newest first" },
+                { value: "oldest", label: "Oldest first" },
+                { value: "highest", label: "Highest amount" },
+                { value: "lowest", label: "Lowest amount" },
+              ]}
+              className="expenses-custom-select expenses-custom-select--sort"
             />
           </div>
         </div>

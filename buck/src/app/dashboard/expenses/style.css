@@ -1002,14 +1002,10 @@ html[data-buck-theme="dark"] .expenses-search-box input {
   overflow: visible;
 }
 
+/* Width comes from the CustomSelect (fit mode: longest option, never truncated) */
 .expenses-sort-box {
   position: relative;
   flex: 0 0 auto;
-  width: 175px;
-}
-
-.expenses-sort-box .expenses-custom-select {
-  width: 100%;
 }
 
 

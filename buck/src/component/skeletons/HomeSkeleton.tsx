@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import CustomSelect from "@/component/CustomSelect";
 import "@/app/dashboard/home/style.css";
 import "./skeletons.css";
 
@@ -131,8 +132,36 @@ export default function HomeSkeleton() {
               <span className="skeleton-input" style={{ width: "100%", height: "38px", borderRadius: "8px" }} />
             </div>
             <div className="summary-table-controls-group">
-              <span className="skeleton-input summary-table-custom-select summary-table-custom-select--filter" style={{ display: "block", height: "38px", borderRadius: "8px" }} />
-              <span className="skeleton-input summary-table-custom-select summary-table-custom-select--sort" style={{ display: "block", height: "38px", borderRadius: "8px" }} />
+              {/* Real disabled CustomSelects in fit mode with the table's labels: same widths by construction */}
+              <CustomSelect
+                fit
+                disabled
+                size="sm"
+                value="all"
+                onChange={() => {}}
+                options={[
+                  { value: "all", label: "All Categories (17)" },
+                  { value: "top5", label: "Top 5 Spending" },
+                  { value: "has_expenses", label: "With Expenses (> ₱0)" },
+                ]}
+                className="summary-table-custom-select summary-table-custom-select--filter"
+              />
+              <CustomSelect
+                fit
+                disabled
+                size="sm"
+                value="highest"
+                onChange={() => {}}
+                options={[
+                  { value: "highest", label: "Highest Amount" },
+                  { value: "lowest", label: "Lowest Amount" },
+                  { value: "name_asc", label: "Name (A–Z)" },
+                  { value: "name_desc", label: "Name (Z–A)" },
+                  { value: "most_txns", label: "Most Entries" },
+                  { value: "highest_share", label: "Highest Share %" },
+                ]}
+                className="summary-table-custom-select summary-table-custom-select--sort"
+              />
             </div>
           </div>
 

@@ -1247,8 +1247,8 @@ html[data-buck-theme="dark"] .summary-table-search-input {
 }
 
 /* Filter + sort dropdowns sit side by side on one row next to the search box.
-   CustomSelect's container is width: 100% (CSS module), so the sizes here use
-   a parent-qualified selector to win on specificity. */
+   Both use CustomSelect's fit mode, so each is as wide as its longest option
+   and its label is never truncated. */
 .summary-table-controls-group {
   display: flex;
   align-items: center;
@@ -1262,13 +1262,6 @@ html[data-buck-theme="dark"] .summary-table-search-input {
   min-width: 0;
 }
 
-.summary-table-controls-group .summary-table-custom-select--filter {
-  width: 200px;
-}
-
-.summary-table-controls-group .summary-table-custom-select--sort {
-  width: 180px;
-}
 
 /* Narrow cards: search takes the full first row, the two dropdowns share the second */
 @media (max-width: 720px) {
@@ -1285,12 +1278,12 @@ html[data-buck-theme="dark"] .summary-table-search-input {
 
   .summary-table-controls-group {
     flex: 1 1 100%;
+    flex-wrap: wrap;
   }
 
-  .summary-table-controls-group .summary-table-custom-select--filter,
-  .summary-table-controls-group .summary-table-custom-select--sort {
-    flex: 1 1 0;
-    width: auto;
+  /* Grow to share the row, but never shrink below the longest label: wrap instead. */
+  .summary-table-controls-group .summary-table-custom-select {
+    flex: 1 1 auto;
   }
 }
 
