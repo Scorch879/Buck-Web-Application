@@ -17,6 +17,8 @@ interface CustomSelectProps {
   disabled?: boolean;
   className?: string;
   id?: string;
+  icon?: React.ReactNode;
+  size?: "default" | "sm";
 }
 
 export default function CustomSelect({
@@ -26,6 +28,8 @@ export default function CustomSelect({
   disabled = false,
   className = "",
   id,
+  icon,
+  size = "default",
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -48,7 +52,9 @@ export default function CustomSelect({
 
   return (
     <div
-      className={`${styles.container} ${disabled ? styles.disabled : ""} ${className}`}
+      className={`${styles.container} ${size === "sm" ? styles.sizeSm : ""} ${
+        disabled ? styles.disabled : ""
+      } ${className}`}
       ref={containerRef}
       id={id}
     >
@@ -70,7 +76,10 @@ export default function CustomSelect({
           }
         }}
       >
-        <span className={styles.label}>{selectedOption?.label || value}</span>
+        <div className={styles.triggerContent}>
+          {icon && <span className={styles.prefixIcon}>{icon}</span>}
+          <span className={styles.label}>{selectedOption?.label || value}</span>
+        </div>
         <FaChevronDown
           className={`${styles.icon} ${isOpen ? styles.iconOpen : ""}`}
         />

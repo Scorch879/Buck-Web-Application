@@ -4,6 +4,7 @@ import type {
   BuckCategory,
   BuckExpense,
   BuckGoal,
+  BuckIncome,
   BuckProfile,
 } from "@/utils/supabaseData";
 
@@ -13,6 +14,8 @@ export type DashboardDataCache = {
   accountDeletionStatus?: AccountDeletionStatus | null;
   categories?: BuckCategory[];
   expenses?: BuckExpense[];
+  /** `undefined` = not loaded yet, `null` = income not tracked (table missing). */
+  incomes?: BuckIncome[] | null;
   goals?: BuckGoal[];
   wallets?: import("@/utils/supabaseData").BuckWallet[];
   activeWalletId?: string | null;

@@ -4,6 +4,10 @@ import { formatCurrency, toNumber } from "@/utils/formatters";
 export interface UserFinancialContext {
   userId: string;
   activeWalletBudget: number;
+  /** Income received this calendar month (0 when not tracked). */
+  monthIncome: number;
+  /** `false` when the incomes table is unavailable. */
+  incomeTracked: boolean;
   totalSpentThisPeriod: number;
   expensesByCategory: Record<string, number>;
   topCategory: { name: string; amount: number } | null;
@@ -76,6 +80,25 @@ export async function fetchUserFinancialContext(
     }
   }
 
+  // 3b. Fetch this month's income (same period as expenses). A missing
+  // incomes table means income is simply not tracked yet.
+  let monthIncome = 0;
+  let incomeTracked = true;
+  const { data: incomesData, error: incomesError } = await adminClient
+    .from("incomes")
+    .select("amount")
+    .eq("user_id", userId)
+    .gte("received_on", periodStart)
+    .lte("received_on", periodEnd);
+
+  if (incomesError) {
+    incomeTracked = false;
+  } else {
+    for (const row of incomesData || []) {
+      monthIncome += toNumber(row.amount);
+    }
+  }
+
   // 4. Fetch active goal
   const { data: goalsData } = await adminClient
     .from("goals")
@@ -102,6 +125,8 @@ export async function fetchUserFinancialContext(
   return {
     userId,
     activeWalletBudget,
+    monthIncome,
+    incomeTracked,
     totalSpentThisPeriod,
     expensesByCategory,
     topCategory,
@@ -111,6 +136,16 @@ export async function fetchUserFinancialContext(
   };
 }
 
+/**
+ * The amount this month's spending is measured against: real recorded income
+ * when there is any, otherwise the wallet balance as before.
+ */
+export function getSpendingBase(context: UserFinancialContext) {
+  return context.incomeTracked && context.monthIncome > 0
+    ? context.monthIncome
+    : context.activeWalletBudget;
+}
+
 export function generateAdvisoryInsights(context: UserFinancialContext) {
   const {
     activeWalletBudget,
@@ -118,11 +153,12 @@ export function generateAdvisoryInsights(context: UserFinancialContext) {
     topCategory,
     activeGoal,
   } = context;
+  const spendingBase = getSpendingBase(context);
 
   // Calculate financial health score (0 - 100)
   const remainingBudget = Math.max(0, activeWalletBudget - totalSpentThisPeriod);
   const spendRatio =
-    activeWalletBudget > 0 ? totalSpentThisPeriod / activeWalletBudget : 0.5;
+    spendingBase > 0 ? totalSpentThisPeriod / spendingBase : 0.5;
 
   let healthScore = 75;
   if (spendRatio < 0.5) {
@@ -157,7 +193,7 @@ export function generateAdvisoryInsights(context: UserFinancialContext) {
     advice = `Your current burn rate exceeds sustainable limits for this period. Freeze discretionary spending on ${
       topCategory?.name || "entertainment and leisure"
     } to avoid deficit borrowing.`;
-  } else if (topCategory && topCategory.amount > activeWalletBudget * 0.35) {
+  } else if (topCategory && topCategory.amount > spendingBase * 0.35) {
     priority = "high";
     title = `High Expenditure on ${topCategory.name}`;
     suggestion = `Your highest expense driver is ${topCategory.name} at ${formatCurrency(
@@ -189,18 +225,16 @@ export function generateAdvisoryInsights(context: UserFinancialContext) {
       multiplier,
       topCategory: topCategory?.name ?? null,
       remainingBudget,
+      monthIncome: context.monthIncome,
+      incomeTracked: context.incomeTracked,
     },
   };
 }
 
 export function generateForecastInsights(context: UserFinancialContext) {
-  const {
-    activeWalletBudget,
-    totalSpentThisPeriod,
-    periodStart,
-    periodEnd,
-    activeGoal,
-  } = context;
+  const { totalSpentThisPeriod, periodStart, periodEnd, activeGoal } = context;
+  const spendingBase = getSpendingBase(context);
+  const usesIncome = context.incomeTracked && context.monthIncome > 0;
 
   const now = new Date();
   const start = new Date(periodStart);
@@ -217,7 +251,7 @@ export function generateForecastInsights(context: UserFinancialContext) {
   const projectedTotalSpending = Math.round(
     totalSpentThisPeriod + avgSpentPerDay * daysRemaining
   );
-  const projectedSavings = Math.max(0, activeWalletBudget - projectedTotalSpending);
+  const projectedSavings = Math.max(0, spendingBase - projectedTotalSpending);
 
   // Daily forecast distribution
   const dailyForecast: Record<string, number> = {};
@@ -226,16 +260,18 @@ export function generateForecastInsights(context: UserFinancialContext) {
     d.setDate(d.getDate() + i);
     const dateStr = d.toISOString().slice(0, 10);
     // Baseline projected daily expense
-    dailyForecast[dateStr] = Math.round(avgSpentPerDay || activeWalletBudget / totalDays);
+    dailyForecast[dateStr] = Math.round(avgSpentPerDay || spendingBase / totalDays);
   }
 
   const warnings: string[] = [];
-  if (projectedTotalSpending > activeWalletBudget) {
-    const deficit = projectedTotalSpending - activeWalletBudget;
+  if (projectedTotalSpending > spendingBase) {
+    const deficit = projectedTotalSpending - spendingBase;
     warnings.push(
       `Projected monthly expenditure (${formatCurrency(
         projectedTotalSpending
-      )}) will exceed your wallet budget by ${formatCurrency(deficit)}.`
+      )}) will exceed your ${
+        usesIncome ? "income this month" : "wallet budget"
+      } by ${formatCurrency(deficit)}.`
     );
   }
 
@@ -279,7 +315,7 @@ export function generateForecastInsights(context: UserFinancialContext) {
     periodEnd,
     projectedSpending: projectedTotalSpending,
     projectedSavings,
-    aiRecommendedBudget: Math.round(activeWalletBudget * 0.9),
+    aiRecommendedBudget: Math.round(spendingBase * 0.9),
     dailyForecast,
     actualSpendingSnapshot: totalSpentThisPeriod,
     summary,
@@ -289,6 +325,8 @@ export function generateForecastInsights(context: UserFinancialContext) {
       avgSpentPerDay,
       daysPassed,
       daysRemaining,
+      monthIncome: context.monthIncome,
+      incomeTracked: context.incomeTracked,
     },
   };
 }

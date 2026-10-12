@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr/dist/module/createServerClient";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import {
   isSupabaseConfigured,
@@ -6,10 +6,17 @@ import {
   supabaseCookieOptions,
   supabaseUrl,
 } from "@/utils/supabaseConfig";
+import { isAdminUser } from "@/utils/adminAccess";
 
 const SESSION_ACTIVITY_COOKIE = "buck-session-activity";
 const DEFAULT_IDLE_TIMEOUT_MINUTES = 30;
 const AUTH_ROUTES = new Set(["/sign-in", "/create-account", "/forgot-password"]);
+// API routes that authenticate by other means (anonymous flow or bearer secret).
+const NON_SESSION_API_PREFIXES = [
+  "/api/auth/",
+  "/api/cron/",
+  "/api/account/deletion/purge",
+];
 
 type SessionActivity = {
   sub: string;
@@ -32,6 +39,11 @@ function getIdleTimeoutMs() {
       process.env.NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_MINUTES,
     DEFAULT_IDLE_TIMEOUT_MINUTES
   );
+
+  // 0 disables the timeout; only tolerated outside production.
+  if (minutes === 0 && process.env.NODE_ENV === "production") {
+    return DEFAULT_IDLE_TIMEOUT_MINUTES * 60 * 1000;
+  }
 
   return minutes * 60 * 1000;
 }
@@ -294,6 +306,9 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isProtectedRoute = pathname.startsWith("/dashboard");
   const isAuthRoute = AUTH_ROUTES.has(pathname);
+  const isSessionApiRoute =
+    pathname.startsWith("/api/") &&
+    !NON_SESSION_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   const sessionCookieSecret = getSessionCookieSecret();
   const shouldEnforceServerIdle = Boolean(sessionCookieSecret);
   let response = NextResponse.next({ request });
@@ -307,7 +322,7 @@ export async function middleware(request: NextRequest) {
     return redirectResponse;
   }
 
-  if (!isProtectedRoute && !isAuthRoute) {
+  if (!isProtectedRoute && !isAuthRoute && !isSessionApiRoute) {
     return response;
   }
 
@@ -375,39 +390,53 @@ export async function middleware(request: NextRequest) {
     return redirectResponse;
   }
 
-  if (pathname.startsWith("/dashboard/admin") && user?.email !== "buckthebudgettracker@gmail.com") {
+  if (pathname.startsWith("/dashboard/admin") && !isAdminUser(user)) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/dashboard/home";
     redirectUrl.search = "";
     const redirectResponse = NextResponse.redirect(redirectUrl);
+    copyResponseCookies(response, redirectResponse);
     setNoStoreHeaders(redirectResponse);
 
     return redirectResponse;
   }
 
-  if (isProtectedRoute && user && shouldEnforceServerIdle) {
+  if ((isProtectedRoute || isSessionApiRoute) && user && shouldEnforceServerIdle) {
     const activity = await readActivityCookie(request, user.id);
     const timeoutMs = getIdleTimeoutMs();
+    // A missing cookie (cleared, or dropped on browser restart) is only trusted
+    // while the sign-in itself is still inside the idle window; otherwise an
+    // old refresh token could silently mint a fresh activity window.
+    const lastSignInMs = user.last_sign_in_at
+      ? Date.parse(user.last_sign_in_at)
+      : Number.NaN;
     const isExpired =
       activity === "invalid" ||
+      (activity === null &&
+        timeoutMs > 0 &&
+        !(Date.now() - lastSignInMs <= timeoutMs)) ||
       (activity !== null && timeoutMs > 0 && Date.now() - activity.ts > timeoutMs);
 
     if (isExpired) {
-      response = NextResponse.redirect(
-        createProtectedRedirect(request, "session-expired")
-      );
+      response = isProtectedRoute
+        ? NextResponse.redirect(createProtectedRedirect(request, "session-expired"))
+        : NextResponse.json({ error: "session-expired" }, { status: 401 });
       try {
         await supabase.auth.signOut();
       } catch {
-        // The redirect still clears Buck's server-side activity cookie.
+        // The response still clears Buck's server-side activity cookie.
       }
-      clearActivityCookie(response);
+      clearSupabaseAuthCookies(request, response);
       setNoStoreHeaders(response);
 
       return response;
     }
 
-    await refreshActivityCookie(response, user.id);
+    // Only page navigations count as user activity; API calls (including
+    // background polling) validate the window but never extend it.
+    if (isProtectedRoute) {
+      await refreshActivityCookie(response, user.id);
+    }
   }
 
   if (isAuthRoute && user) {

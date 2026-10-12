@@ -39,6 +39,22 @@ html[data-buck-theme="dark"] .trigger {
   cursor: not-allowed;
 }
 
+.triggerContent {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.prefixIcon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--buck-orange);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
 .label {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -54,6 +70,39 @@ html[data-buck-theme="dark"] .trigger {
 
 .iconOpen {
   transform: rotate(180deg);
+}
+
+/* Small variant for toolbars */
+.sizeSm .trigger {
+  min-height: 38px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 650;
+  border-radius: 8px;
+}
+
+.sizeSm .label {
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.sizeSm .icon {
+  font-size: 0.72rem;
+  margin-left: 0.35rem;
+}
+
+.sizeSm .dropdown {
+  min-width: 100%;
+  width: max-content;
+  max-width: 270px;
+  right: 0;
+  left: auto;
+}
+
+.sizeSm .option {
+  padding: 0.45rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 650;
 }
 
 .dropdown {

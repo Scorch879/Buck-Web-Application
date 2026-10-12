@@ -113,7 +113,7 @@ export default function HomeSkeleton() {
         </article>
       </section>
 
-      {/* 3. Financial Summary */}
+      {/* 3. Financial Summary (Tabular Skeleton - ADR-036 Parity) */}
       <section className="summary-card">
         <div className="card-heading-row">
           <div className="card-heading">
@@ -123,16 +123,79 @@ export default function HomeSkeleton() {
             </div>
           </div>
         </div>
-        <div className="summary-content">
-          {Array.from({ length: 4 }, (_, i) => (
-            <article key={i} className="summary-item">
-              <div className="summary-item-value"><span className="skeleton-text">₱0,000.00</span></div>
-              <div className="summary-item-label"><span className="skeleton-text">Category name</span></div>
-              <p className="summary-item-description">
-                <span className="skeleton-text">Short description of what this category covers.</span>
-              </p>
-            </article>
-          ))}
+
+        <div className="summary-table-container">
+          {/* Skeleton Toolbar */}
+          <div className="summary-table-toolbar">
+            <div className="summary-table-search-box">
+              <span className="skeleton-input" style={{ width: "100%", height: "38px", borderRadius: "8px" }} />
+            </div>
+            <div className="summary-table-controls-group">
+              <span className="skeleton-input" style={{ width: "130px", height: "38px", borderRadius: "8px" }} />
+              <span className="skeleton-input" style={{ width: "140px", height: "38px", borderRadius: "8px" }} />
+            </div>
+          </div>
+
+          {/* Skeleton Table */}
+          <div className="summary-table-wrapper">
+            <table className="summary-table" role="table">
+              <thead>
+                <tr>
+                  <th className="summary-th-category"><span className="skeleton-text">Category</span></th>
+                  <th className="summary-th-desc"><span className="skeleton-text">Description</span></th>
+                  <th className="summary-th-txns"><span className="skeleton-text">Entries</span></th>
+                  <th className="summary-th-share"><span className="skeleton-text">Share %</span></th>
+                  <th className="summary-th-amount"><span className="skeleton-text">Total Spent</span></th>
+                  <th className="summary-th-action"><span className="skeleton-text">Action</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 5 }, (_, i) => (
+                  <tr key={i} className="summary-table-row">
+                    <td className="summary-td-category">
+                      <div className="summary-cat-info">
+                        <span className="skeleton-circle" style={{ width: "9px", height: "9px", borderRadius: "50%" }} />
+                        <span className="skeleton-text">Category Item</span>
+                      </div>
+                    </td>
+                    <td className="summary-td-desc">
+                      <span className="skeleton-text">Spending description details for tracked item</span>
+                    </td>
+                    <td className="summary-td-txns">
+                      <span className="skeleton-text">0 entries</span>
+                    </td>
+                    <td className="summary-td-share">
+                      <div className="summary-share-cell">
+                        <span className="skeleton-line" style={{ flex: 1, height: "7px", borderRadius: "999px" }} />
+                        <span className="skeleton-text">0.0%</span>
+                      </div>
+                    </td>
+                    <td className="summary-td-amount">
+                      <span className="skeleton-text">₱0,000.00</span>
+                    </td>
+                    <td className="summary-td-action">
+                      <span className="skeleton-button" style={{ width: "48px", height: "24px", borderRadius: "6px", margin: "0 auto" }} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Skeleton Pagination */}
+          <div className="summary-table-pagination">
+            <div className="summary-pagination-info">
+              <span className="skeleton-text">Showing 1–5 of 12 categories</span>
+            </div>
+            <div className="summary-pagination-nav">
+              <span className="skeleton-button" style={{ width: "55px", height: "29px", borderRadius: "6px" }} />
+              <div className="summary-page-numbers">
+                <span className="skeleton-button" style={{ width: "29px", height: "29px", borderRadius: "6px" }} />
+                <span className="skeleton-button" style={{ width: "29px", height: "29px", borderRadius: "6px" }} />
+              </div>
+              <span className="skeleton-button" style={{ width: "55px", height: "29px", borderRadius: "6px" }} />
+            </div>
+          </div>
         </div>
       </section>
 

@@ -1,69 +1,495 @@
-# CLAUDE.md: Project Architecture, Agent Specifications & Development Guide
+# CLAUDE.md: Project Architecture, System Overview & Engineering Guide
 
-> **Single Source of Truth for Claude**: This document establishes the foundational architecture, engineering roles, strict domain constraints, security mandates, and development workflows for the **Buck: Finance & Expenses Tracker** repository.
+> **Single Source of Truth for Claude**: This document establishes the foundational architecture, system overview, structural decomposition of the entire project, engineering roles, domain constraints, security mandates, and development workflows for the **Buck: Finance & Expenses Tracker** repository.
 
 ---
 
-## 1. Project Overview & System Architecture
+## 1. System Overview
 
-**Buck** is an intelligent, cross-platform personal finance management ecosystem engineered to give users complete visibility over cash flow through automated receipt scanning, AI expense classification, multi-wallet tracking, goal savings, and time-series spending forecasting.
+### 1.1 Project Purpose & Problem Statement
+**Buck** directly resolves personal financial management challenges faced by individuals—including students, teachers, employees, freelancers, and seniors—who operate under rising living costs, irregular allowances/income, and limited budgeting literacy. Traditional financial logging tools suffer from tedious manual entry, lack of contextual local tax parsing, absent predictive analytics, and generic financial advice.
 
-### Tech Stack Matrix
+Buck provides an intelligent, accessible, cross-platform personal finance ecosystem combining:
+- **Instant Mobile Receipt Scanning**: Native on-device OCR with automatic 12% EVAT mathematical isolation.
+- **Automated AI Categorization**: Zero-shot NLP classification into 17 standard expense categories.
+- **Predictive Spending Forecasting**: Facebook Prophet additive time-series regression with 80% statistical confidence bounds.
+- **Attitude-Calibrated AI Financial Advisor**: Concise, strictly 2-sentence actionable guidance tailored to user-selected saving attitudes (Normal, Moderate, Aggressive).
+- **Multi-Wallet Net Worth Oversight**: Liquid wallet management with atomic inter-wallet transfers.
+- **Robust Security & Privacy**: Kernel-level PostgreSQL Row-Level Security (RLS), 30-minute inactivity session expiration with cross-tab synchronization, and a 10-day soft account deletion recovery window.
 
-| Tier | Technology | Purpose / Scope | Location in Repo |
+### 1.2 Target Audience & Scope Boundaries
+- **Primary Audience**: Individual consumers in the Philippines and global users seeking granular personal cash flow control.
+- **Currency Standard**: Philippine Peso (`PHP` / `₱`) with strict `numeric(14, 2)` decimal precision.
+- **Explicit Scope Exclusions**: Multi-tenant enterprise corporate accounting, B2B billing systems, automated bank API syncing (Open Banking / Plaid), and stock/cryptocurrency trading platforms are strictly excluded from project scope.
+
+### 1.3 Major Capabilities Matrix
+
+| Functional Module | Primary Platform | Technical Implementation | Key Performance / Domain Benchmark |
 |---|---|---|---|
-| **Web Frontend** | Next.js 15 (App Router), React 19, TypeScript 5, Tailwind / CSS Modules, Framer Motion | Web client dashboard, responsive modals, client caching | `buck/src/app/`, `buck/src/component/` |
-| **Mobile Client** | Flutter / Dart (Cross-platform Android 8.0+ & iOS 13.0+) | Mobile client, native camera hardware, on-device Edge ML OCR | Mobile repository |
-| **Database & Auth** | Supabase Cloud (PostgreSQL 15+, GoTrue Auth, PostgREST, Realtime) | Relational persistence, kernel-level RLS, SSR session management | `buck/supabase/`, `buck/src/utils/` |
-| **Next.js API Layer** | Next.js Route Handlers (Edge / Node runtimes) | Auth resets, account deletion grace period, SSR proxy, admin endpoints | `buck/src/app/api/` |
-| **AI / ML Microservice** | Python 3.10+, FastAPI, Uvicorn, LLaMA 3.3 70B Turbo (Together AI), Facebook Prophet | Zero-shot 17-category classification, 2-sentence saving advice, additive regression forecasting | `buck/BuckAI_Backend/` |
+| **Expense & Income Logging** | Web & Mobile | Supabase PostgREST & atomic balance triggers | Dual-entry accounting, `numeric(14,2)` in PHP |
+| **Receipt Scanning** | Mobile-Exclusive | Flutter Edge ML Kit Vision OCR | On-device text extraction in `<1.5s`, 12% EVAT separation |
+| **AI Expense Classification** | Web & Mobile | Together AI (LLaMA 3.3 70B Turbo) | Zero-shot mapping into 17 standard categories |
+| **Multi-Wallet Ledger** | Web & Mobile | PostgreSQL `transfer_funds_atomic` stored procedure | Atomic debit/credit, soft deletion (`deleted_at`) |
+| **Budget Tracking & Alerts** | Web & Mobile | Category & Wallet budget progress evaluators | 80% Caution Alert (Amber), 100% Critical Alert (Crimson) |
+| **Spending Forecasting** | Web & Mobile | Facebook Prophet additive regression microservice | 80% confidence interval, excludes `is_emergency=TRUE` |
+| **AI Financial Advisor** | Web & Mobile | Prompt-engineered LLaMA 3.3 microservice | Strictly 2 sentences, PHP amounts, saving attitude multipliers |
+| **Financial Goals** | Web & Mobile | Goal tracking & wallet fund allocation triggers | Completion pacing, days remaining, celebratory feedback |
+| **Analytics & Reports** | Web & Mobile | Chart.js & Framer Motion data visualizers | Category donut (Top-4 + Others cap), daily bars, velocity |
+| **Auth & Account Lifecycle** | Web & Mobile | Supabase GoTrue, SSR Cookies, HMAC session tokens | 30-min idle timeout, cross-tab sync, 10-day deletion recovery |
 
 ---
 
-## 2. Multi-Agent Roles & Operational Boundaries (from `Agents.md`)
+## 2. High-Level System Architecture
 
-Claude must adhere to the role boundaries defined in [`Agents.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/AGENTS.md):
+Buck is architected as a decoupled, multi-tier system where independent Web and Mobile presentation clients share a single, unified Supabase PostgreSQL cloud database, while offloading intensive machine learning workloads to a dedicated Python FastAPI microservice.
+
+```mermaid
+flowchart TD
+    %% Styling Classes
+    classDef client fill:#f8fafc,stroke:#3b82f6,stroke-width:2px,color:#0f172a
+    classDef gateway fill:#f0fdf4,stroke:#22c55e,stroke-width:2px,color:#0f172a
+    classDef service fill:#fff7ed,stroke:#f97316,stroke-width:2px,color:#0f172a
+    classDef database fill:#eff6ff,stroke:#6366f1,stroke-width:2px,color:#0f172a
+    classDef external fill:#fdf4ff,stroke:#d946ef,stroke-width:2px,color:#0f172a
+
+    %% Presentation Tier
+    subgraph PresentationTier ["1. Presentation Tier (Independent Clients)"]
+        direction LR
+        WebClient["🌐 Next.js 15 Web Client\n(App Router / React 19 / Vercel)\n- SSR Auth Gatekeeping\n- In-Memory FinancialContext Cache\n- Framer Motion & Responsive Dashboards"]:::client
+        MobileClient["📱 Flutter Mobile Client\n(Dart / iOS 13+ & Android 8+)\n- Native Camera Viewfinder\n- On-Device Edge ML Vision OCR\n- SQLite Local Offline Cache"]:::client
+    end
+
+    %% Application & Service Tier
+    subgraph ApplicationServiceTier ["2. Application & Service Tier (Cloud Hosted)"]
+        direction LR
+        NextServer["⚡ Next.js Server Layer (Node/Edge)\n- Middleware SSR Auth Guard\n- HMAC Session Activity Cookie\n- Route Handlers (/api/auth, /api/account)\n- Admin Telemetry Gateways"]:::service
+        SupabaseGateway["🛡️ Supabase Managed Gateway\n- GoTrue Auth Engine (JWT / Cookies)\n- PostgREST Data Engine (REST APIs)\n- Realtime Replication Engine (WSS)"]:::gateway
+        FastAPI["🧠 Python FastAPI AI Microservice\n(Render / Uvicorn)\n- LLaMA 3.3 70B Zero-Shot Classifier\n- Facebook Prophet Time-Series Engine\n- Saving Attitude Multiplier Recalibrator"]:::service
+    end
+
+    %% External ML Providers
+    subgraph ExternalServices ["External Cloud AI Engines"]
+        TogetherAI["🤖 Together AI API\n(LLaMA 3.3 70B Turbo)"]:::external
+    end
+
+    %% Data Persistence Tier
+    subgraph DataPersistenceTier ["3. Data Persistence Tier (Single Source of Truth)"]
+        PostgreSQL[("🐘 Supabase PostgreSQL 15 Database\n- Kernel-Level Row-Level Security (RLS)\n- Numeric(14,2) Precision Enforced\n- Stored Procedures (transfer_funds_atomic)\n- Storage Bucket: profile-avatars\n- Automated Daily PITR Backups"):::database
+    end
+
+    %% Protocol Interconnections
+    WebClient <-->|"HTTPS (REST) & Cookies"| NextServer
+    WebClient <-->|"HTTPS (REST) & WSS (Realtime)"| SupabaseGateway
+    MobileClient <-->|"HTTPS (REST) & WSS (Realtime)"| SupabaseGateway
+
+    WebClient -.->|"Direct AI Inference (HTTPS)"| FastAPI
+    MobileClient -.->|"Direct AI Inference (HTTPS)"| FastAPI
+    NextServer -.->|"Service Invocations (HTTPS)"| FastAPI
+
+    NextServer <-->|"PostgreSQL Wire / PostgREST (Admin Role)"| PostgreSQL
+    SupabaseGateway <-->|"PostgreSQL Wire Protocol (Port 5432)"| PostgreSQL
+    FastAPI <-->|"Database Ingestion / SQL"| PostgreSQL
+    FastAPI <-->|"PII-Sanitized Prompt Invocations"| TogetherAI
+```
+
+### 2.1 Presentation Tier
+1. **Next.js 15 Web Client**:
+   - Implements React 19 Server Components and Client Components within the App Router (`buck/src/app/`).
+   - Utilizes [`FinancialContext.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/context/FinancialContext.tsx) to provide high-speed in-memory client data caching with Supabase Realtime synchronization, eliminating repeated table fetches during navigation.
+   - Enforces responsive modal bounds (`width: min(880px, 100%)`, max-height `min(82dvh, 760px)`) and strict **1:1 Skeletal Loading Parity** ([`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx)) for zero Cumulative Layout Shift (CLS).
+2. **Flutter Mobile Client**:
+   - Independent cross-platform client (Android 8.0+ and iOS 13.0+) adhering to the BLoC state pattern.
+   - Interfaces directly with native device camera hardware for high-resolution receipt capture.
+   - Runs local image preprocessing (greyscale conversion, contrast stretching, adaptive Gaussian binarization) and edge vision OCR text extraction in `<1.5s` on-device without cloud latency.
+   - Caches transactions locally in SQLite for graceful offline operation during connectivity drops.
+
+### 2.2 Application & Service Tier
+1. **Supabase Managed Cloud Gateway**:
+   - **GoTrue Auth**: Handles cryptographic user registration, session token issuance, and password verification.
+   - **PostgREST Engine**: Exposes auto-generated, performant RESTful APIs directly over PostgreSQL tables, evaluating Row-Level Security (RLS) on every transaction.
+   - **Realtime Engine**: Broadcasts database mutations over secure WebSockets (`wss://`) on Port 443 to connected clients.
+2. **Next.js Server & Route Handlers (`buck/src/app/api/`)**:
+   - **Middleware Guard (`buck/src/middleware.ts`)**: Evaluates SSR auth cookies and verifies HMAC-SHA256 activity signatures before allowing navigation into protected `/dashboard/*` routes.
+   - **Auth & Account Lifecycle Routes**: Manages rate-limited password reset requests (`/api/auth/password-reset`), 10-day deletion requests and confirmation tokens (`/api/account/deletion/*`), and cron-based purge execution.
+   - **Admin Telemetry Gateways**: Proxies authenticated system telemetry from the Supabase Management API (`/api/admin/supabase`) and Vercel Deployment API (`/api/admin/vercel`).
+3. **Python FastAPI AI Microservice (`buck/BuckAI_Backend/`)**:
+   - Lightweight microservice hosted on Render / Uvicorn exposing high-performance machine learning endpoints.
+   - Coordinates LLaMA 3.3 70B Turbo zero-shot categorization, Facebook Prophet historical additive regression, and 2-sentence saving advice formatting with attitude multipliers.
+
+### 2.3 Data Persistence Tier
+- **Single Source of Truth**: Both the Next.js web application and Flutter mobile app communicate with the exact same Supabase PostgreSQL 15 database instance. Any receipt logged on mobile is instantaneously visible on the web dashboard.
+- **Kernel-Level Access Control**: Row-Level Security (RLS) is applied to all public tables, strictly enforcing `auth.uid() = user_id`.
+- **Atomic Financial Transactions**: Inter-wallet fund transfers and expense deletions are governed by database transactions and stored procedures (`transfer_funds_atomic`), guaranteeing zero balance desynchronization.
+
+### 2.4 Network Protocols & Communications
+- **Public Transport**: Enforces HTTPS (TLS 1.3) and WebSockets Secure (`wss://`) over **Port 443**.
+- **Internal Database Connection**: PostgreSQL wire protocol over **Port 5432** (connection pooled via Supavisor / PgBouncer).
+- **Zero PII Transmission**: Transaction descriptions sent to external AI engines are pre-filtered via regex scrubbers to strip phone numbers, emails, and account identifiers.
+
+---
+
+## 3. Structural Overview of the Entire Project
+
+### 3.1 Subsystems Decomposition (The 10 Canonical Modules)
+
+The system is decomposed into 10 cohesive, traceable subsystems aligned with the SRS, SDD, and SPMP:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                   BUCK ECOSYSTEM                                        │
+├──────────────────────────┬──────────────────────────┬───────────────────────────────────┤
+│ Core Financial Subsystem │ Machine Learning & Vision│ Governance & Platform Subsystem   │
+├──────────────────────────┼──────────────────────────┼───────────────────────────────────┤
+│ 1. Expense/Income Log    │ 2. Mobile Edge OCR       │ 8. Financial Goals & Pacing       │
+│ 4. Multi-Wallet Ledger   │ 3. 17-Cat AI Classifier  │ 9. Analytics & Cash Flow Reports  │
+│ 5. Budgets & Alerting    │ 6. Prophet Forecasting   │ 10. Auth & 10-Day Account Grace   │
+│                          │ 7. AI Financial Advisor  │                                   │
+└──────────────────────────┴──────────────────────────┴───────────────────────────────────┘
+```
+
+1. **Expense & Income Management Subsystem (MOD-01)**:
+   - Records transactions in Philippine Peso (`numeric(14,2)`), atomically updates originating wallet balances, and provides multi-parameter filtering (date range, wallet, category).
+2. **Mobile OCR Receipt Scanning Subsystem (MOD-02)**:
+   - Mobile camera viewfinder, edge binarization, on-device OCR text extraction, 12% EVAT mathematical isolation, and human-in-the-loop review modal.
+3. **Automated AI Expense Categorization Subsystem (MOD-03)**:
+   - Zero-shot classification prompt mapping arbitrary transaction descriptions into the 17 canonical categories with client-side override.
+4. **Multi-Wallet & Financial Accounts Subsystem (MOD-04)**:
+   - Manages multiple liquid accounts (`Cash`, `Bank`, `E-Wallet`), aggregates total net worth, and executes atomic inter-wallet transfers via `transfer_funds_atomic`.
+5. **Budget Management & Alert Subsystem (MOD-05)**:
+   - Monthly category and wallet budgets, dynamic progress gauges, and threshold triggers: **80% Caution Alert (Amber)** and **100% Critical Limit Alert (Crimson)**.
+6. **Spending Forecasting & Trend Analysis Subsystem (MOD-06)**:
+   - Ingests historical spending into Facebook Prophet, generates daily burn curves with 80% confidence interval bands, and filters out anomalous transactions (`is_emergency = TRUE`).
+7. **AI Financial Advisor & Recommendation Subsystem (MOD-07)**:
+   - Generates actionable guidance restricted to **strictly two sentences**, calculating monetary advice in PHP scaled by user saving attitudes (Normal 1.0x, Moderate 0.80x/1.15x, Aggressive 0.60x/1.30x).
+8. **Financial Goals & Target Savings Subsystem (MOD-08)**:
+   - Dedicated goal tracking with target amounts, target completion dates, wallet fund allocations, and completion pacing indicators.
+9. **Analytics, Statistics & Reports Subsystem (MOD-09)**:
+   - Interactive data visualizations: Category Breakdown donut (Top-4 categories + aggregated 5th "Others" slice cap), 7-day daily spend bar charts, and moving average spending velocity.
+10. **Authentication, Identity & Account Lifecycle Subsystem (MOD-10)**:
+    - User registration, SSR session cookie validation, 30-minute inactivity timeout synchronized across tabs via `BroadcastChannel`, cryptographic password resets, and 10-day soft account deletion recovery window.
+
+---
+
+### 3.2 Database Entity Relationship & Schema Design
+
+```mermaid
+erDiagram
+    AUTH_USERS ||--|| PROFILES : "1:1 owns"
+    AUTH_USERS ||--o{ WALLETS : "1:N owns"
+    AUTH_USERS ||--o{ CATEGORIES : "1:N owns"
+    AUTH_USERS ||--o{ GOALS : "1:N owns"
+    AUTH_USERS ||--o{ EXPENSES : "1:N owns"
+    AUTH_USERS ||--o{ WALLET_TRANSFERS : "1:N logs"
+    AUTH_USERS ||--o{ ACCOUNT_DELETION_REQUESTS : "1:N requests"
+    AUTH_USERS ||--o{ AI_FORECASTS : "1:N caches"
+    AUTH_USERS ||--o{ AI_ADVISORIES : "1:N caches"
+
+    PROFILES }o--|| WALLETS : "active_wallet_id references"
+    EXPENSES }o--o| WALLETS : "wallet_id references"
+    EXPENSES }o--o| GOALS : "goal_id references"
+    EXPENSES }o--o| CATEGORIES : "category_id references"
+    WALLET_TRANSFERS }o--|| WALLETS : "source_wallet_id references"
+    WALLET_TRANSFERS }o--|| WALLETS : "target_wallet_id references"
+
+    PROFILES {
+        uuid id PK
+        text username
+        text email
+        uuid active_wallet_id FK
+        text saving_attitude
+        text avatar_path
+        timestamptz avatar_updated_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    WALLETS {
+        uuid id PK
+        uuid user_id FK
+        text name
+        numeric budget
+        timestamptz deleted_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    CATEGORIES {
+        uuid id PK
+        uuid user_id FK
+        text name
+        text color
+        text icon
+        integer sort_order
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    GOALS {
+        uuid id PK
+        uuid user_id FK
+        text goal_name
+        numeric target_amount
+        numeric current_amount
+        text attitude
+        date target_date
+        boolean is_active
+        boolean completed
+        text ai_recommendation
+        numeric ai_recommended_budget
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    EXPENSES {
+        uuid id PK
+        uuid user_id FK
+        uuid wallet_id FK
+        uuid goal_id FK
+        uuid category_id FK
+        text category_name
+        numeric amount
+        text description
+        date spent_on
+        boolean is_emergency
+        numeric evat_amount
+        jsonb metadata
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    WALLET_TRANSFERS {
+        uuid id PK
+        uuid user_id FK
+        uuid source_wallet_id FK
+        uuid target_wallet_id FK
+        numeric amount
+        text notes
+        timestamptz created_at
+    }
+
+    ACCOUNT_DELETION_REQUESTS {
+        uuid id PK
+        uuid user_id FK
+        text email
+        text token_hash
+        timestamptz requested_at
+        timestamptz confirmation_expires_at
+        timestamptz confirmed_at
+        timestamptz recovery_until
+        timestamptz canceled_at
+        timestamptz purge_started_at
+        timestamptz created_at
+    }
+
+    AI_FORECASTS {
+        uuid id PK
+        uuid user_id FK
+        uuid goal_id FK
+        uuid wallet_id FK
+        text period_type
+        date period_start
+        date period_end
+        numeric projected_spending
+        numeric projected_savings
+        jsonb daily_forecast
+        numeric confidence_score
+        text model_name
+        timestamptz expires_at
+    }
+
+    AI_ADVISORIES {
+        uuid id PK
+        uuid user_id FK
+        text advisory_type
+        text title
+        text advice
+        integer financial_health_score
+        text priority
+        boolean is_read
+        boolean is_dismissed
+        timestamptz valid_until
+    }
+```
+
+#### Core Schema Rules & Integrity Triggers:
+1. **Precision Standard**: Every currency column (`wallets.budget`, `expenses.amount`, `goals.target_amount`, `wallet_transfers.amount`) is strictly `numeric(14, 2) check (value >= 0)`.
+2. **Referential Ownership Triggers**:
+   - `ensure_expense_relations_owner`: Validates that `wallet_id`, `goal_id`, and `category_id` in any transaction record belong to the same `user_id`.
+   - `ensure_profile_active_wallet_owner`: Prohibits assigning an `active_wallet_id` that belongs to another account.
+3. **Soft-Deletion Preservation**: `wallets.deleted_at` allows wallets to be archived without breaking historical transactions or violating foreign keys.
+4. **Single Active Goal Enforcement**: A partial unique index (`goals_one_active_goal_per_user_idx`) ensures that only one goal per user can have `is_active = true`.
+
+---
+
+### 3.3 Detailed Repository Directory & File Anatomy
+
+```
+d:/VS Code/Buck-Budget-Tracker/Buck-Web-Application/
+├── Claude.md                           # Master Claude Architecture & Engineering Guide (Single Source of Truth)
+├── Agents.md                           # Multi-agent roles, operational scopes, and lifecycle rules
+├── Skills.md                           # Complete function catalog for Supabase Data Layer, APIs, and ML endpoints
+├── Design.md                           # Comprehensive architectural design, ERDs, and 13 ADRs
+├── Implementation.md                   # Sprint progress, technical deliverables, and verification checkpoints
+├── QA_Report.md                        # Defect catalog, regression audits, and security vulnerability tracking
+├── README.md                           # Project onboarding and developer quick-start
+│
+├── docs/                               # Project Schedules & Offline Planning Assets
+│   └── Buck_Project_Schedule_Gantt_Chart.xlsx  # 9-week Gantt schedule with status dropdowns
+│
+└── buck/                               # Core Next.js Web Application & Backend Subsystem
+    ├── CLAUDE.md                       # Subdirectory Claude reference mirror
+    ├── package.json                    # Next.js 15, React 19, Supabase SSR, Framer Motion dependencies
+    ├── next.config.ts                  # Next.js runtime configuration
+    ├── tsconfig.json                   # TypeScript compiler configuration
+    ├── vercel.json                     # Vercel deployment & security headers configuration
+    │
+    ├── BuckAI_Backend/                 # Python FastAPI AI Microservice Subsystem
+    │   ├── main.py                     # FastAPI application, routing, and Pydantic validation schemas
+    │   ├── ai_models.py                # LLaMA 3.3 Together AI prompt engine, Prophet time-series model
+    │   └── requirements.txt            # Python dependencies (fastapi, uvicorn, prophet, pydantic)
+    │
+    ├── supabase/                       # Database Persistence Subsystem
+    │   └── migrations/                 # Versioned SQL migrations (DDL, RLS policies, stored procedures)
+    │       ├── 202606010000_initial_schema.sql
+    │       ├── 202606140001_security_and_policy_hardening.sql
+    │       └── 202609200001_transfer_funds_atomic.sql
+    │
+    └── src/                            # Application Source Code
+        ├── middleware.ts               # SSR route gatekeeper, session freshness validation & HMAC cookie signing
+        │
+        ├── app/                        # Next.js 15 App Router
+        │   ├── globals.css             # CSS design tokens, typography, root variables, scrollbar styling
+        │   ├── layout.tsx              # Root HTML layout wrapping ToastProvider, AuthGuard, and SessionManager
+        │   ├── page.tsx                # Public landing page with features showcase and auth entry
+        │   │
+        │   ├── dashboard/              # Authenticated Dashboard Route Segments
+        │   │   ├── layout.tsx          # Dashboard layout wrapping FinancialProvider and navigation chrome
+        │   │   ├── home/               # Overview view: Net worth, WeeklyPieChart, 7-day bars, AI placeholder
+        │   │   ├── expenses/           # Transaction view: ExpenseKPICards, CategoryVisualizer, table/filter
+        │   │   ├── wallet/             # Multi-wallet view: Active cards, inter-wallet transfer modal, history
+        │   │   ├── goals/              # Savings view: Goal list, funding allocation, progress indicators
+        │   │   ├── statistics/         # Analytics view: Cash flow velocity, category spending breakdown
+        │   │   ├── settings/           # Profile view: Attitude selector, dark/light theme, account deletion
+        │   │   ├── admin/              # Admin view: System telemetry, Supabase/Vercel status, feedback triage
+        │   │   ├── financial-advisor/  # Dedicated AI Advisor recommendation view
+        │   │   └── forecast/           # Dedicated AI Time-Series spending forecast view
+        │   │
+        │   └── api/                    # Server-Side API Route Handlers
+        │       ├── auth/               # /api/auth/password-reset (rate-limited), /api/auth/sign-out
+        │       ├── account/deletion/   # /request, /recover, and cron-triggered /purge endpoints
+        │       ├── advisor/route.ts    # AI Advisor recommendation proxy endpoint
+        │       ├── forecast/route.ts   # Time-series spending forecasting proxy endpoint
+        │       └── admin/              # Supabase management and Vercel telemetry proxy routes
+        │
+        ├── component/                  # Reusable UI Components & Widgets
+        │   ├── dashboard.css           # Global dashboard layout, card styling, and grid rules
+        │   ├── DashboardClientLayout.tsx # Responsive desktop/mobile navigation shell
+        │   ├── DashboardSkeletons.tsx  # 1:1 Parity skeletons for zero CLS (Expenses, Wallets, Home, etc.)
+        │   ├── SessionManager.tsx      # 30-min idle timeout detector & BroadcastChannel cross-tab synchronizer
+        │   ├── ExpenseKPICards.tsx     # KPI metrics: Wallet capacity meter, cumulative stats, benchmark track
+        │   ├── ExpenseCategoryVisualizer.tsx # Proportional category allocation bar & filter chip pills
+        │   ├── WeeklyPieChart.tsx      # Donut chart with Top-4 + Others 5-slice cap and interpretation card
+        │   ├── AIAdvisorPlaceholderCard.tsx # Shimmering Generative AI status card with telemetry chips
+        │   └── toast/                  # Global Toaster Subsystem
+        │       ├── ToastContext.tsx    # Toast provider and dispatch hooks (toast.success, toast.error, etc.)
+        │       ├── Toaster.tsx         # Framer Motion animated viewport container (max 4 concurrent items)
+        │       ├── ToastItem.tsx       # Accessible notification item with animated countdown progress bar
+        │       └── toast.module.css    # Toast token styling, glassmorphism, and responsive positioning
+        │
+        ├── context/                    # React Context & Client Cache State
+        │   ├── FinancialContext.tsx    # State signatures, types, and DashboardDataCache cache layer
+        │   └── FinancialProvider.tsx   # Global provider orchestrating data fetching and realtime subscriptions
+        │
+        ├── hooks/                      # Custom React Hooks
+        │   └── usePointerGradient.ts   # Interactive mouse pointer radial gradient lighting for cards/modals
+        │
+        └── utils/                      # Data Services, Clients & Helpers
+            ├── supabaseClient.ts       # Browser-side Supabase client singleton
+            ├── supabaseServer.ts       # Server-side Supabase client with cookie forwarding
+            ├── supabaseData.ts         # Centralized data access layer (profiles, wallets, expenses, goals, feedback)
+            ├── sessionActivity.ts      # HMAC cookie signing and session activity validation utilities
+            └── formatters.ts           # Standardized Philippine Peso currency (`₱`) and date formatters
+```
+
+---
+
+### 3.4 Client State Caching & Synchronization Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant Page as Dashboard View (e.g. Expenses)
+    participant FP as FinancialProvider
+    participant Cache as In-Memory Cache (FinancialContext)
+    participant Supa as Supabase Cloud (PostgREST / RLS)
+    participant RT as Supabase Realtime (WSS)
+
+    User->>Page: Navigates to /dashboard/expenses
+    Page->>FP: Requests active wallet & expenses list
+    FP->>Cache: Check cache validity (< 5 min old)
+    alt Cache Hit
+        Cache-->>FP: Return cached data immediately
+        FP-->>Page: Instant render (0ms latency, zero skeleton flash)
+    else Cache Miss / Invalidation
+        FP->>Supa: Fetch fresh records for auth.uid()
+        Supa-->>FP: Return records
+        FP->>Cache: Populate in-memory cache with timestamp
+        FP-->>Page: Render hydrated UI
+    end
+
+    Note over User,RT: Another client (or mobile OCR) logs an expense
+    RT->>FP: Realtime event: INSERT on public.expenses
+    FP->>Cache: Invalidate / update cached collection
+    FP-->>Page: Seamless reactive UI update
+```
+
+---
+
+## 4. Multi-Agent Roles & Operational Boundaries (from `Agents.md`)
+
+When executing pairs programming, code reviews, and architectural changes, Claude must operate within the specific agent roles defined in [`Agents.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Agents.md):
 
 ```mermaid
 flowchart TD
     UserRequest([User Request / Task]) --> Triage{Agent Role Triage}
     
-    Triage -->|UI / Visual / Dashboard| FrontendAgent[Frontend UI/UX Architect]
-    Triage -->|FastAPI / AI / Prophet| BackendAgent[Backend & ML Engineer]
-    Triage -->|Auth / DB / RLS / Security| SecurityAgent[Security & Data Auditor]
+    Triage -->|UI / Visual / Dashboard / Skeletons| FrontendAgent[Frontend UI/UX Architect]
+    Triage -->|FastAPI / AI Prompting / Prophet| BackendAgent[Backend & ML Engineer]
+    Triage -->|Auth / DB / RLS / Security / Purge| SecurityAgent[Security & Data Auditor]
     
     FrontendAgent --> CodeExecution[Code Implementation]
     BackendAgent --> CodeExecution
     SecurityAgent --> CodeExecution
     
     CodeExecution --> QAAgent[Senior QA & Documentation Engineer]
-    QAAgent --> AuditCheck{Discrepancies / Drift Found?}
+    QAAgent --> AuditCheck{Discrepancies / Defects Found?}
     
-    AuditCheck -->|Yes| LogDefect[Update QA_Report.md & Correct Code]
+    AuditCheck -->|Yes| LogDefect[Catalog in QA_Report.md & Correct Drift]
     AuditCheck -->|No| SyncDocs[Update Skills.md, Design.md, Implementation.md]
     
     LogDefect --> SyncDocs
     SyncDocs --> Complete([Verified Delivery])
 ```
 
-### 2.1 Senior QA & Documentation Engineer
-- **Responsibilities**: Maintains single source of truth across all Markdown specs ([`Agents.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/AGENTS.md), [`Skills.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Skills.md), [`Design.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Design.md), [`Implementation.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Implementation.md), [`QA_Report.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/QA_Report.md)).
-- **Zero Hallucination Policy**: Every documented feature, signature, and constraint must be traceable to concrete lines in the codebase. Never document planned/speculative features as existing implementation.
+### 4.1 Senior QA & Documentation Engineer
+- **Responsibilities**: Maintains single source of truth across all Markdown specs ([`Agents.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Agents.md), [`Skills.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Skills.md), [`Design.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Design.md), [`Implementation.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Implementation.md), [`QA_Report.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/QA_Report.md)).
+- **Zero Hallucination Policy**: Every documented signature, column, and constraint must be traceable to concrete lines in the repository.
 - **Proactive Defect Logging**: Immediately catalog any bug, race condition, missing endpoint, or security flaw in [`QA_Report.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/QA_Report.md).
 
-### 2.2 Frontend UI/UX Architect
-- **Responsibilities**: User-facing components, design tokens, responsive layouts, client cache synchronization, and Framer Motion visual interactions.
-- **Client Cache Rule**: High-frequency dashboard navigation must utilize [`FinancialContext.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/context/FinancialContext.tsx) to prevent redundant database fetches.
+### 4.2 Frontend UI/UX Architect
+- **Responsibilities**: Next.js App Router, Framer Motion, CSS Design Tokens, responsive modal bounds, and client caching.
+- **Client Cache Rule**: High-frequency dashboard navigation must utilize [`FinancialContext.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/context/FinancialContext.tsx) to prevent redundant database queries.
 - **Modal Bounds Standard**: All desktop modals must conform to `width: min(880px, 100%)` and `max-height: min(82dvh, 760px)`.
 - **1:1 Skeletal Loading Parity Policy**: Loading skeletons in [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx) must have 1:1 layout, geometry, card anatomy, and toolbar parity with rendered screens (especially Expenses and Wallets) to eliminate Cumulative Layout Shift (CLS).
 
-### 2.3 Backend & ML Engineer
+### 4.3 Backend & ML Engineer
 - **Responsibilities**: Python FastAPI microservice ([`buck/BuckAI_Backend/main.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/main.py)), AI inference models ([`ai_models.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/ai_models.py)), and Next.js backend API routes ([`buck/src/app/api/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/)).
 - **AI Output Sanitization**: Strip `<think>` tags and reasoning noise using `clean_llama_output`.
 - **Currency Standard**: All monetary calculations and prompt outputs must use Philippine Peso (`PHP` / `₱`) with 2 decimal precision.
 - **State Synchronization**: Prevent in-memory cache drift between FastAPI memory and Supabase PostgreSQL.
 
-### 2.4 Security & Data Auditor
+### 4.4 Security & Data Auditor
 - **Responsibilities**: Supabase schema integrity, RLS policies, SSR auth lifecycles, cryptographic token handling, session activity cookies, and compliance purge workflows.
 - **Secret Isolation**: Never expose `SUPABASE_SERVICE_ROLE_KEY`, `AUTH_RATE_LIMIT_SECRET`, `SESSION_COOKIE_SECRET`, or `ACCOUNT_PURGE_SECRET` to client-side code (`NEXT_PUBLIC_`).
 - **Kernel Row Isolation**: All direct database operations from the client must strictly enforce PostgreSQL Row-Level Security (`auth.uid() = user_id`).
@@ -71,147 +497,78 @@ flowchart TD
 
 ---
 
-## 3. Core Functional Requirements & Domain Constraints (SRS / SDD Alignment)
+## 5. Architectural Decision Records (ADRs) Quick Reference
 
-### 3.1 Monetary Standard & Decimal Precision
+| ADR | Title | Core Architectural Decision |
+|---|---|---|
+| **ADR-001** | SSR Authentication & HMAC Cookies | `@supabase/ssr` combined with HMAC-SHA256 session activity cookies in `middleware.ts`. |
+| **ADR-002** | In-Memory Client Cache (`FinancialContext`) | Timestamped in-memory caching for dashboard data with Supabase Realtime invalidation. |
+| **ADR-003** | Soft-Deletion for Multi-Wallet Management | Added `wallets.deleted_at` to preserve historical transaction referential integrity. |
+| **ADR-004** | Decoupled Python FastAPI Microservice | Isolated Python ML workloads (LLaMA prompt orchestration, Prophet) into a dedicated service. |
+| **ADR-005** | Zero-Knowledge Password Reset Rate Limiting | Rate limiting tracked via SHA-256 HMAC hashes in `auth_security_events` (zero plaintext PII). |
+| **ADR-006** | Database Policy Consolidation & Hardening | Applied `(select auth.uid())` initplan caching and revoked trigger execution from public roles. |
+| **ADR-007** | Weekly Spending Donut with 5-Slice Cap | Donut chart capped at Top-4 categories + 5th "Others" slice, paired with contextual interpretation card. |
+| **ADR-008** | Expenses Tab KPI Overhaul | Introduced `ExpenseKPICards` (capacity bar, sparkline stats) and `ExpenseCategoryVisualizer`. |
+| **ADR-009** | Symmetrical Wallet Card Refactor | Standardized wallet cards to strictly two 50%/50% action buttons (`[Edit]`, `[Delete]`) and emerald active status badge. |
+| **ADR-010** | Category Breakdown Timeframe Filter & AI Card | Segmented filter (`[All Time] [This Month] [This Week]`) and `AIAdvisorPlaceholderCard.tsx`. |
+| **ADR-011** | Global Modular Toaster Architecture | Unified token-driven toast system (`buck/src/component/toast/`), completely removing native `alert()` calls. |
+| **ADR-012** | 1:1 Skeletal Loading Parity Standard | Mandatory anatomical parity in `DashboardSkeletons.tsx` matching live cards for zero CLS. |
+| **ADR-013** | Typographic Hierarchy Audit & Font Softening | Balanced heavy weights (`800`/`900` down to `600`/`650`/`700`), grouped card titles, and normalized margins. |
+
+---
+
+## 6. Core Domain Requirements & Technical Constraints
+
+### 6.1 Monetary Standard & Numeric Precision
 - **Official Currency**: Philippine Peso (`PHP` / `₱`).
-- **Numeric Precision**: Strictly `numeric(14, 2)` across database schemas, TypeScript interfaces, and API payloads.
+- **Precision**: Strictly `numeric(14, 2)` across database DDL, TypeScript interfaces, and API payloads.
 
-### 3.2 Standard 17 Expense Categories
-All categorization logic (zero-shot NLP, database seeds, and UI filters) must strictly map to these 17 canonical categories:
-1. `Food`
-2. `Fare`
-3. `Gas Money`
-4. `Video Games`
-5. `Shopping`
-6. `Bills`
-7. `Education`
-8. `Electronics`
-9. `Entertainment`
-10. `Health`
-11. `Home`
-12. `Insurance`
-13. `Social`
-14. `Sport`
-15. `Tax`
-16. `Telephone`
-17. `Transportation`
+### 6.2 The 17 Canonical Expense Categories
+All classification models, database seeds, and UI filter selectors must strictly conform to these 17 categories:
+1. `Food` | 2. `Fare` | 3. `Gas Money` | 4. `Video Games` | 5. `Shopping` | 6. `Bills` | 7. `Education` | 8. `Electronics` | 9. `Entertainment` | 10. `Health` | 11. `Home` | 12. `Insurance` | 13. `Social` | 14. `Sport` | 15. `Tax` | 16. `Telephone` | 17. `Transportation`
 
-### 3.3 Mobile-Exclusive OCR Receipt Scanning
-- **Hardware Integration**: Exclusive to Flutter mobile client via native device camera.
-- **Performance Benchmark**: Image text extraction completed in `<1.5s` on-device.
-- **Pipeline**: Greyscale → Contrast Enhancement → Adaptive Gaussian Binarization → Tokenization.
-- **12% EVAT Mathematical Isolation**: Isolates 12% Electronic Value Added Tax (EVAT) and service charges from the net total payable.
-- **Human-in-the-Loop Verification**: Parsed merchant, date, and amount must be reviewed in an editable verification modal before committing to the database.
+### 6.3 Mobile OCR Receipt Scanning
+- Exclusive to the Flutter mobile application via native camera hardware.
+- On-device Edge ML Vision extraction executed in `<1.5s`.
+- 12% EVAT mathematical isolation separating tax and service fees from the net total payable.
+- Human-in-the-loop editable verification modal before saving.
 
-### 3.4 AI Spending Forecast (Prophet Model)
-- **Algorithm**: Additive time-series regression model using Facebook Prophet.
-- **Confidence Intervals**: 80% upper and lower statistical confidence bounds.
-- **Anomaly Exclusion**: Any transaction flagged with `is_emergency = TRUE` must be excluded from baseline trend calculations.
-- **Outputs**: Projected month-end cash flow, estimated surplus/deficit, and daily burn trajectory.
+### 6.4 AI Forecasting & Trend Analysis (Prophet)
+- Additive time-series regression with 80% statistical confidence interval bounds.
+- Transactions marked with `is_emergency = TRUE` are automatically excluded from baseline spending trends.
 
-### 3.5 AI Financial Advisor & Attitude Multipliers
-- **Sentence Constraint**: Advice generated by LLaMA 3.3 70B Turbo must be **strictly two sentences** long.
-- **Actionable Currency**: Must recommend explicit numeric adjustments in Philippine Peso (`₱`).
-- **Saving Attitude Multipliers**:
+### 6.5 AI Financial Advisor & Attitude Multipliers
+- Output must be **strictly two sentences** long.
+- Recommendations must include explicit numeric amounts in Philippine Peso (`₱`).
+- Attitude multipliers:
   - **Normal**: `1.0x` baseline multiplier.
   - **Moderate**: `0.80x` expense target / `1.15x` savings target.
   - **Aggressive**: `0.60x` expense target / `1.30x` savings target.
-- **Velocity Tracking**: Recalibrated dynamically against 14-day, 30-day, and 60-day moving average spending velocity.
+- Recalibrated dynamically against 14-day, 30-day, and 60-day moving average spending velocity.
 
-### 3.6 Multi-Wallet Ledger & Atomic Transfers
-- **Wallet Architecture**: Liquid wallets (`Cash`, `Bank`, `E-Wallet`).
-- **Atomic Operations**: Inter-wallet transfers must execute via the `transfer_funds_atomic` PostgreSQL stored procedure (source debit + target credit executed in a single atomic transaction).
-- **Soft Deletion**: Wallets are archived via `deleted_at = now()` to maintain historical transaction integrity.
-
-### 3.7 Budget Limits & Visual Thresholds
-- **Caution Threshold (Amber)**: Triggered at `80%` budget consumption.
-- **Critical Threshold (Crimson)**: Triggered at `100%` budget consumption.
-
-### 3.8 Security, Authentication & Session Lifecycle
-- **Inactivity Timeout**: Active sessions automatically expire after **30 minutes of user inactivity**.
-- **Cross-Tab Synchronization**: Inactivity timers and logout events sync across browser tabs via `BroadcastChannel` or `localStorage` events.
-- **Cryptographic Password Reset**: Enforced via single-use cryptographic tokens with IP and email sliding-window rate limiting in `auth_security_events`.
+### 6.6 Security, Session & Deletion Lifecycle
+- **Inactivity Timeout**: Automatic logout after **30 minutes of user inactivity**.
+- **Cross-Tab Synchronization**: Inactivity timer and logout events synchronized across tabs via `BroadcastChannel` or `localStorage`.
 - **10-Day Account Deletion Grace Period**:
   - Request marks account with `is_deleted = TRUE` and `grace_period_expires_at = NOW() + INTERVAL '10 days'`.
-  - User can restore account within 10 days by logging in and clicking "Recover Account".
-  - Scheduled cron worker (`/api/account/deletion/purge`) permanently purges expired accounts.
-- **Data at Rest & Transit**: TLS 1.3 in transit, AES-256 at rest, bcrypt password hashing.
+  - User can restore the account within 10 days by authenticating and selecting "Recover Account".
+  - Expired accounts are permanently purged by the background worker (`/api/account/deletion/purge`).
 
-### 3.9 Brand Design Tokens (Warm Espresso & Buck Orange)
-All UI components, charts, and styling must adhere to the design system tokens:
-- **Buck Orange (Primary Accent)**: `#F47536`
+### 6.7 Brand Design System Tokens
+- **Buck Orange (Primary Brand Accent)**: `#F47536`
 - **Buck Gold (Secondary Accent)**: `#FFC547`
-- **Buck Coral / Crimson (Alert / Danger)**: `#FF3838`
-- **Neutral Cream / Sand (Background & Surfaces)**: `#FFF1D8`
-- **Dark Roast Espresso (High Contrast Text & Dark Elements)**: `#120D0A`
+- **Buck Coral / Crimson (Alert / Overbudget / Danger)**: `#FF3838`
+- **Neutral Cream / Sand (Backgrounds & Soft Surfaces)**: `#FFF1D8`
+- **Dark Roast Espresso (High Contrast Text & Dark Accents)**: `#120D0A`
 
-### 3.10 Project Schedule Boundary
-- **Lifecycle Cap**: All planning, roadmaps, and Gantt charts must conform strictly to a **9-week project lifecycle** (never 12+ weeks). The authoritative Gantt chart is located at [`docs/Buck_Project_Schedule_Gantt_Chart.xlsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/Buck_Project_Schedule_Gantt_Chart.xlsx).
-
----
-
-## 4. Repository Structure & Key File Map
-
-```
-Buck-Web-Application/
-├── Claude.md                           # This guide for Claude
-├── Agents.md                           # Agent definitions and operational workflows
-├── Skills.md                           # Full catalog of database methods & API endpoints
-├── Design.md                           # Detailed system architecture, ERDs, and design specs
-├── Implementation.md                   # Implementation progress and sprint deliverables
-├── QA_Report.md                        # Active defect catalog, test logs, and audit trails
-├── docs/
-│   └── Buck_Project_Schedule_Gantt_Chart.xlsx  # 9-week project schedule with status dropdowns
-└── buck/                               # Core Next.js Web Application & Backend
-    ├── package.json                    # Next.js 15, React 19, Supabase SSR dependencies
-    ├── next.config.ts                  # Next.js configuration
-    ├── tsconfig.json                   # TypeScript configuration
-    ├── BuckAI_Backend/                 # Python FastAPI AI Microservice
-    │   ├── main.py                     # FastAPI endpoints (categorization, advice, forecast)
-    │   ├── ai_models.py                # LLaMA 3.3 Together AI & Prophet models
-    │   └── requirements.txt            # Python dependencies
-    ├── supabase/
-    │   └── migrations/                 # PostgreSQL schema DDL, RLS policies, stored procedures
-    └── src/
-        ├── middleware.ts               # SSR session authentication & route protection
-        ├── app/
-        │   ├── globals.css             # Design tokens, typography, root variables
-        │   ├── dashboard/              # Protected dashboard route segments
-        │   │   ├── home/page.tsx       # Primary dashboard overview & net worth
-        │   │   ├── expenses/page.tsx   # Transaction management & category breakdown
-        │   │   ├── wallet/page.tsx     # Multi-wallet management & inter-wallet transfers
-        │   │   ├── goals/page.tsx      # Savings goals & fund allocations
-        │   │   ├── statistics/page.tsx # Cash flow charts & spending velocity analytics
-        │   │   ├── settings/page.tsx   # Profile, saving attitude, theme & account deletion
-        │   │   └── admin/page.tsx      # System health, audit logs, and feedback triage
-        │   └── api/                    # Server-side route handlers
-        │       ├── auth/               # Password reset and session sign-out
-        │       ├── account/deletion/   # Deletion request, confirmation, recover, and purge
-        │       ├── advisor/route.ts    # AI Financial advisor gateway
-        │       ├── forecast/route.ts   # Time-series forecasting gateway
-        │       └── admin/              # Supabase & Vercel telemetry
-        ├── component/
-        │   ├── dashboard.css           # Dashboard layout & widget styles
-        │   ├── DashboardSkeletons.tsx  # 1:1 Parity skeletons for zero CLS
-        │   ├── SessionManager.tsx      # 30-min idle timer & cross-tab sync
-        │   └── ...                     # Modals, charts, inputs, cards
-        ├── context/
-        │   ├── FinancialContext.tsx    # Global financial state & cache definitions
-        │   └── FinancialProvider.tsx   # Context provider wrapping dashboard routes
-        ├── hooks/
-        │   └── usePointerGradient.ts   # Interactive cursor lighting for cards/modals
-        └── utils/
-            ├── supabaseClient.ts       # Browser Supabase client
-            ├── supabaseServer.ts       # SSR Supabase client (cookies)
-            └── supabaseData.ts         # Centralized data access layer (profiles, wallets, expenses)
-```
+### 6.8 Project Schedule Boundary
+- All project planning, roadmaps, and sprint deliverables must strictly adhere to a **9-week project lifecycle** (never 12+ weeks). The authoritative tracking sheet is [`docs/Buck_Project_Schedule_Gantt_Chart.xlsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/Buck_Project_Schedule_Gantt_Chart.xlsx).
 
 ---
 
-## 5. Development & Testing Commands
+## 7. Development, Build & Testing Workflows
 
-### 5.1 Next.js Web Application (`buck/`)
+### 7.1 Web Application (`buck/`)
 
 ```bash
 # Navigate to web application directory
@@ -220,10 +577,10 @@ cd buck
 # Install dependencies
 npm install
 
-# Start development server with Turbopack (default port: 3000)
+# Start development server with Turbopack (http://localhost:3000)
 npm run dev
 
-# Run TypeScript type check and build production bundle
+# Run TypeScript compiler type-check and Next.js production build
 npm run build
 
 # Start production server
@@ -233,37 +590,37 @@ npm run start
 npm run lint
 ```
 
-### 5.2 Python FastAPI AI Microservice (`buck/BuckAI_Backend/`)
+### 7.2 Python FastAPI AI Microservice (`buck/BuckAI_Backend/`)
 
 ```bash
 # Navigate to AI backend directory
 cd buck/BuckAI_Backend
 
-# Create and activate virtual environment
+# Create and activate Python virtual environment
 python -m venv venv
-.\venv\Scripts\activate      # Windows
-source venv/bin/activate     # macOS/Linux
+.\venv\Scripts\activate      # Windows (PowerShell)
+source venv/bin/activate     # macOS / Linux
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Start FastAPI server with live reload (port 8000)
+# Start FastAPI server with live reload on port 8000
 uvicorn main:app --reload --port 8000
 ```
 
 ---
 
-## 6. Coding Standards & Implementation Rules for Claude
+## 8. Coding Standards & Quality Assurance Mandate for Claude
 
-1. **Strict TypeScript & React 19 Standards**:
-   - Never use `any` unless wrapping opaque third-party library internals; define explicit TypeScript interfaces for all database rows, forms, and API payloads.
-   - Use React 19 hooks correctly; avoid mutating state directly.
+1. **Strict TypeScript & React 19 Discipline**:
+   - Zero tolerance for unchecked `any` types; define explicit TypeScript interfaces for all database rows, forms, and API payloads.
+   - Never mutate React state directly; use functional state updaters and immutable array/object operations.
 
 2. **Zero Layout Shift (CLS) Mandate**:
    - Any modifications to dashboard views ([`expenses/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/expenses/page.tsx), [`wallet/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/wallet/page.tsx), etc.) must be reflected 1:1 in [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx). Skeletons must mirror exact card anatomy, toolbar button counts, and grid geometry.
 
 3. **Data Layer Discipline**:
-   - Always route database interactions through [`buck/src/utils/supabaseData.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts) or [`FinancialContext.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/context/FinancialContext.tsx). Do not write inline ad-hoc Supabase queries directly inside components.
+   - Always route database interactions through [`buck/src/utils/supabaseData.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts) or [`FinancialContext.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/context/FinancialContext.tsx). Never write inline ad-hoc Supabase queries directly inside components.
    - When deleting an expense that deducted a wallet, always call `deleteExpenseAndRestoreWallet` to maintain accounting balance integrity.
 
 4. **Database Migration Safety**:

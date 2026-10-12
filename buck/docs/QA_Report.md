@@ -1,6 +1,6 @@
 # QA_Report.md: Code Quality, Defect Backlog & Test Strategy
 
-This document tracks identified bugs, architectural discrepancies, security vulnerabilities, technical debt, and test strategies across the **Buck Budget Tracker Web Application**.
+This document tracks identified bugs, architectural discrepancies, security vulnerabilities, technical debt, and test strategies across the **Buck Budget Tracker Web Application**. It is maintained by the Senior QA & Documentation Engineer role defined in [`Agents.md`](Agents.md).
 
 ---
 
@@ -11,8 +11,8 @@ This document tracks identified bugs, architectural discrepancies, security vuln
 | **Overall Code Health** | ⚠️ **Moderate (Action Required)** | Core frontend UI and Supabase database architecture are robust; significant discrepancies exist in AI microservice integration. |
 | **Authentication & RLS** | 🟢 **Strong** | Strict PostgreSQL Row-Level Security, HMAC-SHA256 session activity cookies, 30m idle timeouts, and rate-limited reset flow. |
 | **Frontend State & Motion** | 🟢 **Strong** | High-performance in-memory cache in `FinancialContext`, clean Framer Motion integration, smooth modal glow math. |
-| **AI Microservice Integrity** | 🔴 **Critical Deficiencies** | Dead endpoints, URL mismatches, ephemeral in-memory storage, and stubbed API routes. |
-| **Automated Test Coverage** | 🔴 **0% (No Test Runner)** | No unit, integration, or E2E test runner configured in `package.json`. |
+| **AI Microservice Integrity** | 🟠 **Improved (auth added, 2026-10-12)** | Now authenticated, rate limited and stateless (SEC-002). Still open: dead `processExpense` route (BUG-001) and web callers not yet sending `expenses` (BUG-003 follow-up). |
+| **Automated Test Coverage** | 🟡 **Partial** | Vitest covers cash-flow, income data and security helpers (29 tests); FastAPI has 11 security tests. No E2E and no middleware tests. |
 
 ---
 
@@ -28,19 +28,45 @@ This document tracks identified bugs, architectural discrepancies, security vuln
 
 ---
 
+### 🔐 Backend Security Audit (2026-10-12)
+
+Findings from the backend audit (middleware, `/api/*`, FastAPI). Status reflects code in this branch; none of it is deployed yet.
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-001** | 🔴 Critical | `/api/advisor` and `/api/forecast` trusted `body.userId` and queried with the service-role client (IDOR, RLS bypass; reachable unauthenticated). | **Resolved.** User id comes only from the SSR session via [`getSessionUserId`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/apiAuth.ts); 401 otherwise; `periodType` whitelisted; `any` removed. |
+| **SEC-002** | 🔴 Critical | FastAPI had no authentication, rate limiting or input limits; `GET /expenses/{user_id}/{goal_id}/` was an IDOR; unbounded `expenses_db`; paid LLM endpoints open to anyone. | **Resolved.** [`auth.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/auth.py) verifies the Supabase bearer token against `/auth/v1/user` (60 s hashed cache), per-user sliding-window limit (20/60 s, env-tunable), typed/bounded Pydantic models, forecast horizon cap, stateless `/expenses/` endpoints removed, CORS narrowed (no credentials), docs/OpenAPI disabled, generic 502/500 errors. **Deploy needs** `SUPABASE_URL` + `SUPABASE_ANON_KEY` on Render. |
+| **SEC-003** | 🟠 High | Cron route ran open when `CRON_SECRET` was unset; sequential per-user loop; insert errors ignored. | **Resolved.** Fails closed via [`isBearerAuthorized`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/secureCompare.ts) (constant-time); batches of 5 with `Promise.allSettled`; insert errors surfaced; `maxDuration = 300`; no error text in the response. **Cron secrets (2026-10-12):** `CRON_SECRET` and `ACCOUNT_PURGE_SECRET` were added in Vercel (production + preview, sensitive). `vercel.json` now also schedules `/api/account/deletion/purge` daily at 20:00 UTC (04:00 PHT); the route accepts `GET` (Vercel Cron, `CRON_SECRET`) and `POST` (manual, `CRON_SECRET` or `ACCOUNT_PURGE_SECRET`). Effective after the next deploy. Before this, expired accounts were never purged. **Accepted:** `fetchUserFinancialContext` still issues ~5 queries per user (5 users in parallel, so ~25 in flight). Fine at 8 users; batch the queries per user set before the user base grows. |
+| **SEC-004** | 🟠 High | Idle timeout bypass: a missing `buck-session-activity` cookie (cleared / browser restart) counted as "not expired", so an old refresh token minted a fresh window. | **Resolved.** A missing cookie is accepted only while `last_sign_in_at` is inside the idle window. |
+| **SEC-005** | 🟡 Medium | `/api/*` skipped idle enforcement. | **Resolved.** Session API routes return `401 session-expired` after the window (excluded: `/api/auth/*`, `/api/cron/*`, `/api/account/deletion/purge`). API calls validate but never extend the window. |
+| **SEC-006** | 🟡 Medium | Purge set `purge_started_at` before `deleteUser`; a failed delete orphaned the request forever. Bearer compare was not constant-time. | **Resolved.** Claim is released on failure; constant-time compare; generic error text. |
+| **SEC-007** | 🟡 Medium | Raw `error.message` returned to clients (`deletion/request`, `deletion/recover`, `purge`, `cron`, FastAPI `str(e)` with HTTP 200). | **Resolved.** Detail is logged server-side only. |
+| **SEC-008** | 🟡 Medium | LLM prompts embedded raw user text; no PII scrubbing; `requests` calls had no timeout; `clean_llama_output` kept text *after* `<think>`. | **Resolved.** `sanitize_prompt_field` scrubs emails, PH mobile and 9+ digit numbers, flattens control chars/quotes, caps length; 20 s timeouts; `<think>` blocks removed properly. |
+| **SEC-009** | 🟡 Medium | Password reset reveals whether an account exists (404 message); count-then-insert limiter is not atomic; reset link falls back to the request origin if `NEXT_PUBLIC_SITE_URL` is unset. | **Partly open.** Enumeration is a product decision. `NEXT_PUBLIC_SITE_URL` is set for production and preview (verified in Vercel 2026-10-12), so the reset link no longer depends on the request origin. |
+| **SEC-010** | 🟢 Low | Middleware deep-imports `@supabase/ssr/dist/module/createServerClient`; `SESSION_IDLE_TIMEOUT_MINUTES=0` disabled the timeout. **Resolved.** Timeout `0` is ignored in production. The deep import was replaced with `from "@supabase/ssr"`; the middleware compiled cleanly under `next build` and the running dev server still redirected `/dashboard/home` to `/sign-in` (307). |
+| **SEC-011** | 🟢 Low | `supabaseData.ts` `select("*")` calls and a refresh flood path. | **Resolved.** `getAdminFeedback` is capped at 500 rows (the other `select("*")` sites are `limit(1)` or insert-returning). `forceRefresh` reuses any advisory or forecast younger than 60 s. |
+
+**Database advisors (2026-10-12, project `glnuzqmnmzuxgujmxigx`)**: security has only the accepted INFO-002 (leaked-password protection, free plan). Performance has 15 INFO `unused_index` notices, mostly foreign-key covering indexes on tables with a few thousand rows; keep them. RLS is enabled on all 11 public tables. (`list_tables` reported `public.categories` as 0 rows because it returns planner estimates; a `count(*)` shows 136 rows, so BUG-021's data is accurate.)
+
+**Verification**: `npx tsc --noEmit` clean; `npm test` 29/29 (incl. `securityHelpers.test.ts`); `python -m unittest test_security` 11/11 in `BuckAI_Backend/` (auth, rate limit, input bounds, error leakage, PII scrub, `<think>` stripping). **Not verified:** live middleware behaviour in a browser, the FastAPI service against a real Supabase token, and `next build`.
+
+**Breaking change for other clients**: every `/ai/*` call now needs `Authorization: Bearer <Supabase access token>`. The Flutter app must send it, and `/expenses/` is gone.
+
 ### 🟠 High Severity
 
-#### BUG-002: Inconsistent Backend Host Domains Across Frontend Modules
+#### BUG-002: [RESOLVED 2026-10-12] Inconsistent Backend Host Domains Across Frontend Modules
 - **Location**: [`buck/src/utils/aiApi.ts:17,20`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/aiApi.ts#L17) vs [`buck/src/app/dashboard/goals/page.tsx:524`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/goals/page.tsx#L524)
 - **Impact**: AI forecast and AI saving tip requests are routed to different Render deployment instances (`buck-web-application` vs `buck-web-application-1`).
 - **Root Cause**: Hardcoded URLs in source files instead of utilizing a unified `NEXT_PUBLIC_AI_BACKEND_URL` environment variable.
 - **Remediation**: Create a centralized environment configuration `process.env.NEXT_PUBLIC_AI_BACKEND_URL` and reference it everywhere.
+- **Resolution**: every browser call now goes through [`buck/src/utils/aiBackend.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/aiBackend.ts) (`AI_BACKEND_URL`, falls back to `buck-web-application-1`). Set `NEXT_PUBLIC_AI_BACKEND_URL` on Vercel to override.
 
-#### BUG-003: FastAPI In-Memory Storage Desynchronization & Data Loss
+#### BUG-003: [RESOLVED 2026-10-12] FastAPI In-Memory Storage Desynchronization & Data Loss
 - **Location**: [`buck/BuckAI_Backend/main.py:19-20, 114-128`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/main.py#L19-L20)
 - **Impact**: The AI forecast endpoint `/ai/forecast/` calculates historical spending trends from `expenses_db.get(key, [])`, which is always empty.
 - **Root Cause**: Expenses are inserted directly into Supabase PostgreSQL from the Next.js frontend via [`supabaseData.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts). The FastAPI backend maintains an isolated in-memory Python dictionary `expenses_db: Dict[str, List[dict]] = {}` that is never populated and resets on every server spin-down.
 - **Remediation**: Pass historical expense records directly in the `/ai/forecast/` request payload from the frontend or connect FastAPI directly to Supabase using a service client.
+- **Resolution**: `expenses_db` and the `/expenses/` endpoints were removed (see SEC-002). `/ai/forecast/` now takes an optional `expenses: [{date, amount}]` list (max 2,000). **Follow-up:** web callers do not send `expenses` yet, so `spent` is still `0` until they do.
 
 ---
 
@@ -50,14 +76,189 @@ This document tracks identified bugs, architectural discrepancies, security vuln
 - **Location**: [`buck/src/app/api/advisor/route.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/advisor/route.ts) and [`buck/src/app/api/forecast/route.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/forecast/route.ts)
 - **Resolution**: Fully implemented cache-first route handlers connected to Supabase tables `ai_advisories` and `ai_forecasts`. Handlers execute context generation via [`aiInsightsGenerator.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/aiInsightsGenerator.ts), calculating burn rates, financial health scores, projected savings in PHP, and persistent database storage with user-level RLS. Vercel Cron endpoint [`/api/cron/generate-insights`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/cron/generate-insights/route.ts) provides automated weekly batch computation.
 
-#### BUG-005: Hardcoded Administrator Email Address in Multiple Files
-- **Location**:
-  - [`buck/src/middleware.ts:378`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/middleware.ts#L378)
-  - [`buck/src/app/api/admin/supabase/route.ts:20`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/admin/supabase/route.ts#L20)
-  - [`buck/src/app/api/admin/vercel/route.ts:20`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/admin/vercel/route.ts#L20)
-  - [`buck/docs/admin-backend-caching.md:26`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/docs/admin-backend-caching.md#L26)
+#### BUG-008: [RESOLVED] Home Category Breakdown Pie Card Overflow & Truncated Category Names
+- **Location**: [`buck/src/app/dashboard/home/WeeklyPieChart.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/home/WeeklyPieChart.tsx), [`buck/src/app/dashboard/home/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/home/style.css)
+- **Symptoms (measured at 1280px viewport, card content 410px)**:
+  - The header needed 555px, so the "This Week" toggle was clipped.
+  - The pie row needed 461px, so the canvas overflowed the card.
+  - Fixed 70px chart padding left a ~160px pie, and callout names were ellipsized ("Tra…", "Vide…").
+  - Legend pills cut long names.
+- **Root Cause**: Fixed-width header, legend and chart padding sized for a wider card, plus viewport media queries applied to a card that occupies only ~47% of the content row.
+- **Resolution**: Wrapping header, a card-width container query that stacks pie over legend at `<= 560px`, chart padding measured from the labels, 2-line wrapped callout and legend names, and % shown in legend pills. `HomeSkeleton` was updated for 1:1 parity. See ADR-032 in `Design.md`.
+- **Verification**:
+  - Checked in a temporary harness route (since removed) with worst-case data: Transportation, Entertainment, Electronics, Video Games, Others, and an "Others" child selection.
+  - Viewports: 1920, 1680, 1440, 1280, 1024, 880 and 375px; dark and light theme.
+  - Zero elements overflow the card, and there is no document horizontal scroll.
+  - `tsc --noEmit` passes.
+
+#### BUG-013: [RESOLVED] Expenses-by-day Bar Graph: Tiny Bars Hard to Click & Jitter on ₱0 Days
+- **Location**: [`buck/src/app/dashboard/home/WeeklyBarChart.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/home/WeeklyBarChart.tsx) (extracted from `home/page.tsx`), [`home/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/home/style.css)
+- **Symptoms**:
+  - The click target was the visual bar itself (`min-height: 4px`), so low-spend days were almost impossible to click.
+  - A 0.75rem gap between bars was a dead zone.
+  - Clicking a ₱0 day (e.g. Thursday) made the page jitter.
+  - When the card was taller than 250px, a large empty gap sat above the chart.
+- **Root Cause (jitter)**:
+  - The `useEffect` in `home/page.tsx` clears `selectedDay` when the day has no expenses.
+  - Selecting a ₱0 day therefore rendered one filtered frame (badges, empty pie, layout shift), then reverted.
+- **Resolution**:
+  - **Full-column targets**: each day is now a full-height `<button class="graph-col">` that includes its day label, and the spacing moved into column padding (no dead zones).
+  - **Minimum heights**: non-zero bars are at least 6px tall, and ₱0 days show a 3px stub.
+  - **₱0 days**: these columns are `disabled`, so the select-then-revert jitter can't happen.
+  - **Feedback**: hovering highlights the whole column, the selected day keeps its amount shown, and keyboard users get `:focus-visible` plus the tooltip.
+  - **Fill and alignment**: the plot fills the card height, and y-axis ticks align with the grid lines (measured within 2px).
+- **Verification**:
+  - Harness with tiny Mon and ₱0 Thu: clicking Thu does nothing (`disabled`), and clicking Mon's label selects Mon.
+  - Column hit area is 408px tall vs a 12px bar.
+  - No overflow at 375px.
+
+#### BUG-014: [RESOLVED] Skeleton Loading Layout Shift Across All Tabs
+- **Root Causes**:
+  1. A route's `loading.tsx` renders before `page.tsx` has loaded its stylesheet. Skeletons that used real page classes (`GoalsPage`, `settings-page`, `advisor-page`) therefore had no styles while loading.
+  2. `component/dashboard.css` carried a legacy `.dashboard-skeleton …` override block with stale geometry. For example, `.dashboard-skeleton .dashboard-content` forced `0.8fr/1.7fr` columns and `.dashboard-skeleton .spending-card` forced a centered grid.
+  3. The remaining skeleton geometry was hand-copied inline values that had drifted from the pages (paddings, grid tracks, breakpoints, control heights).
+- **Resolution**:
+  - **Shared classes**: every skeleton (Home, Expenses, Wallet, Goals, Statistics, Settings, Financial Advisor, Forecast, Admin) now imports its page stylesheet(s) and renders the page's own layout classes with shimmer placeholders.
+  - **Exact text and controls**: static labels use a new `.skeleton-text` primitive (the real text, invisible over shimmer) for exact line boxes. Real disabled `CustomSelect`, `CustomDatePicker` and `<input>` controls keep toolbar and form geometry exact.
+  - **Removed legacy CSS**: the `dashboard.css` override block and the unused `expenses-skeleton-*`, `wallet-skeleton-*` and `home-skeleton-*` rules are gone.
+- **Verification**: Home skeleton vs real Home at 1440px gave identical sizes for the card, pie layout, legend, canvas box and graph container.
+
+#### BUG-015: [RESOLVED] Forecast Page Missing `advisor-*` Styles on Direct Load
+- **Location**: [`buck/src/app/dashboard/forecast/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/forecast/page.tsx)
+- **Root Cause**: the page renders `.advisor-grid`, `.advisor-card`, `.advisor-score` and `.advisor-icon`, which are defined only in `financial-advisor/style.css`, but never imported that file. The KPI row was unstyled unless the Advisor tab had been visited first.
+- **Resolution**: `forecast/page.tsx` now imports `../financial-advisor/style.css`.
+
+#### BUG-016: [RESOLVED] Page Stylesheets Overriding the Dashboard Shell
+- **Location**: `goals/style.css`, `home/style.css`, `statistics/style.css`
+- **Root Cause**:
+  - Each file restyled the global `.dashboard` shell.
+  - Statistics added `font-family: "Segoe UI"` and `overflow-y: auto`, and so did Goals for the font. Next.js keeps visited route CSS loaded, so after visiting those tabs every tab changed font and the shell (instead of `<main>`) became the scroll container.
+  - Statistics' unscoped `.create-goal-button` also overrode the Goals modal button margin.
+- **Resolution**:
+  - Removed the three `.dashboard` rules; the shell is owned by `component/dashboard.css`.
+  - Scoped the Statistics rules to `.empty-goals-popup .create-goal-button`.
+
+#### BUG-017: [RESOLVED] Admin Toolbar `CustomSelect` Full-Width Rows & Double Chevron
+- **Location**: [`buck/src/app/dashboard/admin/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/admin/page.tsx), `admin/style.css` `.admin-filter-select`
+- **Impact**:
+  - `CustomSelect`'s container is `width: 100%`, so each filter wraps onto its own full-width row under the search box.
+  - `.admin-filter-select` was written for a native `<select>` and adds right padding plus its own arrow next to `CustomSelect`'s chevron.
+- **Resolution**:
+  - `.admin-filter-select` is now sizing-only (`flex: 0 0 190px`). It lands on `CustomSelect`'s wrapper div, so the native-select border, padding and background-image arrow were removed, along with a dead `:focus` rule.
+  - Below 560px the filters share a row (`flex: 1 1 140px`).
+  - `.admin-search-input` gets `min-height: 42px` to match the select trigger.
+  - `AdminSkeleton` uses the same classes, so it picks up the fix automatically.
+- **Verification**:
+  - 1440px: search box 453px plus two 190px filters on one row, all 43px tall, one chevron each.
+  - 375px: search box full width, filters side by side underneath, no overflow.
+
+#### BUG-018: [RESOLVED] Statistics Tab Layout Out of Proportion and Overloaded
+- **Location**: [`buck/src/app/dashboard/statistics/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/statistics/page.tsx), `statistics/style.css`
+- **Impact**:
+  - Everything sat in a centred 900px column built from inline styles. The chart row used fixed 36% / 62% widths at 340px height, while the chart cards inside had their own 340px / 400px minimum widths, so they overflowed or left gaps.
+  - The category bar chart drew every category (17+) as a vertical bar with a 7-colour cycle.
+  - A "Y Max" number input was exposed to users but its value was never used.
+  - `excess-pie.tsx` and `spending-bar.tsx` fell back to hard-coded `testData.ts` figures, the page pushed a test-data `totalSaved` into `FinancialContext` (nothing reads it), and the budget fell back to an invented ₱35,000 when no wallet was set.
+  - With no goals, all statistics were hidden behind a "create a goal" prompt, although only the AI forecast needs a goal.
+  - The Add Expense dialog had no `justify-content` on its backdrop, so it sat at the left edge, and it silently did nothing when the user had no goals.
+- **Resolution**: Rebuilt per ADR-034.
+  - Cash-flow card, a period toolbar (segmented mode control plus previous/next stepper), then a 3-column card grid: Budget | Categories, Trend | Latest expenses, AI forecast.
+  - Categories render as ranked horizontal bars (top 5 plus "Others").
+  - The trend chart shows spending per bucket against a dashed limit line.
+  - Test data, the Y Max input and the ₱35,000 fallback were removed. With no wallet budget the page says so and links to Wallet.
+  - The Add Expense dialog moved to `AddExpenseModal.tsx`; it is centred, uses the modal bounds, and no longer requires a goal.
+- **Verification**: Design-preview harness at 1440px and 390px; no horizontal overflow; `tsc --noEmit` clean.
+
+#### BUG-019: [RESOLVED] Week Ranges Started on Sunday in UTC+8 (Statistics & Goals)
+- **Location**: `statistics/page.tsx`, `goals/page.tsx` (range builders), now [`buck/src/utils/periods.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/periods.ts)
+- **Impact**: Week and month ranges were keyed with `toISOString().slice(0, 10)`. In UTC+8 local midnight is the previous day in UTC, so every "Monday" week start became Sunday and month ends shifted by a day. The ranges and the expenses they filtered were off by one day.
+- **Resolution**: Shared `utils/periods.ts` builds local `YYYY-MM-DD` keys (`toDayKey`, `storedDayKey`), Monday-based weeks and calendar months. Both tabs use it.
+
+#### BUG-020: [RESOLVED] Goals Tab Cluttered Detail Panel & Misleading Forecast Progress
+- **Location**: [`buck/src/app/dashboard/goals/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/goals/page.tsx), `goals/style.css`, `ProgressBarCard.tsx`
+- **Impact**:
+  - The details panel stacked six bordered fact tiles that shifted on hover, then a progress card, then buttons, then an inline-styled expense list. "- Delete Goal" sat in the goal list, away from the goal it deleted.
+  - The forecast dialog was inline-styled with `minWidth: 400`, which overflowed phones. Its "Goal progress" bar showed the **wallet balance** as saved money instead of `currentAmount`.
+  - The progress card printed "Goal Progress" twice.
+- **Resolution**: Rebuilt per ADR-034.
+  - Goal list items show name, status pill, mini progress bar, saved/target and due date.
+  - The detail header holds the name, status, "Set as active" and Delete.
+  - Progress card beside four facts: target date, time left, save per day, attitude.
+  - Then the AI recommendation, actions, and the 5 latest linked expenses.
+  - The forecast dialog uses classes and the CLAUDE.md modal bounds, and its progress bar uses `currentAmount`.
+- **Verification**: Design-preview harness at 1440px and 390px; no horizontal overflow.
+
+#### INFO-005: Pre-existing Hydration Warning on Hard Reload with Warm Cache
+- **Location**: [`buck/src/context/FinancialProvider.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/context/FinancialProvider.tsx)
+- **Observation**: The provider reads `sessionStorage` during its first render. On a hard reload with a warm cache the server renders the skeleton but the client renders the loaded page, so React logs a hydration mismatch (seen on Statistics while testing BUG-018). This is not caused by the redesign. Fix: hydrate the cache in an effect after mount.
+
+#### BUG-022: [RESOLVED] Cash-Flow Card on Home, Split Wallet/Income Logs, Off-Centre Topbar
+- **Location**: [`buck/src/app/dashboard/wallet/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/wallet/page.tsx), `home/page.tsx`, `component/income/*`, `settings/style.css` (wallet section), `component/dashboard.css` `.dashboard-topbar`
+- **Impact**:
+  - The Monthly cash flow card sat on Home, a spending overview, while the Wallet tab had no KPI.
+  - The Wallet tab had a "History of Wallets" card and a separate full-width "Recent income" card. The two used different header styles: the income card had no icon, weight 900 and a gradient button.
+  - Wallet rows used two full-width Edit/Delete buttons each, making every row about 140px tall.
+  - The topbar padding was 13.6px top and 20px bottom (ADR-035), so the title block and wallet pill sat about 3px above centre.
+- **Resolution** (ADR-036):
+  - The cash-flow card moved from Home to the top of Wallet. Home was restored to its committed version.
+  - Wallet loads expenses itself (with a realtime subscription), so the card is correct when Wallet is the first tab opened.
+  - One "Log" card with Wallet history / Income history tabs. `IncomeList` gained `embedded` and `query` props.
+  - Wallet rows are compact: name, active badge, share-of-total bar, balance and icon actions. A total-balance strip sits above the list.
+  - Income rows, buttons and type weights now match the wallet rows.
+  - Topbar padding is symmetric at every breakpoint.
+- **Verification**:
+  - Design-preview harness at 1440px and 390px; no horizontal overflow.
+  - Topbar measured 84px tall with 18px above and 18px below its content at 1655px; it was previously 14px / 21px, then still felt cramped after the first fix.
+  - `tsc --noEmit` clean.
+
+#### BUG-005: [RESOLVED 2026-10-12] Hardcoded Administrator Email Address in Multiple Files
 - **Impact**: Inability to configure or rotate administrator credentials without modifying and redeploying core source code.
-- **Remediation**: Migrate admin validation to an environment variable `ADMIN_EMAIL` or implement role-based access control (RBAC) via Supabase custom user claims (`app_metadata.role = 'admin'`).
+- **Resolution**:
+  - All server checks (middleware, `/api/admin/*`, new `dashboard/admin/layout.tsx`) use [`isAdminUser`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/adminAccess.ts): confirmed account AND (`app_metadata.role = 'admin'` OR email equals `ADMIN_EMAIL`). The source fallback was deleted, so it fails closed when neither is configured (unit-tested).
+  - The client-side email checks were removed. The Admin sidebar tab stays, shown only when `user.isAdmin`, a flag computed server-side in `dashboard/layout.tsx` via `isAdminUser` (UI hint only; middleware, `admin/layout.tsx`, the API routes and RLS enforce access).
+  - `feedback` RLS now checks the JWT role claim: [`202610120002_admin_rls_role_claim.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610120002_admin_rls_role_claim.sql), applied to live and recorded in the migration history. `raw_app_meta_data.role = 'admin'` was set on the one admin account; the admin must sign in again (or wait for a token refresh) before feedback is visible. No live policy references an email any more.
+  - The stray tracked duplicate `src/app/api/admin/supabase/route.ts` (outside the Next.js root, never served) was deleted. It used the Management API path `.../endpoints/logs` while the live route uses `.../endpoints/logs.all`; the commit message suggested `logs` is the newer path. **Unverified**, so the live route was left on `logs.all`; confirm against the Supabase Management API docs.
+  - Remaining by design: the public contact address on the landing page.
+
+#### BUG-009: Supabase Migration History Drift (Live `glnuzqmnmzuxgujmxigx` vs Repo)
+- **Location**: `supabase_migrations.schema_migrations` (live), [`buck/supabase/migrations/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/)
+- **Symptoms**: Live history records only `202606130001_strict_deletions` (version `20260904012427`) and `202606140001_security_and_policy_hardening` (version `20260924034657`). Objects from the other migrations exist live, so they were applied outside the migration tracker.
+- **Impact**: `supabase db push` would try to re-apply already-present migrations, and the two recorded versions do not match the local file prefixes.
+- **Resolution (applied to live 2026-10-11)**: Renamed the two recorded versions to the file prefixes and insert history rows for `202606010001`, `202606100001`, `202606110001`, `202606110002`, `202606120001`, `202606120002`, `202610100001` and `202610110001`.
+
+#### BUG-010: `public.feedback` Table Had No Creating Migration
+- **Location**: live `public.feedback` (4 rows); policies in `202606140001_security_and_policy_hardening.sql`
+- **Resolution**: Added [`202606120002_feedback_table.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202606120002_feedback_table.sql). It uses `create table if not exists` with the live column set, sorted before the hardening migration so a fresh replay works.
+
+#### BUG-011: `transfer_funds_atomic` Required by SRS 3.6 but Missing
+- **Location**: live database and repo
+- **Resolution (repo)**: Added [`202610110001_transfer_funds_atomic.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610110001_transfer_funds_atomic.sql). The function is `SECURITY INVOKER` with an `auth.uid()` ownership check, ordered row locks, a rounded `numeric(14,2)` amount and an insufficient-funds check, and is executable by `authenticated` only.
+- **Applied to live** on 2026-10-11 (existence not yet exercised with a real transfer). No client code calls it yet, since no transfer UI or data-layer function exists in `supabaseData.ts`.
+
+#### BUG-012: Spec/Schema Gaps (Undocumented Fields)
+- **Gaps**: `wallets` has no type column (Cash/Bank/E-Wallet), `expenses` has no `is_emergency` (it can only live in `metadata` jsonb), and `profiles` has no `is_deleted` / `grace_period_expires_at` (the grace period is modelled in `account_deletion_requests`).
+- **Remediation**: Either align `Claude.md` / SRS with the current schema or add the columns in a new migration.
+
+#### INFO-001: `public.rls_auto_enable()` Is Platform-Managed
+- The live-only function and its `ensure_rls` event trigger are a Supabase default that enables RLS on new `public` tables. No migration is needed.
+
+#### INFO-002: Accepted Risk: Leaked Password Protection Disabled
+- The Supabase security advisor warns `auth_leaked_password_protection`. The feature requires a paid Supabase plan and the project is on the free plan, so the warning is accepted. Revisit if the project upgrades.
+
+#### BUG-021: [RESOLVED 2026-10-12] Live `categories` Table Lacked the Canonical `Fare` Category
+- **Cause (verified with `count(*)`)**: 136 rows = 8 users x 17 names, with `Uncategorized` but no `Fare`; `handle_new_user()` also omitted `Fare`; 134 expenses were stored as `Fare` with no `category_id`. (`list_tables` shows planner estimates, so its 0-row figure was wrong.)
+- **Decision**: supplement. `Uncategorized` stays because `ensure_expense_relations_owner()` and the AI classifier fall back to it: 17 canonical categories plus the fallback.
+- **Resolution**: [`202610120001_fare_category.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610120001_fare_category.sql), applied to live and recorded in the migration history. Verified afterwards: 144 category rows, 8 `Fare`, 0 unlinked `Fare` expenses, `handle_new_user()` contains `Fare`, EXECUTE grants unchanged (`postgres`, `service_role`).
+
+#### INFO-003: Varied Test Data Seeded (2026-10-12)
+- Additive and tagged `metadata.seed = 'varied-2026-10-12'` (wallets are named `Seed Bank Account`, goals start with `Seed: `). Script and UNDO block: [`buck/supabase/seed_varied_test_data.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/seed_varied_test_data.sql).
+- Inserted: 8 wallets, 1,012 expenses, 8 goals, 8 forecasts, 16 advisories across the 8 existing users. No existing rows were changed.
+
+#### INFO-004: Income Tracking Added (2026-10-12)
+- Migration `202610110002_incomes.sql` (identical to the mobile repo copy) is applied to live and recorded in the migration history. The security advisor shows no new findings for `incomes`.
+- Web uses `add_income_atomic` / `delete_income_atomic` only (`supabaseData.ts`: `listIncomes`, `addIncome`, `deleteIncome`). Cash-flow formulas live in `src/utils/cashFlow.ts` and mirror mobile `FinanceSnapshot`.
+- RPC check on live, rolled back: add credited the wallet by exactly the amount (60,000.00 to 61,234.57), delete restored it, and a zero amount was rejected.
+- Not verified: the browser UI and the mobile live-update round trip. `npm run lint` is not configured in the repo (`next lint` prompts for setup).
 
 ---
 
@@ -75,6 +276,16 @@ This document tracks identified bugs, architectural discrepancies, security vuln
 - **Root Cause**: Code imports `openai` and mentions OpenAI embedding model comments, but actually calls the Together AI HTTP endpoint using `requests`.
 - **Remediation**: Clean up unused imports and align documentation with the Together AI integration.
 
+#### BUG-023: [PARTIALLY RESOLVED 2026-10-12] `Skills.md` Route Tables Drifted from Code
+- **Location**: [`Skills.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Skills.md) sections 2 and 3, found while reconciling the `buck/docs/` mirrors.
+- **Discrepancies (code wins)**:
+  - [`/api/cron/generate-insights`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/cron/generate-insights/route.ts) (`GET`, `POST`; Bearer `CRON_SECRET` via `isBearerAuthorized`, fails closed) has no row in section 2.
+  - `/api/advisor` and `/api/forecast` are described as "Currently stubbed mock output". Both now resolve the user with `getSessionUserId` and read/write `ai_advisories` / `ai_forecasts` through `generateAdvisoryInsights` / `generateForecastInsights` (see BUG-004, SEC-001).
+  - `/api/admin/supabase` and `/api/admin/vercel` list "Admin Email Check". Both call [`isAdminUser`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/adminAccess.ts): a confirmed account with `app_metadata.role = 'admin'` or an email matching `ADMIN_EMAIL`.
+  - Section 3 (FastAPI): the endpoint set matches `main.py` (4 `POST` routes), but the `#L55`, `#L70`, `#L101`, `#L162` anchors are stale (decorators are at lines 83, 97, 106, 179). Left unedited because the Python service is being redesigned.
+- **Remediation**: Update the section 2 rows; refresh section 3 after the FastAPI redesign.
+- **Resolution (section 2)**: Rows rewritten from the route handlers: cron row added, advisor/forecast and admin auth described as implemented, line anchors refreshed. Section 3 stays open until the FastAPI redesign lands.
+
 ---
 
 ## 3. Security & Compliance Audit Matrix
@@ -86,10 +297,12 @@ This document tracks identified bugs, architectural discrepancies, security vuln
 | **Database Search Path Protection** | Fixed `SET search_path = public` on database routines | 🟢 **PASS** | Eliminates role-mutable search path hijacking vulnerability. |
 | **RLS Performance & InitPlan** | Subquery wrapper `(select auth.uid())` & `(select auth.jwt())` | 🟢 **PASS** | Auth functions cached in InitPlan once per query rather than evaluated per row. |
 | **Foreign Key Covering Indexes** | Covering B-Tree indexes on all foreign keys | 🟢 **PASS** | Covering indexes added for `expenses` (`wallet_id`, `goal_id`, `category_id`), `ai_forecasts` (`goal_id`, `wallet_id`), and `ai_advisories` (`category_id`, `goal_id`, `wallet_id`) eliminating unindexed foreign keys. |
-| **Session Activity Verification** | HMAC-SHA256 Signed Cookie (`buck-session-activity`) | 🟢 **PASS** | Prevents cookie tampering; verified on every protected request in `middleware.ts`. |
-| **Session Inactivity Expiry** | 30-minute idle threshold with cross-tab Broadcast sync | 🟢 **PASS** | Synchronized across all tabs via `SessionManager.tsx`. |
+| **Session Activity Verification** | HMAC-SHA256 Signed Cookie (`buck-session-activity`) | 🟢 **PASS** (re-audited 2026-10-12) | Tamper-proof, and now enforced on `/dashboard/*` pages and session API routes. Previously a missing cookie bypassed the idle check (SEC-004/005). |
+| **Session Inactivity Expiry** | 30-minute idle threshold with cross-tab Broadcast sync | 🟢 **PASS** (server side fixed 2026-10-12) | Synchronized across all tabs via `SessionManager.tsx`. |
 | **Password Reset Rate Limiting** | SHA-256 HMAC hashed IP/email window in `auth_security_events` | 🟢 **PASS** | Zero plaintext IP/email retention; enforces 8 resets / 15 min per IP. Explicit service-role policy added. |
 | **Account Deletion Safeguards** | 10-day recovery window + OTP confirmation token | 🟢 **PASS** | Prevents accidental data destruction with self-service cancellation. |
+| **AI Service Authentication** | Supabase bearer-token verification + per-user rate limit in FastAPI | 🟢 **PASS** (new, unit-tested only) | SEC-002. Needs `SUPABASE_URL`/`SUPABASE_ANON_KEY` on the host. |
+| **Privileged Route Authorization** | Fail-closed bearer secrets (`CRON_SECRET`, `ACCOUNT_PURGE_SECRET`), constant-time compare; session-derived user ids | 🟢 **PASS** | SEC-001/003/006. |
 | **Private File Storage** | Supabase Storage RLS on `profile-avatars` | 🟢 **PASS** | Folders isolated by `auth.uid()`; signed URLs or SSR proxy stream required for access. |
 | **API CORS Hardening** | Explicit origin whitelist on FastAPI backend | 🟢 **PASS** | Replaced insecure wildcard `allow_origins=["*"]` with credentialed origin whitelist. |
 
@@ -355,6 +568,95 @@ flowchart LR
         - [ ] Network throttle reload $\rightarrow$ confirm `HomeSkeleton.tsx` mirrors `.spending-card-header`, `.card-heading` with `.pie-day-filter-slot`, and `.spending-timeframe-container` with zero hydration shift.
       - [ ] **Build & Type Check**:
         - [ ] Verify `npx tsc --noEmit` completes with 0 errors.
+
+26. **Dashboard Topbar Bottom Spacing Relaxation & Typography Clearance Verification**:
+    - [ ] Navigate to `/dashboard/expenses` (and across all 9 dashboard routes: `/dashboard/home`, `/dashboard/wallet`, `/dashboard/goals`, `/dashboard/statistics`, `/dashboard/settings`, `/dashboard/financial-advisor`, `/dashboard/forecast`, `/dashboard/admin`):
+      - [ ] **Bottom Spacing Relaxation**:
+        - [ ] Inspect `.dashboard-topbar` header:
+        - [ ] Confirm bottom padding is increased to `clamp(0.95rem, 1.5vw, 1.25rem)` ($20\text{px}$ on desktop, up from $10.4\text{px}$).
+        - [ ] Verify that letters with descenders (such as 'p' in "Expenses", 'g' in "Settings", 'y' in "Summary") have ample breathing room ($15\text{px}+$ of clear space) above the bottom border and scroll indicator track.
+        - [ ] Confirm that the header no longer appears crunched, squeezed, or crowded against the bottom edge.
+      - [ ] **Wallet Pill & Action Group Clearance**:
+        - [ ] Confirm the right-hand action group (description text and `.dashboard-wallet-pill`) maintains balanced vertical padding above and below.
+        - [ ] Verify the wallet pill sits comfortably centered within the topbar height without crowding the bottom border.
+      - [ ] **Eyebrow-Title Separation**:
+        - [ ] Confirm a clean ~3px separation exists between the uppercase orange eyebrow (`TRACK THE MONEY TRAIL`) and the title `h1` (`Expenses`).
+      - [ ] **Flush Alignment with Cards**:
+        - [ ] Confirm horizontal padding remains locked to `clamp(0.75rem, 1.5vw, 1rem)`, keeping the header title and wallet pill flush with card boundaries below.
+      - [ ] **Responsive Breakpoint Verification**:
+        - [ ] Tablet viewport ($\le 980\text{px}$): Verify padding is `0.75rem clamp(0.75rem, 1.5vw, 1rem) 1rem;` with comfortable bottom clearance.
+        - [ ] Mobile viewport ($\le 680\text{px}$): Verify padding is `0.65rem 0.75rem 0.85rem;` without text wrapping collision.
+      - [ ] **Build & Type Check**:
+        - [ ] Verify `npx tsc --noEmit` completes with 0 errors.
+
+27. **Financial Summary Tabular Presentation, Search, Filters, & Pagination Verification**:
+    - [ ] Navigate to `/dashboard/home` $\rightarrow$ inspect the "Financial Summary" section:
+      - [ ] **Tabular Geometry & High-Density Optimization**:
+        - [ ] Verify that category items render in a clean, high-density data table (`<table>`) rather than sprawling card blocks.
+        - [ ] Verify the table displays six distinct columns: **Category** (with dot indicator & active badge), **Description**, **Entries** (count badge), **Share %** (visual track & text), **Total Spent** (bold tabular currency), and **Action** (`Filter` / `Active ✓`).
+        - [ ] Check horizontal scrolling: verify `.summary-table-wrapper` scrolls smoothly on smaller screens without text wrapping distortion (`min-width: 660px`).
+      - [ ] **Contained Height & Client-Side Pagination**:
+        - [ ] Verify that exactly 5 items display per page (`PAGE_SIZE = 5`), keeping the table height strictly bounded (~260px–290px).
+        - [ ] Confirm the table does NOT stretch the home dashboard vertically, even with 15+ user categories.
+        - [ ] Verify bottom pagination displays `Showing 1–5 of X categories`.
+        - [ ] Test pagination navigation: click page numbers (`1`, `2`, `3`), `Next ›`, and `‹ Prev`. Confirm smooth page transitions with proper disabled states on boundaries.
+      - [ ] **Top Toolbar: Search & Dropdown Filters**:
+        - [ ] **Stretched Search Input**:
+          - [ ] Verify search input stretches dynamically across available toolbar width (`flex: 1 1 200px`) up to the pills and dropdowns, with ZERO dead space.
+          - [ ] Type category name (e.g., "Food" or "Shop") into the search box: confirm instant real-time filtering of matching rows.
+          - [ ] Click the clear button (`✕`): confirm search clears and page resets to 1.
+        - [ ] **Active Filter Pills Placement Beside Search Bar & Clean UI/UX Physics**:
+          - [ ] Filter by a day or category: confirm pills (`• Day: [Day] [✕ All Days]`, `• Category: [Name] [✕ Show All]`) render directly in the toolbar beside the search input, keeping the card header uncluttered.
+          - [ ] **Spring Mount/Unmount Physics**: Verify that when a filter is applied or cleared, the pill springs in/out smoothly via Framer Motion (`popLayout`) with scale and opacity interpolation, smoothly sliding adjacent search and dropdown controls without visual jumping.
+          - [ ] **Clean Static Aesthetics (No Blinking / Halo Artifacts)**: Verify that active pills display a crisp, static orange accent border and subtle background with a solid, sharp 8px color indicator dot, with zero looping blinking animations, pulsating keyframes, or fuzzy halos.
+          - [ ] **Tactile Clear Action Buttons**: Hover over `✕ Show All` / `✕ All Days` $\rightarrow$ confirm button lifts slightly (`-1.5px`) with enhanced orange shadow; click $\rightarrow$ confirm tactile scale-down compression (`0.95`).
+        - [ ] **Design-System CustomSelect Dropdowns**:
+          - [ ] Open the Filter and Sort dropdowns in dark theme: confirm they render with the authentic Buck dark theme popup (`#17100c` background, `#fff8ed` cream text, soft orange hover) and Framer Motion animation.
+          - [ ] Confirm no native OS white-box popup appears and text is 100% readable.
+        - [ ] **Sort Options**: Test each sort option:
+          - [ ] "Highest Amount" $\rightarrow$ descending by amount (default).
+          - [ ] "Lowest Amount" $\rightarrow$ ascending by amount.
+          - [ ] "Name (A–Z)" and "Name (Z–A)" $\rightarrow$ alphabetical sorting.
+          - [ ] "Most Entries" $\rightarrow$ sorted by transaction count.
+          - [ ] "Highest Share %" $\rightarrow$ sorted by share percentage.
+        - [ ] **Filter Options**:
+          - [ ] Test "With Expenses Only" $\rightarrow$ hides ₱0 categories.
+          - [ ] Test "Top 5 Spending" $\rightarrow$ isolates top 5 categories.
+          - [ ] When a category is active: select "Selected Only" $\rightarrow$ isolates that category.
+      - [ ] **Interactive Two-Way Synchronization with Pie & Bar Charts**:
+        - [ ] Click any category row (or the "Filter" button):
+          - [ ] Confirm the row is highlighted (`summary-table-row--selected`) with an "Active" badge.
+          - [ ] Confirm `WeeklyPieChart` zooms and highlights that category slice.
+          - [ ] Confirm `WeeklyBarChart` updates to show that category's daily breakdown.
+          - [ ] Confirm sibling badge `Category: [Name] [✕ Show All]` appears directly in the toolbar beside the search input.
+          - [ ] Click "✕ Show All" in the toolbar or click the row again: confirm category selection clears and pie/bar charts return to all categories.
+        - [ ] Select a category on the Pie Chart (e.g., "Food"):
+          - [ ] Confirm the corresponding row in `FinancialSummaryTable` highlights automatically without unmounting other table rows.
+      - [ ] **1:1 Skeletal Loading Parity (Zero CLS)**:
+        - [ ] Network throttle reload $\rightarrow$ confirm `HomeSkeleton.tsx` renders matching tabular structure (stretched search box, dropdowns, 5 row placeholders, and pagination bar) with zero layout shift during hydration.
+      - [ ] **Build & Type Check**:
+        - [ ] Verify `npx tsc --noEmit` completes with 0 errors.
+
+28. **Goal Progress Gauge Dual-Layer Liquid Wave Effect Verification**:
+    - [ ] Navigate to `/dashboard/goals` $\rightarrow$ select an active goal (e.g., "Emergency Fund", "Savings", etc.):
+      - [ ] **Dual-Layer Seamless Sine Wave Surface**:
+        - [ ] Verify that the liquid progress gauge displays a natural, undulating wavy liquid surface rather than a flat line or awkward static ellipse.
+        - [ ] Verify that two wave layers are visible: a bright foreground wave (`#ffb03a` $\rightarrow$ `#f47536` $\rightarrow$ `#d9381e`) and a translucent, darker background wave with offset phase sloshing behind it.
+        - [ ] Verify the delicate white surface crest line (`stroke-width: 1.5`) simulating glass/liquid surface tension.
+      - [ ] **Continuous Organic Parallax Sloshing**:
+        - [ ] Verify that the front wave sloshes leftward and the back wave sloshes rightward at differential speeds (3.1s vs 4.6s), producing lifelike fluid dynamics with zero jitter, stutter, or seams.
+      - [ ] **Framer Motion Dynamic Level Physics**:
+        - [ ] Click "+ Add Progress" and submit an amount $\rightarrow$ verify that the liquid level smoothly rises vertically via Framer Motion spring physics (`type: "spring", stiffness: 65, damping: 16`) to the new percentage without unmounting or snapping.
+        - [ ] Verify that at 0% saved, the liquid sits completely below the circular clip ($Y = 148$); at 50% it sits on the exact geometric midline ($Y = 70$); and at 100% it fills the entire gauge ($Y = -8$).
+      - [ ] **Typography & Contrast Legibility**:
+        - [ ] Confirm "SAVED" and the percentage number (e.g. `57%`) remain crisp, sharp, and 100% readable with multi-tier drop shadows.
+        - [ ] Test in both Dark and Light themes $\rightarrow$ verify high contrast and seamless appearance.
+      - [ ] **1:1 Skeletal Loading Parity (Zero CLS)**:
+        - [ ] Refresh `/dashboard/goals` on network throttling $\rightarrow$ verify `GoalsSkeleton.tsx` mirrors the 140px liquid gauge geometry (`.progress-liquid-container.skeleton-circle`) with 0px Cumulative Layout Shift.
+      - [ ] **Build & Type Check**:
+        - [ ] Verify `npx tsc --noEmit` completes with 0 errors.
+
+
 
 
 

@@ -6,6 +6,8 @@ export type BuckUser = SupabaseUser & {
   authProviders: string[];
   isPasswordUser: boolean;
   isGoogleOnlyUser: boolean;
+  /** Resolved server-side (isAdminUser). UI hint only; real checks stay on the server and in RLS. */
+  isAdmin: boolean;
 };
 
 function getMetadataValue(user: SupabaseUser, key: string) {
@@ -38,7 +40,10 @@ export function getUserDisplayName(user: SupabaseUser) {
   );
 }
 
-export function toBuckUser(user: SupabaseUser | null): BuckUser | null {
+export function toBuckUser(
+  user: SupabaseUser | null,
+  isAdminOverride?: boolean
+): BuckUser | null {
   if (!user) {
     return null;
   }
@@ -53,5 +58,9 @@ export function toBuckUser(user: SupabaseUser | null): BuckUser | null {
     authProviders,
     isPasswordUser,
     isGoogleOnlyUser: authProviders.includes("google") && !isPasswordUser,
+    isAdmin:
+      isAdminOverride ??
+      (user as Partial<BuckUser>).isAdmin ??
+      user.app_metadata?.role === "admin",
   };
 }

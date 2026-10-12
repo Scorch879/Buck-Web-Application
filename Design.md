@@ -948,3 +948,143 @@ Buck-Web-Application/
 
 
 
+
+### ADR-034: Statistics & Goals Rebuilt on Scoped Card Grids
+
+- **Status**: Implemented
+- **Context**: Both tabs were mostly inline styles with fixed widths that fought each other, and showed more data than a user can scan (QA BUG-018, BUG-020). Statistics' global `.dashboard-container` rule also leaked into Home after a visit.
+- **Decision**:
+  1. **Statistics layout** ([`statistics/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/statistics/style.css)). Every class is prefixed `.stats-`.
+     - Monthly cash-flow card (always "this month").
+     - A period toolbar: segmented Weekly / Monthly / Overall, a previous/next stepper with the range label, and "Back to current". It replaces the info card and two long selects.
+     - A 3-column grid: Budget (1) | Categories (2), Trend (2) | Latest expenses (1), Forecast (full width).
+     - 2 columns at ≤1180px and 1 column at ≤760px.
+  2. **Statistics components**: `BudgetDonut.tsx` (SRS 3.7 colours: amber at 80%, crimson at 100%), `CategoryBreakdown.tsx` (top 5 + "Others", horizontal bars), `SpendingTrendChart.tsx` (bars per day / 7-day block / month with a dashed limit line), `AddExpenseModal.tsx` (owns its own state). Old `excess-pie`, `spending-bar`, `weekly-spending` and `testData.ts` were deleted.
+  3. **Budget figures**: the previous split is unchanged (a quarter of the active wallet per week, the whole wallet per month or overall). With no wallet the page shows "—" and a link to Wallet instead of a made-up budget.
+  4. **Goals layout** ([`goals/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/goals/style.css)):
+     - A sticky 280–340px goal list beside the detail panel.
+     - The detail header carries the name, status pill and actions.
+     - Progress card beside four facts. "Save per day" = remaining ÷ days left; hidden once overdue.
+     - Below them: the AI card, actions, then the 5 latest linked expenses.
+     - The forecast dialog uses `width: min(880px, 100%)` and `max-height: min(82dvh, 760px)`.
+  5. **Shared calendar helper**: [`utils/periods.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/periods.ts) uses local day keys (QA BUG-019).
+  6. **Skeletons**: `StatisticsSkeleton` and `GoalsSkeleton` render the new classes (ADR-033 approach), including the cash-flow skeleton and the AI card the Goals page shows while loading.
+- **Consequences**:
+  - Statistics no longer offers per-row "Remove" buttons. Deleting expenses lives in the Expenses tab, which "View all expenses" links to. Category management stays in the Add Expense dialog.
+  - `.graph-panel`, `.empty-goals-popup` and `.goal-details p` were dropped from the `dashboard.css` hover lists because they no longer exist.
+
+---
+
+### ADR-035: Dashboard Topbar Bottom Spacing Relaxation & Typography Clearance Refactor
+
+- **Status**: Implemented
+- **Context**:
+  In the persistent sticky topbar ([`.dashboard-topbar`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/dashboard.css#L147-L163)) rendered across all dashboard routes, the previous vertical spacing optimization (ADR-030) reduced `min-height` to $58\text{px}$ and vertical padding to `clamp(0.5rem, 0.9vw, 0.65rem)` ($10.4\text{px}$ maximum). This introduced severe visual crowding on the bottom edge:
+  1. **Typographic Descender Collision**: The title `h1` ("Expenses", "Statistics", etc.) was styled with `line-height: 1.1`, pushing descenders (such as the letter 'p' in "Expenses" or 'g' in "Settings") to within ~3px–4px of the bottom edge.
+  2. **Scroll Track Collision**: The sticky header's bottom scroll indicator track (`.dashboard-scroll-track`, height $2\text{px}$) sits at `bottom: 0`. With only $10.4\text{px}$ of total bottom padding, the text and right-hand wallet pill felt tightly crunched against the horizontal track border.
+  3. **Eyebrow-Title Stacking Tightness**: The left title container (`<div>`) had no explicit gap between the uppercase eyebrow `<p>` and the `h1` heading, causing them to sit flush with each other.
+- **Decision**:
+  1. **Relaxed Asymmetric Padding Architecture**:
+     - Updated `.dashboard-topbar` padding in [`dashboard.css:158`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/dashboard.css#L158) to `clamp(0.7rem, 1.1vw, 0.85rem) clamp(0.75rem, 1.5vw, 1rem) clamp(0.95rem, 1.5vw, 1.25rem)`.
+     - Preserves the horizontal padding (`clamp(0.75rem, 1.5vw, 1rem)`) to maintain flush alignment with dashboard cards below.
+     - Increases bottom padding from $10.4\text{px}$ to $20\text{px}$ (`1.25rem`), providing ample breathing room ($15\text{px}+$ of clear space) below font descenders and the active wallet pill.
+     - Maintains top padding at $13.6\text{px}$ (`0.85rem`), achieving natural optical balance with the smaller uppercase eyebrow text.
+  2. **Structural Minimum Height Increase (`min-height: 68px`)**:
+     - Increased `.dashboard-topbar` `min-height` from $58\text{px}$ to $68\text{px}$ in [`dashboard.css:157`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/dashboard.css#L157), ensuring stable height without vertical jitter.
+  3. **Typographic Clearance & Eyebrow Gap**:
+     - Added `display: flex; flex-direction: column; gap: 0.18rem;` to `.dashboard-topbar > div:first-child` in [`dashboard.css:192-197`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/dashboard.css#L192-L197), introducing ~3px of intentional separation between eyebrow and title.
+     - Adjusted `h1` line-height from $1.1$ to $1.18$ in [`dashboard.css:206`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/dashboard.css#L206), ensuring font descenders are naturally accommodated without line-box clipping.
+  4. **Responsive Harmonization Across Tablet & Mobile Breakpoints**:
+     - Updated tablet breakpoint (`@media (max-width: 980px)`) to `padding: 0.75rem clamp(0.75rem, 1.5vw, 1rem) 1rem;` in [`dashboard.css:587`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/dashboard.css#L587).
+     - Updated mobile breakpoint (`@media (max-width: 680px)`) to `padding: 0.65rem 0.75rem 0.85rem;` in [`dashboard.css:673`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/dashboard.css#L673).
+- **Consequences**:
+  Completely eliminates the crunched and tight appearance on the bottom of the header across all 9 dashboard routes, creates balanced whitespace above and below header elements, and preserves the horizontal alignment with card containers beneath.
+
+
+### ADR-036: Wallet Tab Owns the Cash-Flow KPI, Unified Activity Log & Symmetric Topbar Padding
+
+- **Status**: Implemented. Supersedes ADR-035 decisions 1–4 for padding, min-height and the eyebrow gap; ADR-035's title `line-height` stands.
+- **Context**: See QA BUG-022. Cash flow (income vs expenses) describes money moving through wallets, so it belongs on Wallet, not on the Home spending overview. Two log cards and heavy wallet rows wasted vertical space. ADR-035 fixed a crowded topbar by enlarging only the bottom padding, which moved the content off centre.
+- **Decision**:
+  1. **Wallet KPI**: `MonthlyCashFlowCard` renders first on Wallet without its own Add button. Adding income happens in the Log card's Income tab, so only one Add Income button exists. Home no longer imports the income components or `useIncomes`, and `HomeSkeleton` drops the cash-flow skeleton. Statistics keeps its read-only copy.
+  2. **Expenses on Wallet**: the page calls `listExpenses` and subscribes to `expenses`, merging into `FinancialContext`, so the KPI is right on a cold visit.
+  3. **Activity log**: one card with `role="tablist"` tabs (Wallet history / Income history, each with a count).
+     - Each tab has its own search; the wallet tab keeps the All / Active / Archived filter.
+     - "Add Income" appears in the card header only on the Income tab.
+     - `IncomeList` has `embedded` (no header) and `query` (filter) props, and `IncomeListSkeleton` mirrors `embedded`.
+  4. **Your Wallets**:
+     - A total-balance strip with a wallet count.
+     - Compact `.wallet-row` items: name, active badge, a share-of-total bar, balance, then Set Active and 30px icon Edit/Delete buttons.
+     - Edit-in-place keeps the previous form. Below 560px the balance and actions drop to a second line.
+  5. **Consistency**: income rows, delete buttons, `.primaryBtn` and income type weights (600–750) match the wallet rows and the unified orange button (ADR-013).
+  6. **Topbar**: padding is `clamp(0.95rem, 1.4vw, 1.15rem) clamp(0.75rem, 1.5vw, 1rem)` (equal top and bottom, about 18px on desktop), `1rem` at ≤980px and `0.9rem 0.75rem` at ≤680px. `min-height` is 84px. The eyebrow-to-title gap is `0.3rem` and the eyebrow gets `letter-spacing: 0.04em`. The title's `line-height: 1.18` from ADR-035 is unchanged. Measured at 1655px: 84px tall, 18px above and 18px below the title block (previously 66px with the content filling the bar).
+  7. **Skeleton**: `WalletSkeleton` renders the new classes (cash-flow skeleton, summary strip, `.wallet-row`, `.wallet-tabs` with Wallet history selected).
+
+---
+
+### ADR-037: Financial Summary Tabular Conversion with Contained Vertical Density, Client-Side Pagination, & Two-Way Chart Synchronization
+
+- **Status**: Implemented
+- **Context**: On the Home dashboard, the Financial Summary section was originally rendered as an auto-fitting grid of large card blocks (`.summary-content > .summary-item`). When users configured 12–20+ budget categories, this grid sprawled across 3–4 vertical rows, elongating the dashboard height and requiring extensive scrolling. Users needed a high-density, tabular representation that could scale gracefully to dozens of categories without expanding vertically, equipped with client-side pagination, instant search, dynamic sorting, and category filters while preserving interactive two-way synchronization with the Pie Chart and Bar Chart.
+- **Decision**:
+  1. **Tabular Presentation Component (`FinancialSummaryTable.tsx`)**:
+     - Converted the card grid into a high-density, semantic data table (`<table>`) contained within a responsive scroll wrapper (`.summary-table-wrapper`, `min-width: 660px`).
+     - Defined fixed column ratios to prevent column jitter and text truncation:
+       - **Category (22%)**: Category color dot (`.summary-cat-dot`), name (`.summary-cat-name`), and active badge (`.summary-cat-active-pill`) when selected.
+       - **Description (31%)**: Contextual category description with clean line clamping.
+       - **Entries (11%)**: Transaction count badge (`.summary-txns-badge`, e.g., `5 entries`) centered.
+       - **Share % (17%)**: Visual progress bar track (`.summary-share-track`) with fill percentage and formatted numeric share (e.g., `24.5%`).
+       - **Total Spent (13%)**: Formatted Philippine Peso currency (`₱X,XXX.XX`) in bold tabular numbers, right-aligned.
+       - **Action (6%)**: Compact filter toggle button (`.summary-row-action-btn`, `Filter` / `Active ✓`).
+  2. **Contained Vertical Density & Client-Side Pagination**:
+     - Enforced a fixed page size of 5 categories (`PAGE_SIZE = 5`).
+     - Integrated a bottom pagination bar (`.summary-table-pagination`) featuring:
+       - Entry counter: `Showing {start}–{end} of {total} categories`.
+       - Accessible navigation controls: `‹ Prev`, dynamic page number buttons, and `Next ›` with active/disabled states.
+     - Keeps the section height strictly contained (~260px–290px), completely preventing vertical layout stretching.
+  3. **Top Search, Sibling Filter Pills, & Design-System CustomSelect Toolbar (`.summary-table-toolbar`)**:
+     - **Auto-Stretching Search Input**: Removed arbitrary `max-width: 420px;` constraint (`flex: 1 1 200px; min-width: 180px;`), allowing the search box to stretch across all available space directly to the pills and dropdowns, completely eliminating dead space.
+     - **Active Filter Pills Beside Search Bar**: Relocated active Day and Category filter pill groups (`• Day: [Name] [✕ All Days]`, `• Category: [Name] [✕ Show All]`) out of the header title row into the table toolbar directly beside the search input. Keeps the card header uncluttered while displaying active filters prominently in context.
+     - **Design System CustomSelect Integration**: Replaced native browser `<select>` elements with [`CustomSelect.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/CustomSelect.tsx) (`size="sm"`), equipped with leading icons (`FaFilter`, `FaSortAmountDown`) and rotating chevrons. Eliminates native OS white-popover glitches in dark mode by utilizing Buck design tokens (`#17100c` dark / `#fffaf6` light backgrounds, `rgba(244, 117, 54, 0.2)` selection, and Framer Motion spring physics).
+     - **Filter Dropdown**: All Categories, Active Selection Only (`Selected: {Name}`), Top 5 Spending, and With Expenses Only (> ₱0).
+     - **Dynamic Sort Dropdown**: Highest Amount (default), Lowest Amount, Name (A–Z), Name (Z–A), Most Entries, and Highest Share %.
+     - Automatically resets pagination to page 1 upon any query, sort, or filter modification.
+  4. **Two-Way Synchronization with Pie & Bar Charts**:
+     - Selecting a row (`summary-table-row--selected`) synchronizes with `WeeklyPieChart` (zooming/highlighting the slice) and `WeeklyBarChart` (filtering daily expenses).
+     - Selecting a category from the Pie Chart highlights the corresponding row in `FinancialSummaryTable` without collapsing the remaining table rows.
+     - Sibling badges (`Category: [Name] [✕ Show All]`, `Day: [Day] [✕ All Days]`) render directly in the table toolbar beside the search input.
+  5. **Clean Active Filter Micro-Interactions & Spring Transitions**:
+     - **Spring Mount/Unmount Transitions (`AnimatePresence mode="popLayout"`)**: Active filter pills (`• Day: [Name] [✕ All Days]`, `• Category: [Name] [✕ Show All]`, `[← Others]`) animate in and out with Framer Motion spring physics (`initial={{ opacity: 0, scale: 0.88, y: -4 }}`, `stiffness: 480, damping: 28`), smoothly sliding adjacent toolbar items without layout jumpiness.
+     - **Clean, Non-Blinking Static Accent Styling**: Active filter pills feature crisp, solid accent borders (`1px solid rgba(244, 117, 54, 0.42)`) and translucent orange backgrounds (`rgba(244, 117, 54, 0.12)` in light, `0.16` in dark mode) with a solid, sharp 8px color indicator dot, intentionally avoiding distracting looping/blinking animations or fuzzy neon halos.
+     - **Tactile Clear Action Physics**: Sibling clear buttons (`.summary-filter-action-btn`) feature an interactive gradient (`linear-gradient(135deg, var(--buck-orange), #ff9858)`), hover lift (`translateY(-1.5px) scale(1.02)` with `0 4px 14px rgba(244, 117, 54, 0.42)` shadow), and tactile press compression (`scale(0.95)`).
+  6. **1:1 Skeletal Loading Parity (`HomeSkeleton.tsx`, `style.css`)**:
+     - Replaced the 4-card skeleton with a 1:1 tabular skeleton mirroring the stretched search input, filter dropdowns, 5 skeleton rows, and pagination bar.
+     - Eliminates Cumulative Layout Shift (CLS) on hydration.
+- **Consequences**: Eliminates dead space between search bar and dropdowns, maintains clean, distraction-free visual aesthetics without blinking artifacts, eradicates native browser select glitches in dark theme with full Buck design system parity, and maintains cohesive visual hierarchy across all viewports.
+
+---
+
+### ADR-038: Goals Progress Gauge Dual-Layer Liquid Wave Effect with Framer Motion Spring Height & Hardware-Accelerated Parallax
+
+- **Status**: Implemented
+- **Context**: In the Goals dashboard (`/dashboard/goals`), [`ProgressBarCard.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/goals/ProgressBarCard.tsx) rendered goal completion as a circular container with a flat, static linear fill and a crude pseudo-element ellipse. Users requested a realistic, fluid wavy liquid effect reminiscent of organic fluid dynamics.
+- **Decision**:
+  1. **Dual-Layer Seamless Sine Wave Geometry**:
+     - Constructed two mathematically seamless 2-period sine wave paths across a 280px ribbon (140px wavelength matching the gauge diameter):
+       - **Front Wave**: `M 0 0 C 20 -6, 50 -6, 70 0 C 90 6, 120 6, 140 0 C 160 -6, 190 -6, 210 0 C 230 6, 260 6, 280 0 L 280 180 L 0 180 Z`, filled with Buck's signature radial/linear gradient (`#ffb03a` $\rightarrow$ `#f47536` $\rightarrow$ `#d9381e`).
+       - **Back Wave**: `M 0 -2 C 25 3, 45 3, 70 -2 C 95 -7, 115 -7, 140 -2 C 165 3, 185 3, 210 -2 C 235 -7, 255 -7, 280 -2 L 280 180 L 0 180 Z`, offset by 2px with opposite phase and translucent coral fill (`rgba(244, 117, 54, 0.45)` $\rightarrow$ `rgba(168, 40, 15, 0.7)`).
+       - **Surface Tension Gleam**: An unclosed wave crest curve (`stroke="rgba(255, 255, 255, 0.45)"`, `strokeWidth="1.5"`) providing realistic fluid glass gleam.
+  2. **Reactive Liquid Level Spring Transitions (`framer-motion`)**:
+     - Wrapped the wave paths in `<motion.g animate={{ y: targetY }} transition={{ type: "spring", stiffness: 65, damping: 16, mass: 0.9 }}>`, where $Y = 148 - (progressPercentage / 100) \times 156$.
+     - Accurately positions the waterline from $0\%$ (completely below bottom at $Y = 148$) to $50\%$ (exact geometric center at $Y = 70$) to $100\%$ (fully covering the circular porthole at $Y = -8$).
+  3. **Hardware-Accelerated Parallax Slosh & Accessibility**:
+     - Front wave sloshes leftward (`transform: translateX(0) -> translateX(-140px)` over 3.1s linear infinite), while back wave sloshes rightward (`translateX(-140px) -> translateX(0)` over 4.6s linear infinite).
+     - Parallax speeds and counter-movement produce organic fluid wave dynamics without CPU or layout thrashing.
+     - Automatically pauses wave sloshing via `@media (prefers-reduced-motion: reduce)` and Framer Motion's `useReducedMotion()`.
+  4. **Porthole Depth & Typography Contrast**:
+     - Contained within `<clipPath id="liquid-clip"><circle cx="70" cy="70" r="66" /></clipPath>` with an outer glass ring border (`stroke-width: 4`) and inner shadow (`box-shadow: inset 0 3px 12px rgba(0,0,0,0.4)`).
+     - Centered "SAVED" and percentage text (`.progress-liquid-text`) float above the SVG with crisp multi-tier drop shadows, with automatic high-contrast fallback for low progress states in light mode.
+- **Consequences**: Completely replaces flat and static progress visuals with organic, tactile, and responsive liquid wave feedback while maintaining full 1:1 geometry with [`GoalsSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/GoalsSkeleton.tsx) (zero CLS).
+
+
+

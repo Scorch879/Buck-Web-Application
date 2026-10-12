@@ -23,4 +23,4 @@ To significantly improve load times and prevent redundant API calls when navigat
 
 ## 3. Security Considerations
 - **Memory-Only Cache:** To prevent sensitive admin logs from persisting across sessions or users, the cache is held purely in React Memory (Context state). It is **not** written to `localStorage` or `sessionStorage`. When the app reloads or the browser is closed, the cache is securely wiped.
-- **Role Validation:** The page still strictly enforces that only the authorized administrator email (`buckthebudgettracker@gmail.com`) is allowed to view or trigger these fetches.
+- **Role Validation:** The page still strictly enforces that only an administrator can view or trigger these fetches. Admin access is granted by `isAdminUser` in `buck/src/utils/adminAccess.ts`: a confirmed account whose server-managed `app_metadata.role` is `'admin'`, or whose email matches the `ADMIN_EMAIL` environment variable.

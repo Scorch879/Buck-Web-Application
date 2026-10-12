@@ -178,12 +178,7 @@ export default function DashboardHeader({
 
   const renderNavItems = () =>
     dashboardNavItems
-      .filter((item) => {
-        if ('adminOnly' in item && item.adminOnly) {
-          return user?.email === "buckthebudgettracker@gmail.com";
-        }
-        return true;
-      })
+      .filter((item) => !("adminOnly" in item && item.adminOnly) || user?.isAdmin)
       .map((item) => {
         const Icon = item.icon;
 
