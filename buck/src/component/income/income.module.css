@@ -1,0 +1,389 @@
+/* Income tracking: Add Income modal, income list and monthly cash-flow card. */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1rem, 4vw, 2rem);
+  background: rgba(18, 13, 10, 0.48);
+  backdrop-filter: blur(8px);
+}
+
+.confirmBackdrop {
+  z-index: 10001;
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  max-height: min(82dvh, 760px);
+  padding: clamp(1.1rem, 3vw, 1.6rem);
+  overflow: auto;
+  color: var(--buck-ink);
+  background: var(--buck-surface);
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+  box-shadow: var(--buck-shadow);
+}
+
+.title {
+  margin: 0 0 0.35rem;
+  color: var(--buck-orange);
+  font-size: clamp(1.35rem, 4vw, 1.7rem);
+  font-weight: 900;
+}
+
+.subtitle {
+  margin: 0 0 1.1rem;
+  color: var(--buck-muted);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--buck-muted);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0.6rem 0.85rem;
+  color: var(--buck-ink);
+  background: rgba(255, 250, 244, 0.74);
+  border: 1px solid rgba(244, 117, 54, 0.32);
+  border-radius: 8px;
+  font-size: 1rem;
+  outline: none;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+html[data-buck-theme="dark"] .input {
+  background: rgba(255, 197, 71, 0.08);
+}
+
+.input:focus {
+  border-color: var(--buck-orange);
+  box-shadow: 0 0 0 3px rgba(244, 117, 54, 0.18);
+}
+
+.actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: flex-end;
+  margin-top: 0.4rem;
+}
+
+.primaryBtn,
+.secondaryBtn,
+.dangerBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 40px;
+  padding: 0.48rem 0.95rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
+}
+
+/* Matches the dashboard's unified primary button (e.g. "New Wallet"). */
+.primaryBtn {
+  color: #ffffff;
+  background: var(--buck-orange);
+  border: 0;
+  box-shadow: none;
+}
+
+html[data-buck-theme="dark"] .primaryBtn {
+  color: #241409;
+  background: var(--buck-orange);
+}
+
+.primaryBtn:hover:not([disabled]) {
+  transform: translateY(-2px);
+}
+
+.primaryBtn[disabled] {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.secondaryBtn {
+  color: var(--buck-ink);
+  background: transparent;
+  border: 1px solid var(--buck-line);
+}
+
+.dangerBtn {
+  color: #fffaf4;
+  background: #c62828;
+  border: 0;
+}
+
+.error {
+  padding: 0.65rem 0.8rem;
+  color: #c62828;
+  background: #ffebee;
+  border: 1px solid #ef9a9a;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.notice {
+  padding: 0.85rem 1rem;
+  color: var(--buck-muted);
+  background: rgba(244, 117, 54, 0.08);
+  border: 1px dashed rgba(244, 117, 54, 0.4);
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.confirmModal {
+  width: min(420px, 100%);
+  padding: 1.4rem;
+  color: var(--buck-ink);
+  background: var(--buck-surface);
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+  box-shadow: var(--buck-shadow);
+}
+
+.confirmModal h3 {
+  margin: 0 0 0.5rem;
+}
+
+.confirmModal p {
+  margin: 0;
+  color: var(--buck-muted);
+}
+
+/* ---- Income list ---- */
+
+.listHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.listTitle {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--buck-ink);
+}
+
+.eyebrow {
+  margin: 0 0 0.2rem;
+  color: var(--buck-orange);
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Same row anatomy as the Wallet tab's history rows. */
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 0.95rem;
+  background: var(--buck-surface);
+  border: 1px solid var(--buck-line);
+  border-radius: 10px;
+}
+
+.itemMain {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.itemSource {
+  color: var(--buck-ink);
+  font-weight: 650;
+}
+
+.itemMeta {
+  overflow: hidden;
+  color: var(--buck-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemSide {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.amount {
+  color: #2e7d32;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+html[data-buck-theme="dark"] .amount {
+  color: #81c784;
+}
+
+.deleteBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  color: var(--buck-muted);
+  background: transparent;
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.deleteBtn:hover {
+  color: var(--buck-coral);
+  background: rgba(255, 56, 56, 0.08);
+  border-color: rgba(255, 56, 56, 0.4);
+}
+
+.empty {
+  margin: 0;
+  padding: 1rem;
+  color: var(--buck-muted);
+  font-weight: 800;
+  text-align: center;
+}
+
+/* ---- Monthly cash-flow card ---- */
+
+.flowCard {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1rem, 2.5vw, 1.4rem);
+  color: var(--buck-ink);
+  background: var(--buck-surface);
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+  box-shadow: var(--buck-shadow);
+}
+
+.flowHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.flowGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.flowStat {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+}
+
+.flowLabel {
+  color: var(--buck-muted);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.flowValue {
+  font-size: clamp(1.15rem, 2.4vw, 1.6rem);
+  font-weight: 750;
+}
+
+.flowValueIncome {
+  color: #2e7d32;
+}
+
+html[data-buck-theme="dark"] .flowValueIncome {
+  color: #81c784;
+}
+
+.flowValueExpense {
+  color: var(--buck-coral, #ff3838);
+}
+
+.flowDelta {
+  color: var(--buck-muted);
+  font-size: 0.8rem;
+  font-weight: 550;
+}
+
+.savedBar {
+  height: 10px;
+  overflow: hidden;
+  background: rgba(244, 117, 54, 0.14);
+  border-radius: 999px;
+}
+
+.savedBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--buck-gold), var(--buck-orange));
+  border-radius: 999px;
+  transition: width 240ms ease;
+}
+
+.savedBarNeutral {
+  background: rgba(127, 127, 127, 0.25);
+}
+
+.savedCaption {
+  color: var(--buck-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .flowGrid {
+    grid-template-columns: 1fr;
+  }
+}

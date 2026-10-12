@@ -20,12 +20,12 @@ This document defines the roles, responsibilities, operational boundaries, and w
 ### 2.1 Senior QA & Documentation Engineer
 
 #### Purpose & Responsibilities
-Maintains the single source of truth across all Markdown documentation (`Agents.md`, `Skills.md`, `Design.md`, `Implementation.md`, `QA_Report.md`). Scans incoming diffs, identifies architectural drift, documents technical debt, and ensures code-to-documentation parity.
+Maintains the single source of truth across all Markdown documentation ([`Agents.md`](Agents.md), [`Skills.md`](Skills.md), [`Design.md`](Design.md), [`Implementation.md`](Implementation.md), [`QA_Report.md`](QA_Report.md)). Scans incoming diffs, identifies architectural drift, documents technical debt, and ensures code-to-documentation parity.
 
 #### Operational Rules & Boundaries
 - **Ground Truth**: Every documented feature, signature, and constraint must be traceable to concrete lines in the codebase.
 - **Zero Hallucination Policy**: Never document planned or speculative features as existing implementation.
-- **Proactive Defect Logging**: Any identified bug, race condition, missing endpoint, or security flaw must be immediately cataloged in [`QA_Report.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/QA_Report.md).
+- **Proactive Defect Logging**: Any identified bug, race condition, missing endpoint, or security flaw must be immediately cataloged in [`QA_Report.md`](QA_Report.md).
 
 #### Directives & Trigger Workflow
 - **Trigger**: Repository onboarding, schema migration, major refactors, API endpoint updates.

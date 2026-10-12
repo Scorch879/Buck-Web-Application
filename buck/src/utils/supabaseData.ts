@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "@/utils/supabase";
+import { toLocalDateString } from "@/utils/cashFlow";
 import {
   designPreviewUserId,
   isDesignPreviewMode,
@@ -19,6 +20,37 @@ export type BuckExpense = {
   goalId?: string | null;
   walletId?: string | null;
   userId: string;
+};
+
+export type BuckIncome = {
+  id: string;
+  walletId?: string | null;
+  source: string;
+  amount: number;
+  description: string;
+  /** `received_on` as a `YYYY-MM-DD` calendar date. */
+  date: string;
+  createdAt: string;
+};
+
+/** Income sources shared with the Buck mobile app. */
+export const incomeSources = [
+  "Salary",
+  "Allowance",
+  "Freelance",
+  "Business",
+  "Investment",
+  "Gift",
+  "Other",
+] as const;
+
+export type IncomeSource = (typeof incomeSources)[number];
+
+export type AddIncomeResult = {
+  incomeId: string;
+  walletId: string;
+  amount: number;
+  walletBalance: number;
 };
 
 export type BuckGoal = {
@@ -126,6 +158,7 @@ type TableName =
   | "categories"
   | "goals"
   | "expenses"
+  | "incomes"
   | "profiles"
   | "feedback"
   | "ai_forecasts"
@@ -288,6 +321,18 @@ function mapExpense(row: Record<string, unknown>): BuckExpense {
     goalId: row.goal_id ? String(row.goal_id) : null,
     walletId: row.wallet_id ? String(row.wallet_id) : null,
     userId: String(row.user_id),
+  };
+}
+
+function mapIncome(row: Record<string, unknown>): BuckIncome {
+  return {
+    id: String(row.id),
+    walletId: row.wallet_id ? String(row.wallet_id) : null,
+    source: String(row.source || "Other"),
+    amount: toNumber(row.amount),
+    description: String(row.description || ""),
+    date: String(row.received_on || row.created_at || ""),
+    createdAt: row.created_at ? String(row.created_at) : new Date().toISOString(),
   };
 }
 
@@ -1448,6 +1493,185 @@ export async function deleteExpenseAndRestoreWallet(
   }
 }
 
+// PostgREST codes for a missing table / function (and Postgres undefined
+// table/function). Income is then reported as "not tracked" instead of failing.
+const incomeMissingCodes = new Set(["PGRST205", "PGRST202", "42P01", "42883"]);
+
+function isIncomeMissingError(error: { code?: string } | null) {
+  return Boolean(error?.code && incomeMissingCodes.has(error.code));
+}
+
+function buildPreviewIncomes(): BuckIncome[] {
+  const now = new Date();
+  const dateOf = (monthOffset: number, day: number) =>
+    toLocalDateString(
+      new Date(now.getFullYear(), now.getMonth() + monthOffset, day)
+    );
+
+  return [
+    {
+      id: "preview-income-1",
+      walletId: "preview-wallet-main",
+      source: "Salary",
+      amount: 25000,
+      description: "Monthly salary",
+      date: dateOf(0, 1),
+      createdAt: `${dateOf(0, 1)}T08:00:00.000Z`,
+    },
+    {
+      id: "preview-income-2",
+      walletId: "preview-wallet-main",
+      source: "Freelance",
+      amount: 4500,
+      description: "Logo design",
+      date: dateOf(0, 2),
+      createdAt: `${dateOf(0, 2)}T08:00:00.000Z`,
+    },
+    {
+      id: "preview-income-3",
+      walletId: "preview-wallet-main",
+      source: "Salary",
+      amount: 25000,
+      description: "Monthly salary",
+      date: dateOf(-1, 1),
+      createdAt: `${dateOf(-1, 1)}T08:00:00.000Z`,
+    },
+  ];
+}
+
+/**
+ * Lists the user's incomes, newest first. Returns `null` when income tracking
+ * is unavailable (table missing), so callers can show "Not tracked yet".
+ */
+export async function listIncomes(
+  userId: string,
+  options: { since?: string } = {}
+): Promise<BuckIncome[] | null> {
+  if (isDesignPreviewMode) {
+    return buildPreviewIncomes();
+  }
+
+  const safeUserId = assertUuid(userId, "user id");
+  const since = options.since;
+  if (since !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(since)) {
+    throw new Error("Invalid since date.");
+  }
+
+  const supabase = getSupabaseClient();
+  const pageSize = 1000;
+  const rows: Record<string, unknown>[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    let query = supabase
+      .from("incomes")
+      .select("id, wallet_id, source, amount, description, received_on, created_at")
+      .eq("user_id", safeUserId)
+      .order("received_on", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (since) {
+      query = query.gte("received_on", since);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      if (isIncomeMissingError(error)) {
+        return null;
+      }
+      throw new Error(error.message);
+    }
+
+    rows.push(...(data ?? []));
+    if (!data || data.length < pageSize) {
+      break;
+    }
+  }
+
+  return rows.map(mapIncome);
+}
+
+/**
+ * Records an income and credits the wallet in one transaction via
+ * `add_income_atomic`. Never insert into `incomes` directly.
+ */
+export async function addIncome(
+  userId: string,
+  income: {
+    walletId: string;
+    amount: number;
+    source: string;
+    description?: string;
+    date: string;
+  }
+): Promise<AddIncomeResult> {
+  if (isDesignPreviewMode) {
+    return {
+      incomeId: `preview-income-${Date.now()}`,
+      walletId: income.walletId,
+      amount: income.amount,
+      walletBalance: 0,
+    };
+  }
+
+  assertUuid(userId, "user id");
+  const safeWalletId = assertUuid(income.walletId, "wallet id");
+  const amount = Math.round(income.amount * 100) / 100;
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("Income amount must be greater than 0.");
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(income.date)) {
+    throw new Error("Invalid income date.");
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.rpc("add_income_atomic", {
+    p_wallet_id: safeWalletId,
+    p_amount: amount,
+    p_source: income.source.trim() || "Other",
+    p_description: income.description?.trim() ?? "",
+    p_received_on: income.date,
+  });
+
+  if (error) {
+    if (isIncomeMissingError(error)) {
+      throw new Error("Income tracking is not available yet.");
+    }
+    throw new Error(error.message);
+  }
+
+  const result = (data ?? {}) as Record<string, unknown>;
+  return {
+    incomeId: String(result.income_id ?? ""),
+    walletId: String(result.wallet_id ?? safeWalletId),
+    amount: toNumber(result.amount),
+    walletBalance: toNumber(result.wallet_balance),
+  };
+}
+
+/** Deletes an income and removes its amount from the wallet (never below 0). */
+export async function deleteIncome(userId: string, incomeId: string) {
+  if (isDesignPreviewMode) {
+    return;
+  }
+
+  assertUuid(userId, "user id");
+  const safeIncomeId = assertUuid(incomeId, "income id");
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.rpc("delete_income_atomic", {
+    p_income_id: safeIncomeId,
+  });
+
+  if (error) {
+    if (isIncomeMissingError(error)) {
+      throw new Error("Income tracking is not available yet.");
+    }
+    throw new Error(error.message);
+  }
+}
+
 export async function submitFeedback(
   userEmail: string,
   category: string,
@@ -1481,7 +1705,8 @@ export async function getAdminFeedback(): Promise<BuckFeedback[]> {
   const { data, error } = await supabase
     .from("feedback")
     .select("*")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(500);
 
   if (error) {
     console.error("Failed to fetch feedback:", error);

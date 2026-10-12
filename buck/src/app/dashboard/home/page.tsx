@@ -20,6 +20,7 @@ import {
 } from "@/utils/supabaseData";
 import WeeklyPieChart, { type WeeklyPieSlice } from "./WeeklyPieChart";
 import WeeklyBarChart, { fullDayNames, type WeeklyDatum } from "./WeeklyBarChart";
+import FinancialSummaryTable, { type SummaryTableItem } from "./FinancialSummaryTable";
 import AIAdvisorPlaceholderCard from "./AIAdvisorPlaceholderCard";
 import { BUCK_PIE_PALETTE, CHART_THEME } from "./chartTheme";
 import "./style.css";
@@ -27,11 +28,7 @@ import "./style.css";
 type Category = BuckCategory;
 type Expense = BuckExpense;
 
-type SummaryItem = {
-  label: string;
-  amount: number;
-  description: string;
-};
+type SummaryItem = SummaryTableItem;
 
 type TimeframeFilter = "all" | "month" | "week";
 
@@ -505,33 +502,10 @@ export default function Dashboard() {
     [barChartExpenses, timeframe]
   );
 
-  const summaryData = useMemo(() => {
+  const summaryData = useMemo<SummaryTableItem[]>(() => {
     const isOthersSelection =
       selectedCategory === "Others" || selectedCategory === "Others (Combined)";
     const activeDayName = selectedDay ? (fullDayNames[selectedDay] || selectedDay) : null;
-
-    if (selectedCategory && !isOthersSelection) {
-      const catExpenses = dayFilteredExpenses.filter(
-        (e) =>
-          (e.category?.trim() || "Uncategorized").toLowerCase() ===
-          selectedCategory.toLowerCase()
-      );
-      const totalSpent = catExpenses.reduce(
-        (sum, e) => sum + toNumber(e.amount),
-        0
-      );
-      return [
-        {
-          label: selectedCategory,
-          amount: totalSpent,
-          description:
-            categoryDescriptions[selectedCategory] ||
-            (activeDayName
-              ? `Spending under ${selectedCategory} on ${activeDayName}.`
-              : "Tracked spending under this category for the selected timeframe."),
-        },
-      ];
-    }
 
     if (isOthersSelection) {
       const othersExpenses = dayFilteredExpenses.filter((e) => {
@@ -539,29 +513,45 @@ export default function Dashboard() {
         return !top4CategoryNames.has(cat);
       });
 
-      const othersMap = new Map<string, number>();
+      const othersTotal = othersExpenses.reduce((sum, e) => sum + toNumber(e.amount), 0);
+      const othersMap = new Map<string, { amount: number; count: number }>();
       for (const exp of othersExpenses) {
         const cat = exp.category?.trim() || "Uncategorized";
-        othersMap.set(cat, (othersMap.get(cat) || 0) + toNumber(exp.amount));
+        const existing = othersMap.get(cat) || { amount: 0, count: 0 };
+        othersMap.set(cat, {
+          amount: existing.amount + toNumber(exp.amount),
+          count: existing.count + 1,
+        });
       }
 
-      const items: SummaryItem[] = [];
-      for (const [catName, amt] of othersMap.entries()) {
+      const items: SummaryTableItem[] = [];
+      let colorIdx = 0;
+      for (const [catName, val] of othersMap.entries()) {
+        const pct = othersTotal > 0 ? (val.amount / othersTotal) * 100 : 0;
         items.push({
           label: catName,
-          amount: amt,
+          amount: val.amount,
+          count: val.count,
+          percentage: pct,
+          color:
+            BUCK_PIE_PALETTE[colorIdx % BUCK_PIE_PALETTE.length] ||
+            CHART_THEME.othersColor,
           description:
             categoryDescriptions[catName] ||
             (activeDayName
               ? `Grouped under Others on ${activeDayName}.`
               : "Category grouped under Others."),
         });
+        colorIdx++;
       }
 
       if (items.length === 0 && othersExpenses.length > 0) {
         items.push({
           label: "Others (Combined)",
-          amount: othersExpenses.reduce((sum, e) => sum + toNumber(e.amount), 0),
+          amount: othersTotal,
+          count: othersExpenses.length,
+          percentage: 100,
+          color: CHART_THEME.othersColor,
           description: activeDayName
             ? `Combined expenses outside the top 4 categories on ${activeDayName}.`
             : "Combined expenses outside the top 4 categories.",
@@ -572,13 +562,19 @@ export default function Dashboard() {
     }
 
     // Default: All categories in current dayFilteredExpenses
-    const categoryTotals = new Map<string, number>();
+    const totalSpent = dayFilteredExpenses.reduce(
+      (sum, e) => sum + toNumber(e.amount),
+      0
+    );
+
+    const categoryTotals = new Map<string, { amount: number; count: number }>();
     for (const exp of dayFilteredExpenses) {
       const cat = exp.category?.trim() || "Uncategorized";
-      categoryTotals.set(
-        cat,
-        (categoryTotals.get(cat) || 0) + toNumber(exp.amount)
-      );
+      const existing = categoryTotals.get(cat) || { amount: 0, count: 0 };
+      categoryTotals.set(cat, {
+        amount: existing.amount + toNumber(exp.amount),
+        count: existing.count + 1,
+      });
     }
 
     const allCatNames = new Set([
@@ -587,18 +583,35 @@ export default function Dashboard() {
     ]);
 
     return Array.from(allCatNames)
-      .map<SummaryItem>((name) => ({
-        label: name,
-        amount: categoryTotals.get(name) || 0,
-        description:
-          categoryDescriptions[name] ||
-          (activeDayName
-            ? `Spending under ${name} on ${activeDayName}.`
-            : "Custom budget category."),
-      }))
+      .map<SummaryTableItem>((name) => {
+        const val = categoryTotals.get(name) || { amount: 0, count: 0 };
+        const pct = totalSpent > 0 ? (val.amount / totalSpent) * 100 : 0;
+        const slice = categoryPieData.slices.find(
+          (s) => s.category.toLowerCase() === name.toLowerCase()
+        );
+        return {
+          label: name,
+          amount: val.amount,
+          count: val.count,
+          percentage: pct,
+          color: slice?.color || CHART_THEME.othersColor,
+          description:
+            categoryDescriptions[name] ||
+            (activeDayName
+              ? `Spending under ${name} on ${activeDayName}.`
+              : "Custom budget category."),
+        };
+      })
       .filter((item) => item.amount > 0)
       .sort((a, b) => b.amount - a.amount);
-  }, [categories, dayFilteredExpenses, selectedCategory, selectedDay, top4CategoryNames]);
+  }, [
+    categories,
+    categoryPieData.slices,
+    dayFilteredExpenses,
+    selectedCategory,
+    selectedDay,
+    top4CategoryNames,
+  ]);
 
   if (loadingDashboardData) {
     return <DashboardPageSkeleton variant="home" />;
@@ -802,136 +815,19 @@ export default function Dashboard() {
             <p className="card-eyebrow">Categories</p>
             <div className="summary-title-row">
               <h2 className="summary-title">Financial Summary</h2>
-              {(selectedCategory || selectedDay) && (
-                <div className="summary-filter-pill-group">
-                  {selectedDay && (
-                    <>
-                      <div
-                        className="summary-filter-pill summary-filter-pill--active"
-                        aria-label={`Filtered by day: ${fullDayNames[selectedDay] || selectedDay}`}
-                      >
-                        <span
-                          className="summary-filter-pill-dot"
-                          style={{ backgroundColor: "var(--buck-orange)" }}
-                          aria-hidden="true"
-                        />
-                        <span className="summary-filter-pill-label">
-                          <span className="summary-filter-pill-prefix">Day:</span>
-                          <strong className="summary-filter-pill-category-name">
-                            {fullDayNames[selectedDay] || selectedDay}
-                          </strong>
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        className="summary-filter-action-btn"
-                        onClick={() => setSelectedDay(null)}
-                        title="Show all days"
-                        aria-label="Show all days"
-                      >
-                        ✕ All Days
-                      </button>
-                    </>
-                  )}
-                  {selectedCategory && (
-                    <>
-                      <div
-                        className="summary-filter-pill summary-filter-pill--active"
-                        aria-label={`Filtered by category: ${selectedCategory}`}
-                      >
-                        <span
-                          className="summary-filter-pill-dot"
-                          style={{
-                            backgroundColor: selectedCategoryColor || "var(--buck-orange)",
-                          }}
-                          aria-hidden="true"
-                        />
-                        <span className="summary-filter-pill-label">
-                          <span className="summary-filter-pill-prefix">Category:</span>
-                          <strong className="summary-filter-pill-category-name">{selectedCategory}</strong>
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        className="summary-filter-action-btn"
-                        onClick={() => setSelectedCategory(null)}
-                        title="Show all categories"
-                        aria-label="Show all categories"
-                      >
-                        ✕ Show All
-                      </button>
-                      {isSubCategoryOfOthers && (
-                        <button
-                          type="button"
-                          className="summary-filter-back-btn"
-                          onClick={() => setSelectedCategory("Others")}
-                          title="Back to Others breakdown"
-                          aria-label="Back to Others breakdown"
-                        >
-                          ← Others
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         </div>
-        <div className="summary-content">
-          {summaryData.length > 0 ? (
-            summaryData.map((item) => {
-              const isSelected =
-                selectedCategory?.toLowerCase() === item.label.toLowerCase();
-              return (
-                <article
-                  key={item.label}
-                  className={`summary-item summary-item--clickable ${
-                    isSelected ? "summary-item--selected" : ""
-                  }`}
-                  onClick={() =>
-                    setSelectedCategory(
-                      isSelected
-                        ? isSubCategoryOfOthers
-                          ? "Others"
-                          : null
-                        : item.label
-                    )
-                  }
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      setSelectedCategory(
-                        isSelected
-                          ? isSubCategoryOfOthers
-                            ? "Others"
-                            : null
-                          : item.label
-                      );
-                    }
-                  }}
-                  aria-pressed={isSelected}
-                  title={`Click to filter by ${item.label}`}
-                >
-                  <div className="summary-item-value">
-                    {formatCurrency(item.amount)}
-                  </div>
-                  <div className="summary-item-label">{item.label}</div>
-                  <p className="summary-item-description">
-                    {item.description}
-                  </p>
-                </article>
-              );
-            })
-          ) : (
-            <div className="empty-summary-state">
-              {selectedDay
-                ? `No expense details available for ${fullDayNames[selectedDay] || selectedDay}`
-                : "No summary data available for this selection"}
-            </div>
-          )}
-        </div>
+        <FinancialSummaryTable
+          items={summaryData}
+          selectedCategory={selectedCategory}
+          selectedCategoryColor={selectedCategoryColor}
+          onSelectCategory={(cat) => setSelectedCategory(cat)}
+          selectedDay={selectedDay}
+          fullDayNames={fullDayNames}
+          onClearDay={() => setSelectedDay(null)}
+          isSubCategoryOfOthers={isSubCategoryOfOthers}
+        />
       </section>
 
       {/* 3. AI Financial Advisor Card */}

@@ -57,6 +57,7 @@ function getDesignPreviewUser(): BuckUser {
     authProviders: ["email"],
     identities: [],
     isGoogleOnlyUser: false,
+    isAdmin: false,
     isPasswordUser: true,
     role: "authenticated",
     updated_at: now,
@@ -95,7 +96,13 @@ export function useAuthGuard(initialUser: BuckUser | null = null) {
         return;
       }
 
-      const nextUser = toBuckUser(sessionUser);
+      // Server-resolved admin flag survives client-side session refreshes.
+      const nextUser = toBuckUser(
+        sessionUser,
+        sessionUser && initialUser?.id === sessionUser.id
+          ? initialUser.isAdmin
+          : undefined
+      );
       setUser(nextUser);
       setLoading(false);
 

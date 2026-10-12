@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { FaDatabase, FaEnvelopeOpenText, FaServer, FaSpinner } from "react-icons/fa";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial } from "@/context/FinancialContext";
@@ -20,7 +19,6 @@ function formatAdminDate(isoString: string) {
 }
 
 export default function AdminPage() {
-  const router = useRouter();
   const user = useOptionalDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
   const { 
@@ -46,10 +44,6 @@ export default function AdminPage() {
 
     async function loadAdminData() {
       if (!user) return;
-      if (user.email !== "buckthebudgettracker@gmail.com") {
-        router.replace("/dashboard/home");
-        return;
-      }
 
       if (activeTab === "feedback") {
         if (!feedback) setIsFetchingFeedback(true);
@@ -107,7 +101,7 @@ export default function AdminPage() {
     return () => {
       active = false;
     };
-  }, [user, router, activeTab, setDashboardCache]);
+  }, [user, activeTab, setDashboardCache]);
 
   useEffect(() => {
     setSearchQuery("");
@@ -154,7 +148,8 @@ export default function AdminPage() {
       : new Date(a.created).getTime() - new Date(b.created).getTime();
   });
 
-  if (!user || user.email !== "buckthebudgettracker@gmail.com") {
+  // Access is enforced server-side (middleware + admin/layout.tsx + RLS).
+  if (!user) {
     return null;
   }
 

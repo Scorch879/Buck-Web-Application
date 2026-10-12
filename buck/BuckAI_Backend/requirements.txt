@@ -2,9 +2,7 @@ fastapi
 uvicorn
 pydantic
 prophet
-openai
 numpy
-xgboost
 pandas
 python-dotenv
 requests

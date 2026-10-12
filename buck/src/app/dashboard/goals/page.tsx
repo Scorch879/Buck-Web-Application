@@ -1,4 +1,5 @@
 "use client";
+import { aiBackendFetch } from "@/utils/aiBackend";
 import React, { useEffect, useState, useRef } from "react";
 import CustomSelect from "@/component/CustomSelect";
 import CustomDatePicker from "@/component/CustomDatePicker";
@@ -35,6 +36,18 @@ import {
 } from "chart.js";
 import { formatCurrency } from "@/utils/formatters";
 import {
+  buildMonthRanges,
+  buildWeekRanges,
+  daysBetween,
+  findCurrentRangeIndex,
+  formatDayKey,
+  parseDayKey,
+  storedDayKey,
+  toDayKey,
+  type DateRange,
+  type MonthRange,
+} from "@/utils/periods";
+import {
   addExpenseWithWalletDeduction,
   getActiveWallet,
   listExpenses,
@@ -58,6 +71,8 @@ ChartJS.register(
 
 type Goal = BuckGoal;
 
+const RECENT_EXPENSE_LIMIT = 5;
+
 const GoalsPage = () => {
   const router = useRouter();
   const { user } = useDashboardUser();
@@ -75,9 +90,6 @@ const GoalsPage = () => {
     : "linear-gradient(135deg, #f47536, #ff3838)";
   const primaryButtonColor = isDarkTheme ? "#241409" : "#fffaf4";
   const modalBackground = "var(--buck-surface)";
-  const softBackground = isDarkTheme
-    ? "rgba(255,197,71,0.10)"
-    : "rgba(255,240,200,0.52)";
   const fieldBackground = isDarkTheme
     ? "rgba(255,197,71,0.08)"
     : "rgba(255,250,244,0.74)";
@@ -122,14 +134,10 @@ const GoalsPage = () => {
     description: string
   ): Promise<string | null> {
     try {
-      const response = await fetch(
-        "https://buck-web-application-1.onrender.com/ai/categorize_expense/",
-        {
+      const response = await aiBackendFetch("/ai/categorize_expense/", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ description }),
-        }
-      );
+        });
       const data = await response.json();
       return data.category || null;
     } catch {
@@ -146,72 +154,19 @@ const GoalsPage = () => {
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [selectedMonth, setSelectedMonth] = useState(0);
 
-  // Generate week/month ranges for the selected goal
-  let weekDateRanges: { start: string; end: string }[] = [];
-  let monthDateRanges: { start: string; end: string; label: string }[] = [];
+  // Week/month ranges spanning the selected goal (forecast modal selectors)
+  let weekDateRanges: DateRange[] = [];
+  let monthDateRanges: MonthRange[] = [];
   if (selectedGoal) {
-    const minStartRaw = new Date(selectedGoal.createdAt);
-    const minStart = new Date(minStartRaw);
-    minStart.setDate(minStart.getDate() - ((minStart.getDay() + 6) % 7)); // Monday
-    const maxEnd = new Date(selectedGoal.targetDate || selectedGoal.createdAt);
-    let current = new Date(minStart);
-    while (current <= maxEnd) {
-      const weekStart = new Date(current);
-      const weekEnd = new Date(current);
-      weekEnd.setDate(current.getDate() + 6);
-      weekDateRanges.push({
-        start: weekStart.toISOString().slice(0, 10),
-        end: weekEnd.toISOString().slice(0, 10),
-      });
-      current.setDate(current.getDate() + 7);
-    }
-    let monthCursor = new Date(minStart.getFullYear(), minStart.getMonth(), 1);
-    while (monthCursor <= maxEnd) {
-      const monthStart = new Date(monthCursor);
-      const monthEnd = new Date(
-        monthCursor.getFullYear(),
-        monthCursor.getMonth() + 1,
-        0
-      );
-      monthDateRanges.push({
-        start: monthStart.toISOString().slice(0, 10),
-        end: monthEnd.toISOString().slice(0, 10),
-        label: monthStart.toLocaleString("default", {
-          month: "long",
-          year: "numeric",
-        }),
-      });
-      monthCursor.setMonth(monthCursor.getMonth() + 1);
-    }
+    const from = parseDayKey(storedDayKey(selectedGoal.createdAt) || toDayKey(new Date()));
+    const to = parseDayKey(
+      storedDayKey(selectedGoal.targetDate || selectedGoal.createdAt) || toDayKey(new Date())
+    );
+    weekDateRanges = buildWeekRanges(from, to);
+    monthDateRanges = buildMonthRanges(from, to);
   }
-
-  // Find current week index
-  let currentWeekIdx = -1;
-  if (weekDateRanges.length > 0) {
-    const today = new Date();
-    currentWeekIdx = weekDateRanges.findIndex((range) => {
-      const start = new Date(range.start);
-      const end = new Date(range.end);
-      return today >= start && today <= end;
-    });
-    if (currentWeekIdx === -1) {
-      currentWeekIdx = weekDateRanges.length - 1;
-    }
-  }
-
-  // Find current month index
-  let currentMonthIdx = -1;
-  if (monthDateRanges.length > 0) {
-    const today = new Date();
-    currentMonthIdx = monthDateRanges.findIndex((range) => {
-      const start = new Date(range.start);
-      const end = new Date(range.end);
-      return today >= start && today <= end;
-    });
-    if (currentMonthIdx === -1) {
-      currentMonthIdx = monthDateRanges.length - 1;
-    }
-  }
+  const currentWeekIdx = findCurrentRangeIndex(weekDateRanges);
+  const currentMonthIdx = findCurrentRangeIndex(monthDateRanges);
 
   const userSelectedWeekRef = useRef(false);
   const userSelectedMonthRef = useRef(false);
@@ -380,17 +335,13 @@ const GoalsPage = () => {
         targetDate: selectedGoal.targetDate,
         attitude: selectedGoal.attitude || "Normal",
       };
-      const res = await fetch(
-        "https://buck-web-application-1.onrender.com/ai/forecast/",
-        {
+      const res = await aiBackendFetch("/ai/forecast/", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             goal: goalPayload,
             budget: walletBudget,
           }),
-        }
-      );
+        });
       if (!res.ok) throw new Error("Failed to fetch forecast");
       const data = await res.json();
       setForecastData(data);
@@ -575,19 +526,15 @@ const GoalsPage = () => {
             end: monthDateRanges[selectedMonth].end,
           };
         }
-        const res = await fetch(
-          "https://buck-web-application-1.onrender.com/ai/forecast/",
-          {
+        const res = await aiBackendFetch("/ai/forecast/", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               goal: goalPayload,
               budget: walletBudget || 0,
               mode: selectedMode,
               ...range,
             }),
-          }
-        );
+          });
         if (!res.ok) throw new Error("Failed to fetch forecast");
         const data = await res.json();
         setForecastData(data);
@@ -780,699 +727,550 @@ const GoalsPage = () => {
   }
 
   // User has at least one goal
+  const goalPercent = (goal: Goal) =>
+    goal.targetAmount > 0
+      ? Math.min(((goal.currentAmount || 0) / goal.targetAmount) * 100, 100)
+      : 0;
+
+  const detail = (() => {
+    if (!selectedGoal) return null;
+    const saved = selectedGoal.currentAmount || 0;
+    const remaining = Math.max(selectedGoal.targetAmount - saved, 0);
+    const isComplete = selectedGoal.completed || goalPercent(selectedGoal) >= 100;
+    const dueKey = storedDayKey(selectedGoal.targetDate);
+    const todayKey = toDayKey(new Date());
+    // Days left including today; 0 = due today, negative = overdue.
+    const daysLeft = dueKey
+      ? dueKey >= todayKey
+        ? daysBetween(todayKey, dueKey) - 1
+        : -(daysBetween(dueKey, todayKey) - 1)
+      : null;
+    const perDay =
+      daysLeft !== null && daysLeft >= 0 && remaining > 0
+        ? remaining / Math.max(daysLeft, 1)
+        : null;
+    return { remaining, isComplete, dueKey, daysLeft, perDay };
+  })();
+
+  const statusLabel = !selectedGoal
+    ? ""
+    : detail?.isComplete
+      ? "Completed"
+      : selectedGoal.isActive
+        ? "Active"
+        : "Inactive";
+
+  const recentGoalExpenses = [...expenses]
+    .sort((a, b) => storedDayKey(b.date).localeCompare(storedDayKey(a.date)))
+    .slice(0, RECENT_EXPENSE_LIMIT);
+
   return (
     <>
       <div className="GoalsPage">
-        <div className="GoalsCard">
-          <div className="goals-header">
-            <h2>Your Goals</h2>
+        {/* Goal list */}
+        <aside className="GoalsCard" aria-label="Your goals">
+          <div className="goals-sidebar-header">
+            <div>
+              <p className="goals-eyebrow">Savings</p>
+              <h2>Your goals</h2>
+            </div>
+            <span className="goals-count-badge">{goals.length}</span>
           </div>
-          <div className="goal-buttons-container">
-            <button
-              className="goals-create-btn"
-              onClick={() => setShowModal(true)}
-            >
-              + Create New Goal
-            </button>
-            <button className="goals-create-btn" onClick={handleDeleteGoal}>
-              - Delete Goal
-            </button>
-          </div>
+          <button
+            type="button"
+            className="goals-create-btn goals-create-btn--block"
+            onClick={() => setShowModal(true)}
+          >
+            + New goal
+          </button>
           <div className="goals-list">
-            {goals.filter(Boolean).map((goal) => (
-              <div
-                className={`goals-card ${
-                  selectedGoal?.id === goal.id ? "selected" : ""
-                }`}
-                key={goal.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedGoal(goal)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    setSelectedGoal(goal);
-                  }
-                }}
-                style={{ cursor: "pointer" }}
-              >
-                <h3>{goal.goalName}</h3>
-                <p>
-                  <strong>Target:</strong> {formatCurrency(goal.targetAmount)}
-                </p>
-                <p>
-                  <strong>Created:</strong> {goal.createdAt}
-                </p>
-                {goal.targetDate && (
-                  <p>
-                    <strong>Due:</strong> {goal.targetDate}
-                  </p>
-                )}
-              </div>
-            ))}
+            {goals.filter(Boolean).map((goal) => {
+              const pct = goalPercent(goal);
+              const isSelected = selectedGoal?.id === goal.id;
+              return (
+                <button
+                  type="button"
+                  className={`goals-card${isSelected ? " selected" : ""}`}
+                  key={goal.id}
+                  aria-pressed={isSelected}
+                  onClick={() => setSelectedGoal(goal)}
+                >
+                  <span className="goals-card-top">
+                    <span className="goals-card-name" title={goal.goalName}>
+                      {goal.goalName}
+                    </span>
+                    {pct >= 100 || goal.completed ? (
+                      <span className="goals-pill goals-pill--completed">Done</span>
+                    ) : goal.isActive ? (
+                      <span className="goals-pill goals-pill--active">Active</span>
+                    ) : null}
+                  </span>
+                  <span className="goals-card-track" aria-hidden="true">
+                    <span style={{ width: `${pct}%` }} />
+                  </span>
+                  <span className="goals-card-meta">
+                    <span>
+                      {formatCurrency(goal.currentAmount || 0)} of{" "}
+                      {formatCurrency(goal.targetAmount)}
+                    </span>
+                    <span>{Math.round(pct)}%</span>
+                  </span>
+                  {goal.targetDate && (
+                    <span className="goals-card-due">
+                      Due {formatDayKey(storedDayKey(goal.targetDate), true)}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
-        </div>
-        <div className="GoalsContainer">
-          {selectedGoal ? (
+        </aside>
+
+        {/* Selected goal */}
+        <section className="GoalsContainer">
+          {selectedGoal && detail ? (
             <>
-              <div className="goal-details">
-                <div className="goal-details-header">
-                  <button className="setActiveButton" onClick={handleSetActive}>
-                    {selectedGoal.isActive
-                      ? "Set as Inactive"
-                      : "Set as Active"}
+              <header className="goal-detail-header">
+                <div className="goal-detail-title">
+                  <p className="goals-eyebrow">Goal details</p>
+                  <div className="goal-detail-name">
+                    <h2 title={selectedGoal.goalName}>{selectedGoal.goalName}</h2>
+                    <span className={`goals-pill goals-pill--${statusLabel.toLowerCase()}`}>
+                      {statusLabel}
+                    </span>
+                  </div>
+                </div>
+                <div className="goal-detail-actions">
+                  <button type="button" className="goals-ghost-btn" onClick={handleSetActive}>
+                    {selectedGoal.isActive ? "Set as inactive" : "Set as active"}
+                  </button>
+                  <button
+                    type="button"
+                    className="goals-ghost-btn goals-ghost-btn--danger"
+                    onClick={handleDeleteGoal}
+                  >
+                    Delete
                   </button>
                 </div>
-                <h2>Goal Details</h2>
-                <div className="goal-details-grid">
-                  <p>
-                    <strong>Name:</strong> {selectedGoal.goalName}
-                  </p>
-                  <p>
-                    <strong>Target Amount:</strong>{" "}
-                    {formatCurrency(selectedGoal.targetAmount)}
-                  </p>
-                  {selectedGoal.targetDate && (
-                    <p>
-                      <strong>Target Date:</strong> {selectedGoal.targetDate}
-                    </p>
-                  )}
-                  <p>
-                    <strong>Created:</strong> {selectedGoal.createdAt}
-                  </p>
-                  <p>
-                    <strong>Attitude:</strong>{" "}
-                    {selectedGoal.attitude || "Normal"}
-                  </p>
-                  <p>
-                    <strong>Status:</strong>
-                    {(() => {
-                      const currentAmount = selectedGoal.currentAmount || 0;
-                      const progressPercentage = Math.min(
-                        (currentAmount / selectedGoal.targetAmount) * 100,
-                        100
-                      );
-                      if (progressPercentage >= 100) {
-                        return (
-                          <span
-                            style={{
-                              color: "#ffc547",
-                              fontWeight: "600",
-                              marginLeft: "0.5rem",
-                            }}
-                          >
-                            Completed
-                          </span>
-                        );
-                      } else {
-                        return (
-                          <span
-                            style={{
-                              color: selectedGoal.isActive
-                                ? "#f47536"
-                                : "#ff3838",
-                              fontWeight: "600",
-                              marginLeft: "0.5rem",
-                            }}
-                          >
-                            {selectedGoal.isActive ? "Active" : "Inactive"}
-                          </span>
-                        );
-                      }
-                    })()}
-                  </p>
-                </div>
+              </header>
+
+              <div className="goal-overview">
                 <ProgressBarCard
                   goal={selectedGoal}
                   onAddProgress={() => handleOpenProgressModal(selectedGoal)}
                 />
-                {aiRecommendation && (
-                  <div className="ai-recommendation">
-                    <strong>AI Recommendation</strong>
-                    <div className="ai-recommendation-content">
-                      {aiRecommendation}
-                    </div>
+                <dl className="goal-facts">
+                  <div>
+                    <dt>Target date</dt>
+                    <dd>{detail.dueKey ? formatDayKey(detail.dueKey, true) : "No deadline"}</dd>
                   </div>
-                )}
+                  <div>
+                    <dt>Time left</dt>
+                    <dd
+                      className={
+                        detail.daysLeft !== null && detail.daysLeft < 0 && !detail.isComplete
+                          ? "goal-fact--alert"
+                          : undefined
+                      }
+                    >
+                      {detail.isComplete
+                        ? "Reached"
+                        : detail.daysLeft === null
+                          ? "—"
+                          : detail.daysLeft > 0
+                            ? `${detail.daysLeft} ${detail.daysLeft === 1 ? "day" : "days"}`
+                            : detail.daysLeft === 0
+                              ? "Due today"
+                              : `${-detail.daysLeft} ${detail.daysLeft === -1 ? "day" : "days"} overdue`}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Save per day</dt>
+                    <dd>
+                      {detail.perDay !== null && !detail.isComplete
+                        ? formatCurrency(detail.perDay)
+                        : "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Saving attitude</dt>
+                    <dd>{selectedGoal.attitude || "Normal"}</dd>
+                  </div>
+                </dl>
               </div>
-              {/* Bottom Button Group outside the card */}
+
+              {aiRecommendation && (
+                <div className="ai-recommendation">
+                  <strong>AI recommendation</strong>
+                  <div className="ai-recommendation-content">{aiRecommendation}</div>
+                </div>
+              )}
+
               <div className="goals-bottom-buttons">
                 <button
+                  type="button"
                   className="goals-action-btn"
                   onClick={handleSeeForecast}
-                  disabled={
-                    forecastLoading || walletBudget == null || !selectedGoal
-                  }
+                  disabled={forecastLoading || walletBudget == null}
                 >
-                  See Forecast
+                  See forecast
                 </button>
-                {forecastModalOpen && (
-                  <div
-                      className="modal-backdrop"
-                      style={{
-                      position: "fixed",
-                      top: 0,
-                      left: 0,
-                      width: "100vw",
-                      height: "100vh",
-                        background: "rgba(18,13,10,0.48)",
-                      zIndex: 1000,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <div
-                      className="modal"
-                      style={{
-                        background: modalBackground,
-                        color: "var(--buck-ink)",
-                        border: "1px solid var(--buck-line)",
-                        borderRadius: 8,
-                        padding: 24,
-                        minWidth: 400,
-                        maxWidth: 600,
-                        boxShadow: "var(--buck-shadow)",
-                        position: "relative",
-                      }}
-                    >
-                      <button
-                        onClick={() => setForecastModalOpen(false)}
-                        style={{
-                          position: "absolute",
-                          top: 8,
-                          right: 8,
-                          background: "none",
-                          border: "none",
-                          fontSize: 20,
-                          cursor: "pointer",
-                        }}
-                      >
-                        &times;
-                      </button>
-                      <h3
-                        style={{
-                          marginTop: 0,
-                          color: "var(--buck-orange)",
-                          textAlign: "center",
-                        }}
-                      >
-                        Forecast
-                      </h3>
-                      {/* Mode Selector */}
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "center",
-                          gap: 12,
-                          marginBottom: 16,
-                        }}
-                      >
-                        <button
-                          onClick={() => setSelectedMode("week")}
-                          style={{
-                            background:
-                              selectedMode === "week"
-                                ? primaryButtonBackground
-                                : softBackground,
-                            color:
-                              selectedMode === "week"
-                                ? primaryButtonColor
-                                : "var(--buck-ink)",
-                            border: "1px solid var(--buck-line)",
-                            borderRadius: 6,
-                            padding: "0.5rem 1.2rem",
-                            fontWeight: 600,
-                            cursor: "pointer",
-                          }}
-                        >
-                          Week
-                        </button>
-                        <button
-                          onClick={() => setSelectedMode("month")}
-                          style={{
-                            background:
-                              selectedMode === "month"
-                                ? primaryButtonBackground
-                                : softBackground,
-                            color:
-                              selectedMode === "month"
-                                ? primaryButtonColor
-                                : "var(--buck-ink)",
-                            border: "1px solid var(--buck-line)",
-                            borderRadius: 6,
-                            padding: "0.5rem 1.2rem",
-                            fontWeight: 600,
-                            cursor: "pointer",
-                          }}
-                        >
-                          Month
-                        </button>
-                        <button
-                          onClick={() => setSelectedMode("overall")}
-                          style={{
-                            background:
-                              selectedMode === "overall"
-                                ? primaryButtonBackground
-                                : softBackground,
-                            color:
-                              selectedMode === "overall"
-                                ? primaryButtonColor
-                                : "var(--buck-ink)",
-                            border: "1px solid var(--buck-line)",
-                            borderRadius: 6,
-                            padding: "0.5rem 1.2rem",
-                            fontWeight: 600,
-                            cursor: "pointer",
-                          }}
-                        >
-                          Overall
-                        </button>
-                      </div>
-                      {/* Range Selector */}
-                      {selectedMode === "week" && weekDateRanges.length > 0 && (
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "center",
-                            gap: 8,
-                            marginBottom: 12,
-                          }}
-                        >
-                          <CustomSelect
-                            value={String(selectedWeek)}
-                            onChange={(val) =>
-                              setSelectedWeek(Number(val))
-                            }
-                            options={weekDateRanges.map((range, idx) => ({
-                              value: String(idx),
-                              label: `Week ${idx + 1}: ${range.start} to ${range.end}`
-                            }))}
-                          />
-                        </div>
-                      )}
-                      {selectedMode === "month" &&
-                        monthDateRanges.length > 0 && (
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "center",
-                              gap: 8,
-                              marginBottom: 12,
-                            }}
-                          >
-                            <CustomSelect
-                              value={String(selectedMonth)}
-                              onChange={(val) => {
-                                userSelectedMonthRef.current = true;
-                                setSelectedMonth(Number(val));
-                              }}
-                              options={monthDateRanges.map((range, idx) => ({
-                                value: String(idx),
-                                label: `${range.label}: ${range.start} to ${range.end}`
-                              }))}
-                            />
-                          </div>
-                        )}
-                      {/* Progress Bar for Goal */}
-                      {selectedGoal && (
-                        <div style={{ marginBottom: 16 }}>
-                          <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                            Goal Progress
-                          </div>
-                          <div
-                            style={{
-                              background: "rgba(244,117,54,0.12)",
-                              borderRadius: 8,
-                              height: 18,
-                              width: "100%",
-                              marginBottom: 4,
-                            }}
-                          >
-                            <div
-                              style={{
-                                background:
-                                  "linear-gradient(90deg, #ffc547, #f47536, #ff3838)",
-                                height: "100%",
-                                borderRadius: 8,
-                                width: `${Math.min(
-                                  100,
-                                  (Math.min(
-                                    walletBudget || 0,
-                                    selectedGoal.targetAmount
-                                  ) /
-                                    selectedGoal.targetAmount) *
-                                    100
-                                )}%`,
-                                transition: "width 0.5s",
-                              }}
-                            ></div>
-                          </div>
-                          <div style={{ fontSize: 14, color: "var(--buck-muted)" }}>
-                            Saved:{" "}
-                            {formatCurrency(
-                              Math.min(
-                                walletBudget || 0,
-                                selectedGoal.targetAmount
-                              )
-                            )}{" "}
-                            / {formatCurrency(selectedGoal.targetAmount)}
-                          </div>
-                        </div>
-                      )}
-                      {/* AI Forecast Text */}
-                      {forecastLoading && <div>Loading forecast...</div>}
-                      {forecastError && (
-                        <div style={{ color: "red" }}>{forecastError}</div>
-                      )}
-                      {/* Forecast/Actual Graph */}
-                      <div
-                        style={{
-                          width: "100%",
-                          maxWidth: 500,
-                          margin: "1rem auto",
-                          minHeight: 300,
-                          position: "relative",
-                        }}
-                      >
-                        {forecastLoading ? (
-                          <div
-                            style={{
-                              textAlign: "center",
-                              color: "var(--buck-orange)",
-                              fontWeight: 600,
-                            }}
-                          >
-                            Loading forecast...
-                          </div>
-                        ) : forecastError ? (
-                          <div style={{ color: "red", textAlign: "center" }}>
-                            {forecastError}
-                          </div>
-                        ) : (
-                          chartData && (
-                            <Line
-                              ref={chartRef}
-                              data={chartData}
-                              options={{
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                plugins: {
-                                  legend: { display: true, position: "top" },
-                                  tooltip: {
-                                    callbacks: {
-                                      label: function (context) {
-                                        const value = Number(context.raw);
-                                        return `${context.dataset.label}: ${formatCurrency(value)}`;
-                                      },
-                                    },
-                                  },
-                                },
-                                scales: {
-                                  x: {
-                                    grid: { display: false },
-                                    ticks: {
-                                      color: chartTextColor,
-                                      font: { weight: 600 },
-                                    },
-                                  },
-                                  y: {
-                                    grid: { color: chartGridColor },
-                                    beginAtZero: true,
-                                    ticks: { color: chartTextColor },
-                                  },
-                                },
-                                animation: {
-                                  onComplete: () => {
-                                    if (chartRef.current) {
-                                      chartRef.current.resize();
-                                    }
-                                  },
-                                },
-                              }}
-                              redraw
-                              height={300}
-                            />
-                          )
-                        )}
-                      </div>
-                      {/* Add Expense Button and Modal */}
-                      <div
-                        style={{
-                          width: "100%",
-                          maxWidth: 400,
-                          margin: "1rem auto",
-                        }}
-                      >
-                        <button
-                          onClick={() => setShowExpenseModal(true)}
-                          style={{
-                            background: primaryButtonBackground,
-                            color: primaryButtonColor,
-                            border: "none",
-                            borderRadius: 8,
-                            padding: "0.7rem 1.5rem",
-                            fontWeight: 600,
-                            fontSize: 16,
-                            cursor: "pointer",
-                            marginBottom: 16,
-                            width: "100%",
-                          }}
-                        >
-                          + Add Expense
-                        </button>
-                        {showExpenseModal && (
-                          <div
-                              className="modal-backdrop"
-                              style={{
-                              position: "fixed",
-                              top: 0,
-                              left: 0,
-                              width: "100vw",
-                              height: "100vh",
-                              background: "rgba(18,13,10,0.48)",
-                              zIndex: 1100,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <div
-                              className="modal"
-                              style={{
-                                background: modalBackground,
-                                color: "var(--buck-ink)",
-                                border: "1px solid var(--buck-line)",
-                                borderRadius: 20,
-                                padding: 32,
-                                width: "100%",
-                                maxWidth: 540,
-                                minWidth: 320,
-                                boxShadow: "0 12px 48px rgba(239,138,87,0.18)",
-                                position: "relative",
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                animation: "fadeInScale 0.35s",
-                                fontSize: 17,
-                                maxHeight: "90vh",
-                                overflowY: "auto",
-                              }}
-                            >
-                              <button
-                                onClick={() => setShowExpenseModal(false)}
-                                style={{
-                                  position: "absolute",
-                                  top: 18,
-                                  right: 22,
-                                  background: "none",
-                                  border: "none",
-                                  fontSize: 26,
-                                  cursor: "pointer",
-                                  color: "var(--buck-orange)",
-                                  fontWeight: 700,
-                                  transition: "color 0.2s",
-                                }}
-                              >
-                                &times;
-                              </button>
-                              <h3
-                                style={{
-                                  marginTop: 0,
-                                  marginBottom: 18,
-                                  color: "var(--buck-orange)",
-                                  fontWeight: 800,
-                                  fontSize: 30,
-                                  letterSpacing: 1,
-                                }}
-                              >
-                                Add Expense
-                              </h3>
-                              <CustomDatePicker
-                                value={expenseDate}
-                                onChange={(val) => setExpenseDate(val)}
-                                style={{
-                                  width: "100%",
-                                  marginBottom: 12,
-                                  boxSizing: "border-box",
-                                }}
-                              />
-                              <input
-                                type="number"
-                                value={expenseAmount}
-                                onChange={(e) =>
-                                  setExpenseAmount(e.target.value)
-                                }
-                                placeholder="Amount"
-                                style={{
-                                  width: "100%",
-                                  marginBottom: 12,
-                                  padding: 12,
-                                  borderRadius: 7,
-                                  border: "1px solid rgba(244,117,54,0.32)",
-                                  background: fieldBackground,
-                                  fontSize: 17,
-                                  boxSizing: "border-box",
-                                  display: "block",
-                                  color: "var(--buck-ink)",
-                                  transition: "border 0.2s",
-                                }}
-                              />
-                              <input
-                                type="text"
-                                value={expenseDesc}
-                                onChange={(e) => setExpenseDesc(e.target.value)}
-                                placeholder="Description"
-                                style={{
-                                  width: "100%",
-                                  marginBottom: 12,
-                                  padding: 12,
-                                  borderRadius: 7,
-                                  border: "1px solid rgba(244,117,54,0.32)",
-                                  background: fieldBackground,
-                                  fontSize: 17,
-                                  boxSizing: "border-box",
-                                  display: "block",
-                                  color: "var(--buck-ink)",
-                                  transition: "border 0.2s",
-                                }}
-                              />
-                              {expenseError && (
-                                <div style={{ color: "red", marginBottom: 12 }}>
-                                  {expenseError}
-                                </div>
-                              )}
-                              <button
-                                onClick={handleAddExpense}
-                                disabled={expenseLoading}
-                                style={{
-                                  background: primaryButtonBackground,
-                                  color: primaryButtonColor,
-                                  border: "none",
-                                  borderRadius: 9,
-                                  padding: "1.1rem 1.7rem",
-                                  fontWeight: 800,
-                                  fontSize: 20,
-                                  cursor: "pointer",
-                                  width: "100%",
-                                  marginTop: 10,
-                                  boxShadow: "0 2px 8px rgba(239,138,87,0.08)",
-                                  transition: "background 0.2s",
-                                }}
-                              >
-                                {expenseLoading ? "Adding..." : "Add Expense"}
-                              </button>
-                              <style>{`
-                                @keyframes fadeInScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-                              `}</style>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
                 <button
-                  className="goals-action-btn"
-                  onClick={() => {
-                    // Use shallow routing to avoid full reload if already on dashboard
-                    router.push("/dashboard/statistics");
-                  }}
-                  aria-label="Go to Statistics"
+                  type="button"
+                  className="goals-ghost-btn"
+                  onClick={() => router.push("/dashboard/statistics")}
                 >
-                  See Statistics
+                  Open statistics
                 </button>
               </div>
-              {/* Render Recent Expenses */}
-              <div style={{ marginTop: 32 }}>
-                <h3
-                  style={{
-                    fontWeight: 700,
-                    color: "var(--buck-ink)",
-                    marginBottom: 12,
-                  }}
-                >
-                  Recent Expenses
-                </h3>
+
+              <div className="goal-expenses">
+                <div className="goal-expenses-header">
+                  <h3>Linked expenses</h3>
+                  <span className="goals-count-badge">{expenses.length}</span>
+                </div>
                 {expenses.length === 0 ? (
-                  <div style={{ color: "var(--buck-muted)" }}>No expenses yet.</div>
+                  <p className="goal-expenses-empty">No expenses are linked to this goal yet.</p>
                 ) : (
-                  expenses.map((exp) => (
-                    <div
-                      key={exp.id}
-                      style={{
-                        marginBottom: 8,
-                        background: softBackground,
-                        color: "var(--buck-ink)",
-                        border: "1px solid var(--buck-line)",
-                        borderRadius: 10,
-                        padding: "10px 18px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 16,
-                      }}
-                    >
-                      <span
-                        style={{
-                          color: "var(--buck-orange)",
-                          fontWeight: 700,
-                          minWidth: 120,
-                        }}
-                      >
-                        {exp.category || "Uncategorized"}
-                      </span>
-                      <span style={{ flex: 1 }}>{exp.description}</span>
-                      <span
-                        style={{
-                          fontWeight: 700,
-                          color: "var(--buck-orange)",
-                          minWidth: 80,
-                        }}
-                      >
-                        {formatCurrency(exp.amount)}
-                      </span>
-                      {exp.date && (
-                        <span
-                          style={{ color: "var(--buck-muted)", fontSize: 14, minWidth: 90 }}
-                        >
-                          {exp.date}
+                  <ul className="goal-expenses-list">
+                    {recentGoalExpenses.map((exp) => (
+                      <li key={exp.id} className="goal-expense-row">
+                        <span className="goal-expense-main">
+                          <strong title={exp.description}>{exp.description || "Expense"}</strong>
+                          <span>
+                            {exp.category || "Uncategorized"}
+                            {exp.date ? ` · ${formatDayKey(storedDayKey(exp.date))}` : ""}
+                          </span>
                         </span>
-                      )}
-                    </div>
-                  ))
+                        <span className="goal-expense-amount">{formatCurrency(exp.amount)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {expenses.length > RECENT_EXPENSE_LIMIT && (
+                  <button
+                    type="button"
+                    className="goals-text-btn"
+                    onClick={() => router.push("/dashboard/expenses")}
+                  >
+                    View all {expenses.length} in Expenses
+                  </button>
                 )}
               </div>
             </>
           ) : (
             <div className="goal-details-placeholder">
-              <p>
-                Select a goal from the list to see its details and AI
-                recommendations
-              </p>
+              <p>Select a goal to see its progress and AI recommendation.</p>
             </div>
           )}
-        </div>
+        </section>
       </div>
+
+      {/* Forecast dialog */}
+      {forecastModalOpen && selectedGoal && (
+        <div
+          className="modal-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setForecastModalOpen(false);
+          }}
+        >
+          <div
+            className="goals-forecast-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="goals-forecast-title"
+          >
+            <div className="goals-modal-header">
+              <div>
+                <p className="goals-eyebrow">AI forecast</p>
+                <h3 id="goals-forecast-title">{selectedGoal.goalName}</h3>
+              </div>
+              <button
+                type="button"
+                className="goals-modal-close"
+                aria-label="Close forecast"
+                onClick={() => setForecastModalOpen(false)}
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="goals-forecast-controls">
+              <div className="goals-segmented" role="group" aria-label="Forecast range">
+                {(["week", "month", "overall"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className="goals-segmented-btn"
+                    aria-pressed={selectedMode === m}
+                    onClick={() => setSelectedMode(m)}
+                  >
+                    {m === "week" ? "Week" : m === "month" ? "Month" : "Overall"}
+                  </button>
+                ))}
+              </div>
+              {selectedMode === "week" && weekDateRanges.length > 0 && (
+                <CustomSelect
+                  className="goals-forecast-select"
+                  value={String(selectedWeek)}
+                  onChange={(val) => {
+                    userSelectedWeekRef.current = true;
+                    setSelectedWeek(Number(val));
+                  }}
+                  options={weekDateRanges.map((range, idx) => ({
+                    value: String(idx),
+                    label: `Week ${idx + 1} · ${formatDayKey(range.start)} – ${formatDayKey(range.end)}`,
+                  }))}
+                />
+              )}
+              {selectedMode === "month" && monthDateRanges.length > 0 && (
+                <CustomSelect
+                  className="goals-forecast-select"
+                  value={String(selectedMonth)}
+                  onChange={(val) => {
+                    userSelectedMonthRef.current = true;
+                    setSelectedMonth(Number(val));
+                  }}
+                  options={monthDateRanges.map((range, idx) => ({
+                    value: String(idx),
+                    label: range.label,
+                  }))}
+                />
+              )}
+            </div>
+
+            <div className="goals-forecast-progress">
+              <div className="goals-forecast-progress-row">
+                <span>Goal progress</span>
+                <strong>
+                  {formatCurrency(selectedGoal.currentAmount || 0)} /{" "}
+                  {formatCurrency(selectedGoal.targetAmount)}
+                </strong>
+              </div>
+              <div className="goals-card-track goals-card-track--lg" aria-hidden="true">
+                <span style={{ width: `${goalPercent(selectedGoal)}%` }} />
+              </div>
+            </div>
+
+            <div className="goals-forecast-chart">
+              {forecastLoading ? (
+                <div className="goals-forecast-state" role="status">
+                  <div className="spinner" />
+                  <p>Loading forecast…</p>
+                </div>
+              ) : forecastError ? (
+                <p className="goals-forecast-state goals-forecast-state--error">
+                  The forecast service is unavailable right now. Try again later.
+                </p>
+              ) : chartData ? (
+                <Line
+                  ref={chartRef}
+                  data={chartData}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: "index", intersect: false },
+                    plugins: {
+                      legend: {
+                        display: true,
+                        position: "top",
+                        align: "end",
+                        labels: { color: chartTextColor, boxWidth: 12, boxHeight: 12 },
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: function (context) {
+                            const value = Number(context.raw);
+                            return `${context.dataset.label}: ${formatCurrency(value)}`;
+                          },
+                        },
+                      },
+                    },
+                    scales: {
+                      x: {
+                        grid: { display: false },
+                        ticks: { color: chartTextColor, maxTicksLimit: 8 },
+                      },
+                      y: {
+                        grid: { color: chartGridColor },
+                        beginAtZero: true,
+                        ticks: { color: chartTextColor, maxTicksLimit: 5 },
+                      },
+                    },
+                  }}
+                />
+              ) : (
+                <p className="goals-forecast-state">No forecast data for this range.</p>
+              )}
+            </div>
+
+            <div className="goals-modal-footer">
+              <button
+                type="button"
+                className="goals-ghost-btn"
+                onClick={() => setForecastModalOpen(false)}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                className="goals-action-btn"
+                onClick={() => setShowExpenseModal(true)}
+              >
+                + Add expense
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Add expense (opened from the forecast dialog) */}
+      {showExpenseModal && (
+        <div
+            className="modal-backdrop"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            background: "rgba(18,13,10,0.48)",
+            zIndex: 1100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            className="modal"
+            style={{
+              background: modalBackground,
+              color: "var(--buck-ink)",
+              border: "1px solid var(--buck-line)",
+              borderRadius: 20,
+              padding: 32,
+              width: "min(540px, 100%)",
+              boxSizing: "border-box",
+              boxShadow: "0 12px 48px rgba(239,138,87,0.18)",
+              position: "relative",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              animation: "fadeInScale 0.35s",
+              fontSize: 17,
+              maxHeight: "min(82dvh, 760px)",
+              overflowY: "auto",
+            }}
+          >
+            <button
+              onClick={() => setShowExpenseModal(false)}
+              style={{
+                position: "absolute",
+                top: 18,
+                right: 22,
+                background: "none",
+                border: "none",
+                fontSize: 26,
+                cursor: "pointer",
+                color: "var(--buck-orange)",
+                fontWeight: 700,
+                transition: "color 0.2s",
+              }}
+            >
+              &times;
+            </button>
+            <h3
+              style={{
+                marginTop: 0,
+                marginBottom: 18,
+                color: "var(--buck-orange)",
+                fontWeight: 800,
+                fontSize: 30,
+                letterSpacing: 1,
+              }}
+            >
+              Add Expense
+            </h3>
+            <CustomDatePicker
+              value={expenseDate}
+              onChange={(val) => setExpenseDate(val)}
+              style={{
+                width: "100%",
+                marginBottom: 12,
+                boxSizing: "border-box",
+              }}
+            />
+            <input
+              type="number"
+              value={expenseAmount}
+              onChange={(e) =>
+                setExpenseAmount(e.target.value)
+              }
+              placeholder="Amount"
+              style={{
+                width: "100%",
+                marginBottom: 12,
+                padding: 12,
+                borderRadius: 7,
+                border: "1px solid rgba(244,117,54,0.32)",
+                background: fieldBackground,
+                fontSize: 17,
+                boxSizing: "border-box",
+                display: "block",
+                color: "var(--buck-ink)",
+                transition: "border 0.2s",
+              }}
+            />
+            <input
+              type="text"
+              value={expenseDesc}
+              onChange={(e) => setExpenseDesc(e.target.value)}
+              placeholder="Description"
+              style={{
+                width: "100%",
+                marginBottom: 12,
+                padding: 12,
+                borderRadius: 7,
+                border: "1px solid rgba(244,117,54,0.32)",
+                background: fieldBackground,
+                fontSize: 17,
+                boxSizing: "border-box",
+                display: "block",
+                color: "var(--buck-ink)",
+                transition: "border 0.2s",
+              }}
+            />
+            {expenseError && (
+              <div style={{ color: "red", marginBottom: 12 }}>
+                {expenseError}
+              </div>
+            )}
+            <button
+              onClick={handleAddExpense}
+              disabled={expenseLoading}
+              style={{
+                background: primaryButtonBackground,
+                color: primaryButtonColor,
+                border: "none",
+                borderRadius: 9,
+                padding: "1.1rem 1.7rem",
+                fontWeight: 800,
+                fontSize: 20,
+                cursor: "pointer",
+                width: "100%",
+                marginTop: 10,
+                boxShadow: "0 2px 8px rgba(239,138,87,0.08)",
+                transition: "background 0.2s",
+              }}
+            >
+              {expenseLoading ? "Adding..." : "Add Expense"}
+            </button>
+            <style>{`
+              @keyframes fadeInScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+            `}</style>
+          </div>
+        </div>
+      )}
       <AnimatePresence>
         {showModal && (
           <CreateGoalModal
@@ -1520,7 +1318,8 @@ const GoalsPage = () => {
                   {progressLoading ? "Saving..." : "Save"}
                 </button>
                 <button
-                  style={{ marginLeft: 8 }}
+                  type="button"
+                  className="ProgressModal-cancel-btn"
                   onClick={() => setShowProgressModal(false)}
                   disabled={progressLoading}
                 >
@@ -1564,8 +1363,8 @@ const GoalsPage = () => {
               border: "1px solid var(--buck-line)",
               borderRadius: 8,
               padding: 24,
-              minWidth: 320,
-              maxWidth: 400,
+              width: "min(400px, 100%)",
+              boxSizing: "border-box",
               boxShadow: "var(--buck-shadow)",
               position: "relative",
               textAlign: "center",

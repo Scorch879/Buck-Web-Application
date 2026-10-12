@@ -16,3 +16,8 @@ A unified toolbar `.admin-toolbar` was added above the content lists:
 - **Global Context Cache:** The Admin data fetches are now stored in `DashboardDataCache` via `FinancialContext`. This allows instant renders if the user navigates away to another dashboard page and returns to the Admin page.
 - **Tab-Level Loading:** Replaced the global `loading` state that displayed a full-page `<DashboardPageSkeleton />` with tab-specific loading states (`isFetchingFeedback`, `isFetchingVercel`, `isFetchingSupabase`). 
 - **Non-blocking Refreshes:** The system silently updates the data in the background and only shows an inline spinner for the specific active tab if its cache is empty.
+
+## 4. Access Control
+- **Server-side gate:** `src/middleware.ts` redirects non-admins away from `/dashboard/admin`, and `/api/admin/supabase` and `/api/admin/vercel` return `403`. Both use `isAdminUser` in `src/utils/adminAccess.ts`.
+- **Who counts as admin:** a confirmed account whose server-managed `app_metadata.role` is `'admin'`, or whose email matches the `ADMIN_EMAIL` environment variable.
+- **Client-side checks:** the admin page and the sidebar nav item still compare against a hardcoded email; this is tracked as BUG-005 in `QA_Report.md`.

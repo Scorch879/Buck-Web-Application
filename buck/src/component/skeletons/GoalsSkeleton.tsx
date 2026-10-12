@@ -5,58 +5,66 @@ import "@/app/dashboard/goals/style.css";
 import "@/app/dashboard/goals/progress-bar.css";
 import "./skeletons.css";
 
+const GOALS = [
+  { name: "Emergency fund", pct: 64 },
+  { name: "New laptop", pct: 28 },
+  { name: "Holiday trip", pct: 82 },
+];
+
 /**
- * 1:1 High-Fidelity Goals Tab Skeleton
- * Renders the page's own layout classes (.GoalsPage, .GoalsCard, .goals-list,
- * .GoalsContainer, .goal-details, .goal-details-grid, .progress-card,
- * .goals-bottom-buttons) with shimmer placeholders. Both goal stylesheets are
- * imported because loading.tsx renders before page.tsx (and its CSS) loads.
+ * 1:1 Goals Tab Skeleton.
+ * Renders the page's own classes: goal list (.GoalsCard / .goals-card) and the
+ * selected-goal panel (.goal-detail-header, .goal-overview with the progress
+ * card + .goal-facts, AI card, actions, .goal-expenses). Both goal stylesheets
+ * are imported because loading.tsx renders before page.tsx (and its CSS) loads.
  */
 export default function GoalsSkeleton() {
   return (
     <div className="GoalsPage dashboard-skeleton" aria-busy="true" aria-label="Loading goals">
-      {/* Left: goals list */}
-      <div className="GoalsCard">
-        <div className="goals-header">
-          <h2><span className="skeleton-text">Your Goals</span></h2>
+      <aside className="GoalsCard">
+        <div className="goals-sidebar-header">
+          <div>
+            <p className="goals-eyebrow"><span className="skeleton-text">Savings</span></p>
+            <h2><span className="skeleton-text">Your goals</span></h2>
+          </div>
+          <span className="goals-count-badge skeleton-text">3</span>
         </div>
-        <div className="goal-buttons-container">
-          <span className="goals-create-btn skeleton-text">+ Create New Goal</span>
-          <span className="goals-create-btn skeleton-text">- Delete Goal</span>
-        </div>
+        <span className="goals-create-btn goals-create-btn--block skeleton-text">+ New goal</span>
         <div className="goals-list">
-          {["Emergency fund", "New laptop", "Holiday trip"].map((name, i) => (
-            <div key={name} className={`goals-card ${i === 0 ? "selected" : ""}`}>
-              <h3><span className="skeleton-text">{name}</span></h3>
-              <p><span className="skeleton-text">Target: ₱00,000.00</span></p>
-              <p><span className="skeleton-text">Created: 2026-01-01</span></p>
-              <p><span className="skeleton-text">Due: 2026-12-31</span></p>
+          {GOALS.map((goal, i) => (
+            <div key={goal.name} className={`goals-card${i === 0 ? " selected" : ""}`}>
+              <span className="goals-card-top">
+                <span className="goals-card-name"><span className="skeleton-text">{goal.name}</span></span>
+              </span>
+              <span className="goals-card-track">
+                <span className="skeleton-line" style={{ width: `${goal.pct}%` }} />
+              </span>
+              <span className="goals-card-meta">
+                <span className="skeleton-text">₱00,000.00 of ₱00,000.00</span>
+                <span className="skeleton-text">00%</span>
+              </span>
+              <span className="goals-card-due"><span className="skeleton-text">Due Dec 31, 2026</span></span>
             </div>
           ))}
         </div>
-      </div>
+      </aside>
 
-      {/* Right: goal details */}
-      <div className="GoalsContainer">
-        <div className="goal-details">
-          <div className="goal-details-header">
-            <span className="setActiveButton skeleton-text">Set as Inactive</span>
+      <section className="GoalsContainer">
+        <header className="goal-detail-header">
+          <div className="goal-detail-title">
+            <p className="goals-eyebrow"><span className="skeleton-text">Goal details</span></p>
+            <div className="goal-detail-name">
+              <h2><span className="skeleton-text">Emergency fund</span></h2>
+              <span className="goals-pill skeleton-text">Active</span>
+            </div>
           </div>
-          <h2><span className="skeleton-text">Goal Details</span></h2>
-          <div className="goal-details-grid">
-            {[
-              "Name: Emergency fund",
-              "Target Amount: ₱00,000.00",
-              "Target Date: 2026-12-31",
-              "Created: 2026-01-01",
-              "Attitude: Normal",
-              "Status: Active",
-            ].map((row) => (
-              <p key={row}><span className="skeleton-text">{row}</span></p>
-            ))}
+          <div className="goal-detail-actions">
+            <span className="goals-ghost-btn skeleton-text">Set as inactive</span>
+            <span className="goals-ghost-btn skeleton-text">Delete</span>
           </div>
+        </header>
 
-          {/* ProgressBarCard */}
+        <div className="goal-overview">
           <div className="progress-card">
             <div className="progress-ring-layout">
               <div className="progress-liquid-container skeleton-circle" />
@@ -71,39 +79,49 @@ export default function GoalsSkeleton() {
               </div>
             </div>
           </div>
+          <dl className="goal-facts">
+            {[
+              ["Target date", "Dec 31, 2026"],
+              ["Time left", "000 days"],
+              ["Save per day", "₱000.00"],
+              ["Saving attitude", "Normal"],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <dt><span className="skeleton-text">{label}</span></dt>
+                <dd><span className="skeleton-text">{value}</span></dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        {/* The page shows this card (with a loading message) as soon as a goal is selected */}
+        <div className="ai-recommendation">
+          <strong><span className="skeleton-text">AI recommendation</span></strong>
+          <div className="ai-recommendation-content"><span className="skeleton-text">Loading AI recommendation...</span></div>
         </div>
 
         <div className="goals-bottom-buttons">
-          <span className="goals-action-btn skeleton-text">See Forecast</span>
-          <span className="goals-action-btn skeleton-text">See Statistics</span>
+          <span className="goals-action-btn skeleton-text">See forecast</span>
+          <span className="goals-ghost-btn skeleton-text">Open statistics</span>
         </div>
 
-        {/* Recent Expenses list (inline styles mirror page.tsx) */}
-        <div style={{ marginTop: 32 }}>
-          <h3 style={{ fontWeight: 700, marginBottom: 12 }}>
-            <span className="skeleton-text">Recent Expenses</span>
-          </h3>
-          {Array.from({ length: 3 }, (_, i) => (
-            <div
-              key={i}
-              style={{
-                marginBottom: 8,
-                border: "1px solid var(--buck-line)",
-                borderRadius: 10,
-                padding: "10px 18px",
-                display: "flex",
-                alignItems: "center",
-                gap: 16,
-              }}
-            >
-              <span className="skeleton-text" style={{ fontWeight: 700, minWidth: 120 }}>Category</span>
-              <span style={{ flex: 1 }}><span className="skeleton-text">Expense description</span></span>
-              <span className="skeleton-text" style={{ fontWeight: 700, minWidth: 80 }}>₱0,000.00</span>
-              <span className="skeleton-text" style={{ fontSize: 14, minWidth: 90 }}>2026-01-01</span>
-            </div>
-          ))}
+        <div className="goal-expenses">
+          <div className="goal-expenses-header">
+            <h3><span className="skeleton-text">Linked expenses</span></h3>
+          </div>
+          <ul className="goal-expenses-list">
+            {Array.from({ length: 3 }, (_, i) => (
+              <li key={i} className="goal-expense-row">
+                <span className="goal-expense-main">
+                  <strong><span className="skeleton-text">Expense description</span></strong>
+                  <span><span className="skeleton-text">Category · Oct 12</span></span>
+                </span>
+                <span className="goal-expense-amount"><span className="skeleton-text">₱000.00</span></span>
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

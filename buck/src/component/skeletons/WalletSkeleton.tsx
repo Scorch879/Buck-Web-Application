@@ -2,6 +2,7 @@
 
 import React from "react";
 import CustomSelect from "@/component/CustomSelect";
+import { MonthlyCashFlowCardSkeleton } from "@/component/income/MonthlyCashFlowCard";
 import "@/app/dashboard/settings/style.css";
 import "./skeletons.css";
 
@@ -25,86 +26,102 @@ function Toolbar({ placeholder, selectLabel }: { placeholder: string; selectLabe
   );
 }
 
+const WALLETS = [
+  { name: "Main wallet", share: 70, active: true },
+  { name: "Savings", share: 30, active: false },
+];
+
 /**
- * 1:1 High-Fidelity Wallet Tab Skeleton
- * Renders the page's own layout classes (.wallet-grid, .wallet-panel-card,
- * .wallet-card-header, .wallet-toolbar, .settings-wallet-item, ...) from
- * settings/style.css with shimmer placeholders. Real (disabled) search input and
- * CustomSelect keep the toolbar geometry exact. The stylesheet is imported
- * because loading.tsx renders before page.tsx (and its CSS) loads.
+ * 1:1 Wallet Tab Skeleton.
+ * Renders the page's own classes: cash-flow KPI card, then "Your Wallets"
+ * (summary strip, toolbar, compact .wallet-row items) beside the Log card
+ * (.wallet-tabs with the Wallet history tab selected). The stylesheet is
+ * imported because loading.tsx renders before page.tsx (and its CSS) loads.
  */
 export default function WalletSkeleton() {
   return (
-    <div className="settings-page dashboard-skeleton" aria-busy="true" aria-label="Loading wallets">
+    <div className="settings-page wallet-page dashboard-skeleton" aria-busy="true" aria-label="Loading wallets">
+      <MonthlyCashFlowCardSkeleton withAddButton={false} />
+
       <div className="wallet-grid">
-        {/* Left: active wallets */}
+        {/* Your wallets */}
         <article className="settings-card wallet-panel-card">
           <div className="wallet-card-header">
             <div className="wallet-card-title-group">
               <span className="wallet-card-header-icon" aria-hidden="true"><IconPlaceholder /></span>
               <div className="wallet-card-title-wrap">
                 <p className="settings-eyebrow"><span className="skeleton-text">Your Wallets</span></p>
-                <h2 className="wallet-card-title"><span className="skeleton-text">Manage your active wallets</span></h2>
+                <h2 className="wallet-card-title"><span className="skeleton-text">Manage your wallets</span></h2>
               </div>
             </div>
             <span className="settings-button settings-button--primary wallet-new-btn skeleton-text">+ New Wallet</span>
           </div>
 
+          <div className="wallet-summary">
+            <span className="skeleton-text">Total balance</span>
+            <strong className="skeleton-text">₱00,000.00</strong>
+            <span className="wallet-summary-count skeleton-text">2 wallets</span>
+          </div>
+
           <Toolbar placeholder="Search wallets..." selectLabel="Highest Budget" />
 
           <div className="settings-wallet-list">
-            {[true, false, false].map((isActive, i) => (
-              <div key={i} className={`settings-action-panel settings-wallet-item${isActive ? " settings-wallet-item--active" : ""}`}>
-                <div className="settings-wallet-header">
-                  <div className="settings-wallet-info">
-                    <strong className="settings-wallet-name"><span className="skeleton-text">{["Main wallet", "Savings", "E-wallet"][i]}</span></strong>
-                    <span className="settings-wallet-budget"><span className="skeleton-text">₱00,000.00</span></span>
+            {WALLETS.map((w) => (
+              <div key={w.name} className={`settings-action-panel wallet-row${w.active ? " wallet-row--active" : ""}`}>
+                <div className="wallet-row-main">
+                  <div className="wallet-row-title">
+                    <strong className="settings-wallet-name"><span className="skeleton-text">{w.name}</span></strong>
                   </div>
-                  {isActive ? (
-                    <span className="settings-wallet-active-badge skeleton-text">✓ Active</span>
-                  ) : (
-                    <span className="settings-wallet-set-active-btn skeleton-text">Set Active</span>
-                  )}
+                  <div className="wallet-row-share">
+                    <span className="skeleton-line" style={{ width: `${w.share}%` }} />
+                  </div>
+                  <span className="wallet-row-share-label"><span className="skeleton-text">{w.share}% of total balance</span></span>
                 </div>
-                <div className="settings-wallet-actions">
-                  <span className="settings-button settings-button--secondary settings-wallet-btn-half skeleton-text">Edit</span>
-                  <span className="settings-button settings-button--danger settings-wallet-btn-half skeleton-text">Delete</span>
+                <div className="wallet-row-side">
+                  <span className="settings-wallet-budget"><span className="skeleton-text">₱00,000.00</span></span>
+                  <div className="wallet-row-actions">
+                    {!w.active && <span className="settings-wallet-set-active-btn skeleton-text">Set Active</span>}
+                    <span className="wallet-icon-btn skeleton-text" />
+                    <span className="wallet-icon-btn skeleton-text" />
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         </article>
 
-        {/* Right: wallet history */}
+        {/* Log */}
         <article className="settings-card wallet-panel-card">
           <div className="wallet-card-header">
             <div className="wallet-card-title-group">
               <span className="wallet-card-header-icon" aria-hidden="true"><IconPlaceholder /></span>
               <div className="wallet-card-title-wrap">
                 <p className="settings-eyebrow"><span className="skeleton-text">Log</span></p>
-                <h2 className="wallet-card-title"><span className="skeleton-text">History of Wallets</span></h2>
+                <h2 className="wallet-card-title"><span className="skeleton-text">Activity history</span></h2>
               </div>
             </div>
           </div>
 
-          <Toolbar placeholder="Search history..." selectLabel="All" />
+          <div className="wallet-tabs">
+            <span className="wallet-tab" aria-selected="true"><span className="skeleton-text">Wallet history 0</span></span>
+            <span className="wallet-tab"><span className="skeleton-text">Income history 0</span></span>
+          </div>
 
-          <div className="settings-wallet-list">
-            {["Main wallet", "Savings", "Old wallet"].map((name) => (
-              <div key={name} className="settings-action-panel settings-wallet-item settings-wallet-history-item">
-                <div className="settings-wallet-info" style={{ width: "100%" }}>
-                  <div className="settings-wallet-header">
-                    <div className="settings-card-title" style={{ gap: "0.5rem", alignItems: "center" }}>
-                      <strong><span className="skeleton-text">{name}</span></strong>
+          <div className="wallet-log-panel">
+            <Toolbar placeholder="Search history..." selectLabel="All" />
+            <div className="settings-wallet-list">
+              {["Main wallet", "Savings", "Old wallet"].map((name) => (
+                <div key={name} className="settings-action-panel wallet-history-row">
+                  <div className="wallet-row-main">
+                    <div className="wallet-row-title">
+                      <strong className="settings-wallet-name"><span className="skeleton-text">{name}</span></strong>
                     </div>
-                    <span className="settings-wallet-budget"><span className="skeleton-text">₱00,000.00</span></span>
+                    <span className="settings-wallet-history-dates"><span className="skeleton-text">Added January 1, 2026</span></span>
                   </div>
-                  <span className="settings-wallet-history-dates">
-                    <span className="skeleton-text">Added on January 1, 2026</span>
-                  </span>
+                  <span className="settings-wallet-budget"><span className="skeleton-text">₱00,000.00</span></span>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </article>
       </div>

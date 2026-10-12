@@ -1,18 +1,37 @@
 from prophet import Prophet
-import openai
-import numpy as np
-from xgboost import XGBClassifier
 import pandas as pd
 import os
+import re
 from dotenv import load_dotenv
 import requests
-import os
-import json
 
 load_dotenv(dotenv_path=".env.local")
-# Set your OpenAI key here
 
-# --- OpenAI Embedding Model ---
+LLM_TIMEOUT_SECONDS = 20
+MAX_PROMPT_FIELD_CHARS = 1000
+
+# --- PII scrubbing (applied to every free-text field before it reaches the LLM) ---
+_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+_PHONE_RE = re.compile(r"(?:\+?63|0)9\d{2}[\s\-]?\d{3}[\s\-]?\d{4}")
+_LONG_NUMBER_RE = re.compile(r"\b\d(?:[\s\-]?\d){8,}\b")  # accounts / cards: 9+ digits
+_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]+")
+
+
+def scrub_pii(text):
+    """Redact emails, PH mobile numbers and long account/card numbers."""
+    text = _EMAIL_RE.sub("[email]", text)
+    text = _PHONE_RE.sub("[phone]", text)
+    return _LONG_NUMBER_RE.sub("[number]", text)
+
+
+def sanitize_prompt_field(value, max_chars=MAX_PROMPT_FIELD_CHARS):
+    """Scrub PII, flatten control characters/newlines, drop quotes and cap length."""
+    text = _CONTROL_RE.sub(" ", str(value or ""))
+    text = text.replace("'", "").replace('"', "").replace("`", "")
+    return scrub_pii(text).strip()[:max_chars]
+
+
+# Reference categories for classification
 # Reference categories for classification
 REFERENCE_CATEGORIES = [
     "Food",
@@ -35,6 +54,7 @@ REFERENCE_CATEGORIES = [
 ]
 
 def get_expense_category(description):
+    description = sanitize_prompt_field(description, 300)
     api_url = "https://api.together.xyz/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {os.getenv('TOGETHER_API_KEY')}",
@@ -51,7 +71,7 @@ def get_expense_category(description):
         "max_tokens": 16,
         "temperature": 0
     }
-    response = requests.post(api_url, headers=headers, json=payload)
+    response = requests.post(api_url, headers=headers, json=payload, timeout=LLM_TIMEOUT_SECONDS)
     response.raise_for_status()
     result = response.json()
     category = result["choices"][0]["message"]["content"].strip()
@@ -83,16 +103,21 @@ def predict_future_expense(past_expenses):
 
 
 def clean_llama_output(text):
-    if '<think>' in text:
-        text = text.split('<think>', 1)[-1]
+    # Drop reasoning: closed <think>...</think> blocks, a stray closing tag
+    # (reasoning-only prefix) and any unterminated trailing <think>.
+    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    if '</think>' in text:
+        text = text.split('</think>')[-1]
+    text = text.split('<think>', 1)[0]
     text = text.strip()
-    import re
     sentences = re.split(r'(?<=[.!?])\s+', text)
     cleaned = ' '.join(sentences[:2]).strip()
     cleaned = cleaned.replace('<think>', '').strip()
     return cleaned
 
 def generate_ai_tip(category, user_context="", target_date=None, created_at=None):
+    category = sanitize_prompt_field(category, 80)
+    user_context = sanitize_prompt_field(user_context)
     api_url = "https://api.together.xyz/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {os.getenv('TOGETHER_API_KEY')}",
@@ -132,7 +157,7 @@ def generate_ai_tip(category, user_context="", target_date=None, created_at=None
         "max_tokens": 128,
         "temperature": 0.2
     }
-    response = requests.post(api_url, headers=headers, json=payload)
+    response = requests.post(api_url, headers=headers, json=payload, timeout=LLM_TIMEOUT_SECONDS)
     response.raise_for_status()
     result = response.json()
     raw_tip = result["choices"][0]["message"]["content"]

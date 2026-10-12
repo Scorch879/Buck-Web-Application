@@ -354,13 +354,74 @@ Returns a composite score (0 to 5) and localized validation messages.
   - Synchronized [`HomeSkeleton.tsx:20-33`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/HomeSkeleton.tsx#L20-L33) to use `.spending-card-header`, `.card-heading` with `.pie-day-filter-slot`, and `.spending-timeframe-container`.
   - Updated `.home-skeleton-content` in [`skeletons.css:315-320`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/skeletons.css#L315-L320) to `grid-template-columns: minmax(0, 0.94fr) minmax(0, 1.06fr);` matching `.dashboard-content`.
 
+### 3.25 Dashboard Topbar Bottom Spacing Relaxation & Typography Clearance Architecture ([`dashboard.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/dashboard.css))
+- **Relaxed Asymmetric Padding Engine**:
+  - Replaced tight `padding: clamp(0.5rem, 0.9vw, 0.65rem) clamp(0.75rem, 1.5vw, 1rem)` with `clamp(0.7rem, 1.1vw, 0.85rem) clamp(0.75rem, 1.5vw, 1rem) clamp(0.95rem, 1.5vw, 1.25rem)` in [`dashboard.css:158`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/dashboard.css#L158).
+  - Bottom padding expands to $20\text{px}$ (`1.25rem`) on desktop, unlocking generous breathing room beneath font descenders and the active wallet pill.
+  - Horizontal padding remains locked to `clamp(0.75rem, 1.5vw, 1rem)`, preserving flush alignment with all card containers below.
+- **Structural Height Stabilization (`min-height: 68px`)**:
+  - Increased `.dashboard-topbar` `min-height` from $58\text{px}$ to $68\text{px}$ in [`dashboard.css:157`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/dashboard.css#L157), accommodating relaxed padding and eliminating layout compression.
+- **Typographic Clearance & Vertical Flow**:
+  - Added `display: flex; flex-direction: column; gap: 0.18rem;` to `.dashboard-topbar > div:first-child` in [`dashboard.css:192-197`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/dashboard.css#L192-L197), creating ~3px of intentional separation between uppercase eyebrow `<p>` and heading `<h1>`.
+  - Relaxed `h1` `line-height` from $1.1$ to $1.18$ in [`dashboard.css:206`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/dashboard.css#L206), eliminating line-box clipping on letters with descenders ('p', 'g', 'y', 'q').
+- **Responsive Tablet & Mobile Rules**:
+  - Synchronized tablet `@media (max-width: 980px)` to `padding: 0.75rem clamp(0.75rem, 1.5vw, 1rem) 1rem;` in [`dashboard.css:587`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/dashboard.css#L587).
+  - Synchronized mobile `@media (max-width: 680px)` to `padding: 0.65rem 0.75rem 0.85rem;` in [`dashboard.css:673`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/dashboard.css#L673).
+
+### 3.26 Financial Summary Tabular Format with Stretched Search, Active Pills, & CustomSelect ([`FinancialSummaryTable.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/home/FinancialSummaryTable.tsx), [`CustomSelect.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/CustomSelect.tsx), [`home/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/home/page.tsx), [`home/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/home/style.css), [`HomeSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/HomeSkeleton.tsx))
+- **Tabular Category Presentation Component (`FinancialSummaryTable.tsx`)**:
+  - Replaced the card-grid (`.summary-content > .summary-item`) with a contained, semantic data table (`<table>`) wrapped in `.summary-table-wrapper` with horizontal scroll capability (`min-width: 660px`).
+  - Columns:
+    - **Category**: Category color indicator dot, category name, and an active badge when filtered.
+    - **Description**: Human-readable spending description for the category.
+    - **Entries**: Transaction count badge (`{count} entries`).
+    - **Share %**: Horizontal progress track (`.summary-share-track`) with fill percentage and formatted percentage label (`{percentage.toFixed(1)}%`).
+    - **Total Spent**: Right-aligned, formatted currency (`formatCurrency(item.amount)`) in bold tabular numbers.
+    - **Action**: Interactive button toggling category selection (`Filter` / `Active ✓`).
+- **Contained Height & Client-Side Pagination (`PAGE_SIZE = 5`)**:
+  - Enforced a 5-item page size to keep table height strictly bounded (~260px–290px), completely preventing vertical dashboard elongation even with 20+ user categories.
+  - Rendered pagination controls in `.summary-table-pagination` with entry range counter (`Showing 1–5 of 16 categories`), `‹ Prev` button, individual numeric page buttons, and `Next ›` button.
+- **Top Toolbar: Stretched Search, Active Filter Pills, & Design-System CustomSelect**:
+  - **Stretched Search Input**: Removed arbitrary `max-width: 420px;` constraint (`flex: 1 1 200px; min-width: 180px;`), stretching the search input to reach the pills and dropdowns and eliminating dead space.
+  - **Active Filter Pills Beside Search Bar**: Placed active Day and Category filter pill groups (`• Day: [Name] [✕ All Days]`, `• Category: [Name] [✕ Show All]`) directly in `.summary-table-toolbar` beside the search input, keeping the card header clean.
+  - **CustomSelect Dropdowns**: Replaced native browser `<select>` elements with [`CustomSelect.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/CustomSelect.tsx) (`size="sm"`) featuring leading icons (`FaFilter`, `FaSortAmountDown`) and rotating chevrons, eliminating OS-native white-popup styling in dark mode.
+  - Filter dropdown (`All Categories`, `Selected Only`, `Top 5 Spending`, `With Expenses Only`).
+  - Sort dropdown (`Highest Amount`, `Lowest Amount`, `Name A–Z`, `Name Z–A`, `Most Entries`, `Highest Share %`).
+  - Automatic page-reset to 1 on any query or filter transition.
+- **Interactive Two-Way Chart Synchronization**:
+  - Row click toggles `selectedCategory`, immediately updating `WeeklyPieChart` (zoom/highlight) and `WeeklyBarChart` (daily breakdown) without collapsing the other categories in the table.
+  - Sibling header badges (`Category: [Name] [✕ Show All]`, `Day: [Day] [✕ All Days]`) render directly in the table toolbar beside the search input.
+- **Clean Active Filter Micro-Interactions & Spring Transitions**:
+  - **Framer Motion PopLayout (`AnimatePresence mode="popLayout"`)**: Mounted filter pills render with `<motion.div initial={{ opacity: 0, scale: 0.88, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.88, y: -4 }} transition={{ type: "spring", stiffness: 480, damping: 28 }}>`, ensuring spring-loaded pop entrances and smooth layout reflow of adjacent search and dropdown controls.
+  - **Clean Static Accent Styling**: Active filter pills utilize crisp, solid accent borders (`1px solid rgba(244, 117, 54, 0.42)`) and translucent orange backgrounds (`rgba(244, 117, 54, 0.12)` light / `0.16` dark) with a solid, sharp 8px color indicator dot, avoiding distracting looping/blinking animations or neon halos.
+  - **Tactile Clear Button Micro-Physics**: Sibling clear buttons (`.summary-filter-action-btn`) feature an orange gradient, hover lift (`translateY(-1.5px) scale(1.02)`), and active click compression (`scale(0.95)`).
+- **1:1 Skeletal Loading Parity (`HomeSkeleton.tsx`)**:
+  - Replaced 4-card skeleton with matching tabular structure (stretched search box skeleton, dropdown skeletons, 5 table row skeletons, and pagination skeleton), guaranteeing 0px Cumulative Layout Shift (CLS = 0).
+
+### 3.27 Goal Progress Gauge Dual-Layer Liquid Wave Effect Architecture ([`ProgressBarCard.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/goals/ProgressBarCard.tsx), [`progress-bar.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/goals/progress-bar.css))
+- **Mathematical Seamless Sine Wave Generation**:
+  - Constructed two 2-period repeating sine wave paths across a 280px ribbon (140px wavelength matching the 140px porthole diameter):
+    - **Front Wave** (`d="M 0 0 C 20 -6, 50 -6, 70 0 C 90 6, 120 6, 140 0 C 160 -6, 190 -6, 210 0 C 230 6, 260 6, 280 0 L 280 180 L 0 180 Z"`): Fills with warm linear gradient (`#ffb03a` $\rightarrow$ `#f47536` $\rightarrow$ `#d9381e`).
+    - **Back Wave** (`d="M 0 -2 C 25 3, 45 3, 70 -2 C 95 -7, 115 -7, 140 -2 C 165 3, 185 3, 210 -2 C 235 -7, 255 -7, 280 -2 L 280 180 L 0 180 Z"`): Offset phase with translucent coral fill (`rgba(244, 117, 54, 0.45)` $\rightarrow$ `rgba(168, 40, 15, 0.7)`).
+    - **Surface Gleam Line** (`d="M 0 0 C 20 -6, 50 -6, 70 0 C 90 6, 120 6, 140 0 C 160 -6, 190 -6, 210 0 C 230 6, 260 6, 280 0"`): Renders a 1.5px semi-transparent white curve (`rgba(255, 255, 255, 0.45)`) simulating fluid surface tension.
+- **Framer Motion Dynamic Liquid Level Transition**:
+  - Encapsulated liquid paths in `<motion.g animate={{ y: targetY }} transition={{ type: "spring", stiffness: 65, damping: 16, mass: 0.9 }}>`.
+  - Calculates $Y = 148 - (progressPercentage / 100) \times 156$, accurately mapping $0\%$ to $Y = 148$ (empty), $50\%$ to $Y = 70$ (exact geometric center), and $100\%$ to $Y = -8$ (completely filled).
+  - Integrates `useReducedMotion()` to safely lock wave sloshing when reduced motion is preferred by the user.
+- **Continuous Hardware-Accelerated Parallax Sloshing**:
+  - Front wave translates horizontally `0px` $\rightarrow$ `-140px` over 3.1s linear infinite (`will-change: transform`).
+  - Back wave translates horizontally `-140px` $\rightarrow$ `0px` over 4.6s linear infinite, creating rich volumetric depth without layout reflows.
+- **Visual Depth & Typography Parity**:
+  - Bound within SVG `<clipPath>` (`r=66`) with an outer ring border (`strokeWidth=4`) and inner shadow (`box-shadow: inset 0 3px 12px rgba(0,0,0,0.4)`).
+  - Floating centered typography displays "SAVED" and percentage with multi-tier drop shadows, and automatic high-contrast fallback (`.progress-liquid-text--low-progress`) in light mode.
+
 ---
 
 ## 4. Hardcoded System Constraints & Edge Cases
 
 | Area | Constraint / Boundary | Code Reference |
 |---|---|---|
-| **Admin Privilege** | Hardcoded to email `buckthebudgettracker@gmail.com` | [`middleware.ts:378`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/middleware.ts#L378), [`admin/supabase/route.ts:20`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/admin/supabase/route.ts#L20), [`admin/vercel/route.ts:20`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/admin/vercel/route.ts#L20) |
+| **Admin Privilege** | Confirmed account with JWT `app_metadata.role = 'admin'` or email equal to the `ADMIN_EMAIL` env var (fails closed if neither); `feedback` RLS checks the role claim only. The sidebar shows the Admin tab only when the server-resolved `isAdmin` flag is true; the page is gated by middleware, `dashboard/admin/layout.tsx` and the API routes | [`adminAccess.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/adminAccess.ts), [`middleware.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/middleware.ts), [`admin/layout.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/admin/layout.tsx), [`202610120002_admin_rls_role_claim.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610120002_admin_rls_role_claim.sql) |
 | **Avatar Uploads** | Maximum size: 2,097,152 bytes (2 MB); MIME types: `image/jpeg`, `image/png`, `image/webp` | [`supabaseData.ts:75`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L75) |
 | **Account Recovery** | Fixed 10-day recovery window (`RECOVERY_WINDOW_DAYS = 10`) | [`account/delete/confirm/route.ts:7`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/account/delete/confirm/route.ts#L7) |
 | **Deletion Confirm** | Strict uppercase string match `"DELETE"` | [`deletion/request/route.ts:14`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/account/deletion/request/route.ts#L14) |

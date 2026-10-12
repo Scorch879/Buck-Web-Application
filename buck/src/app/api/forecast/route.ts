@@ -1,48 +1,48 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseAdminClient } from "@/utils/supabase/admin";
-import { createSupabaseServerClient } from "@/utils/supabase/server";
+import { getSessionUserId } from "@/utils/apiAuth";
 import {
   fetchUserFinancialContext,
   generateForecastInsights,
 } from "@/utils/aiInsightsGenerator";
 
+const REFRESH_COOLDOWN_MS = 60 * 1000;
+
+type RequestBody = {
+  forceRefresh?: unknown;
+  periodType?: unknown;
+};
+
+const PERIOD_TYPES = ["weekly", "monthly", "quarterly", "custom"] as const;
+
 export async function POST(req: NextRequest) {
   try {
-    let body: any = {};
-    try {
-      body = await req.json();
-    } catch {
-      // Empty body is okay if session exists
-    }
-
-    let userId = body.userId;
-    if (!userId) {
-      try {
-        const supabase = await createSupabaseServerClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user) {
-          userId = user.id;
-        }
-      } catch {
-        // Fallback to body or unauthenticated
-      }
-    }
+    const userId = await getSessionUserId();
 
     if (!userId) {
       return NextResponse.json(
-        { error: "User ID is required to fetch or generate forecast insights." },
-        { status: 400 }
+        { error: "You need to sign in again first." },
+        { status: 401 }
       );
     }
 
+    let body: RequestBody = {};
+    try {
+      const parsed: unknown = await req.json();
+      if (parsed && typeof parsed === "object") {
+        body = parsed as RequestBody;
+      }
+    } catch {
+      // Empty body is fine; the session identifies the user.
+    }
+
     const forceRefresh = Boolean(body.forceRefresh);
-    const periodType = body.periodType || "monthly";
+    const periodType = PERIOD_TYPES.find((type) => type === body.periodType) ?? "monthly";
     const adminClient = createSupabaseAdminClient();
 
-    // 1. Check cache if not forcing refresh
-    if (!forceRefresh) {
+    // 1. Check cache. A forced refresh still reuses anything younger than the
+    // cooldown so the endpoint cannot be used to flood the table.
+    {
       const { data: cached } = await adminClient
         .from("ai_forecasts")
         .select("*")
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 
       if (cached) {
         const ageMs = Date.now() - new Date(cached.created_at).getTime();
-        const maxAgeMs = 7 * 24 * 60 * 60 * 1000; // 7 days
+        const maxAgeMs = forceRefresh ? REFRESH_COOLDOWN_MS : 7 * 24 * 60 * 60 * 1000;
         if (ageMs < maxAgeMs) {
           return NextResponse.json({
             id: cached.id,

@@ -183,6 +183,21 @@ CREATE INDEX IF NOT EXISTS ai_advisories_user_active_idx
 CREATE INDEX IF NOT EXISTS ai_advisories_user_type_idx
   ON public.ai_advisories(user_id, advisory_type);
 
+CREATE INDEX IF NOT EXISTS ai_advisories_category_id_idx
+  ON public.ai_advisories(category_id);
+
+CREATE INDEX IF NOT EXISTS ai_advisories_goal_id_idx
+  ON public.ai_advisories(goal_id);
+
+CREATE INDEX IF NOT EXISTS ai_advisories_wallet_id_idx
+  ON public.ai_advisories(wallet_id);
+
+CREATE INDEX IF NOT EXISTS ai_forecasts_goal_id_idx
+  ON public.ai_forecasts(goal_id);
+
+CREATE INDEX IF NOT EXISTS ai_forecasts_wallet_id_idx
+  ON public.ai_forecasts(wallet_id);
+
 -- ==============================================================================
 -- 6. ROW LEVEL SECURITY (RLS) POLICIES
 -- ==============================================================================
