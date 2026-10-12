@@ -264,8 +264,15 @@ html[data-buck-theme="dark"] .listItem.active {
   border-color: rgba(198, 40, 40, 0.28);
 }
 
-.deleteBtn:hover {
+.deleteBtn:hover:not([disabled]) {
   background: #ffebee;
+}
+
+.deleteBtn[disabled] {
+  color: var(--buck-muted);
+  border-color: var(--buck-line);
+  cursor: default;
+  opacity: 0.5;
 }
 
 .cancelBtn,

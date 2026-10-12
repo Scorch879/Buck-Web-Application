@@ -3,25 +3,34 @@
 import { useEffect, useState, useRef } from "react";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial, mergeDashboardDataCache } from "@/context/FinancialContext";
+import { useToast } from "@/component/toast/ToastContext";
+import AddIncomeModal from "@/component/income/AddIncomeModal";
+import IncomeList from "@/component/income/IncomeList";
+import MonthlyCashFlowCard from "@/component/income/MonthlyCashFlowCard";
+import { useIncomes } from "@/hooks/useIncomes";
 import { formatCurrency } from "@/utils/formatters";
 import {
   addWallet,
   deleteWallet,
   getActiveWalletId,
+  listExpenses,
   listWallets,
   setActiveWallet,
   subscribeUserTable,
   updateWallet,
   type BuckWallet,
 } from "@/utils/supabaseData";
-import { FaWallet, FaPlus, FaCheck, FaTrash, FaEdit, FaHistory, FaSearch } from "react-icons/fa";
-import { motion } from "framer-motion";
+import { FaWallet, FaPlus, FaCheck, FaTrash, FaEdit, FaHistory, FaSearch, FaTimes, FaMoneyBillWave } from "react-icons/fa";
+import { motion, AnimatePresence } from "framer-motion";
 import "../settings/style.css";
 import WalletModal from "./WalletModal";
+import CustomSelect from "@/component/CustomSelect";
+import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 
 export default function WalletPage() {
   const user = useOptionalDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
+  const { toast } = useToast();
   const userCache = user && dashboardCache.userId === user.uid ? dashboardCache : {};
   
   const hasInitialData = Boolean(userCache.wallets && userCache.activeWalletId !== undefined);
@@ -39,10 +48,19 @@ export default function WalletPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const {
+    incomes,
+    tracked: incomeTracked,
+    cashFlow,
+    refresh: refreshIncomes,
+  } = useIncomes(user?.uid ?? "", userCache.expenses ?? []);
+  const [incomeModalOpen, setIncomeModalOpen] = useState(false);
+  const [view, setView] = useState<"wallets" | "income">("wallets");
+  const [incomeSearchQuery, setIncomeSearchQuery] = useState("");
+
   // Search & Filter States
   const [activeSearchQuery, setActiveSearchQuery] = useState("");
   const [activeSort, setActiveSort] = useState("Highest Budget");
-  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [historyFilter, setHistoryFilter] = useState("All");
 
@@ -72,6 +90,7 @@ export default function WalletPage() {
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load wallets.");
+      toast("Failed to load wallets", "error");
     } finally {
       setLoading(false);
     }
@@ -97,9 +116,11 @@ export default function WalletPage() {
         setActiveWalletId(null);
         setDashboardCache((current) => mergeDashboardDataCache(current, user.uid, { activeWalletId: null, activeWalletBudget: 0 }));
       }
+      toast("Wallet deleted successfully", "success");
       fetchWallets();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete wallet.");
+      toast("Failed to delete wallet", "error");
     }
   };
 
@@ -113,6 +134,7 @@ export default function WalletPage() {
     if (!user) return;
     if (!editName.trim() || !editBudget.trim() || isNaN(Number(editBudget)) || Number(editBudget) <= 0) {
       setError("Please enter a valid name and a budget greater than 0.");
+      toast("Please enter a valid name and a budget greater than 0.", "error");
       return;
     }
     try {
@@ -124,9 +146,11 @@ export default function WalletPage() {
       setEditName("");
       setEditBudget("");
       setError("");
+      toast("Wallet updated successfully", "success");
       fetchWallets();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update wallet.");
+      toast("Failed to update wallet", "error");
     }
   };
 
@@ -136,6 +160,24 @@ export default function WalletPage() {
     setEditBudget("");
     setError("");
   };
+
+  // Cash-flow KPI needs expenses; load them when Wallet is the first tab visited.
+  useEffect(() => {
+    if (!user) return;
+    const uid = user.uid;
+    const fetchExpenses = async () => {
+      try {
+        const nextExpenses = await listExpenses(uid);
+        setDashboardCache((current) =>
+          mergeDashboardDataCache(current, uid, { expenses: nextExpenses })
+        );
+      } catch (err) {
+        console.error("Failed to load expenses:", err);
+      }
+    };
+    void fetchExpenses();
+    return subscribeUserTable("expenses", uid, () => void fetchExpenses());
+  }, [setDashboardCache, user]);
 
   useEffect(() => {
     if (!user) return;
@@ -162,34 +204,44 @@ export default function WalletPage() {
     if (!user) return;
     if (!name.trim() || !budget.trim() || isNaN(Number(budget)) || Number(budget) <= 0) {
       setError("Please enter a valid name and a budget greater than 0.");
+      toast("Please enter a valid name and budget.", "error");
       return;
     }
     try {
       await addWallet(user.uid, name.trim(), Number(budget));
       setName("");
       setBudget("");
+      toast("Wallet created successfully", "success");
       fetchWallets();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add wallet");
+      toast("Failed to create wallet", "error");
     }
   };
 
   const handleSetActive = async (id: string) => {
     if (!user) return;
-    await setActiveWallet(user.uid, id);
-    setActiveWalletId(id);
-
-    const newActiveWallet = wallets.find((w) => w.id === id);
-    setDashboardCache((current) => mergeDashboardDataCache(current, user.uid, {
-      activeWalletId: id,
-      ...(newActiveWallet ? { activeWalletBudget: newActiveWallet.budget } : {}),
-    }));
+    try {
+      await setActiveWallet(user.uid, id);
+      setActiveWalletId(id);
+      
+      const newActiveWallet = wallets.find((w) => w.id === id);
+      setDashboardCache((current) => mergeDashboardDataCache(current, user.uid, { 
+        activeWalletId: id,
+        ...(newActiveWallet ? { activeWalletBudget: newActiveWallet.budget } : {})
+      }));
+      toast("Active wallet updated", "success");
+    } catch (err) {
+      toast("Failed to update active wallet", "error");
+    }
   };
 
   const activeWallets = wallets.filter(w => !w.deletedAt);
   const totalBudget = activeWallets.reduce((sum, w) => sum + (Number(w.budget) || 0), 0);
+  const activeWallet = activeWallets.find((w) => w.id === activeWalletId);
+  const archivedCount = wallets.length - activeWallets.length;
 
-  const filteredActiveWallets = activeWallets.filter(w => 
+  const filteredActiveWallets = activeWallets.filter(w =>
     w.name.toLowerCase().includes(activeSearchQuery.toLowerCase())
   ).sort((a, b) => {
     switch (activeSort) {
@@ -208,279 +260,465 @@ export default function WalletPage() {
     return w.name.toLowerCase().includes(historySearchQuery.toLowerCase());
   }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+  const formatLongDate = (value: string) =>
+    new Date(value).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+
   if (loading) {
-    return <div className="settings-page">Loading wallets...</div>;
+    return <DashboardPageSkeleton variant="wallet" />;
   }
 
   return (
-    <div className="settings-page">
+    <div className="settings-page wallet-page">
       {error && <div className="settings-message settings-message--error">{error}</div>}
 
+      {/* Section navigator: wallets and income are separate views, never mixed */}
+      <div className="wallet-view-nav" role="tablist" aria-label="Wallet sections">
+        <button
+          type="button"
+          role="tab"
+          id="wallet-view-tab-wallets"
+          aria-selected={view === "wallets"}
+          aria-controls="wallet-view-panel"
+          className="wallet-view-tab"
+          onClick={() => setView("wallets")}
+        >
+          <FaWallet aria-hidden="true" /> Wallets
+          <span className="wallet-tab-count">{activeWallets.length}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="wallet-view-tab-income"
+          aria-selected={view === "income"}
+          aria-controls="wallet-view-panel"
+          className="wallet-view-tab"
+          onClick={() => setView("income")}
+        >
+          <FaMoneyBillWave aria-hidden="true" /> Income
+          <span className="wallet-tab-count">{incomes.length}</span>
+        </button>
+      </div>
+
+      <div
+        id="wallet-view-panel"
+        role="tabpanel"
+        aria-labelledby={view === "wallets" ? "wallet-view-tab-wallets" : "wallet-view-tab-income"}
+        className="wallet-view-panel"
+      >
+      {view === "wallets" ? (
+      <>
+      {/* KPI: wallet overview */}
+      <section className="settings-card wallet-overview" aria-label="Wallet overview">
+        <div className="wallet-overview-stat">
+          <span className="wallet-overview-label">Total balance</span>
+          <strong className="wallet-overview-value">{formatCurrency(totalBudget)}</strong>
+          <span className="wallet-overview-sub">
+            Across {activeWallets.length} {activeWallets.length === 1 ? "wallet" : "wallets"}
+          </span>
+        </div>
+        <div className="wallet-overview-stat">
+          <span className="wallet-overview-label">Active wallet</span>
+          <strong className="wallet-overview-value wallet-overview-value--accent">
+            {activeWallet ? formatCurrency(Number(activeWallet.budget)) : "—"}
+          </strong>
+          <span className="wallet-overview-sub" title={activeWallet?.name}>
+            {activeWallet ? activeWallet.name : "No active wallet"}
+          </span>
+        </div>
+        <div className="wallet-overview-stat">
+          <span className="wallet-overview-label">Archived</span>
+          <strong className="wallet-overview-value">{archivedCount}</strong>
+          <span className="wallet-overview-sub">
+            {archivedCount === 1 ? "wallet" : "wallets"} kept for history
+          </span>
+        </div>
+      </section>
+
       <div className="wallet-grid">
-        <article className="settings-card">
-          <div className="settings-card-heading settings-card-header">
-            <div className="settings-card-title">
-              <span aria-hidden="true">
+        {/* Your wallets */}
+        <article className="settings-card wallet-panel-card">
+          <div className="wallet-card-header">
+            <div className="wallet-card-title-group">
+              <span className="wallet-card-header-icon" aria-hidden="true">
                 <FaWallet />
               </span>
-              <div>
+              <div className="wallet-card-title-wrap">
                 <p className="settings-eyebrow">Your Wallets</p>
-                <h2>Manage your active wallets</h2>
+                <h2 className="wallet-card-title">Manage your wallets</h2>
               </div>
             </div>
-            
-            <div className="wallet-controls-container">
-              <div 
-                className={`wallet-search-wrapper ${isSearchExpanded ? 'wallet-search-wrapper--expanded' : 'wallet-search-wrapper--collapsed'}`}
-                onClick={() => {
-                  if (!isSearchExpanded) setIsSearchExpanded(true);
-                }}
-              >
-                <button 
-                  className="wallet-search-icon-btn" 
-                  aria-label="Search"
-                  onClick={(e) => {
-                    if (isSearchExpanded) {
-                      e.stopPropagation();
-                      setIsSearchExpanded(false);
-                      setActiveSearchQuery("");
-                    }
-                  }}
+
+            <button
+              className="settings-button settings-button--primary wallet-new-btn"
+              onClick={() => setIsModalOpen(true)}
+              type="button"
+            >
+              <FaPlus aria-hidden="true" /> New Wallet
+            </button>
+          </div>
+
+          <div className="wallet-toolbar">
+            <div className="wallet-search-bar">
+              <FaSearch className="wallet-search-icon" aria-hidden="true" />
+              <input
+                type="text"
+                className="wallet-search-input"
+                placeholder="Search wallets..."
+                value={activeSearchQuery}
+                onChange={(e) => setActiveSearchQuery(e.target.value)}
+                aria-label="Search wallets"
+              />
+              {activeSearchQuery && (
+                <button
+                  type="button"
+                  className="wallet-search-clear-btn"
+                  onClick={() => setActiveSearchQuery("")}
+                  aria-label="Clear search"
                 >
-                  <FaSearch />
+                  <FaTimes aria-hidden="true" />
                 </button>
-                {isSearchExpanded && (
-                  <input 
-                    type="text" 
-                    className="wallet-search-input" 
-                    placeholder="Search wallets..." 
-                    value={activeSearchQuery}
-                    onChange={(e) => setActiveSearchQuery(e.target.value)}
-                    autoFocus
-                  />
-                )}
-              </div>
+              )}
+            </div>
 
-              <select 
-                className="wallet-filter-select"
+            <div className="wallet-dropdown-container">
+              <CustomSelect
+                fit
                 value={activeSort}
-                onChange={(e) => setActiveSort(e.target.value)}
-              >
-                <option value="Highest Budget">Highest Budget</option>
-                <option value="Lowest Budget">Lowest Budget</option>
-                <option value="A-Z">A-Z</option>
-                <option value="Newest - Oldest">Newest - Oldest</option>
-                <option value="Oldest - Newest">Oldest - Newest</option>
-              </select>
-
-              <button 
-                className="settings-button settings-button--primary"
-                onClick={() => setIsModalOpen(true)}
-                style={{ margin: 0 }}
-              >
-                <FaPlus aria-hidden="true" style={{ marginRight: '0.4rem' }} /> New Wallet
-              </button>
+                onChange={(val) => setActiveSort(val)}
+                options={[
+                  { value: "Highest Budget", label: "Highest Budget" },
+                  { value: "Lowest Budget", label: "Lowest Budget" },
+                  { value: "A-Z", label: "A-Z" },
+                  { value: "Newest - Oldest", label: "Newest - Oldest" },
+                  { value: "Oldest - Newest", label: "Oldest - Newest" }
+                ]}
+              />
             </div>
           </div>
+
           <div className="settings-wallet-list">
             {filteredActiveWallets.length === 0 ? (
               <p className="settings-wallet-empty">No wallets found matching your search or filters.</p>
             ) : (
-              filteredActiveWallets.map((w) => (
-                <div
-                  key={w.id}
-                  className={`settings-action-panel settings-wallet-item${w.id === activeWalletId ? " settings-wallet-item--active" : ""}`}
-                >
-                  {editId === w.id ? (
-                    <>
-                      <div className="settings-wallet-info settings-wallet-edit-grid">
-                        <input
-                          type="text"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          placeholder="Wallet Name"
-                          className="settings-form-input"
-                        />
-                        <input
-                          type="number"
-                          value={editBudget}
-                          onChange={(e) => setEditBudget(e.target.value)}
-                          placeholder="Budget"
-                          min="0.01"
-                          step="0.01"
-                          className="settings-form-input"
-                        />
+              filteredActiveWallets.map((w) => {
+                const isActive = w.id === activeWalletId;
+                const share = totalBudget > 0 ? (Number(w.budget) / totalBudget) * 100 : 0;
+                return editId === w.id ? (
+                  <div key={w.id} className="settings-action-panel settings-wallet-item">
+                    <div className="settings-wallet-edit-container">
+                      <div className="settings-wallet-edit-grid">
+                        <label className="settings-form-label">
+                          Wallet Name
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            placeholder="Wallet Name"
+                            className="settings-form-input"
+                            autoFocus
+                          />
+                        </label>
+                        <label className="settings-form-label">
+                          Budget (PHP)
+                          <input
+                            type="number"
+                            value={editBudget}
+                            onChange={(e) => setEditBudget(e.target.value)}
+                            placeholder="Budget"
+                            min="0.01"
+                            step="0.01"
+                            className="settings-form-input"
+                          />
+                        </label>
                       </div>
                       <div className="settings-wallet-actions">
                         <button
-                          className="settings-button settings-button--primary"
+                          className="settings-button settings-button--primary settings-wallet-btn-half"
                           onClick={() => handleEditSave(w.id)}
                           type="button"
                         >
                           Save
                         </button>
                         <button
-                          className="settings-button settings-button--secondary"
+                          className="settings-button settings-button--secondary settings-wallet-btn-half"
                           onClick={handleEditCancel}
                           type="button"
                         >
                           Cancel
                         </button>
                       </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="settings-wallet-header">
-                        <div className="settings-wallet-info">
-                          <strong>{w.name}</strong>
-                          <span className="settings-wallet-budget">{formatCurrency(Number(w.budget))}</span>
-                        </div>
-                        {w.id === activeWalletId && (
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    key={w.id}
+                    className={`settings-action-panel wallet-row${isActive ? " wallet-row--active" : ""}`}
+                  >
+                    <div className="wallet-row-main">
+                      <div className="wallet-row-title">
+                        <strong className="settings-wallet-name" title={w.name}>{w.name}</strong>
+                        {isActive && (
                           <span className="settings-wallet-active-badge">
                             <FaCheck aria-hidden="true" /> Active
                           </span>
                         )}
                       </div>
-                      <div className="settings-wallet-actions">
-                        {w.id !== activeWalletId && (
+                      <div className="wallet-row-share" aria-hidden="true">
+                        <span style={{ width: `${share}%` }} />
+                      </div>
+                      <span className="wallet-row-share-label">{Math.round(share)}% of total balance</span>
+                    </div>
+                    <div className="wallet-row-side">
+                      <span className="settings-wallet-budget">{formatCurrency(Number(w.budget))}</span>
+                      <div className="wallet-row-actions">
+                        {!isActive && (
                           <button
-                            className="settings-button settings-button--secondary"
+                            className="settings-wallet-set-active-btn"
                             onClick={() => handleSetActive(w.id)}
                             type="button"
-                            style={{ flex: 1, minWidth: "120px", margin: 0 }}
+                            aria-label={`Set ${w.name} as active wallet`}
                           >
                             Set Active
                           </button>
                         )}
                         <button
-                          className="settings-button settings-button--secondary"
+                          className="wallet-icon-btn"
                           onClick={() => handleEdit(w)}
                           type="button"
-                          style={{ flex: 1, minWidth: "120px", margin: 0 }}
+                          aria-label={`Edit ${w.name}`}
+                          title="Edit"
                         >
-                          <FaEdit aria-hidden="true" /> Edit
+                          <FaEdit aria-hidden="true" />
                         </button>
                         <button
-                          className="settings-button settings-button--danger"
+                          className="wallet-icon-btn wallet-icon-btn--danger"
                           onClick={() => setConfirmDeleteId(w.id)}
                           type="button"
-                          style={{ flex: 1, minWidth: "120px", margin: 0 }}
+                          aria-label={`Delete ${w.name}`}
+                          title="Delete"
                         >
-                          <FaTrash aria-hidden="true" /> Delete
+                          <FaTrash aria-hidden="true" />
                         </button>
                       </div>
-                    </>
-                  )}
-                </div>
-              ))
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </article>
 
-        <article className="settings-card">
-          <div className="settings-card-heading settings-card-header">
-            <div className="settings-card-title">
-              <span aria-hidden="true">
+        {/* Wallet history */}
+        <article className="settings-card wallet-panel-card">
+          <div className="wallet-card-header">
+            <div className="wallet-card-title-group">
+              <span className="wallet-card-header-icon" aria-hidden="true">
                 <FaHistory />
               </span>
-              <div>
+              <div className="wallet-card-title-wrap">
                 <p className="settings-eyebrow">Log</p>
-                <h2>History of Wallets</h2>
+                <h2 className="wallet-card-title">Wallet history</h2>
               </div>
-            </div>
-
-            <div className="wallet-controls-container">
-              <div className="wallet-search-wrapper wallet-search-wrapper--permanent">
-                <button className="wallet-search-icon-btn" aria-label="Search icon" style={{ cursor: 'default' }}>
-                  <FaSearch />
-                </button>
-                <input 
-                  type="text" 
-                  className="wallet-search-input" 
-                  placeholder="Search history..." 
-                  value={historySearchQuery}
-                  onChange={(e) => setHistorySearchQuery(e.target.value)}
-                />
-              </div>
-
-              <select 
-                className="wallet-filter-select"
-                value={historyFilter}
-                onChange={(e) => setHistoryFilter(e.target.value)}
-              >
-                <option value="All">All</option>
-                <option value="Active Only">Active Only</option>
-                <option value="Archived Only">Archived Only</option>
-              </select>
             </div>
           </div>
+
+          <div className="wallet-toolbar">
+            <div className="wallet-search-bar">
+              <FaSearch className="wallet-search-icon" aria-hidden="true" />
+              <input
+                type="text"
+                className="wallet-search-input"
+                placeholder="Search history..."
+                value={historySearchQuery}
+                onChange={(e) => setHistorySearchQuery(e.target.value)}
+                aria-label="Search wallet history"
+              />
+              {historySearchQuery && (
+                <button
+                  type="button"
+                  className="wallet-search-clear-btn"
+                  onClick={() => setHistorySearchQuery("")}
+                  aria-label="Clear search"
+                >
+                  <FaTimes aria-hidden="true" />
+                </button>
+              )}
+            </div>
+
+            <div className="wallet-dropdown-container">
+              <CustomSelect
+                fit
+                value={historyFilter}
+                onChange={(val) => setHistoryFilter(val)}
+                options={[
+                  { value: "All", label: "All" },
+                  { value: "Active Only", label: "Active Only" },
+                  { value: "Archived Only", label: "Archived Only" }
+                ]}
+              />
+            </div>
+          </div>
+
           <div className="settings-wallet-list">
             {filteredHistoryWallets.length === 0 ? (
               <p className="settings-wallet-empty">No wallet history found.</p>
             ) : (
               filteredHistoryWallets.map((w) => (
-                <div key={w.id} className="settings-action-panel settings-wallet-item" style={{ opacity: w.deletedAt ? 0.6 : 1 }}>
-                  <div className="settings-wallet-info" style={{ width: '100%' }}>
-                    <div className="settings-wallet-header">
-                      <div className="settings-card-title" style={{ gap: '0.5rem' }}>
-                        <strong style={{ textDecoration: w.deletedAt ? 'line-through' : 'none' }}>{w.name}</strong>
-                        {w.deletedAt && (
-                          <span style={{ fontSize: '0.7rem', background: 'var(--buck-surface)', color: 'var(--buck-muted)', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid var(--buck-line)' }}>
-                            Archived
-                          </span>
-                        )}
-                      </div>
-                      <span className="settings-wallet-budget">{formatCurrency(Number(w.budget))}</span>
-                    </div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--buck-muted)', marginTop: '0.4rem', display: 'block' }}>
-                      Added on {new Date(w.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                <div
+                  key={w.id}
+                  className={`settings-action-panel wallet-history-row${w.deletedAt ? " wallet-history-row--archived" : ""}`}
+                >
+                  <div className="wallet-row-main">
+                    <div className="wallet-row-title">
+                      <strong className="settings-wallet-name" title={w.name}>{w.name}</strong>
                       {w.deletedAt && (
-                        <> • Deleted on {new Date(w.deletedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</>
+                        <span className="settings-wallet-archived-badge">Archived</span>
                       )}
+                    </div>
+                    <span className="settings-wallet-history-dates">
+                      Added {formatLongDate(w.createdAt)}
+                      {w.deletedAt && <> • Deleted {formatLongDate(w.deletedAt)}</>}
                     </span>
                   </div>
+                  <span className="settings-wallet-budget">{formatCurrency(Number(w.budget))}</span>
                 </div>
               ))
             )}
           </div>
         </article>
-
-
       </div>
+      </>
+      ) : (
+      <>
+      {/* KPI: monthly cash flow (income vs expenses), shared formulas with the mobile app */}
+      <MonthlyCashFlowCard cashFlow={cashFlow} />
 
-      {confirmDeleteId && (
-        <div className="settings-modal-backdrop" onClick={() => setConfirmDeleteId(null)}>
-          <div className="settings-modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0, color: "var(--buck-ink)" }}>Delete Wallet</h3>
-            <p style={{ color: "var(--buck-muted)" }}>
-              Are you sure you want to delete this wallet? This action cannot be undone.
-            </p>
-            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", marginTop: "1.5rem" }}>
-              <button
-                className="settings-button settings-button--secondary"
-                onClick={() => setConfirmDeleteId(null)}
-              >
-                Cancel
-              </button>
-              <button
-                className="settings-button settings-button--danger"
-                onClick={async () => {
-                  await handleDelete(confirmDeleteId);
-                  setConfirmDeleteId(null);
-                }}
-              >
-                Delete
-              </button>
+      <article className="settings-card wallet-panel-card">
+        <div className="wallet-card-header">
+          <div className="wallet-card-title-group">
+            <span className="wallet-card-header-icon" aria-hidden="true">
+              <FaMoneyBillWave />
+            </span>
+            <div className="wallet-card-title-wrap">
+              <p className="settings-eyebrow">Income</p>
+              <h2 className="wallet-card-title">Income history</h2>
             </div>
           </div>
+          <button
+            className="settings-button settings-button--primary wallet-new-btn"
+            onClick={() => setIncomeModalOpen(true)}
+            type="button"
+            disabled={!incomeTracked}
+          >
+            <FaPlus aria-hidden="true" /> Add Income
+          </button>
         </div>
+
+          <div className="wallet-toolbar">
+            <div className="wallet-search-bar">
+              <FaSearch className="wallet-search-icon" aria-hidden="true" />
+              <input
+                type="text"
+                className="wallet-search-input"
+                placeholder="Search income..."
+                value={incomeSearchQuery}
+                onChange={(e) => setIncomeSearchQuery(e.target.value)}
+                aria-label="Search income history"
+              />
+              {incomeSearchQuery && (
+                <button
+                  type="button"
+                  className="wallet-search-clear-btn"
+                  onClick={() => setIncomeSearchQuery("")}
+                  aria-label="Clear search"
+                >
+                  <FaTimes aria-hidden="true" />
+                </button>
+              )}
+            </div>
+          </div>
+          {user && (
+            <IncomeList
+              embedded
+              query={incomeSearchQuery}
+              userId={user.uid}
+              incomes={incomes}
+              tracked={incomeTracked}
+              onAdd={() => setIncomeModalOpen(true)}
+              onChanged={() => {
+                void refreshIncomes();
+                void fetchWallets();
+              }}
+            />
+          )}
+      </article>
+      </>
       )}
-      {isModalOpen && (
-        <WalletModal
-          open={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+      </div>
+
+      {user && (
+        <AddIncomeModal
+          open={incomeModalOpen}
+          userId={user.uid}
+          onClose={() => setIncomeModalOpen(false)}
+          onSaved={() => {
+            void refreshIncomes();
+            void fetchWallets();
+          }}
         />
       )}
+
+      <AnimatePresence>
+        {confirmDeleteId && (
+          <motion.div 
+            className="settings-modal-backdrop" 
+            onClick={() => setConfirmDeleteId(null)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div 
+              className="settings-modal-content" 
+              onClick={(e) => e.stopPropagation()}
+              initial={{ y: 20, opacity: 0, scale: 0.95 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 20, opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+            >
+              <h3 style={{ marginTop: 0, color: "var(--buck-ink)" }}>Delete Wallet</h3>
+              <p style={{ color: "var(--buck-muted)" }}>
+                Are you sure you want to delete this wallet? This action cannot be undone.
+              </p>
+              <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", marginTop: "1.5rem" }}>
+                <button
+                  className="settings-button settings-button--secondary"
+                  onClick={() => setConfirmDeleteId(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="settings-button settings-button--danger"
+                  onClick={async () => {
+                    await handleDelete(confirmDeleteId);
+                    setConfirmDeleteId(null);
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {isModalOpen && (
+          <WalletModal
+            open={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,0 +1,205 @@
+.container {
+  position: relative;
+  width: 100%;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 42px;
+  padding: 0.62rem 0.75rem;
+  color: var(--buck-ink);
+  background: rgba(255, 250, 244, 0.72);
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+  font-size: 1rem;
+  /* Trigger shows the current choice: medium weight, never heavy (ADR-013). */
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+html[data-buck-theme="dark"] .trigger {
+  background: rgba(255, 197, 71, 0.08);
+}
+
+.trigger:focus,
+.trigger.open {
+  border-color: rgba(244, 117, 54, 0.62);
+  box-shadow: 0 0 0 4px rgba(244, 117, 54, 0.14);
+}
+
+.disabled .trigger {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.triggerContent {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.prefixIcon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--buck-orange);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* fit: trigger is as wide as the longest option label (never truncated) */
+.fit {
+  width: max-content;
+  max-width: 100%;
+}
+
+.fit .triggerContent {
+  overflow: visible;
+}
+
+.labelStack {
+  display: grid;
+  white-space: nowrap;
+}
+
+.labelSizer,
+.labelCurrent {
+  grid-area: 1 / 1;
+}
+
+.labelSizer {
+  visibility: hidden;
+}
+
+.sizeSm .labelStack {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.icon {
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+  color: var(--buck-muted);
+  transition: transform 180ms ease;
+}
+
+.iconOpen {
+  transform: rotate(180deg);
+}
+
+/* Small variant for toolbars */
+.sizeSm .trigger {
+  min-height: 38px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+.sizeSm .label {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.sizeSm .icon {
+  font-size: 0.72rem;
+  margin-left: 0.35rem;
+}
+
+.sizeSm .dropdown {
+  min-width: 100%;
+  width: max-content;
+  max-width: 270px;
+  right: 0;
+  left: auto;
+}
+
+.sizeSm .option {
+  padding: 0.45rem 0.7rem;
+  font-size: 0.82rem;
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: #fffaf6;
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(94, 59, 34, 0.14);
+  overflow: hidden;
+}
+
+html[data-buck-theme="dark"] .dropdown {
+  background: #17100c;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+}
+
+.list {
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.list::-webkit-scrollbar-thumb {
+  background: rgba(244, 117, 54, 0.3);
+  border-radius: 4px;
+}
+
+.option {
+  padding: 0.5rem 0.75rem;
+  color: #241409;
+  border-radius: 6px;
+  cursor: pointer;
+  /* Dropdown items are regular weight (Design.md "Dropdown Typography").
+     The selected item is marked by colour and background, not boldness. */
+  font-weight: 400;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+html[data-buck-theme="dark"] .option {
+  color: #fff8ed;
+}
+
+.option:hover {
+  background: rgba(244, 117, 54, 0.1);
+  color: var(--buck-orange);
+}
+
+html[data-buck-theme="dark"] .option:hover {
+  background: rgba(244, 117, 54, 0.15);
+}
+
+.selected {
+  background: rgba(244, 117, 54, 0.15);
+  color: var(--buck-orange);
+  font-weight: 500;
+}
+
+html[data-buck-theme="dark"] .selected {
+  background: rgba(244, 117, 54, 0.2);
+}

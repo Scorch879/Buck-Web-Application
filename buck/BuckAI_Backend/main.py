@@ -1,175 +1,185 @@
-from fastapi import FastAPI, Request, Body
-from pydantic import BaseModel
-from ai_models import get_multiplier, predict_future_expense, generate_ai_tip, get_expense_category
-from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime
-from typing import Optional, List, Dict
-import re
 import logging
+import os
+import re
+from collections import defaultdict
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Literal, Optional
 
-app = FastAPI()
-logger = logging.getLogger(__name__)
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
+from ai_models import generate_ai_tip, get_expense_category
+from auth import enforce_rate_limit
+
+logger = logging.getLogger("buckai")
+
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+
+allowed_origins_env = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000,https://bucktbt-dev.vercel.app"
+)
+allowed_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+
+# Auth is a bearer token, not a cookie, so credentialed CORS is not needed.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Or specify ["http://localhost:3000"] for more security
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=allowed_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
-# In-memory storage for expenses: { (user_id, goal_id): [ {date, amount, description, category} ] }
-expenses_db: Dict[str, List[dict]] = {}
+DATE_PATTERN = r"^\d{4}-\d{2}-\d{2}$"
+MAX_FORECAST_DAYS = 3650
+MAX_FORECAST_EXPENSES = 2000
+
+Attitude = Literal["Normal", "Moderate", "Aggressive"]
+
 
 class GoalInput(BaseModel):
-    goal_name: str
-    target_amount: float
-    attitude: str
-    target_date: str  # Expecting 'YYYY-MM-DD'
+    goal_name: str = Field(min_length=1, max_length=120)
+    target_amount: float = Field(ge=0, le=1_000_000_000_000)
+    attitude: Attitude
+    target_date: str = Field(pattern=DATE_PATTERN)  # 'YYYY-MM-DD'
 
-class TextInput(BaseModel):
-    text: str
 
 class TipInput(BaseModel):
-    category: str
-    user_context: Optional[str] = ""
-    target_date: Optional[str] = None
-    created_at: Optional[str] = None
+    category: str = Field(min_length=1, max_length=80)
+    user_context: Optional[str] = Field(default="", max_length=1000)
+    target_date: Optional[str] = Field(default=None, pattern=DATE_PATTERN)
+    created_at: Optional[str] = Field(default=None, pattern=DATE_PATTERN)
 
-class GoalData(BaseModel):
-    goal_id: str
-    goal_name: str
-    target_amount: float
-    attitude: str
-    target_date: str
+
+class ForecastExpense(BaseModel):
+    date: str = Field(pattern=DATE_PATTERN)
+    amount: float = Field(ge=0, le=1_000_000_000_000)
+
 
 class ForecastInput(BaseModel):
-    goal: dict
-    budget: float
+    goal: Dict[str, Any]
+    budget: float = Field(default=0, ge=0, le=1_000_000_000_000)
+    # Spent-to-date comes from the caller's own records (Supabase); the service keeps no state.
+    expenses: List[ForecastExpense] = Field(default_factory=list, max_length=MAX_FORECAST_EXPENSES)
 
-class ExpenseInput(BaseModel):
-    user_id: str
-    goal_id: str
-    date: str  # 'YYYY-MM-DD'
-    amount: float
-    description: str
+
+class CategorizeInput(BaseModel):
+    description: str = Field(min_length=1, max_length=300)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled error on %s", request.url.path)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error."})
+
+
+def _ai_unavailable(context: str) -> HTTPException:
+    logger.exception("AI provider call failed: %s", context)
+    return HTTPException(status_code=502, detail="The AI service is unavailable right now.")
+
 
 @app.post("/ai/goal_recommendation/")
-def ai_goal_recommendation(goal: GoalInput):
-    # Use TogetherAI for the recommendation
+def ai_goal_recommendation(goal: GoalInput, user_id: str = Depends(enforce_rate_limit)):
     try:
-        user_context = f"Attitude: {goal.attitude}, Target Amount: {goal.target_amount}"
         tip = generate_ai_tip(
             category="goal recommendation",
-            user_context=user_context,
+            user_context=f"Attitude: {goal.attitude}, Target Amount: {goal.target_amount:.2f}",
             target_date=goal.target_date,
-            created_at=datetime.today().strftime("%Y-%m-%d")
+            created_at=datetime.today().strftime("%Y-%m-%d"),
         )
-        return {"recommendation": tip}
-    except Exception as e:
-        logger.exception("Error generating goal recommendation")
-        return {"error": "An internal error occurred."}
+    except Exception:
+        raise _ai_unavailable("goal_recommendation")
+    return {"recommendation": tip}
+
 
 @app.post("/ai/saving_tip/")
-def saving_tip(input: TipInput):
+def saving_tip(input: TipInput, user_id: str = Depends(enforce_rate_limit)):
     try:
         tip = generate_ai_tip(input.category, input.user_context or "", input.target_date, input.created_at)
-        return {"tip": tip}
-    except Exception as e:
-        logger.exception("Error generating saving tip")
-        return {"error": "An internal error occurred."}
-
-@app.post("/expenses/")
-def add_expense(expense: ExpenseInput):
-    # Categorize with TogetherAI
-    try:
-        category = get_expense_category(expense.description)
     except Exception:
-        category = "Uncategorized"
-    key = f"{expense.user_id}:{expense.goal_id}"
-    if key not in expenses_db:
-        expenses_db[key] = []
-    expenses_db[key].append({
-        "date": expense.date,
-        "amount": expense.amount,
-        "description": expense.description,
-        "category": category
-    })
-    return {"success": True, "category": category}
+        raise _ai_unavailable("saving_tip")
+    return {"tip": tip}
 
-@app.get("/expenses/{user_id}/{goal_id}/")
-def get_expenses(user_id: str, goal_id: str):
-    key = f"{user_id}:{goal_id}"
-    return expenses_db.get(key, [])
 
 @app.post("/ai/forecast/")
-def ai_forecast(input: ForecastInput = Body(...)):
+def ai_forecast(input: ForecastInput, user_id: str = Depends(enforce_rate_limit)):
     goal = input.goal
-    budget = input.budget
-    user_id = goal.get("userId") or goal.get("user_id")
-    goal_id = goal.get("id") or goal.get("goal_id")
+    target_amount = goal.get("targetAmount", goal.get("target_amount"))
+    target_date = goal.get("targetDate", goal.get("target_date"))
+    attitude = goal.get("attitude", "Normal")
+
+    if attitude not in ("Normal", "Moderate", "Aggressive"):
+        attitude = "Normal"
+
     try:
-        target_amount = goal.get("targetAmount") or goal.get("target_amount")
-        target_date = goal.get("targetDate") or goal.get("target_date")
-        attitude = goal.get("attitude", "Normal")
-        if target_amount is None or target_date is None or user_id is None or goal_id is None:
-            return {"forecast": "Missing required goal/user info."}
-        # Get expenses for this user/goal
-        key = f"{user_id}:{goal_id}"
-        expenses = expenses_db.get(key, [])
-        # Aggregate actual expenses per day
-        from collections import defaultdict
-        actual_per_day = defaultdict(float)
-        for exp in expenses:
-            actual_per_day[exp["date"]] += exp["amount"]
-        # Forecast future daily expenses (stub: even split of remaining budget)
-        from datetime import datetime, timedelta
-        today = datetime.today().date()
-        target_dt = datetime.strptime(target_date, "%Y-%m-%d").date()
-        days_left = (target_dt - today).days
-        if days_left <= 0:
-            return {"forecast": "The target date has already passed. Please set a future date."}
-        spent = sum(actual_per_day.values())
-        remaining = float(target_amount) - spent
-        forecast_per_day = {}
-        for i in range(days_left):
-            day = (today + timedelta(days=i)).strftime("%Y-%m-%d")
-            forecast_per_day[day] = max(0, remaining / days_left)
-        # AI commentary
-        user_context = f"Attitude: {attitude}, Target Amount: {target_amount}, Wallet Budget: {budget}, Days Left: {days_left}, Spent: {spent}"
+        target_amount = float(target_amount)
+        target_dt = datetime.strptime(str(target_date), "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="A valid goal target amount and target date are required.")
+
+    if target_amount < 0 or target_amount > 1_000_000_000_000:
+        raise HTTPException(status_code=422, detail="Goal target amount is out of range.")
+
+    today = datetime.today().date()
+    days_left = (target_dt - today).days
+    if days_left <= 0:
+        return {"forecast": "The target date has already passed. Please set a future date."}
+    if days_left > MAX_FORECAST_DAYS:
+        raise HTTPException(status_code=422, detail="Target date is too far in the future.")
+
+    actual_per_day: Dict[str, float] = defaultdict(float)
+    for exp in input.expenses:
+        actual_per_day[exp.date] += exp.amount
+
+    spent = round(sum(actual_per_day.values()), 2)
+    remaining = round(target_amount - spent, 2)
+    per_day = round(max(0, remaining / days_left), 2)
+    forecast_per_day = {
+        (today + timedelta(days=i)).strftime("%Y-%m-%d"): per_day for i in range(days_left)
+    }
+
+    user_context = (
+        f"Attitude: {attitude}, Target Amount: {target_amount:.2f}, "
+        f"Wallet Budget: {input.budget:.2f}, Days Left: {days_left}, Spent: {spent:.2f}"
+    )
+    try:
         tip = generate_ai_tip(
             category="forecast",
             user_context=user_context,
-            target_date=target_date,
-            created_at=today.strftime("%Y-%m-%d")
+            target_date=target_dt.strftime("%Y-%m-%d"),
+            created_at=today.strftime("%Y-%m-%d"),
         )
-        # Extract recommended budget from AI response
-        ai_recommended_budget = None
-        match = re.search(r"save\s+([\d,]+)\s*(?:per month|monthly|a month|each month|every month|per week|weekly|a week|each week|every week)?", tip.replace(',', ''))
-        if match:
-            try:
-                ai_recommended_budget = float(match.group(1).replace(',', ''))
-            except Exception:
-                ai_recommended_budget = None
-        return {
-            "forecast": tip,
-            "forecast_per_day": forecast_per_day,
-            "actual_per_day": dict(actual_per_day),
-            "days_left": days_left,
-            "spent": spent,
-            "remaining": remaining,
-            "ai_recommended_budget": ai_recommended_budget
-        }
-    except Exception as e:
-        logger.exception("Error generating forecast")
-        return {"error": "An internal error occurred."}
+    except Exception:
+        raise _ai_unavailable("forecast")
+
+    ai_recommended_budget = None
+    match = re.search(
+        r"save\s+([\d,]+)\s*(?:per month|monthly|a month|each month|every month|per week|weekly|a week|each week|every week)?",
+        tip.replace(",", ""),
+    )
+    if match:
+        try:
+            ai_recommended_budget = float(match.group(1).replace(",", ""))
+        except ValueError:
+            ai_recommended_budget = None
+
+    return {
+        "forecast": tip,
+        "forecast_per_day": forecast_per_day,
+        "actual_per_day": dict(actual_per_day),
+        "days_left": days_left,
+        "spent": spent,
+        "remaining": remaining,
+        "ai_recommended_budget": ai_recommended_budget,
+    }
+
 
 @app.post("/ai/categorize_expense/")
-def categorize_expense(expense: dict):
-    description = expense.get("description", "")
-    if not description:
-        return {"error": "Missing description"}
-    from ai_models import get_expense_category
-    category = get_expense_category(description)
+def categorize_expense(expense: CategorizeInput, user_id: str = Depends(enforce_rate_limit)):
+    try:
+        category = get_expense_category(expense.description)
+    except Exception:
+        raise _ai_unavailable("categorize_expense")
     return {"category": category}
-

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAdminUser } from "@/utils/adminAccess";
 import { createServerClient } from "@supabase/ssr";
 import { supabaseAnonKey, supabaseCookieOptions, supabaseUrl } from "@/utils/supabaseConfig";
 import { cookies } from "next/headers";
@@ -17,7 +18,7 @@ export async function GET() {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user || user.email !== "buckthebudgettracker@gmail.com") {
+  if (!isAdminUser(user)) {
     return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
   }
 

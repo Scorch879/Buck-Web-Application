@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import DashboardClientLayout from "@/component/DashboardClientLayout";
+import { isAdminUser } from "@/utils/adminAccess";
 import { toBuckUser } from "@/utils/authUser";
 import { isDesignPreviewMode } from "@/utils/designPreview";
 import {
@@ -33,7 +34,7 @@ export default async function DashboardLayout({
       redirect("/sign-in?redirectTo=/dashboard/home");
     }
 
-    initialUser = toBuckUser(user);
+    initialUser = toBuckUser(user, isAdminUser(user));
   }
 
   return (

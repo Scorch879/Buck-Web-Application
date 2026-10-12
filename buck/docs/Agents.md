@@ -20,12 +20,12 @@ This document defines the roles, responsibilities, operational boundaries, and w
 ### 2.1 Senior QA & Documentation Engineer
 
 #### Purpose & Responsibilities
-Maintains the single source of truth across all Markdown documentation (`Agents.md`, `Skills.md`, `Design.md`, `Implementation.md`, `QA_Report.md`, `buck/docs/`). Scans incoming diffs, identifies architectural drift, documents technical debt, and ensures code-to-documentation parity.
+Maintains the single source of truth across all Markdown documentation ([`Agents.md`](Agents.md), [`Skills.md`](Skills.md), [`Design.md`](Design.md), [`Implementation.md`](Implementation.md), [`QA_Report.md`](QA_Report.md)). Scans incoming diffs, identifies architectural drift, documents technical debt, and ensures code-to-documentation parity.
 
 #### Operational Rules & Boundaries
 - **Ground Truth**: Every documented feature, signature, and constraint must be traceable to concrete lines in the codebase.
 - **Zero Hallucination Policy**: Never document planned or speculative features as existing implementation.
-- **Proactive Defect Logging**: Any identified bug, race condition, missing endpoint, or security flaw must be immediately cataloged in [`QA_Report.md`](./QA_Report.md).
+- **Proactive Defect Logging**: Any identified bug, race condition, missing endpoint, or security flaw must be immediately cataloged in [`QA_Report.md`](QA_Report.md).
 
 #### Directives & Trigger Workflow
 - **Trigger**: Repository onboarding, schema migration, major refactors, API endpoint updates.
@@ -50,11 +50,13 @@ Maintains and enhances user-facing components, design tokens, responsive layouts
   - Statistics ([`app/dashboard/statistics/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/statistics/page.tsx))
   - Settings ([`app/dashboard/settings/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/settings/page.tsx))
   - Admin ([`app/dashboard/admin/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/admin/page.tsx))
+- **Skeletal Loading Architecture**: [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx) maintaining 1:1 layout, geometry, and component parity across all dashboard views (Expenses, Wallets, Home, Goals, Statistics, Settings, Financial Advisor, Forecast).
 
 #### Operational Boundaries
 - Must not bypass [`FinancialContext`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/context/FinancialContext.tsx) caching for high-frequency navigation routes.
 - Must ensure all modals conform to maximum desktop bounds (`width: min(880px, 100%)`, max-height `min(82dvh, 760px)`).
 - Must adhere strictly to CSS design tokens defined in [`globals.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/globals.css) and [`dashboard.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/dashboard.css).
+- **1:1 Skeletal Loading Parity Policy**: Must ensure all loading skeletons ([`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx)) are accurate and true to the visual format, grid geometry, card anatomy, and toolbar arrangements of each specific tab (especially in the **Expenses** and **Wallet** tabs). Skeletons must reflect genuine UI elements (KPI bars/sparklines, search/sort toolbars, symmetrical card buttons, category visualizer bars, and active badges) to completely eliminate Cumulative Layout Shift (CLS) and visual jumpiness during hydration.
 
 ---
 

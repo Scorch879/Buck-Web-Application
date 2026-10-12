@@ -1,14 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseAdminClient } from "@/utils/supabase/admin";
 import { isSupabaseAdminConfigured } from "@/utils/supabaseConfig";
+import { isBearerAuthorized } from "@/utils/secureCompare";
 
+// Vercel Cron authenticates with CRON_SECRET; manual runs use ACCOUNT_PURGE_SECRET.
 function isAuthorized(request: NextRequest) {
-  const expectedSecret = process.env.ACCOUNT_PURGE_SECRET?.trim();
-  const authorization = request.headers.get("authorization") || "";
+  const authorization = request.headers.get("authorization");
 
   return (
-    expectedSecret &&
-    authorization === `Bearer ${expectedSecret}`
+    isBearerAuthorized(authorization, process.env.CRON_SECRET) ||
+    isBearerAuthorized(authorization, process.env.ACCOUNT_PURGE_SECRET)
   );
 }
 
@@ -29,6 +30,13 @@ async function removeAvatarFolder(userId: string, avatarPath?: string | null) {
   if (paths.size) {
     await admin.storage.from("profile-avatars").remove(Array.from(paths));
   }
+}
+
+export const maxDuration = 300;
+
+// Vercel Cron issues GET requests.
+export async function GET(request: NextRequest) {
+  return POST(request);
 }
 
 export async function POST(request: NextRequest) {
@@ -62,8 +70,9 @@ export async function POST(request: NextRequest) {
     .limit(25);
 
   if (error) {
+    console.error("Account purge lookup failed:", error.message);
     return NextResponse.json(
-      { success: false, message: error.message },
+      { success: false, message: "Could not list accounts to purge." },
       { status: 500 }
     );
   }
@@ -91,9 +100,17 @@ export async function POST(request: NextRequest) {
 
     const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
 
-    if (!deleteError) {
-      purgedUserIds.push(userId);
+    if (deleteError) {
+      // Release the claim so the next run retries instead of orphaning the row.
+      console.error("Account purge failed:", userId, deleteError.message);
+      await admin
+        .from("account_deletion_requests")
+        .update({ purge_started_at: null })
+        .eq("id", requestRow.id);
+      continue;
     }
+
+    purgedUserIds.push(userId);
   }
 
   return NextResponse.json({

@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "@/utils/supabase";
+import { toLocalDateString } from "@/utils/cashFlow";
 import {
   designPreviewUserId,
   isDesignPreviewMode,
@@ -19,6 +20,37 @@ export type BuckExpense = {
   goalId?: string | null;
   walletId?: string | null;
   userId: string;
+};
+
+export type BuckIncome = {
+  id: string;
+  walletId?: string | null;
+  source: string;
+  amount: number;
+  description: string;
+  /** `received_on` as a `YYYY-MM-DD` calendar date. */
+  date: string;
+  createdAt: string;
+};
+
+/** Income sources shared with the Buck mobile app. */
+export const incomeSources = [
+  "Salary",
+  "Allowance",
+  "Freelance",
+  "Business",
+  "Investment",
+  "Gift",
+  "Other",
+] as const;
+
+export type IncomeSource = (typeof incomeSources)[number];
+
+export type AddIncomeResult = {
+  incomeId: string;
+  walletId: string;
+  amount: number;
+  walletBalance: number;
 };
 
 export type BuckGoal = {
@@ -69,7 +101,68 @@ export type BuckFeedback = {
   created_at: string;
 };
 
-type TableName = "wallets" | "categories" | "goals" | "expenses" | "profiles" | "feedback";
+export type BuckAIForecast = {
+  id: string;
+  userId: string;
+  goalId?: string | null;
+  walletId?: string | null;
+  periodType: "weekly" | "monthly" | "quarterly" | "custom";
+  periodStart: string;
+  periodEnd: string;
+  projectedSpending: number;
+  projectedSavings: number;
+  aiRecommendedBudget?: number | null;
+  dailyForecast: Record<string, number>;
+  actualSpendingSnapshot: number;
+  summary: string;
+  warnings: string[];
+  confidenceScore?: number | null;
+  modelName: string;
+  generatedBy: "on_demand" | "cron" | "system";
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt?: string | null;
+};
+
+export type BuckAIAdvisory = {
+  id: string;
+  userId: string;
+  walletId?: string | null;
+  goalId?: string | null;
+  categoryId?: string | null;
+  advisoryType:
+    | "daily_tip"
+    | "weekly_review"
+    | "monthly_strategy"
+    | "category_alert"
+    | "goal_recommendation"
+    | "emergency_warning";
+  title: string;
+  suggestion: string;
+  advice: string;
+  financialHealthScore?: number | null;
+  priority: "low" | "medium" | "high" | "urgent";
+  isRead: boolean;
+  isDismissed: boolean;
+  modelName: string;
+  generatedBy: "on_demand" | "cron" | "system";
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  validUntil?: string | null;
+};
+
+type TableName =
+  | "wallets"
+  | "categories"
+  | "goals"
+  | "expenses"
+  | "incomes"
+  | "profiles"
+  | "feedback"
+  | "ai_forecasts"
+  | "ai_advisories";
 
 const avatarBucketName = "profile-avatars";
 const maxAvatarSizeBytes = 2 * 1024 * 1024;
@@ -231,6 +324,18 @@ function mapExpense(row: Record<string, unknown>): BuckExpense {
   };
 }
 
+function mapIncome(row: Record<string, unknown>): BuckIncome {
+  return {
+    id: String(row.id),
+    walletId: row.wallet_id ? String(row.wallet_id) : null,
+    source: String(row.source || "Other"),
+    amount: toNumber(row.amount),
+    description: String(row.description || ""),
+    date: String(row.received_on || row.created_at || ""),
+    createdAt: row.created_at ? String(row.created_at) : new Date().toISOString(),
+  };
+}
+
 function mapGoal(row: Record<string, unknown>): BuckGoal {
   return {
     id: String(row.id),
@@ -286,6 +391,65 @@ function mapAccountDeletionStatus(
     confirmedAt: row.confirmed_at ? String(row.confirmed_at) : null,
     recoveryUntil: row.recovery_until ? String(row.recovery_until) : null,
     canceledAt: row.canceled_at ? String(row.canceled_at) : null,
+  };
+}
+
+function mapAIForecast(row: Record<string, unknown>): BuckAIForecast {
+  return {
+    id: String(row.id),
+    userId: String(row.user_id),
+    goalId: row.goal_id ? String(row.goal_id) : null,
+    walletId: row.wallet_id ? String(row.wallet_id) : null,
+    periodType: (row.period_type as BuckAIForecast["periodType"]) || "monthly",
+    periodStart: String(row.period_start || ""),
+    periodEnd: String(row.period_end || ""),
+    projectedSpending: toNumber(row.projected_spending),
+    projectedSavings: toNumber(row.projected_savings),
+    aiRecommendedBudget:
+      row.ai_recommended_budget !== null && row.ai_recommended_budget !== undefined
+        ? toNumber(row.ai_recommended_budget)
+        : null,
+    dailyForecast: (row.daily_forecast as Record<string, number>) || {},
+    actualSpendingSnapshot: toNumber(row.actual_spending_snapshot),
+    summary: String(row.summary || ""),
+    warnings: Array.isArray(row.warnings) ? (row.warnings as string[]) : [],
+    confidenceScore:
+      row.confidence_score !== null && row.confidence_score !== undefined
+        ? toNumber(row.confidence_score)
+        : null,
+    modelName: String(row.model_name || "meta-llama/Llama-3.3-70B-Instruct-Turbo"),
+    generatedBy: (row.generated_by as BuckAIForecast["generatedBy"]) || "on_demand",
+    metadata: (row.metadata as Record<string, unknown>) || {},
+    createdAt: String(row.created_at || new Date().toISOString()),
+    updatedAt: String(row.updated_at || new Date().toISOString()),
+    expiresAt: row.expires_at ? String(row.expires_at) : null,
+  };
+}
+
+function mapAIAdvisory(row: Record<string, unknown>): BuckAIAdvisory {
+  return {
+    id: String(row.id),
+    userId: String(row.user_id),
+    walletId: row.wallet_id ? String(row.wallet_id) : null,
+    goalId: row.goal_id ? String(row.goal_id) : null,
+    categoryId: row.category_id ? String(row.category_id) : null,
+    advisoryType: (row.advisory_type as BuckAIAdvisory["advisoryType"]) || "daily_tip",
+    title: String(row.title || "Financial Advisory"),
+    suggestion: String(row.suggestion || ""),
+    advice: String(row.advice || ""),
+    financialHealthScore:
+      row.financial_health_score !== null && row.financial_health_score !== undefined
+        ? Number(row.financial_health_score)
+        : null,
+    priority: (row.priority as BuckAIAdvisory["priority"]) || "medium",
+    isRead: Boolean(row.is_read),
+    isDismissed: Boolean(row.is_dismissed),
+    modelName: String(row.model_name || "meta-llama/Llama-3.3-70B-Instruct-Turbo"),
+    generatedBy: (row.generated_by as BuckAIAdvisory["generatedBy"]) || "on_demand",
+    metadata: (row.metadata as Record<string, unknown>) || {},
+    createdAt: String(row.created_at || new Date().toISOString()),
+    updatedAt: String(row.updated_at || new Date().toISOString()),
+    validUntil: row.valid_until ? String(row.valid_until) : null,
   };
 }
 
@@ -837,7 +1001,7 @@ export async function addExpense(
       category_name: category?.name ?? categoryName,
       amount: expense.amount,
       description: expense.description,
-      spent_on: expense.date || new Date().toISOString().slice(0, 10),
+      spent_on: expense.date || toLocalDateString(new Date()),
     })
     .select(
       "id, user_id, wallet_id, goal_id, category_id, category_name, amount, description, spent_on, created_at"
@@ -1270,26 +1434,39 @@ export async function addExpenseWithWalletDeduction(
     });
   }
 
-  const activeWallet = await getActiveWallet(userId);
+  const supabase = getSupabaseClient();
+  const safeUserId = assertUuid(userId, "user id");
+  const activeWallet = await getActiveWallet(safeUserId);
 
   if (!activeWallet) {
     throw new Error("No active wallet. Please create or select a wallet first.");
   }
 
-  if (expense.amount > activeWallet.budget) {
-    throw new Error("Expense exceeds your wallet balance.");
+  const safeGoalId = expense.goalId
+    ? assertUuid(expense.goalId, "goal id")
+    : null;
+  const categoryName = expense.categoryName?.trim() || "Uncategorized";
+  const category =
+    categoryName === "Uncategorized"
+      ? null
+      : await getCategoryByName(safeUserId, categoryName);
+
+  // Single transaction: conditional wallet debit + expense insert (see add_expense_atomic).
+  const { data, error } = await supabase.rpc("add_expense_atomic", {
+    p_wallet_id: activeWallet.id,
+    p_amount: expense.amount,
+    p_category_id: category?.id ?? null,
+    p_category_name: category?.name ?? categoryName,
+    p_spent_on: expense.date || null,
+    p_description: expense.description,
+    p_goal_id: safeGoalId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
   }
 
-  const savedExpense = await addExpense(userId, {
-    ...expense,
-    walletId: activeWallet.id,
-  });
-
-  await updateWallet(userId, activeWallet.id, {
-    budget: activeWallet.budget - expense.amount,
-  });
-
-  return savedExpense;
+  return mapExpense(data as Record<string, unknown>);
 }
 
 export async function deleteExpenseAndRestoreWallet(
@@ -1329,6 +1506,185 @@ export async function deleteExpenseAndRestoreWallet(
   }
 }
 
+// PostgREST codes for a missing table / function (and Postgres undefined
+// table/function). Income is then reported as "not tracked" instead of failing.
+const incomeMissingCodes = new Set(["PGRST205", "PGRST202", "42P01", "42883"]);
+
+function isIncomeMissingError(error: { code?: string } | null) {
+  return Boolean(error?.code && incomeMissingCodes.has(error.code));
+}
+
+function buildPreviewIncomes(): BuckIncome[] {
+  const now = new Date();
+  const dateOf = (monthOffset: number, day: number) =>
+    toLocalDateString(
+      new Date(now.getFullYear(), now.getMonth() + monthOffset, day)
+    );
+
+  return [
+    {
+      id: "preview-income-1",
+      walletId: "preview-wallet-main",
+      source: "Salary",
+      amount: 25000,
+      description: "Monthly salary",
+      date: dateOf(0, 1),
+      createdAt: `${dateOf(0, 1)}T08:00:00.000Z`,
+    },
+    {
+      id: "preview-income-2",
+      walletId: "preview-wallet-main",
+      source: "Freelance",
+      amount: 4500,
+      description: "Logo design",
+      date: dateOf(0, 2),
+      createdAt: `${dateOf(0, 2)}T08:00:00.000Z`,
+    },
+    {
+      id: "preview-income-3",
+      walletId: "preview-wallet-main",
+      source: "Salary",
+      amount: 25000,
+      description: "Monthly salary",
+      date: dateOf(-1, 1),
+      createdAt: `${dateOf(-1, 1)}T08:00:00.000Z`,
+    },
+  ];
+}
+
+/**
+ * Lists the user's incomes, newest first. Returns `null` when income tracking
+ * is unavailable (table missing), so callers can show "Not tracked yet".
+ */
+export async function listIncomes(
+  userId: string,
+  options: { since?: string } = {}
+): Promise<BuckIncome[] | null> {
+  if (isDesignPreviewMode) {
+    return buildPreviewIncomes();
+  }
+
+  const safeUserId = assertUuid(userId, "user id");
+  const since = options.since;
+  if (since !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(since)) {
+    throw new Error("Invalid since date.");
+  }
+
+  const supabase = getSupabaseClient();
+  const pageSize = 1000;
+  const rows: Record<string, unknown>[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    let query = supabase
+      .from("incomes")
+      .select("id, wallet_id, source, amount, description, received_on, created_at")
+      .eq("user_id", safeUserId)
+      .order("received_on", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (since) {
+      query = query.gte("received_on", since);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      if (isIncomeMissingError(error)) {
+        return null;
+      }
+      throw new Error(error.message);
+    }
+
+    rows.push(...(data ?? []));
+    if (!data || data.length < pageSize) {
+      break;
+    }
+  }
+
+  return rows.map(mapIncome);
+}
+
+/**
+ * Records an income and credits the wallet in one transaction via
+ * `add_income_atomic`. Never insert into `incomes` directly.
+ */
+export async function addIncome(
+  userId: string,
+  income: {
+    walletId: string;
+    amount: number;
+    source: string;
+    description?: string;
+    date: string;
+  }
+): Promise<AddIncomeResult> {
+  if (isDesignPreviewMode) {
+    return {
+      incomeId: `preview-income-${Date.now()}`,
+      walletId: income.walletId,
+      amount: income.amount,
+      walletBalance: 0,
+    };
+  }
+
+  assertUuid(userId, "user id");
+  const safeWalletId = assertUuid(income.walletId, "wallet id");
+  const amount = Math.round(income.amount * 100) / 100;
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("Income amount must be greater than 0.");
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(income.date)) {
+    throw new Error("Invalid income date.");
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.rpc("add_income_atomic", {
+    p_wallet_id: safeWalletId,
+    p_amount: amount,
+    p_source: income.source.trim() || "Other",
+    p_description: income.description?.trim() ?? "",
+    p_received_on: income.date,
+  });
+
+  if (error) {
+    if (isIncomeMissingError(error)) {
+      throw new Error("Income tracking is not available yet.");
+    }
+    throw new Error(error.message);
+  }
+
+  const result = (data ?? {}) as Record<string, unknown>;
+  return {
+    incomeId: String(result.income_id ?? ""),
+    walletId: String(result.wallet_id ?? safeWalletId),
+    amount: toNumber(result.amount),
+    walletBalance: toNumber(result.wallet_balance),
+  };
+}
+
+/** Deletes an income and removes its amount from the wallet (never below 0). */
+export async function deleteIncome(userId: string, incomeId: string) {
+  if (isDesignPreviewMode) {
+    return;
+  }
+
+  assertUuid(userId, "user id");
+  const safeIncomeId = assertUuid(incomeId, "income id");
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.rpc("delete_income_atomic", {
+    p_income_id: safeIncomeId,
+  });
+
+  if (error) {
+    if (isIncomeMissingError(error)) {
+      throw new Error("Income tracking is not available yet.");
+    }
+    throw new Error(error.message);
+  }
+}
+
 export async function submitFeedback(
   userEmail: string,
   category: string,
@@ -1362,7 +1718,8 @@ export async function getAdminFeedback(): Promise<BuckFeedback[]> {
   const { data, error } = await supabase
     .from("feedback")
     .select("*")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(500);
 
   if (error) {
     console.error("Failed to fetch feedback:", error);
@@ -1370,4 +1727,219 @@ export async function getAdminFeedback(): Promise<BuckFeedback[]> {
   }
 
   return data as BuckFeedback[];
+}
+
+export async function getLatestAIForecast(
+  userId: string,
+  periodType: "weekly" | "monthly" | "quarterly" | "custom" = "monthly"
+): Promise<BuckAIForecast | null> {
+  if (isDesignPreviewMode) {
+    return null;
+  }
+
+  const safeUserId = assertUuid(userId, "user id");
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("ai_forecasts")
+    .select("*")
+    .eq("user_id", safeUserId)
+    .eq("period_type", periodType)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Failed to fetch latest AI forecast:", error);
+    throw new Error(error.message);
+  }
+
+  return data ? mapAIForecast(data as Record<string, unknown>) : null;
+}
+
+export async function saveAIForecast(
+  userId: string,
+  forecast: {
+    goalId?: string | null;
+    walletId?: string | null;
+    periodType: "weekly" | "monthly" | "quarterly" | "custom";
+    periodStart: string;
+    periodEnd: string;
+    projectedSpending: number;
+    projectedSavings: number;
+    aiRecommendedBudget?: number | null;
+    dailyForecast?: Record<string, number>;
+    actualSpendingSnapshot?: number;
+    summary: string;
+    warnings?: string[];
+    confidenceScore?: number | null;
+    modelName?: string;
+    generatedBy?: "on_demand" | "cron" | "system";
+    metadata?: Record<string, unknown>;
+    expiresAt?: string | null;
+  }
+): Promise<BuckAIForecast> {
+  if (isDesignPreviewMode) {
+    throw new Error("Cannot save forecast in design preview mode");
+  }
+
+  const safeUserId = assertUuid(userId, "user id");
+  const supabase = getSupabaseClient();
+  const payload = {
+    user_id: safeUserId,
+    goal_id: forecast.goalId ?? null,
+    wallet_id: forecast.walletId ?? null,
+    period_type: forecast.periodType,
+    period_start: forecast.periodStart,
+    period_end: forecast.periodEnd,
+    projected_spending: forecast.projectedSpending,
+    projected_savings: forecast.projectedSavings,
+    ai_recommended_budget: forecast.aiRecommendedBudget ?? null,
+    daily_forecast: forecast.dailyForecast ?? {},
+    actual_spending_snapshot: forecast.actualSpendingSnapshot ?? 0,
+    summary: forecast.summary,
+    warnings: forecast.warnings ?? [],
+    confidence_score: forecast.confidenceScore ?? null,
+    model_name: forecast.modelName ?? "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    generated_by: forecast.generatedBy ?? "on_demand",
+    metadata: forecast.metadata ?? {},
+    expires_at: forecast.expiresAt ?? null,
+  };
+
+  const { data, error } = await supabase
+    .from("ai_forecasts")
+    .insert(payload)
+    .select("*")
+    .single();
+
+  if (error) {
+    console.error("Failed to save AI forecast:", error);
+    throw new Error(error.message);
+  }
+
+  return mapAIForecast(data as Record<string, unknown>);
+}
+
+export async function getLatestAIAdvisories(
+  userId: string,
+  limit = 10
+): Promise<BuckAIAdvisory[]> {
+  if (isDesignPreviewMode) {
+    return [];
+  }
+
+  const safeUserId = assertUuid(userId, "user id");
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("ai_advisories")
+    .select("*")
+    .eq("user_id", safeUserId)
+    .eq("is_dismissed", false)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("Failed to fetch AI advisories:", error);
+    throw new Error(error.message);
+  }
+
+  return (data || []).map((row) => mapAIAdvisory(row as Record<string, unknown>));
+}
+
+export async function saveAIAdvisory(
+  userId: string,
+  advisory: {
+    walletId?: string | null;
+    goalId?: string | null;
+    categoryId?: string | null;
+    advisoryType: BuckAIAdvisory["advisoryType"];
+    title: string;
+    suggestion: string;
+    advice: string;
+    financialHealthScore?: number | null;
+    priority?: BuckAIAdvisory["priority"];
+    modelName?: string;
+    generatedBy?: "on_demand" | "cron" | "system";
+    metadata?: Record<string, unknown>;
+    validUntil?: string | null;
+  }
+): Promise<BuckAIAdvisory> {
+  if (isDesignPreviewMode) {
+    throw new Error("Cannot save advisory in design preview mode");
+  }
+
+  const safeUserId = assertUuid(userId, "user id");
+  const supabase = getSupabaseClient();
+  const payload = {
+    user_id: safeUserId,
+    wallet_id: advisory.walletId ?? null,
+    goal_id: advisory.goalId ?? null,
+    category_id: advisory.categoryId ?? null,
+    advisory_type: advisory.advisoryType,
+    title: advisory.title,
+    suggestion: advisory.suggestion,
+    advice: advisory.advice,
+    financial_health_score: advisory.financialHealthScore ?? null,
+    priority: advisory.priority ?? "medium",
+    is_read: false,
+    is_dismissed: false,
+    model_name: advisory.modelName ?? "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    generated_by: advisory.generatedBy ?? "on_demand",
+    metadata: advisory.metadata ?? {},
+    valid_until: advisory.validUntil ?? null,
+  };
+
+  const { data, error } = await supabase
+    .from("ai_advisories")
+    .insert(payload)
+    .select("*")
+    .single();
+
+  if (error) {
+    console.error("Failed to save AI advisory:", error);
+    throw new Error(error.message);
+  }
+
+  return mapAIAdvisory(data as Record<string, unknown>);
+}
+
+export async function markAIAdvisoryRead(
+  userId: string,
+  advisoryId: string
+): Promise<void> {
+  if (isDesignPreviewMode) return;
+
+  const safeUserId = assertUuid(userId, "user id");
+  const safeAdvisoryId = assertUuid(advisoryId, "advisory id");
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("ai_advisories")
+    .update({ is_read: true })
+    .eq("id", safeAdvisoryId)
+    .eq("user_id", safeUserId);
+
+  if (error) {
+    console.error("Failed to mark advisory as read:", error);
+    throw new Error(error.message);
+  }
+}
+
+export async function dismissAIAdvisory(
+  userId: string,
+  advisoryId: string
+): Promise<void> {
+  if (isDesignPreviewMode) return;
+
+  const safeUserId = assertUuid(userId, "user id");
+  const safeAdvisoryId = assertUuid(advisoryId, "advisory id");
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("ai_advisories")
+    .update({ is_dismissed: true })
+    .eq("id", safeAdvisoryId)
+    .eq("user_id", safeUserId);
+
+  if (error) {
+    console.error("Failed to dismiss advisory:", error);
+    throw new Error(error.message);
+  }
 }

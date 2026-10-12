@@ -25,17 +25,9 @@ function getOrigin(request: NextRequest) {
 }
 
 function getDeletionErrorMessage(error: unknown) {
-  const message =
-    error instanceof Error ? error.message : "Could not request account deletion.";
+  console.error("Account deletion request failed:", error);
 
-  if (
-    message.includes("account_deletion_requests") ||
-    message.includes("schema cache")
-  ) {
-    return "Run the account deletion Supabase migration before deleting accounts.";
-  }
-
-  return message;
+  return "Could not request account deletion right now. Please try again later.";
 }
 
 async function verifyCurrentPassword(email: string, password: string) {

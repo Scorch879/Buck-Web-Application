@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FaArrowRight, FaEye } from "react-icons/fa";
-import "./style.css";
+import styles from "./style.module.css";
 
 const previewRoutes = [
   {
@@ -50,9 +50,9 @@ export default function DesignPreviewPage() {
     process.env.NEXT_PUBLIC_DESIGN_PREVIEW_MODE === "true";
 
   return (
-    <main className="DP-Page">
-      <section className="DP-Hero">
-        <div className="DP-Kicker">
+    <main className={styles["DP-Page"]}>
+      <section className={styles["DP-Hero"]}>
+        <div className={styles["DP-Kicker"]}>
           <FaEye aria-hidden="true" />
           Design Preview
         </div>
@@ -63,8 +63,8 @@ export default function DesignPreviewPage() {
           enabled.
         </p>
         <div
-          className={`DP-Status ${
-            previewEnabled ? "DP-Status--enabled" : "DP-Status--disabled"
+          className={`${styles["DP-Status"]} ${
+            previewEnabled ? styles["DP-Status--enabled"] : styles["DP-Status--disabled"]
           }`}
         >
           {previewEnabled
@@ -73,9 +73,9 @@ export default function DesignPreviewPage() {
         </div>
       </section>
 
-      <section className="DP-Grid" aria-label="Preview routes">
+      <section className={styles["DP-Grid"]} aria-label="Preview routes">
         {previewRoutes.map((route) => (
-          <Link href={route.href} className="DP-Card" key={route.href}>
+          <Link href={route.href} className={styles["DP-Card"]} key={route.href}>
             <span>
               <strong>{route.title}</strong>
               <small>{route.description}</small>

@@ -41,6 +41,7 @@ html {
 }
 
 html[data-buck-theme="dark"] {
+  color-scheme: dark;
   --buck-ink: #fff8ed;
   --buck-muted: #d9c7b6;
   --buck-paper: #17100c;
@@ -112,16 +113,6 @@ input,
 select,
 textarea {
   font: inherit;
-}
-
-select option {
-  background-color: #2d180c;
-  color: #ffffff;
-}
-
-html[data-buck-theme="light"] select option {
-  background-color: #ffffff;
-  color: #000000;
 }
 
 button {

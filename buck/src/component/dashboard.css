@@ -2,7 +2,7 @@
   height: 100dvh;
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  grid-template-columns: minmax(220px, 250px) minmax(0, 1fr);
   align-items: stretch;
   color: var(--buck-ink);
   background: var(--buck-page-background);
@@ -153,9 +153,11 @@ html[data-buck-theme="dark"] .dashboard-mascot {
   justify-content: space-between;
   flex-wrap: wrap;
   width: 100%;
-  gap: 1rem;
-  min-height: 76px;
-  padding: clamp(0.8rem, 1.6vw, 1rem) clamp(1rem, 2.6vw, 1.6rem);
+  gap: 0.75rem;
+  min-height: 84px;
+  /* Equal top/bottom padding keeps the title block and wallet pill centred;
+     ~18px each side gives the title room instead of filling the bar. */
+  padding: clamp(0.95rem, 1.4vw, 1.15rem) clamp(0.75rem, 1.5vw, 1rem);
   color: var(--buck-ink);
   background: rgba(255, 250, 244, 0.82);
   border-bottom: 1px solid transparent;
@@ -192,12 +194,17 @@ html[data-buck-theme="dark"] .dashboard-topbar--welcome {
 
 .dashboard-topbar > div:first-child {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
 .dashboard-topbar p {
   color: var(--buck-orange);
   font-size: 0.76rem;
   font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
   text-transform: uppercase;
 }
 
@@ -205,7 +212,7 @@ html[data-buck-theme="dark"] .dashboard-topbar--welcome {
   margin: 0;
   font-size: clamp(1.2rem, 2.2vw, 1.5rem);
   font-weight: 900;
-  line-height: 1.1;
+  line-height: 1.18;
   letter-spacing: -0.02em;
   white-space: nowrap;
   overflow: hidden;
@@ -546,348 +553,6 @@ html[data-buck-theme="dark"] .mobile-dropdown {
   margin-top: 0.25rem;
 }
 
-.dashboard-skeleton {
-  pointer-events: none;
-}
-
-.dashboard-skeleton.dashboard-container {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(1rem, 2vw, 1.35rem);
-  width: 100%;
-  margin: 0 auto;
-  padding: clamp(1rem, 2.6vw, 1.6rem);
-}
-
-.dashboard-skeleton.settings-page {
-  display: grid;
-  gap: clamp(1rem, 2vw, 1.35rem);
-  width: min(1080px, 100%);
-  margin: 0 auto;
-  padding: clamp(1rem, 2.6vw, 1.6rem);
-}
-
-.dashboard-skeleton.GoalsPage {
-  display: grid;
-  grid-template-columns: minmax(320px, 0.36fr) minmax(0, 1fr);
-  gap: clamp(1rem, 2.4vw, 1.4rem);
-  width: min(1180px, 100%);
-  margin: 0 auto;
-  padding: clamp(1rem, 2.6vw, 1.6rem);
-}
-
-.dashboard-skeleton .dashboard-content {
-  display: grid;
-  grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.7fr);
-  gap: clamp(1rem, 2vw, 1.25rem);
-}
-
-.dashboard-skeleton .dashboard-welcome-card,
-.dashboard-skeleton .spending-card,
-.dashboard-skeleton .graph-card,
-.dashboard-skeleton .summary-card,
-.dashboard-skeleton .summary-item,
-.dashboard-skeleton .settings-hero,
-.dashboard-skeleton .settings-card,
-.dashboard-skeleton .GoalsCard,
-.dashboard-skeleton .GoalsContainer,
-.dashboard-skeleton .goals-card,
-.dashboard-skeleton .goal-details,
-.dashboard-skeleton.graph-panel,
-.dashboard-skeleton .graph-panel {
-  color: var(--buck-ink);
-  background: var(--buck-surface);
-  border: 1px solid var(--buck-line);
-  border-radius: 8px;
-  box-shadow: var(--buck-shadow);
-}
-
-.dashboard-skeleton .dashboard-welcome-card {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  width: min(680px, 100%);
-  min-height: 108px;
-  margin: 0 auto;
-  padding: 1rem 1.25rem;
-}
-
-.dashboard-skeleton .spending-card,
-.dashboard-skeleton .graph-card,
-.dashboard-skeleton .summary-card,
-.dashboard-skeleton .settings-hero,
-.dashboard-skeleton .settings-card,
-.dashboard-skeleton .GoalsCard,
-.dashboard-skeleton .GoalsContainer,
-.dashboard-skeleton .goal-details,
-.dashboard-skeleton .statistics-mode-skeleton,
-.dashboard-skeleton .statistics-empty-skeleton,
-.dashboard-skeleton .graph-panel {
-  padding: clamp(1rem, 2.4vw, 1.5rem);
-}
-
-.dashboard-skeleton .spending-card {
-  display: grid;
-  place-items: center;
-  min-height: 360px;
-}
-
-.dashboard-skeleton .summary-content {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 0.85rem;
-}
-
-.dashboard-skeleton .settings-grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: clamp(0.65rem, 1.2vw, 0.85rem);
-}
-
-.dashboard-skeleton .settings-shell {
-  display: grid;
-  grid-template-columns: minmax(190px, 0.28fr) minmax(0, 1fr);
-  gap: clamp(0.7rem, 1.4vw, 0.95rem);
-}
-
-.dashboard-skeleton .settings-tabs {
-  display: grid;
-  gap: 0.42rem;
-  padding: 0.45rem;
-  align-content: start;
-}
-
-.dashboard-skeleton .settings-grid--single {
-  grid-template-columns: 1fr;
-}
-
-.dashboard-skeleton .settings-card--account {
-  grid-column: 1 / -1;
-}
-
-.dashboard-skeleton .settings-account-layout {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: clamp(0.58rem, 1.1vw, 0.78rem);
-}
-
-.dashboard-skeleton .settings-tab-panel {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(0.62rem, 1.1vw, 0.78rem);
-}
-
-.dashboard-skeleton .settings-section {
-  display: grid;
-  gap: 0.58rem;
-  padding: 0.72rem;
-  border: 1px solid var(--buck-line);
-  border-radius: 8px;
-}
-
-.dashboard-skeleton .settings-card--avatar,
-.dashboard-skeleton .settings-card--identity,
-.dashboard-skeleton .settings-card--email {
-  grid-column: span 2;
-}
-
-.dashboard-skeleton .settings-card--security {
-  grid-column: span 4;
-}
-
-.dashboard-skeleton .settings-card--status {
-  grid-column: span 2;
-}
-
-.dashboard-skeleton .settings-section--status {
-  grid-column: span 4;
-}
-
-.dashboard-skeleton .settings-section--email {
-  grid-column: span 6;
-}
-
-.dashboard-skeleton .settings-section--danger {
-  grid-column: 1 / -1;
-}
-
-.dashboard-skeleton .settings-tab-panel .settings-section--avatar,
-.dashboard-skeleton .settings-tab-panel .settings-section--status {
-  grid-column: 1 / -1;
-}
-
-.dashboard-skeleton .GoalsCard,
-.dashboard-skeleton .GoalsContainer {
-  min-height: calc(100dvh - 128px);
-}
-
-.dashboard-skeleton.statistics-skeleton {
-  align-items: center;
-  justify-content: flex-start;
-  min-height: calc(100dvh - 2rem);
-}
-
-.dashboard-skeleton .statistics-mode-skeleton {
-  width: min(280px, 100%);
-  min-height: 64px;
-  margin: 0 auto;
-}
-
-.dashboard-skeleton .statistics-empty-skeleton {
-  display: grid;
-  gap: 1.15rem;
-  place-items: center;
-  width: min(580px, 100%);
-  min-height: 260px;
-  margin: 0 auto;
-  text-align: center;
-}
-
-.dashboard-skeleton .statistics-chart-skeleton {
-  width: min(900px, 100%);
-  min-height: 360px;
-}
-
-.dashboard-skeleton .goals-list {
-  display: grid;
-  gap: 0.8rem;
-}
-
-.dashboard-skeleton .goal-details-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.8rem;
-}
-
-.dashboard-skeleton-card {
-  position: relative;
-  overflow: hidden;
-}
-
-.dashboard-skeleton-block {
-  display: grid;
-  gap: 0.65rem;
-  width: 100%;
-}
-
-.dashboard-skeleton-line,
-.dashboard-skeleton-avatar,
-.dashboard-skeleton-circle,
-.dashboard-skeleton-bars span {
-  display: block;
-  overflow: hidden;
-  background:
-    linear-gradient(
-      90deg,
-      rgba(255, 197, 71, 0.08) 0%,
-      rgba(244, 117, 54, 0.18) 44%,
-      rgba(255, 197, 71, 0.08) 88%
-    );
-  background-size: 220% 100%;
-  border: 1px solid rgba(244, 117, 54, 0.12);
-  animation: dashboard-skeleton-shimmer 1.35s ease-in-out infinite;
-}
-
-html[data-buck-theme="dark"] .dashboard-skeleton-line,
-html[data-buck-theme="dark"] .dashboard-skeleton-avatar,
-html[data-buck-theme="dark"] .dashboard-skeleton-circle,
-html[data-buck-theme="dark"] .dashboard-skeleton-bars span {
-  background:
-    linear-gradient(
-      90deg,
-      rgba(255, 197, 71, 0.05) 0%,
-      rgba(255, 197, 71, 0.16) 44%,
-      rgba(244, 117, 54, 0.07) 88%
-    );
-  background-size: 220% 100%;
-  border-color: rgba(255, 211, 154, 0.1);
-}
-
-.dashboard-skeleton-line {
-  width: 100%;
-  height: 0.86rem;
-  border-radius: 999px;
-}
-
-.dashboard-skeleton-line:nth-child(2) {
-  width: 72%;
-}
-
-.dashboard-skeleton-line:nth-child(3) {
-  width: 56%;
-}
-
-.dashboard-skeleton-line:nth-child(4) {
-  width: 84%;
-}
-
-.dashboard-skeleton-avatar {
-  flex: 0 0 auto;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-}
-
-.dashboard-skeleton-circle {
-  width: 180px;
-  height: 180px;
-  margin: 0 auto;
-  border-radius: 50%;
-}
-
-.dashboard-skeleton-copy {
-  max-width: 280px;
-}
-
-.dashboard-skeleton-kicker {
-  max-width: 160px;
-}
-
-.dashboard-skeleton-short {
-  max-width: 220px;
-}
-
-.dashboard-skeleton-heading {
-  max-width: 360px;
-}
-
-.dashboard-skeleton-button {
-  max-width: 190px;
-}
-
-.dashboard-skeleton-wide {
-  margin-top: 1rem;
-}
-
-.dashboard-skeleton-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.7rem;
-  width: 100%;
-  min-height: 280px;
-  padding: 1rem 0 0;
-}
-
-.dashboard-skeleton-bars span {
-  flex: 1;
-  min-height: 42px;
-  border-radius: 8px 8px 2px 2px;
-}
-
-.dashboard-skeleton-bars--wide {
-  min-height: 340px;
-}
-
-@keyframes dashboard-skeleton-shimmer {
-  0% {
-    background-position: 160% 0;
-  }
-
-  100% {
-    background-position: -80% 0;
-  }
-}
-
 @keyframes dashboard-button-spin {
   to {
     transform: rotate(360deg);
@@ -895,40 +560,10 @@ html[data-buck-theme="dark"] .dashboard-skeleton-bars span {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dashboard-skeleton-line,
-  .dashboard-skeleton-avatar,
-  .dashboard-skeleton-circle,
-  .dashboard-skeleton-bars span {
-    animation: none;
-  }
-
   .dashboard-button-spinner {
     animation: none;
   }
 }
-
-@media (max-width: 1180px) {
-  .dashboard-skeleton .settings-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .dashboard-skeleton .settings-card--avatar,
-  .dashboard-skeleton .settings-card--identity,
-  .dashboard-skeleton .settings-card--email,
-  .dashboard-skeleton .settings-card--status {
-    grid-column: auto;
-  }
-
-  .dashboard-skeleton .settings-card--security {
-    grid-column: 1 / -1;
-  }
-
-  .dashboard-skeleton .settings-section--status,
-  .dashboard-skeleton .settings-section--email {
-    grid-column: span 6;
-  }
-}
-
 @media (max-width: 1024px) {
   .dashboard {
     display: flex;
@@ -953,7 +588,7 @@ html[data-buck-theme="dark"] .dashboard-skeleton-bars span {
     width: 100%;
     flex-direction: row;
     gap: 0.5rem;
-    padding: 0.85rem 1rem;
+    padding: 1rem clamp(0.75rem, 1.5vw, 1rem);
   }
 
   .dashboard-topbar-actions > span {
@@ -987,28 +622,6 @@ html[data-buck-theme="dark"] .dashboard-skeleton-bars span {
 
   .dashboard-user-greeting {
     display: none;
-  }
-
-  .dashboard-skeleton.GoalsPage,
-  .dashboard-skeleton .dashboard-content,
-  .dashboard-skeleton .settings-shell,
-  .dashboard-skeleton .settings-tab-panel,
-  .dashboard-skeleton .settings-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .dashboard-skeleton .settings-card--security {
-    grid-column: auto;
-  }
-
-  .dashboard-skeleton .settings-account-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .dashboard-skeleton .settings-section--status,
-  .dashboard-skeleton .settings-section--email,
-  .dashboard-skeleton .settings-section--danger {
-    grid-column: auto;
   }
 
   .dashboard-nav,
@@ -1061,7 +674,7 @@ html[data-buck-theme="dark"] .dashboard-skeleton-bars span {
   }
 
   .dashboard-topbar {
-    padding: 0.75rem;
+    padding: 0.9rem 0.75rem;
   }
 }
 
@@ -1079,10 +692,7 @@ html[data-buck-theme="dark"] .dashboard-skeleton-bars span {
   .expenses-card,
   .expenses-stats article,
   .advisor-card,
-  .graph-panel,
-  .empty-goals-popup,
   .goals-card,
-  .goal-details p,
   .progress-card,
   .settings-hero,
   .settings-card,
@@ -1100,8 +710,6 @@ html[data-buck-theme="dark"] .dashboard-skeleton-bars span {
   .summary-item,
   .expenses-card,
   .advisor-card,
-  .graph-panel,
-  .empty-goals-popup,
   .goals-card,
   .progress-card,
   .settings-card,

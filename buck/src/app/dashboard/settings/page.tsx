@@ -48,6 +48,7 @@ import {
   type BuckProfile,
 } from "@/utils/supabaseData";
 import { applyDocumentTheme, useAuthPageTheme } from "@/hooks/useAuthPageTheme";
+import { useToast } from "@/component/toast";
 import "./style.css";
 
 const avatarMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -154,6 +155,7 @@ function formatSettingsDate(value: string | null | undefined) {
 export default function SettingsPage() {
   const { user } = useDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
+  const { toast } = useToast();
   const documentThemeIsDark = useAuthPageTheme();
   const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
   const hasInitialSettingsData = Boolean(userCache.profile);
@@ -364,8 +366,11 @@ export default function SettingsPage() {
         })
       );
       setNotice("Profile details updated.");
+      toast("Profile details updated successfully.", "success");
     } catch (profileError) {
-      setError(getSettingsErrorMessage(profileError));
+      const err = getSettingsErrorMessage(profileError);
+      setError(err);
+      toast(err, "error");
     } finally {
       setSavingProfile(false);
     }
@@ -383,6 +388,7 @@ export default function SettingsPage() {
 
     if (validationError) {
       setError(validationError);
+      toast(validationError, "error");
 
       if (avatarInputRef.current) {
         avatarInputRef.current.value = "";
@@ -407,8 +413,11 @@ export default function SettingsPage() {
         })
       );
       setNotice("Profile picture updated.");
+      toast("Profile picture updated successfully.", "success");
     } catch (avatarError) {
-      setError(getSettingsErrorMessage(avatarError));
+      const err = getSettingsErrorMessage(avatarError);
+      setError(err);
+      toast(err, "error");
     } finally {
       setSavingAvatar(false);
 
@@ -435,8 +444,11 @@ export default function SettingsPage() {
         })
       );
       setNotice("Profile picture removed.");
+      toast("Profile picture removed.", "info");
     } catch (avatarError) {
-      setError(getSettingsErrorMessage(avatarError));
+      const err = getSettingsErrorMessage(avatarError);
+      setError(err);
+      toast(err, "error");
     } finally {
       setSavingAvatar(false);
     }
@@ -454,6 +466,7 @@ export default function SettingsPage() {
     const emailValidationMessage = getEmailValidationMessage(email);
     if (emailValidationMessage) {
       setError(emailValidationMessage);
+      toast(emailValidationMessage, "error");
       return;
     }
 
@@ -463,23 +476,28 @@ export default function SettingsPage() {
       const verification = await verifyCurrentPassword(emailPassword);
 
       if (!verification.success) {
-        setError(verification.message || "Current password is incorrect.");
+        const msg = verification.message || "Current password is incorrect.";
+        setError(msg);
+        toast(msg, "error");
         return;
       }
 
       const result = await updateEmailAddress(email);
 
       if (!result.success) {
-        setError(result.message || "Could not request email change.");
+        const msg = result.message || "Could not request email change.";
+        setError(msg);
+        toast(msg, "error");
         return;
       }
 
       setEmailPassword("");
       setEmailModalOpen(false);
-      setNotice(
+      const noticeMsg =
         result.message ||
-          "Email change confirmation sent. Check your inbox to finish."
-      );
+        "Email change confirmation sent. Check your inbox to finish.";
+      setNotice(noticeMsg);
+      toast(noticeMsg, "info");
     } finally {
       setSavingEmail(false);
     }
@@ -495,14 +513,15 @@ export default function SettingsPage() {
     clearMessages();
 
     if (!passwordPolicy.isValid) {
-      setError(
-        `Password is not secure enough: ${passwordPolicy.issues.join(", ")}.`
-      );
+      const msg = `Password is not secure enough: ${passwordPolicy.issues.join(", ")}.`;
+      setError(msg);
+      toast(msg, "warning");
       return;
     }
 
     if (newPassword !== confirmPassword) {
       setError("Passwords do not match.");
+      toast("Passwords do not match.", "error");
       return;
     }
 
@@ -512,14 +531,18 @@ export default function SettingsPage() {
       const verification = await verifyCurrentPassword(currentPassword);
 
       if (!verification.success) {
-        setError(verification.message || "Current password is incorrect.");
+        const msg = verification.message || "Current password is incorrect.";
+        setError(msg);
+        toast(msg, "error");
         return;
       }
 
       const result = await updatePassword(newPassword);
 
       if (!result.success) {
-        setError(result.message || "Could not update password.");
+        const msg = result.message || "Could not update password.";
+        setError(msg);
+        toast(msg, "error");
         return;
       }
 
@@ -528,6 +551,7 @@ export default function SettingsPage() {
       setConfirmPassword("");
       setPasswordModalOpen(false);
       setNotice("Password updated. Buck will ask you to sign in again.");
+      toast("Password updated successfully. Please sign in with your new password.", "success");
     } finally {
       setSavingPassword(false);
     }
@@ -544,11 +568,13 @@ export default function SettingsPage() {
 
     if (deleteConfirmText.trim().toUpperCase() !== "DELETE") {
       setError("Type DELETE to request account deletion.");
+      toast("Type DELETE to request account deletion.", "warning");
       return;
     }
 
     if (canManageCredentials && !deletePassword) {
       setError("Enter your current password before requesting deletion.");
+      toast("Enter your current password before requesting deletion.", "warning");
       return;
     }
 
@@ -569,12 +595,14 @@ export default function SettingsPage() {
 
       if (!result.success) {
         setError(result.message);
+        toast(result.message, "error");
         return;
       }
 
       setDeletePassword("");
       setDeleteConfirmText("");
       setNotice(result.message);
+      toast(result.message || "Account deletion confirmation sent.", "warning");
       const nextDeletionStatus = await getAccountDeletionStatus(user.uid);
       setDeletionStatus(nextDeletionStatus);
       setDashboardCache((currentCache) =>
@@ -603,10 +631,12 @@ export default function SettingsPage() {
 
       if (!result.success) {
         setError(result.message);
+        toast(result.message, "error");
         return;
       }
 
       setNotice(result.message);
+      toast(result.message || "Account deletion request canceled.", "success");
       const nextDeletionStatus = await getAccountDeletionStatus(user.uid);
       setDeletionStatus(nextDeletionStatus);
       setDashboardCache((currentCache) =>
@@ -630,11 +660,15 @@ export default function SettingsPage() {
 
     try {
       await submitFeedback(accountEmail, feedbackCategory, feedbackTitle, feedbackDetails);
-      setNotice("Thank you! Your feedback has been submitted successfully.");
+      const successNotice = "Thank you! Your feedback has been submitted successfully.";
+      setNotice(successNotice);
+      toast(successNotice, "success");
       setFeedbackTitle("");
       setFeedbackDetails("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit feedback");
+      const errMessage = err instanceof Error ? err.message : "Failed to submit feedback";
+      setError(errMessage);
+      toast(errMessage, "error");
     } finally {
       setSendingFeedback(false);
     }

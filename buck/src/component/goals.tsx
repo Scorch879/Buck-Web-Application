@@ -1,3 +1,4 @@
+import { aiBackendFetch } from "@/utils/aiBackend";
 import {
   createGoalRecord,
   deleteGoalRecord,
@@ -12,17 +13,13 @@ async function getGoalRecommendation(
   attitude: string
 ) {
   try {
-    const aiResponse = await fetch(
-      "https://buck-web-application.onrender.com/ai/saving_tip/",
-      {
+    const aiResponse = await aiBackendFetch("/ai/saving_tip/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           category: goalName,
           user_context: `Attitude: ${attitude}, Target Amount: ${targetAmount}`,
         }),
-      }
-    );
+      });
 
     if (!aiResponse.ok) {
       return "";

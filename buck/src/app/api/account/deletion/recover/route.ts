@@ -41,8 +41,9 @@ export async function POST() {
     .maybeSingle();
 
   if (error) {
+    console.error("Account recovery lookup failed:", error.message);
     return NextResponse.json(
-      { success: false, message: error.message },
+      { success: false, message: "Could not check your deletion request." },
       { status: 500 }
     );
   }
@@ -71,8 +72,9 @@ export async function POST() {
     .eq("user_id", user.id);
 
   if (updateError) {
+    console.error("Account recovery update failed:", updateError.message);
     return NextResponse.json(
-      { success: false, message: updateError.message },
+      { success: false, message: "Could not recover your account right now." },
       { status: 500 }
     );
   }

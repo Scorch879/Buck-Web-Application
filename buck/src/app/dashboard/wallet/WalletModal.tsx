@@ -129,22 +129,31 @@ export default function WalletModal({
       return;
     }
     if (!user) return;
-    await addWallet(user.uid, name, Number(budget));
-    setName("");
-    setBudget("");
-    fetchWallets();
-    fetchActiveWallet();
+    try {
+      await addWallet(user.uid, name, Number(budget));
+      setName("");
+      setBudget("");
+      fetchWallets();
+      fetchActiveWallet();
+    } catch (err: any) {
+      setError(err.message || "Failed to add wallet");
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (!user) return;
-    await deleteWallet(user.uid, id);
-    if (activeWalletId === id) {
-      await setActiveWallet(user.uid, null);
-      setActiveWalletId(null);
+    try {
+      await deleteWallet(user.uid, id);
+      if (activeWalletId === id) {
+        await setActiveWallet(user.uid, null);
+        setActiveWalletId(null);
+      }
+      setConfirmDeleteId(null);
+      fetchWallets();
+      fetchActiveWallet();
+    } catch (err: any) {
+      setError(err.message || "Failed to delete wallet");
     }
-    fetchWallets();
-    fetchActiveWallet();
   };
 
   const handleEdit = (wallet: Wallet) => {
@@ -159,15 +168,19 @@ export default function WalletModal({
       setError("Please enter a valid name and a budget greater than 0.");
       return;
     }
-    await updateWallet(user.uid, id, {
-      name: editName,
-      budget: Number(editBudget),
-    });
-    setEditId(null);
-    setEditName("");
-    setEditBudget("");
-    setError("");
-    fetchWallets();
+    try {
+      await updateWallet(user.uid, id, {
+        name: editName,
+        budget: Number(editBudget),
+      });
+      setEditId(null);
+      setEditName("");
+      setEditBudget("");
+      setError("");
+      fetchWallets();
+    } catch (err: any) {
+      setError(err.message || "Failed to update wallet");
+    }
   };
 
   const handleEditCancel = () => {
@@ -205,8 +218,22 @@ export default function WalletModal({
   if (!open || !portalReady) return null;
 
   return createPortal(
-    <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+    <motion.div 
+      className={styles.backdrop} 
+      onClick={onClose}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+    >
+      <motion.div 
+        className={styles.modal} 
+        onClick={(e) => e.stopPropagation()}
+        initial={{ y: 20, opacity: 0, scale: 0.95 }}
+        animate={{ y: 0, opacity: 1, scale: 1 }}
+        exit={{ y: 20, opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.2 }}
+      >
         <h2 className={styles.title}>Wallets</h2>
         <div className={styles.totalBudget}>
           Total Budget: <span>{formatCurrency(totalBudget)}</span>
@@ -314,12 +341,31 @@ export default function WalletModal({
                         >
                           Edit
                         </button>
-                        <button
-                          onClick={() => setConfirmDeleteId(w.id)}
-                          className={styles.deleteBtn}
-                        >
-                          Delete
-                        </button>
+                        {confirmDeleteId === w.id ? (
+                          <>
+                            <button
+                              onClick={() => handleDelete(w.id)}
+                              className={styles.deleteBtn}
+                            >
+                              Confirm?
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteId(null)}
+                              className={styles.cancelBtn}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDeleteId(w.id)}
+                            className={styles.deleteBtn}
+                            disabled={w.budget > 0}
+                            title={w.budget > 0 ? "Empty wallet first to delete" : ""}
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </>
                   )}
@@ -331,34 +377,8 @@ export default function WalletModal({
         <button onClick={onClose} className={styles.closeBtn}>
           Close
         </button>
-        {confirmDeleteId && (
-          <div className={styles.confirmBackdrop}>
-            <div className={styles.confirmModal}>
-              <div className={styles.confirmText}>
-                Are you sure you want to delete this wallet? This action cannot be undone.
-              </div>
-              <div className={styles.confirmActions}>
-                <button
-                  className={styles.deleteBtn}
-                  onClick={async () => {
-                    await handleDelete(confirmDeleteId);
-                    setConfirmDeleteId(null);
-                  }}
-                >
-                  Delete
-                </button>
-                <button
-                  className={styles.cancelBtn}
-                  onClick={() => setConfirmDeleteId(null)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>,
+      </motion.div>
+    </motion.div>,
     document.body
   );
 }
