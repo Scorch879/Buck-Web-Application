@@ -240,6 +240,16 @@ class UnitTests(unittest.TestCase):
         self.assertEqual(clean_text("mail a@b.co or 09171234567", 80), "mail [email] or [phone]")
         self.assertEqual(limit_sentences("A. B! C?", 2), "A. B!")
 
+    def test_pii_scrub_is_linear_on_hostile_input(self):
+        import time
+
+        from shared.safety import scrub_pii
+
+        start = time.perf_counter()
+        scrub_pii("%" * 200_000)  # no '@': the old pattern backtracked quadratically
+        self.assertLess(time.perf_counter() - start, 0.5)
+        self.assertEqual(scrub_pii("first.last+tag@mail.co.ph"), "[email]")
+
     def test_tool_argument_guards(self):
         from datetime import date
 
