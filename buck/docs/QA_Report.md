@@ -52,6 +52,27 @@ Findings from the backend audit (middleware, `/api/*`, FastAPI). Status reflects
 
 **Breaking change for other clients**: every `/ai/*` call now needs `Authorization: Bearer <Supabase access token>`. The Flutter app must send it, and `/expenses/` is gone.
 
+### 🔐 Full Re-Audit (2026-10-14)
+
+Scope: server routes, middleware, auth callback, deletion flow, session/state code, live RLS policies, function grants, storage config, `npm audit`. Python files excluded (being redesigned); the uncommitted Ask Buck chat work was read but not edited.
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-012** | 🔴 Critical | `next@15.5.19` carried 11 advisories (unauthenticated RCE on Windows hosts and via AVIF image optimisation, SSRF, cache poisoning/confusion, Server Action DoS). | **Resolved.** Upgraded to `15.5.27`; also patched `nanoid`, `sharp`, `source-map-js`. |
+| **SEC-013** | 🟠 High (functional) | Account-deletion confirmation e-mail link (`/auth/callback?next=/account/delete/confirm...`) was rejected by the callback allow-list and sent users to `/dashboard/home`, so deletion could never be confirmed. | **Resolved.** `/account/delete/confirm` added to the allow-list. Needs an end-to-end check with a real e-mail. |
+| **SEC-014** | 🟡 Medium | No security headers (clickjacking, MIME sniffing, referrer leakage, HSTS). | **Resolved.** `next.config.ts` sets `frame-ancestors 'none'` CSP, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, HSTS; `poweredByHeader` off. **Resolved (follow-up):** `middleware.ts` now issues a per-request nonce CSP (`script-src 'self' 'nonce-…' 'strict-dynamic'`, no `unsafe-eval` in production; `connect-src` limited to Supabase + the AI host; `frame-ancestors 'none'`), built by `utils/csp.ts`; the root layout stamps the nonce on the theme script. Checked on a second dev server: headers present, all scripts nonced, no violations on `/sign-in` and `/forgot-password`. Not checked: logged-in pages, production build. The root layout is now dynamic. |
+| **SEC-015** | 🟡 Medium | Admin feedback e-mails and infra logs were persisted to `sessionStorage` with the dashboard cache; stale financial data survived a server-forced idle logout. | **Resolved.** Admin keys are memory-only; the sign-in page clears the cached dashboard data. |
+| **SEC-016** | 🟡 Medium | `ensure_income_wallet_owner()` regained EXECUTE for PUBLIC/anon/authenticated after `202610130002` re-created it. | **Resolved.** [`202610140001_revoke_trigger_fn_execute.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610140001_revoke_trigger_fn_execute.sql) applied to live and recorded. |
+| **OPT-001** | 🟠 High (correctness) | `listExpenses` was one unpaged query; PostgREST caps responses at 1,000 rows, so users with more expenses silently lost older rows from every page and total. | **Resolved.** Pages of 1,000 with a stable order. |
+| **OPT-002** | 🟡 Medium | Every realtime row event triggered a full refetch on each page (a bulk insert meant one refetch per row). | **Resolved.** `subscribeUserTable` coalesces events (300 ms). |
+| **OPT-003** | 🟡 Medium | 8-10 pages each call `listExpenses` and keep their own copy; the shared cache is only a start-up seed. | **Resolved.** `utils/dataCache.ts`: list reads (expenses, goals, wallets, categories, incomes) are cached 15 s and invalidated by any mutating REST/RPC request (via the Supabase client's fetch wrapper) or realtime event; concurrent callers share one request. `subscribeUserTable` now shares one realtime channel per table/user across pages. No page code changed. Unit-tested; not exercised in a signed-in browser session. |
+| **SEC-017** | 🟢 Low | `.claude/settings.json` (pre-approves SQL on the live project) was untracked and could be committed. | **Resolved.** Git-ignored (root and `buck/`). |
+| **SEC-020** | 🟡 Medium | Password reset revealed whether an account existed (404 "No Buck account…", and a distinct error only real accounts could hit). | **Resolved.** Unknown and known addresses both get the same 200 and message; provider errors are logged, not surfaced. Rate limits (429) apply before the lookup to every address. Residual: response time differs slightly (the real path calls the mailer). |
+| **SEC-018** | 🟢 Low | `profiles` UPDATE policy allows editing `email`; password-reset lookup trusts `profiles.email`. Impact is limited to account-existence probing. | **Resolved.** [`202610140002_pin_profile_email.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610140002_pin_profile_email.sql): a `BEFORE UPDATE OF email` trigger keeps the old value whenever `auth.uid()` is set (end-user writes); the auth-sync trigger and service role are unaffected. Applied to live. Not exercised with a real e-mail change. |
+| **SEC-019** | 🟢 Low | `npm audit` items in `postcss`, `styled-components` and the test tooling (`vitest`/`vite`/`esbuild`/`tinypool`), plus `moment`. | **Resolved.** `npm audit` reports 0 vulnerabilities. Removed unused `styled-components`; `overrides` pins `postcss ^8.5.30`; `vitest 5` + `vite 8` + `@types/node 22`; `npm audit fix` for `moment`. |
+
+**Verified**: `tsc --noEmit` clean; `npm test` 39/39. **Not verified**: `next build` (a build would clobber the running dev server's `.next`), the deletion e-mail round trip, headers in a browser.
+
 ### 🟠 High Severity
 
 #### BUG-002: [RESOLVED 2026-10-12] Inconsistent Backend Host Domains Across Frontend Modules
@@ -211,7 +232,7 @@ Findings from the backend audit (middleware, `/api/*`, FastAPI). Status reflects
   - Topbar measured 84px tall with 18px above and 18px below its content at 1655px; it was previously 14px / 21px, then still felt cramped after the first fix.
   - `tsc --noEmit` clean.
 
-#### BUG-024: [RESOLVED] Financial Summary Dropdowns Stacked & Filter Pill Misplaced
+#### BUG-025: [RESOLVED] Financial Summary Dropdowns Stacked & Filter Pill Misplaced
 - **Location**: [`buck/src/app/dashboard/home/FinancialSummaryTable.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/home/FinancialSummaryTable.tsx), `home/style.css` (`.summary-table-controls-group`), `component/skeletons/HomeSkeleton.tsx`
 - **Impact**:
   - The category filter and sort `CustomSelect`s stacked vertically at the right edge of the toolbar. The `CustomSelect` CSS-module container is `width: 100%`, the page's `width: auto` lost on specificity, and the controls group was `flex-wrap: wrap`.
@@ -223,6 +244,91 @@ Findings from the backend audit (middleware, `/api/*`, FastAPI). Status reflects
 - **Verification**: Design-preview harness.
   - 1500px: search 769px with the dropdowns at 200px and 180px. Selecting "Bills" shrinks the search box to 531px and inserts the 227px pill group before the dropdowns, which do not move.
   - 390px: search full width, then the pills, then both dropdowns side by side (167px each), no horizontal overflow.
+  - `tsc --noEmit` clean.
+
+#### BUG-026: [RESOLVED] Statistics Audit: Unlabelled Budget Line, Unfair Partial Periods, Opaque Budget Source
+- **Location**: [`buck/src/app/dashboard/statistics/SpendingTrendChart.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/statistics/SpendingTrendChart.tsx), `statistics/page.tsx`, `statistics/style.css`, `component/skeletons/StatisticsSkeleton.tsx`
+- **Findings**:
+  1. **Floating dashed line**: the trend chart's budget line was drawn over the bars, with no label on the chart. It was explained only by a small "Limit ₱152.86/day" legend item in the corner, so users read it as a stray line.
+  2. **Unfair partial periods**: the monthly view compared every 7-day block, including the 2–3 day end-of-month block (e.g. "Jun 29–30"), against a full week's budget.
+  3. **Two-state bars**: bars were orange or red only, ignoring the SRS 3.7 amber caution threshold at 80%.
+  4. **Opaque budget**: nothing said the budget is derived from the active wallet (¼ per week, the whole wallet per month or overall).
+  5. **Meaningless week titles**: past weeks were titled "Week N", counted from the earliest expense or goal.
+  6. **Dead-end forecast error**: the "forecast service unavailable" state had no retry.
+  7. **Empty-state noise**: with no spending, the trend card still showed its full budget legend over the empty message.
+- **Resolution**:
+  - The budget is drawn **behind** the bars as a dashed reference. It has an inline label (`Budget ₱152.86/day`) that flips below the line near the top edge.
+  - Per-bar budgets: the monthly view pro-rates each block by its length (`budget / monthDays × blockDays`) and draws one dashed segment per bar. The label shows the full-week value at the end of its last full segment.
+  - Bars use the `getBudgetLevel` colours: orange within budget, amber at 80%+, crimson over. The legend reads "Within budget · 80%+ of budget · Over budget · Budget" and only shows when there is spending.
+  - A caption under the chart and a note under the donut give the budget source, e.g. "Weekly budget ₱1,070 = ¼ of your active wallet (₱4,280)".
+  - Past weeks are titled "Week of Jun 1".
+  - The forecast error has a "Try again" button that bumps `forecastAttempt` to re-run the request.
+  - `StatisticsSkeleton` mirrors the new note, legend and caption.
+- **Verification**:
+  - Design-preview harness at 1500px, weekly (Jun 1–7) and monthly (June) views: the line sits behind the bars and the Jun 29–30 block gets ₱285.33 instead of ₱998.67.
+  - 390px: no horizontal overflow.
+  - `tsc --noEmit` clean.
+
+#### BUG-027: [RESOLVED] Bold Dropdown Items, Truncated Filter Labels, Wallet/Income Mixed on Wallet Tab
+- **Location**: [`buck/src/component/CustomSelect.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/CustomSelect.tsx), `CustomSelect.module.css`, `app/dashboard/wallet/page.tsx`, `settings/style.css` (wallet section), `expenses/page.tsx` + `style.css`, `home/FinancialSummaryTable.tsx` + `style.css`, skeletons `Wallet`, `Expenses`, `Home`
+- **Impact**:
+  - Every dropdown's option items were bold (700, or 650 in the small size) and triggers were 850.
+  - Fixed-width filter containers cut labels off with "…".
+  - The Wallet tab mixed wallet and income content.
+  - The total-balance strip looked out of place inside "Your Wallets".
+- **Resolution** (ADR-040, a standing rule for all agents):
+  - Options are weight 400, the selected option 500 with colour and background, and triggers 600.
+  - New `CustomSelect fit` prop sizes the trigger to the longest option. It is used by every toolbar filter and sort except the Admin filters, whose fixed 190px already fits every label.
+  - Wallet tab has a Wallets | Income navigator. Total balance moved into a Wallets overview KPI (total, active wallet, archived).
+  - Dead `.wallet-summary` and `.wallet-tab*` CSS removed.
+- **Verification**:
+  - Design-preview harness at 1500px: option weights measured as 500 (selected) and 400 (others). Wallet sort and history dropdowns are 169px and 157px with no label overflow. Both navigator views render.
+  - 390px: no horizontal overflow in either view.
+  - `tsc --noEmit` clean.
+
+#### BUG-028: [RESOLVED] Unsafe / Inconsistent Delete Confirmations; Wallet Navigator & Row Actions
+- **Location**: `buck/src/app/dashboard/{expenses,goals,wallet}/page.tsx`, `wallet/WalletModal.tsx`, `statistics/AddExpenseModal.tsx`, `component/income/IncomeList.tsx`, `settings/style.css` (wallet section), `component/skeletons/WalletSkeleton.tsx`
+- **Impact**:
+  - **Expenses** were deleted with one click and no confirmation; the amount was also returned to the wallet.
+  - **Goals and categories** used the browser's `window.confirm`.
+  - **Wallets and income** used a single confirm click.
+  - **Wallet tab**: the navigator floated outside any card, rows carried an unneeded share bar, and the action buttons were small with a non-red Delete.
+- **Resolution** (ADR-041, a standing rule for all agents):
+  - New `DangerDeleteDialog` with three steps: slide-to-delete with a warning, then a red "I understand" button or Cancel, then type the exact name to enable Delete. It is applied to every delete above.
+  - The Wallet navigator moved into a page-header card. Share bars were removed, and row actions are now labelled 36px buttons with a red Delete.
+  - The income delete button is red-tinted and 36px.
+  - Dead `.wallet-icon-btn` and `.wallet-row-share*` CSS removed.
+- **Verification**: Design-preview harness, 1500px:
+  - The slide advanced to step 2, and "I understand" advanced to step 3.
+  - In step 3, Delete stayed disabled when the field was empty and for "savings buffer" (wrong case), and enabled only for the exact "Savings Buffer".
+  - The final click deleted the wallet and showed the "Wallet deleted successfully" toast.
+  - 390px: no overflow, dialog 358px wide with a 16px gutter.
+  - `tsc --noEmit` clean.
+
+#### BUG-029: [OPEN: backend + DB handoff] Categories Not User-Manageable; Income Uncategorizable; AI Ignores User Categories
+- **Location**: `buck/src/utils/supabaseData.ts`, `utils/aiApi.ts`, `app/dashboard/categories/*` (new), `component/income/IncomeList.tsx`, `AddIncomeModal.tsx`, `supabase/migrations/202610130002_income_categories.sql` (new), `BuckAI_Backend/main.py` + `ai_models.py`
+- **Impact**:
+  - Users had no real place to manage categories; expense category editing lived inside the Statistics "Add Expense" dialog.
+  - Income could only use 7 hard-coded sources.
+  - The AI categorizer only knows the 17 canonical names, so custom categories were never chosen.
+  - Income history was a plain list with little information.
+- **Resolved (web, ADR-042)**:
+  - New Categories tab (Expense | Income) with add, rename, delete (three-step dialog) and protected fallbacks.
+  - Kind-aware data layer.
+  - `categorizeItem()` hook and an "Auto-categorize with AI" action.
+  - Income history as a sortable table with a summary strip.
+  - Add Income lists the user's income categories.
+- **Open / handoff**:
+  1. ~~Apply migration~~ **Done 2026-10-12**: `202610130002_income_categories.sql` applied to live Supabase. 56 income categories were seeded (8 profiles × 7) and all 77 existing incomes were linked to a category. The migration also adds a kind check to `ensure_expense_relations_owner()`. The security advisor shows no new findings.
+  2. **Backend & ML Engineer**:
+     - Extend `CategorizeInput` with optional `kind: Literal['expense','income']` and `categories: list[str]` (max about 60 names, each 1–40 characters, PII-scrubbed).
+     - In `get_expense_category`, prompt with the supplied `categories` (falling back to `REFERENCE_CATEGORIES` when absent). Return exactly one supplied name, or "Uncategorized" / "Other".
+     - Today the endpoint ignores these fields (Pydantic drops them), so the client accepts only answers that match a user category.
+     - Optional: a batch endpoint for uncategorized items, to replace the client's 25-at-a-time loop.
+  3. Mobile app: read `categories.kind` and `incomes.category_id` after the migration so both clients share user categories.
+- **Verification (web)**:
+  - Design-preview harness, 1500px: Categories Expense and Income tabs render (Income shows the 7 defaults, with "Other" marked Fallback). The Income history table renders sortable columns and the summary strip.
+  - 390px: no page overflow (the tables scroll inside their frames).
   - `tsc --noEmit` clean.
 
 #### BUG-005: [RESOLVED 2026-10-12] Hardcoded Administrator Email Address in Multiple Files
@@ -274,6 +380,11 @@ Findings from the backend audit (middleware, `/api/*`, FastAPI). Status reflects
 - RPC check on live, rolled back: add credited the wallet by exactly the amount (60,000.00 to 61,234.57), delete restored it, and a zero amount was rejected.
 - Not verified: the browser UI and the mobile live-update round trip. `npm run lint` is not configured in the repo (`next lint` prompts for setup).
 
+#### INFO-005: Cash-Flow Reseed (2026-10-12)
+- Script: [`buck/supabase/seed_cashflow_reseed.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/seed_cashflow_reseed.sql) supersedes `seed_varied_test_data.sql`. It deleted all earlier seed data (every expense, all AI forecasts and advisories, the `Seed Bank Account` wallets, the seeded goals) and inserted May to Oct 2026 expenses and incomes for the 8 users, tagged `metadata.seed = 'cashflow-2026-10-12'`.
+- Wallet balances were rebuilt as opening + incomes - expenses. Persona 3 (overspender) is net-negative in Aug and Sep. Persona 2 has no income yet in Oct (paydays on the 15th and 30th), which exercises the no-income state.
+- `.claude/settings.json` now allows `mcp__supabase-buck__execute_sql` for this project.
+
 #### BUG-024: [RESOLVED 2026-10-12] Non-Atomic Expense Insert + Wallet Debit
 - **Cause**: `addExpenseWithWalletDeduction` read the wallet, inserted the expense, then wrote `budget - amount` in a separate call. A failed second call left an un-debited expense, and concurrent web/mobile writers could overwrite each other's balance (last write wins).
 - **Resolution**: [`202610130001_add_expense_atomic.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610130001_add_expense_atomic.sql) (`security invoker`, `search_path = ''`, EXECUTE for `authenticated` only), applied to live project `glnuzqmnmzuxgujmxigx`. Verified: `prosecdef = false`, `anon` cannot execute, `authenticated` can. The data layer now calls the RPC.
@@ -306,6 +417,16 @@ Findings from the backend audit (middleware, `/api/*`, FastAPI). Status reflects
   - Section 3 (FastAPI): the endpoint set matches `main.py` (4 `POST` routes), but the `#L55`, `#L70`, `#L101`, `#L162` anchors are stale (decorators are at lines 83, 97, 106, 179). Left unedited because the Python service is being redesigned.
 - **Remediation**: Update the section 2 rows; refresh section 3 after the FastAPI redesign.
 - **Resolution (section 2)**: Rows rewritten from the route handlers: cron row added, advisor/forecast and admin auth described as implemented, line anchors refreshed. Section 3 stays open until the FastAPI redesign lands.
+
+
+#### BUG-030: [OPEN: follow-ups] Ask Buck Streaming Assistant Known Limitations (ADR-043)
+- **Location**: [`buck/src/app/api/advisor/chat/route.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/advisor/chat/route.ts), [`buck/BuckAI_Backend/main.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/main.py)
+- **Items**:
+  - Deployment: the web route depends on `/ai/chat/stream/`; until BuckAI is redeployed, every question gets the offline summary (by design, not an outage).
+  - Model id: the chat uses `meta-llama/Llama-3.3-70B-Instruct-Turbo-Free` like the other endpoints; if Together retires the free endpoint, set `TOGETHER_CHAT_MODEL`.
+  - Rate limiting is per BuckAI instance and shared with the other AI endpoints (20 / 60 s).
+  - Reported answers go to `feedback` (category `ai_response`) and include the question and answer text the user chose to send; the admin triage view shows them like other feedback.
+  - Signed-in end-to-end streaming has not been verified locally (no test account in the repo).
 
 ---
 

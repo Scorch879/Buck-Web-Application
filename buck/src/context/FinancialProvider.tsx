@@ -37,9 +37,20 @@ function writeStoredDashboardCache(cache: DashboardDataCache) {
       return;
     }
 
+    // Admin data (feedback e-mails, infra logs) is sensitive and cheap to
+    // refetch: keep it in memory only, never in sessionStorage.
+    const {
+      adminFeedback: _adminFeedback,
+      adminVercelDeployments: _adminVercelDeployments,
+      adminSupabaseLogs: _adminSupabaseLogs,
+      adminVercelError: _adminVercelError,
+      adminSupabaseError: _adminSupabaseError,
+      ...persistable
+    } = cache;
+
     window.sessionStorage.setItem(
       dashboardCacheStorageKey,
-      JSON.stringify(cache)
+      JSON.stringify(persistable)
     );
   } catch {
     // Session storage is a speed boost only. The Supabase-backed data remains

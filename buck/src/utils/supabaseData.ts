@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "@/utils/supabase";
+import { bumpDataEpoch, cachedRead, copyList } from "@/utils/dataCache";
 import { toLocalDateString } from "@/utils/cashFlow";
 import {
   designPreviewUserId,
@@ -780,6 +781,15 @@ export async function removeUserAvatar(userId: string, avatarPath: string | null
   return getUserProfile(safeUserId);
 }
 
+// One realtime channel per (table, user), shared by every subscriber (OPT-003).
+// Each page used to open its own channel for the same rows.
+type SharedChannel = {
+  listeners: Set<() => void>;
+  timer: ReturnType<typeof setTimeout> | null;
+  teardown: () => void;
+};
+const sharedChannels = new Map<string, SharedChannel>();
+
 export function subscribeUserTable(
   table: TableName,
   userId: string,
@@ -790,24 +800,60 @@ export function subscribeUserTable(
   }
 
   const safeUserId = assertUuid(userId, "user id");
-  const supabase = getSupabaseClient();
-  const userColumn = table === "profiles" ? "id" : "user_id";
-  const channel = supabase
-    .channel(`${table}:${safeUserId}:${Math.random().toString(36).slice(2)}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table,
-        filter: `${userColumn}=eq.${safeUserId}`,
-      },
-      onChange
-    )
-    .subscribe();
+  const key = `${table}:${safeUserId}`;
+  let shared = sharedChannels.get(key);
+
+  if (!shared) {
+    const supabase = getSupabaseClient();
+    const userColumn = table === "profiles" ? "id" : "user_id";
+    const created: SharedChannel = {
+      listeners: new Set(),
+      timer: null,
+      teardown: () => {},
+    };
+
+    // A change from another tab or the mobile app invalidates cached reads at
+    // once; the fan-out is coalesced because a bulk write fires one event per row.
+    const notify = () => {
+      bumpDataEpoch();
+      if (created.timer) clearTimeout(created.timer);
+      created.timer = setTimeout(() => {
+        created.timer = null;
+        created.listeners.forEach((listener) => listener());
+      }, 300);
+    };
+
+    const channel = supabase
+      .channel(`${key}:${Math.random().toString(36).slice(2)}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table,
+          filter: `${userColumn}=eq.${safeUserId}`,
+        },
+        notify
+      )
+      .subscribe();
+
+    created.teardown = () => {
+      if (created.timer) clearTimeout(created.timer);
+      void supabase.removeChannel(channel);
+    };
+    sharedChannels.set(key, created);
+    shared = created;
+  }
+
+  const active = shared;
+  active.listeners.add(onChange);
 
   return () => {
-    void supabase.removeChannel(channel);
+    active.listeners.delete(onChange);
+    if (active.listeners.size === 0) {
+      active.teardown();
+      sharedChannels.delete(key);
+    }
   };
 }
 
@@ -839,7 +885,7 @@ export async function ensureDefaultCategories(userId: string) {
   return listCategories(safeUserId);
 }
 
-export async function listCategories(userId: string) {
+async function fetchListCategories(userId: string) {
   if (isDesignPreviewMode) {
     return previewCategories;
   }
@@ -1174,27 +1220,41 @@ export async function deleteCategory(userId: string, categoryId: string) {
   }
 }
 
-export async function listExpenses(userId: string) {
+async function fetchListExpenses(userId: string) {
   if (isDesignPreviewMode) {
     return previewExpenses;
   }
 
   const safeUserId = assertUuid(userId, "user id");
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from("expenses")
-    .select(
-      "id, user_id, wallet_id, goal_id, category_id, category_name, amount, description, spent_on, created_at"
-    )
-    .eq("user_id", safeUserId)
-    .order("spent_on", { ascending: false })
-    .order("created_at", { ascending: false });
+  // PostgREST returns at most 1,000 rows per request, so a single query would
+  // silently drop older expenses. Page until a short page comes back.
+  const pageSize = 1000;
+  const rows: Record<string, unknown>[] = [];
 
-  if (error) {
-    throw new Error(error.message);
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("expenses")
+      .select(
+        "id, user_id, wallet_id, goal_id, category_id, category_name, amount, description, spent_on, created_at"
+      )
+      .eq("user_id", safeUserId)
+      .order("spent_on", { ascending: false })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    rows.push(...(data ?? []));
+    if (!data || data.length < pageSize) {
+      break;
+    }
   }
 
-  return (data ?? []).map(mapExpense);
+  return rows.map(mapExpense);
 }
 
 async function getCategoryByName(userId: string, categoryName: string) {
@@ -1309,7 +1369,7 @@ export async function deleteExpense(userId: string, expenseId: string) {
   }
 }
 
-export async function listGoals(userId: string) {
+async function fetchListGoals(userId: string) {
   if (isDesignPreviewMode) {
     return previewGoals;
   }
@@ -1527,7 +1587,7 @@ export async function updateGoalAiRecommendedBudget(
   }
 }
 
-export async function listWallets(userId: string) {
+async function fetchListWallets(userId: string) {
   if (isDesignPreviewMode) {
     return previewWallets;
   }
@@ -1831,7 +1891,7 @@ function buildPreviewIncomes(): BuckIncome[] {
  * Lists the user's incomes, newest first. Returns `null` when income tracking
  * is unavailable (table missing), so callers can show "Not tracked yet".
  */
-export async function listIncomes(
+async function fetchListIncomes(
   userId: string,
   options: { since?: string } = {}
 ): Promise<BuckIncome[] | null> {
@@ -2217,4 +2277,33 @@ export async function dismissAIAdvisory(
     console.error("Failed to dismiss advisory:", error);
     throw new Error(error.message);
   }
+}
+
+// Cached, write-aware wrappers (utils/dataCache.ts). Internals above do the fetch.
+export function listExpenses(userId: string) {
+  return cachedRead(`expenses:${userId}`, () => fetchListExpenses(userId)).then(copyList);
+}
+
+export function listGoals(userId: string) {
+  return cachedRead(`goals:${userId}`, () => fetchListGoals(userId)).then(copyList);
+}
+
+export function listWallets(userId: string) {
+  return cachedRead(`wallets:${userId}`, () => fetchListWallets(userId)).then(copyList);
+}
+
+export function listCategories(userId: string) {
+  return cachedRead(`categories:${userId}`, () => fetchListCategories(userId)).then(copyList);
+}
+
+export async function listIncomes(
+  userId: string,
+  options: { since?: string } = {}
+): Promise<BuckIncome[] | null> {
+  const list = await cachedRead(
+    `incomes:${userId}:${options.since ?? ""}`,
+    () => fetchListIncomes(userId, options)
+  );
+
+  return list ? copyList(list) : list;
 }

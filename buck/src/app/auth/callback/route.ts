@@ -19,7 +19,10 @@ function getSafeNextPath(value: string | null) {
     
     if (
       parsedUrl.origin === "http://dummy.local" && 
-      (parsedUrl.pathname.startsWith("/dashboard") || parsedUrl.pathname === "/forgot-password")
+      (parsedUrl.pathname.startsWith("/dashboard") ||
+        parsedUrl.pathname === "/forgot-password" ||
+        // Account-deletion confirmation link (sent by /api/account/deletion/request).
+        parsedUrl.pathname === "/account/delete/confirm")
     ) {
       return parsedUrl.pathname + parsedUrl.search;
     }

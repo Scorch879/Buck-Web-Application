@@ -52,6 +52,27 @@ Findings from the backend audit (middleware, `/api/*`, FastAPI). Status reflects
 
 **Breaking change for other clients**: every `/ai/*` call now needs `Authorization: Bearer <Supabase access token>`. The Flutter app must send it, and `/expenses/` is gone.
 
+### 🔐 Full Re-Audit (2026-10-14)
+
+Scope: server routes, middleware, auth callback, deletion flow, session/state code, live RLS policies, function grants, storage config, `npm audit`. Python files excluded (being redesigned); the uncommitted Ask Buck chat work was read but not edited.
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-012** | 🔴 Critical | `next@15.5.19` carried 11 advisories (unauthenticated RCE on Windows hosts and via AVIF image optimisation, SSRF, cache poisoning/confusion, Server Action DoS). | **Resolved.** Upgraded to `15.5.27`; also patched `nanoid`, `sharp`, `source-map-js`. |
+| **SEC-013** | 🟠 High (functional) | Account-deletion confirmation e-mail link (`/auth/callback?next=/account/delete/confirm...`) was rejected by the callback allow-list and sent users to `/dashboard/home`, so deletion could never be confirmed. | **Resolved.** `/account/delete/confirm` added to the allow-list. Needs an end-to-end check with a real e-mail. |
+| **SEC-014** | 🟡 Medium | No security headers (clickjacking, MIME sniffing, referrer leakage, HSTS). | **Resolved.** `next.config.ts` sets `frame-ancestors 'none'` CSP, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, HSTS; `poweredByHeader` off. **Resolved (follow-up):** `middleware.ts` now issues a per-request nonce CSP (`script-src 'self' 'nonce-…' 'strict-dynamic'`, no `unsafe-eval` in production; `connect-src` limited to Supabase + the AI host; `frame-ancestors 'none'`), built by `utils/csp.ts`; the root layout stamps the nonce on the theme script. Checked on a second dev server: headers present, all scripts nonced, no violations on `/sign-in` and `/forgot-password`. Not checked: logged-in pages, production build. The root layout is now dynamic. |
+| **SEC-015** | 🟡 Medium | Admin feedback e-mails and infra logs were persisted to `sessionStorage` with the dashboard cache; stale financial data survived a server-forced idle logout. | **Resolved.** Admin keys are memory-only; the sign-in page clears the cached dashboard data. |
+| **SEC-016** | 🟡 Medium | `ensure_income_wallet_owner()` regained EXECUTE for PUBLIC/anon/authenticated after `202610130002` re-created it. | **Resolved.** [`202610140001_revoke_trigger_fn_execute.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610140001_revoke_trigger_fn_execute.sql) applied to live and recorded. |
+| **OPT-001** | 🟠 High (correctness) | `listExpenses` was one unpaged query; PostgREST caps responses at 1,000 rows, so users with more expenses silently lost older rows from every page and total. | **Resolved.** Pages of 1,000 with a stable order. |
+| **OPT-002** | 🟡 Medium | Every realtime row event triggered a full refetch on each page (a bulk insert meant one refetch per row). | **Resolved.** `subscribeUserTable` coalesces events (300 ms). |
+| **OPT-003** | 🟡 Medium | 8-10 pages each call `listExpenses` and keep their own copy; the shared cache is only a start-up seed. | **Resolved.** `utils/dataCache.ts`: list reads (expenses, goals, wallets, categories, incomes) are cached 15 s and invalidated by any mutating REST/RPC request (via the Supabase client's fetch wrapper) or realtime event; concurrent callers share one request. `subscribeUserTable` now shares one realtime channel per table/user across pages. No page code changed. Unit-tested; not exercised in a signed-in browser session. |
+| **SEC-017** | 🟢 Low | `.claude/settings.json` (pre-approves SQL on the live project) was untracked and could be committed. | **Resolved.** Git-ignored (root and `buck/`). |
+| **SEC-020** | 🟡 Medium | Password reset revealed whether an account existed (404 "No Buck account…", and a distinct error only real accounts could hit). | **Resolved.** Unknown and known addresses both get the same 200 and message; provider errors are logged, not surfaced. Rate limits (429) apply before the lookup to every address. Residual: response time differs slightly (the real path calls the mailer). |
+| **SEC-018** | 🟢 Low | `profiles` UPDATE policy allows editing `email`; password-reset lookup trusts `profiles.email`. Impact is limited to account-existence probing. | **Resolved.** [`202610140002_pin_profile_email.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610140002_pin_profile_email.sql): a `BEFORE UPDATE OF email` trigger keeps the old value whenever `auth.uid()` is set (end-user writes); the auth-sync trigger and service role are unaffected. Applied to live. Not exercised with a real e-mail change. |
+| **SEC-019** | 🟢 Low | `npm audit` items in `postcss`, `styled-components` and the test tooling (`vitest`/`vite`/`esbuild`/`tinypool`), plus `moment`. | **Resolved.** `npm audit` reports 0 vulnerabilities. Removed unused `styled-components`; `overrides` pins `postcss ^8.5.30`; `vitest 5` + `vite 8` + `@types/node 22`; `npm audit fix` for `moment`. |
+
+**Verified**: `tsc --noEmit` clean; `npm test` 39/39. **Not verified**: `next build` (a build would clobber the running dev server's `.next`), the deletion e-mail round trip, headers in a browser.
+
 ### 🟠 High Severity
 
 #### BUG-002: [RESOLVED 2026-10-12] Inconsistent Backend Host Domains Across Frontend Modules
@@ -396,6 +417,16 @@ Findings from the backend audit (middleware, `/api/*`, FastAPI). Status reflects
   - Section 3 (FastAPI): the endpoint set matches `main.py` (4 `POST` routes), but the `#L55`, `#L70`, `#L101`, `#L162` anchors are stale (decorators are at lines 83, 97, 106, 179). Left unedited because the Python service is being redesigned.
 - **Remediation**: Update the section 2 rows; refresh section 3 after the FastAPI redesign.
 - **Resolution (section 2)**: Rows rewritten from the route handlers: cron row added, advisor/forecast and admin auth described as implemented, line anchors refreshed. Section 3 stays open until the FastAPI redesign lands.
+
+
+#### BUG-030: [OPEN: follow-ups] Ask Buck Streaming Assistant Known Limitations (ADR-043)
+- **Location**: [`buck/src/app/api/advisor/chat/route.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/advisor/chat/route.ts), [`buck/BuckAI_Backend/main.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/main.py)
+- **Items**:
+  - Deployment: the web route depends on `/ai/chat/stream/`; until BuckAI is redeployed, every question gets the offline summary (by design, not an outage).
+  - Model id: the chat uses `meta-llama/Llama-3.3-70B-Instruct-Turbo-Free` like the other endpoints; if Together retires the free endpoint, set `TOGETHER_CHAT_MODEL`.
+  - Rate limiting is per BuckAI instance and shared with the other AI endpoints (20 / 60 s).
+  - Reported answers go to `feedback` (category `ai_response`) and include the question and answer text the user chose to send; the admin triage view shows them like other feedback.
+  - Signed-in end-to-end streaming has not been verified locally (no test account in the repo).
 
 ---
 
