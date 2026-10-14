@@ -29,7 +29,7 @@ export default function CategoriesSkeleton() {
         <div className="cat-uncat-text">
           <p className="cat-eyebrow"><span className="skeleton-text">Needs a category</span></p>
           <h3><span className="skeleton-text">0 uncategorized expenses · ₱0,000.00</span></h3>
-          <p className="cat-muted"><span className="skeleton-text">AI files these into your own expense categories.</span></p>
+          <p className="cat-muted"><span className="skeleton-text">The AI Advisor files these into your own expense categories.</span></p>
         </div>
         <span className="cat-primary-btn skeleton-text">Auto-categorize with AI</span>
       </section>

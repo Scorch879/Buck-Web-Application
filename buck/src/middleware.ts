@@ -310,10 +310,8 @@ export async function middleware(request: NextRequest) {
   const csp = buildCsp(nonce, {
     isDev: process.env.NODE_ENV !== "production",
     supabaseUrl: supabaseUrl,
-    // Same host (and fallback) the browser's AI calls use.
-    aiBackendUrl:
-      process.env.NEXT_PUBLIC_AI_BACKEND_URL?.trim() ||
-      "https://buck-web-application-1.onrender.com",
+    // Same host the browser's AI calls use (utils/buckAi.ts).
+    buckAiUrl: process.env.NEXT_PUBLIC_BUCK_AI_URL?.trim() || "http://localhost:8000",
   });
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);

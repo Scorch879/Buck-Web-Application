@@ -75,13 +75,13 @@ describe("buildCsp", () => {
   it("is nonce-based, blocks framing/objects and allows only known origins", () => {
     const csp = buildCsp("abc", {
       supabaseUrl: "https://proj.supabase.co",
-      aiBackendUrl: "https://ai.example.com",
+      buckAiUrl: "https://buck-ai.vercel.app/advisor",
     });
     expect(csp).toContain("script-src 'self' 'nonce-abc' 'strict-dynamic'");
     expect(csp).not.toContain("unsafe-eval");
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("object-src 'none'");
-    expect(csp).toContain("connect-src 'self' https://proj.supabase.co wss://proj.supabase.co https://ai.example.com");
+    expect(csp).toContain("connect-src 'self' https://proj.supabase.co wss://proj.supabase.co https://buck-ai.vercel.app");
     expect(buildCsp("abc", { isDev: true })).toContain("'unsafe-eval'");
   });
 

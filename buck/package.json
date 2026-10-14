@@ -10,7 +10,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@google/genai": "^2.29.1",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.106.2",
     "chart.js": "^4.5.0",

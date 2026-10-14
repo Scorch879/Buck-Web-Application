@@ -3,7 +3,6 @@ import { createSupabaseAdminClient } from "@/utils/supabase/admin";
 import { isBearerAuthorized } from "@/utils/secureCompare";
 import {
   fetchUserFinancialContext,
-  generateAdvisoryInsights,
   generateForecastInsights,
 } from "@/utils/aiInsightsGenerator";
 
@@ -24,27 +23,11 @@ async function processUser(
   adminClient: ReturnType<typeof createSupabaseAdminClient>,
   userId: string
 ) {
+  // Advice is generated on demand by Buck_AI's AI Financial Advisor (saved in
+  // ai_advisories and refreshed when the data changes), so the cron only
+  // refreshes the rule-based forecast.
   const context = await fetchUserFinancialContext(userId);
   const goalId = context.activeGoal?.id ?? null;
-
-  const advisory = generateAdvisoryInsights(context);
-  const { error: advisoryError } = await adminClient.from("ai_advisories").insert({
-    user_id: userId,
-    goal_id: goalId,
-    advisory_type: "weekly_review",
-    title: advisory.title,
-    suggestion: advisory.suggestion,
-    advice: advisory.advice,
-    financial_health_score: advisory.financialHealthScore,
-    priority: advisory.priority,
-    metadata: advisory.metadata,
-    generated_by: "cron",
-    valid_until: new Date(Date.now() + WEEK_MS).toISOString(),
-  });
-
-  if (advisoryError) {
-    throw new Error(`advisory insert: ${advisoryError.message}`);
-  }
 
   const forecast = generateForecastInsights(context);
   const { error: forecastError } = await adminClient.from("ai_forecasts").insert({

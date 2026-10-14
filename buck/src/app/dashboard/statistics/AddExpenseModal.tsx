@@ -1,8 +1,8 @@
 "use client";
-import { aiBackendFetch } from "@/utils/aiBackend";
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import CustomSelect from "@/component/CustomSelect";
+import { suggestCategory } from "@/utils/aiApi";
 import CustomDatePicker from "@/component/CustomDatePicker";
 import { useToast } from "@/component/toast/ToastContext";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
@@ -60,20 +60,6 @@ export default function AddExpenseModal({
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editCategoryName, setEditCategoryName] = useState("");
 
-  // --- AI category suggestion ---
-  async function getSuggestedCategory(description: string): Promise<string | null> {
-    try {
-      const response = await aiBackendFetch("/ai/categorize_expense/", {
-          method: "POST",
-          body: JSON.stringify({ description }),
-        });
-      const data = await response.json();
-      return data.category || null;
-    } catch {
-      return null;
-    }
-  }
-
   const handleEditCategory = async (catId: string, newName: string) => {
     if (!newName.trim()) return;
     await updateCategoryName(userId, catId, newName);
@@ -108,7 +94,8 @@ export default function AddExpenseModal({
     setExpenseLoading(true);
     setExpenseError("");
     try {
-      const aiCategory = selectedCategory ? null : await getSuggestedCategory(expenseDesc);
+      // No category picked: the AI Advisor suggests one of the user's own.
+      const aiCategory = selectedCategory ? null : await suggestCategory("expense", expenseDesc);
       await addExpenseWithWalletDeduction(userId, {
         date: expenseDate,
         amount: parseFloat(expenseAmount),

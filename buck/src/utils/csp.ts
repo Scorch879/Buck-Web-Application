@@ -29,17 +29,18 @@ export function buildCsp(
   options: {
     isDev?: boolean;
     supabaseUrl?: string;
-    aiBackendUrl?: string;
+    buckAiUrl?: string;
   } = {}
 ) {
   const supabaseOrigin = toOrigin(options.supabaseUrl);
-  const aiOrigin = toOrigin(options.aiBackendUrl);
+  const buckAiOrigin = toOrigin(options.buckAiUrl);
   const connect = ["'self'"];
 
   if (supabaseOrigin) {
     connect.push(supabaseOrigin, supabaseOrigin.replace(/^http/, "ws"));
   }
-  if (aiOrigin) connect.push(aiOrigin);
+  // The browser calls the Buck_AI service directly; Gemini is only reached from there.
+  if (buckAiOrigin) connect.push(buckAiOrigin);
 
   const img = ["'self'", "data:", "blob:"];
   if (supabaseOrigin) img.push(supabaseOrigin);

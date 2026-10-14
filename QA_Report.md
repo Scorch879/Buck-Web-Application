@@ -419,14 +419,21 @@ Scope: server routes, middleware, auth callback, deletion flow, session/state co
 - **Resolution (section 2)**: Rows rewritten from the route handlers: cron row added, advisor/forecast and admin auth described as implemented, line anchors refreshed. Section 3 stays open until the FastAPI redesign lands.
 
 
-#### BUG-030: [OPEN: follow-ups] Ask Buck Streaming Assistant Known Limitations (ADR-043)
-- **Location**: [`buck/src/app/api/advisor/chat/route.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/advisor/chat/route.ts), [`buck/BuckAI_Backend/main.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/main.py)
+#### BUG-030: [OPEN: follow-ups] Buck_AI Rollout Items (ADR-043)
+- **Location**: [`Buck_AI/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/), [`buck/src/utils/buckAi.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/buckAi.ts)
 - **Items**:
-  - Deployment: the web route depends on `/ai/chat/stream/`; until BuckAI is redeployed, every question gets the offline summary (by design, not an outage).
-  - Model id: the chat uses `meta-llama/Llama-3.3-70B-Instruct-Turbo-Free` like the other endpoints; if Together retires the free endpoint, set `TOGETHER_CHAT_MODEL`.
-  - Rate limiting is per BuckAI instance and shared with the other AI endpoints (20 / 60 s).
-  - Reported answers go to `feedback` (category `ai_response`) and include the question and answer text the user chose to send; the admin triage view shows them like other feedback.
-  - Signed-in end-to-end streaming has not been verified locally (no test account in the repo).
+  - **Deploy**: create the Buck_AI Vercel project (root `Buck_AI`) and set `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `ALLOWED_ORIGINS`. Set `NEXT_PUBLIC_BUCK_AI_URL` on the web project. Until then the web Advisor cannot reach the service in production.
+  - **Mobile**: no AI screens yet (by request). When added, call Buck_AI `/advisor/*` with the Supabase access token; no CORS is needed.
+  - **Paused features**: AI forecast wording and the Forecaster chat return with BuckAI_Forecast. Auto-categorize stays live as part of the AI Financial Advisor.
+  - **Cost**: Zero cost: Gemini API free tier with no billing account (over-quota calls get 429 and the Advisor serves rule-based advice), Vercel Hobby for both projects, Supabase Free. On the free tier Google may use prompts to improve its products; Buck_AI sends only PII-scrubbed numbers.
+  - **Rate limits** are in-memory per serverless instance.
+  - **Old data**: `ai_advisories` rows written by the previous stack (`weekly_review` from the cron, older `monthly_strategy` rows without a fingerprint) are treated as changed data and replaced on the next read after the cooldown.
+  - **Verification gap**: end-to-end with a real Gemini key and a signed-in user not yet run.
+
+#### BUG-031: [OPEN] `is_emergency` Exclusion Documented but Not in Schema
+- **Location**: `Claude.md` §6.4, `public.expenses` ([`202606010001_initial_buck_schema.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202606010001_initial_buck_schema.sql))
+- **Impact**: Forecasts cannot exclude emergency spending because `expenses` has no `is_emergency` column and nothing sets one.
+- **Remediation**: Add `is_emergency boolean not null default false` with a UI toggle, then filter it in `data.ts#getDailySpending` and the rule engine.
 
 ---
 

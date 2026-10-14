@@ -2,13 +2,13 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FaCheck, FaEdit, FaMagic, FaPlus, FaSearch, FaTimes, FaTrash } from "react-icons/fa";
+import { categorizeItems } from "@/utils/aiApi";
 import "./style.css";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import { useToast } from "@/component/toast/ToastContext";
 import { useDashboardUser } from "@/context/DashboardUserContext";
 import { mergeDashboardDataCache, useFinancial } from "@/context/FinancialContext";
-import { categorizeItem } from "@/utils/aiApi";
 import { formatCurrency } from "@/utils/formatters";
 import {
   addCategory,
@@ -29,8 +29,6 @@ import {
   type CategoryKind,
 } from "@/utils/supabaseData";
 
-/** Max items sent to the AI per "Auto-categorize" click (rate limits). */
-const AUTO_CATEGORIZE_BATCH = 25;
 
 type Row = {
   category: BuckCategory;
@@ -39,6 +37,9 @@ type Row = {
   share: number;
   isFallback: boolean;
 };
+
+/** Max items sent to the AI Advisor per "Auto-categorize" click (one request). */
+const AUTO_CATEGORIZE_BATCH = 25;
 
 export default function CategoriesPage() {
   const { user } = useDashboardUser();
@@ -62,10 +63,10 @@ export default function CategoriesPage() {
   const [newName, setNewName] = useState("");
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
-  const [pendingDelete, setPendingDelete] = useState<Row | null>(null);
   const [autoRunning, setAutoRunning] = useState(false);
   const [autoResult, setAutoResult] = useState("");
+  const [editName, setEditName] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<Row | null>(null);
   const hadCache = useRef(Boolean(userCache.categories && userCache.expenses));
 
   const load = useCallback(async () => {
@@ -174,6 +175,41 @@ export default function CategoriesPage() {
     setAutoResult("");
   };
 
+  // AI Financial Advisor auto-categorize: one Buck_AI request per batch. The
+  // service answers only with the user's own category names.
+  const handleAutoCategorize = async () => {
+    if (autoRunning || uncategorized.length === 0) return;
+    setAutoRunning(true);
+    setAutoResult("");
+    const batch = uncategorized.slice(0, AUTO_CATEGORIZE_BATCH);
+    let filed = 0;
+    try {
+      const matches = await categorizeItems(kind, batch.map((item) => item.text ?? ""));
+      for (const [index, item] of batch.entries()) {
+        const match = matches[index];
+        if (!match || match.toLowerCase() === fallbackName.toLowerCase()) continue;
+        if (kind === "expense") {
+          const cat = categories.find((c) => c.name.toLowerCase() === match.toLowerCase());
+          if (!cat) continue;
+          await setExpenseCategory(user.uid, item.id, cat);
+        } else {
+          await setIncomeCategory(user.uid, item.id, match);
+        }
+        filed += 1;
+      }
+      await load();
+      const left = uncategorized.length - filed;
+      setAutoResult(
+        `AI filed ${filed} of ${batch.length} checked. ${left} still uncategorized` +
+          (uncategorized.length > batch.length ? ` (runs ${AUTO_CATEGORIZE_BATCH} at a time).` : ".")
+      );
+    } catch (err) {
+      setAutoResult(err instanceof Error ? err.message : "Auto-categorize failed.");
+    } finally {
+      setAutoRunning(false);
+    }
+  };
+
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = newName.trim();
@@ -228,42 +264,6 @@ export default function CategoriesPage() {
     }
   };
 
-  const handleAutoCategorize = async () => {
-    if (autoRunning || uncategorized.length === 0) return;
-    setAutoRunning(true);
-    setAutoResult("");
-    const choices = categories.map((c) => c.name).filter((n) => n.toLowerCase() !== fallbackName.toLowerCase());
-    const batch = uncategorized.slice(0, AUTO_CATEGORIZE_BATCH);
-    let filed = 0;
-    try {
-      for (const item of batch) {
-        if (!item.text?.trim()) continue;
-        const match = await categorizeItem(kind, item.text, choices);
-        if (!match) continue;
-        if (kind === "expense") {
-          const cat = categories.find((c) => c.name === match);
-          if (cat) {
-            await setExpenseCategory(user.uid, item.id, cat);
-            filed += 1;
-          }
-        } else {
-          await setIncomeCategory(user.uid, item.id, match);
-          filed += 1;
-        }
-      }
-      await load();
-      const left = uncategorized.length - filed;
-      setAutoResult(
-        `AI filed ${filed} of ${batch.length} checked. ${left} still uncategorized` +
-          (uncategorized.length > batch.length ? ` (runs ${AUTO_CATEGORIZE_BATCH} at a time).` : ".")
-      );
-    } catch (err) {
-      setAutoResult(err instanceof Error ? err.message : "Auto-categorize failed.");
-    } finally {
-      setAutoRunning(false);
-    }
-  };
-
   if (loading) {
     return <DashboardPageSkeleton variant="categories" />;
   }
@@ -307,7 +307,7 @@ export default function CategoriesPage() {
         </p>
       )}
 
-      {/* Uncategorized bucket + AI auto-categorize */}
+      {/* Uncategorized bucket + AI Advisor auto-categorize */}
       <section className="cat-card cat-uncat" aria-label="Uncategorized items">
         <div className="cat-uncat-text">
           <p className="cat-eyebrow">Needs a category</p>
@@ -319,8 +319,8 @@ export default function CategoriesPage() {
             )}
           </h3>
           <p className="cat-muted">
-            AI files these into your own {noun} categories. Items it can&apos;t match stay in{" "}
-            {fallbackName}.
+            The AI Advisor files these into your own {noun} categories. Items it can&apos;t match
+            stay in {fallbackName}.
           </p>
           {autoResult && <p className="cat-auto-result" role="status">{autoResult}</p>}
         </div>

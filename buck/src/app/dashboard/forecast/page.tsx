@@ -223,6 +223,7 @@ export default function ForecastPage() {
           </div>
         </section>
       </div>
+
     </div>
   );
 }

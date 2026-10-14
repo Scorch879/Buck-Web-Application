@@ -1,5 +1,4 @@
 "use client";
-import { aiBackendFetch } from "@/utils/aiBackend";
 import React, { useEffect, useState, useRef } from "react";
 import CustomSelect from "@/component/CustomSelect";
 import CustomDatePicker from "@/component/CustomDatePicker";
@@ -23,7 +22,8 @@ import {
 } from "@/component/goals";
 import ProgressBarCard from "./ProgressBarCard";
 import DangerDeleteDialog from "@/component/DangerDeleteDialog";
-import { getSavingTip } from "@/utils/aiApi";
+import { getGoalTip, suggestCategory } from "@/utils/aiApi";
+import { computeGoalForecast } from "@/utils/goalForecast";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -129,22 +129,6 @@ const GoalsPage = () => {
     () => userCache.expenses ?? []
   );
   const hadInitialGoalsData = useRef(hasInitialGoalsData);
-
-  // --- AI category suggestion for goals page ---
-  async function getSuggestedCategory(
-    description: string
-  ): Promise<string | null> {
-    try {
-      const response = await aiBackendFetch("/ai/categorize_expense/", {
-          method: "POST",
-          body: JSON.stringify({ description }),
-        });
-      const data = await response.json();
-      return data.category || null;
-    } catch {
-      return null;
-    }
-  }
 
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorModalMessage, setErrorModalMessage] = useState("");
@@ -328,22 +312,7 @@ const GoalsPage = () => {
     setForecastData(null);
     setForecastModalOpen(true);
     try {
-      const goalPayload = {
-        id: selectedGoal.id,
-        userId: user.uid,
-        targetAmount: selectedGoal.targetAmount,
-        targetDate: selectedGoal.targetDate,
-        attitude: selectedGoal.attitude || "Normal",
-      };
-      const res = await aiBackendFetch("/ai/forecast/", {
-          method: "POST",
-          body: JSON.stringify({
-            goal: goalPayload,
-            budget: walletBudget,
-          }),
-        });
-      if (!res.ok) throw new Error("Failed to fetch forecast");
-      const data = await res.json();
+      const data = computeGoalForecast(selectedGoal);
       setForecastData(data);
       if (data.ai_recommended_budget && selectedGoal && user) {
         await updateGoalAiRecommendedBudget(
@@ -413,63 +382,19 @@ const GoalsPage = () => {
     };
   }, [setDashboardCache, user.uid]);
 
+  // AI Financial Advisor tip for the selected goal (read server-side by id).
   useEffect(() => {
-    let didCancel = false;
-    let timeoutId: NodeJS.Timeout;
-    let retryTimeoutId: NodeJS.Timeout;
-    let startTime = Date.now();
-    const MAX_TIMEOUT = 30000; // 30 seconds
-    const MAX_BACKOFF = 4000; // max 4s between retries
-
-    async function fetchWithRetry(backoff = 1000) {
-      if (didCancel) return;
-      try {
-        setAIRecommendation("Loading AI recommendation...");
-        const attitude = selectedGoal?.attitude || "Normal";
-        let multiplier = 1.0;
-        if (attitude === "Moderate") multiplier = 0.8;
-        if (attitude === "Aggressive") multiplier = 0.6;
-        const userContext = `Attitude: ${attitude} (multiplier: ${multiplier}), Target Amount: ${selectedGoal?.targetAmount}`;
-        const tip = await Promise.race([
-          getSavingTip(
-            selectedGoal?.goalName || "",
-            userContext,
-            selectedGoal?.targetDate,
-            selectedGoal?.createdAt
-          ),
-          new Promise((_, reject) => {
-            timeoutId = setTimeout(
-              () => reject(new Error("timeout")),
-              MAX_TIMEOUT - (Date.now() - startTime)
-            );
-          }),
-        ]);
-        if (!didCancel) setAIRecommendation(typeof tip === "string" ? tip : "");
-      } catch (err) {
-        if (didCancel) return;
-        if (Date.now() - startTime < MAX_TIMEOUT) {
-          // Retry with exponential backoff
-          retryTimeoutId = setTimeout(
-            () => fetchWithRetry(Math.min(backoff * 2, MAX_BACKOFF)),
-            backoff
-          );
-        } else {
-          setAIRecommendation(null); // Don't show error, just leave blank
-        }
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    }
-
-    if (selectedGoal) {
-      fetchWithRetry();
-    } else {
+    if (!selectedGoal) {
       setAIRecommendation(null);
+      return;
     }
+    let cancelled = false;
+    setAIRecommendation("Loading AI recommendation...");
+    void getGoalTip({ goalId: selectedGoal.id }).then((tip) => {
+      if (!cancelled) setAIRecommendation(tip || null);
+    });
     return () => {
-      didCancel = true;
-      clearTimeout(timeoutId);
-      clearTimeout(retryTimeoutId);
+      cancelled = true;
     };
   }, [selectedGoal]);
 
@@ -507,36 +432,9 @@ const GoalsPage = () => {
       setForecastLoading(true);
       setForecastError(null);
       try {
-        const goalPayload = {
-          id: selectedGoal.id,
-          userId: user.uid,
-          targetAmount: selectedGoal.targetAmount,
-          targetDate: selectedGoal.targetDate,
-          attitude: selectedGoal.attitude || "Normal",
-        };
-        let range = {};
-        if (selectedMode === "week" && weekDateRanges[selectedWeek]) {
-          range = {
-            start: weekDateRanges[selectedWeek].start,
-            end: weekDateRanges[selectedWeek].end,
-          };
-        } else if (selectedMode === "month" && monthDateRanges[selectedMonth]) {
-          range = {
-            start: monthDateRanges[selectedMonth].start,
-            end: monthDateRanges[selectedMonth].end,
-          };
-        }
-        const res = await aiBackendFetch("/ai/forecast/", {
-            method: "POST",
-            body: JSON.stringify({
-              goal: goalPayload,
-              budget: walletBudget || 0,
-              mode: selectedMode,
-              ...range,
-            }),
-          });
-        if (!res.ok) throw new Error("Failed to fetch forecast");
-        const data = await res.json();
+        // Plain-math trajectory over the whole horizon (BuckAI_Forecast will
+        // add AI on top later); the chart slices it to the selected week/month.
+        const data = computeGoalForecast(selectedGoal);
         setForecastData(data);
         if (data.ai_recommended_budget && selectedGoal && user) {
           await updateGoalAiRecommendedBudget(
@@ -585,7 +483,8 @@ const GoalsPage = () => {
     setExpenseLoading(true);
     setExpenseError("");
     try {
-      const aiCategory = await getSuggestedCategory(expenseDesc);
+      // The AI Advisor files the expense under one of the user's own categories.
+      const aiCategory = await suggestCategory("expense", expenseDesc);
       await addExpenseWithWalletDeduction(user.uid, {
         date: expenseDate,
         amount: expenseValue,

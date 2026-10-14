@@ -1,0 +1,3 @@
+-r requirements.txt
+# Local development server only (Vercel runs the app itself)
+uvicorn>=0.35,<1

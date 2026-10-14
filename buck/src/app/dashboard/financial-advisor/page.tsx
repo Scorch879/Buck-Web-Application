@@ -19,6 +19,7 @@ import {
 } from "@/utils/supabaseData";
 import { fetchAIAdvisorInsights, type AIAdvisorInsights } from "@/utils/advisorApi";
 import { useToast } from "@/component/toast";
+import AIChat from "@/component/AIChat";
 import "./style.css";
 
 function getCurrentWeekStart() {
@@ -381,6 +382,8 @@ export default function FinancialAdvisorPage() {
           </div>
         </section>
       </div>
+
+      <AIChat />
     </div>
   );
 }

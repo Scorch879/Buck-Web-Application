@@ -12,7 +12,7 @@
 Buck provides an intelligent, accessible, cross-platform personal finance ecosystem combining:
 - **Instant Mobile Receipt Scanning**: Native on-device OCR with automatic 12% EVAT mathematical isolation.
 - **Automated AI Categorization**: Zero-shot NLP classification into 17 standard expense categories.
-- **Predictive Spending Forecasting**: Facebook Prophet additive time-series regression with 80% statistical confidence bounds.
+- **AI Forecaster**: A dedicated Gemini Flash specialist that projects month-end spending and goal timing from 14/30/60-day moving averages, stating its window and a range.
 - **Attitude-Calibrated AI Financial Advisor**: Concise, strictly 2-sentence actionable guidance tailored to user-selected saving attitudes (Normal, Moderate, Aggressive).
 - **Multi-Wallet Net Worth Oversight**: Liquid wallet management with atomic inter-wallet transfers.
 - **Robust Security & Privacy**: Kernel-level PostgreSQL Row-Level Security (RLS), 30-minute inactivity session expiration with cross-tab synchronization, and a 10-day soft account deletion recovery window.
@@ -28,11 +28,11 @@ Buck provides an intelligent, accessible, cross-platform personal finance ecosys
 |---|---|---|---|
 | **Expense & Income Logging** | Web & Mobile | Supabase PostgREST & atomic balance triggers | Dual-entry accounting, `numeric(14,2)` in PHP |
 | **Receipt Scanning** | Mobile-Exclusive | Flutter Edge ML Kit Vision OCR | On-device text extraction in `<1.5s`, 12% EVAT separation |
-| **AI Expense Classification** | Web & Mobile | Together AI (LLaMA 3.3 70B Turbo) | Zero-shot mapping into 17 standard categories |
+| **AI Expense Classification** | Web & Mobile | `Buck_AI/BuckAI_Advisor` auto-categorize (`POST /advisor/categorize`, Gemini) | Part of the AI Financial Advisor module; enum-constrained to the user's own categories, 25 per request |
 | **Multi-Wallet Ledger** | Web & Mobile | PostgreSQL `transfer_funds_atomic` stored procedure | Atomic debit/credit, soft deletion (`deleted_at`) |
 | **Budget Tracking & Alerts** | Web & Mobile | Category & Wallet budget progress evaluators | 80% Caution Alert (Amber), 100% Critical Alert (Crimson) |
-| **Spending Forecasting** | Web & Mobile | Facebook Prophet additive regression microservice | 80% confidence interval, excludes `is_emergency=TRUE` |
-| **AI Financial Advisor** | Web & Mobile | Prompt-engineered LLaMA 3.3 microservice | Strictly 2 sentences, PHP amounts, saving attitude multipliers |
+| **AI Forecaster** | Web & Mobile | `Buck_AI/BuckAI_Forecast` (Python, Gemini), *planned* | Until then: rule-engine month projection and plain-math goal trajectory (`utils/goalForecast.ts`) |
+| **AI Financial Advisor** | Web & Mobile | `Buck_AI/BuckAI_Advisor` (Python FastAPI, Gemini Flash) | Advice saved in `ai_advisories`, regenerated only when the data materially changes; chat and goal tips; 2 sentences, PHP, attitude multipliers |
 | **Financial Goals** | Web & Mobile | Goal tracking & wallet fund allocation triggers | Completion pacing, days remaining, celebratory feedback |
 | **Analytics & Reports** | Web & Mobile | Chart.js & Framer Motion data visualizers | Category donut (Top-4 + Others cap), daily bars, velocity |
 | **Auth & Account Lifecycle** | Web & Mobile | Supabase GoTrue, SSR Cookies, HMAC session tokens | 30-min idle timeout, cross-tab sync, 10-day deletion recovery |
@@ -41,7 +41,7 @@ Buck provides an intelligent, accessible, cross-platform personal finance ecosys
 
 ## 2. High-Level System Architecture
 
-Buck is architected as a decoupled, multi-tier system where independent Web and Mobile presentation clients share a single, unified Supabase PostgreSQL cloud database, while offloading intensive machine learning workloads to a dedicated Python FastAPI microservice.
+Buck is architected as a decoupled, multi-tier system where independent Web and Mobile presentation clients share a single, unified Supabase PostgreSQL cloud database, while AI runs in a dedicated Python service, `Buck_AI` (FastAPI + Google Gemini Flash), shared by web and mobile.
 
 ```mermaid
 flowchart TD
@@ -63,13 +63,13 @@ flowchart TD
     subgraph ApplicationServiceTier ["2. Application & Service Tier (Cloud Hosted)"]
         direction LR
         NextServer["⚡ Next.js Server Layer (Node/Edge)\n- Middleware SSR Auth Guard\n- HMAC Session Activity Cookie\n- Route Handlers (/api/auth, /api/account)\n- Admin Telemetry Gateways"]:::service
+        BuckAI["🧠 Buck_AI (Python FastAPI on Vercel)\n- BuckAI_Advisor: saved, self-updating advice + chat\n- BuckAI_Forecast: planned"]:::service
         SupabaseGateway["🛡️ Supabase Managed Gateway\n- GoTrue Auth Engine (JWT / Cookies)\n- PostgREST Data Engine (REST APIs)\n- Realtime Replication Engine (WSS)"]:::gateway
-        FastAPI["🧠 Python FastAPI AI Microservice\n(Render / Uvicorn)\n- LLaMA 3.3 70B Zero-Shot Classifier\n- Facebook Prophet Time-Series Engine\n- Saving Attitude Multiplier Recalibrator"]:::service
     end
 
     %% External ML Providers
     subgraph ExternalServices ["External Cloud AI Engines"]
-        TogetherAI["🤖 Together AI API\n(LLaMA 3.3 70B Turbo)"]:::external
+        Gemini["🤖 Google Gemini API\n(Gemini Flash, server-side key)"]:::external
     end
 
     %% Data Persistence Tier
@@ -82,14 +82,13 @@ flowchart TD
     WebClient <-->|"HTTPS (REST) & WSS (Realtime)"| SupabaseGateway
     MobileClient <-->|"HTTPS (REST) & WSS (Realtime)"| SupabaseGateway
 
-    WebClient -.->|"Direct AI Inference (HTTPS)"| FastAPI
-    MobileClient -.->|"Direct AI Inference (HTTPS)"| FastAPI
-    NextServer -.->|"Service Invocations (HTTPS)"| FastAPI
+    WebClient -.->|"HTTPS + Supabase JWT"| BuckAI
+    MobileClient -.->|"HTTPS + Supabase JWT"| BuckAI
+    BuckAI <-->|"PostgREST as the user (RLS)"| SupabaseGateway
+    BuckAI -.->|"PII-Sanitized, Grounded Prompts + Tool Calls"| Gemini
 
     NextServer <-->|"PostgreSQL Wire / PostgREST (Admin Role)"| PostgreSQL
     SupabaseGateway <-->|"PostgreSQL Wire Protocol (Port 5432)"| PostgreSQL
-    FastAPI <-->|"Database Ingestion / SQL"| PostgreSQL
-    FastAPI <-->|"PII-Sanitized Prompt Invocations"| TogetherAI
 ```
 
 ### 2.1 Presentation Tier
@@ -112,9 +111,10 @@ flowchart TD
    - **Middleware Guard (`buck/src/middleware.ts`)**: Evaluates SSR auth cookies and verifies HMAC-SHA256 activity signatures before allowing navigation into protected `/dashboard/*` routes.
    - **Auth & Account Lifecycle Routes**: Manages rate-limited password reset requests (`/api/auth/password-reset`), 10-day deletion requests and confirmation tokens (`/api/account/deletion/*`), and cron-based purge execution.
    - **Admin Telemetry Gateways**: Proxies authenticated system telemetry from the Supabase Management API (`/api/admin/supabase`) and Vercel Deployment API (`/api/admin/vercel`).
-3. **Python FastAPI AI Microservice (`buck/BuckAI_Backend/`)**:
-   - Lightweight microservice hosted on Render / Uvicorn exposing high-performance machine learning endpoints.
-   - Coordinates LLaMA 3.3 70B Turbo zero-shot categorization, Facebook Prophet historical additive regression, and 2-sentence saving advice formatting with attitude multipliers.
+3. **Buck_AI: Python FastAPI service on Google Gemini Flash (`Buck_AI/`, its own Vercel project)** (ADR-043):
+   - Two AIs, one per job: **`BuckAI_Advisor`** (AI Financial Advisor, live) and **`BuckAI_Forecast`** (AI Forecaster, planned). `shared/` holds config, auth, Supabase, the Gemini client and safety.
+   - Web and mobile call the same API with the user's **Supabase access token**, not an API key. The service verifies it with Supabase Auth and queries Supabase *as the user*, so RLS applies and no service-role key is needed. `GEMINI_API_KEY` exists only in the Buck_AI environment.
+   - Advice is saved in `ai_advisories` with a data fingerprint. It is served from the database while the data is unchanged and regenerated when it moves materially. See [`Buck_AI/README.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/README.md).
 
 ### 2.3 Data Persistence Tier
 - **Single Source of Truth**: Both the Next.js web application and Flutter mobile app communicate with the exact same Supabase PostgreSQL 15 database instance. Any receipt logged on mobile is instantaneously visible on the web dashboard.
@@ -142,7 +142,7 @@ The system is decomposed into 10 cohesive, traceable subsystems aligned with the
 ├──────────────────────────┼──────────────────────────┼───────────────────────────────────┤
 │ 1. Expense/Income Log    │ 2. Mobile Edge OCR       │ 8. Financial Goals & Pacing       │
 │ 4. Multi-Wallet Ledger   │ 3. 17-Cat AI Classifier  │ 9. Analytics & Cash Flow Reports  │
-│ 5. Budgets & Alerting    │ 6. Prophet Forecasting   │ 10. Auth & 10-Day Account Grace   │
+│ 5. Budgets & Alerting    │ 6. AI Forecaster         │ 10. Auth & 10-Day Account Grace   │
 │                          │ 7. AI Financial Advisor  │                                   │
 └──────────────────────────┴──────────────────────────┴───────────────────────────────────┘
 ```
@@ -158,9 +158,9 @@ The system is decomposed into 10 cohesive, traceable subsystems aligned with the
 5. **Budget Management & Alert Subsystem (MOD-05)**:
    - Monthly category and wallet budgets, dynamic progress gauges, and threshold triggers: **80% Caution Alert (Amber)** and **100% Critical Limit Alert (Crimson)**.
 6. **Spending Forecasting & Trend Analysis Subsystem (MOD-06)**:
-   - Ingests historical spending into Facebook Prophet, generates daily burn curves with 80% confidence interval bands, and filters out anomalous transactions (`is_emergency = TRUE`).
+   - The **AI Forecaster** (`Buck_AI/BuckAI_Forecast`, planned): a separate AI from the Advisor. Until it ships, the Forecast tab uses the rule engine and goal charts use plain math (`utils/goalForecast.ts`).
 7. **AI Financial Advisor & Recommendation Subsystem (MOD-07)**:
-   - Generates actionable guidance restricted to **strictly two sentences**, calculating monetary advice in PHP scaled by user saving attitudes (Normal 1.0x, Moderate 0.80x/1.15x, Aggressive 0.60x/1.30x).
+   - The **AI Financial Advisor** (`Buck_AI/BuckAI_Advisor`, Gemini): saved advice that updates itself with the data, streaming chat with read-only data tools, goal tips, and AI auto-categorize. Cards and tips are **strictly two sentences** with PHP amounts scaled by saving attitude (Normal 1.0x, Moderate 0.80x/1.15x, Aggressive 0.60x/1.30x).
 8. **Financial Goals & Target Savings Subsystem (MOD-08)**:
    - Dedicated goal tracking with target amounts, target completion dates, wallet fund allocations, and completion pacing indicators.
 9. **Analytics, Statistics & Reports Subsystem (MOD-09)**:
@@ -343,11 +343,6 @@ d:/VS Code/Buck-Budget-Tracker/Buck-Web-Application/
     ├── tsconfig.json                   # TypeScript compiler configuration
     ├── vercel.json                     # Vercel deployment & security headers configuration
     │
-    ├── BuckAI_Backend/                 # Python FastAPI AI Microservice Subsystem
-    │   ├── main.py                     # FastAPI application, routing, and Pydantic validation schemas
-    │   ├── ai_models.py                # LLaMA 3.3 Together AI prompt engine, Prophet time-series model
-    │   └── requirements.txt            # Python dependencies (fastapi, uvicorn, prophet, pydantic)
-    │
     ├── supabase/                       # Database Persistence Subsystem
     │   └── migrations/                 # Versioned SQL migrations (DDL, RLS policies, stored procedures)
     │       ├── 202606010000_initial_schema.sql
@@ -455,7 +450,7 @@ flowchart TD
     UserRequest([User Request / Task]) --> Triage{Agent Role Triage}
     
     Triage -->|UI / Visual / Dashboard / Skeletons| FrontendAgent[Frontend UI/UX Architect]
-    Triage -->|FastAPI / AI Prompting / Prophet| BackendAgent[Backend & ML Engineer]
+    Triage -->|API Routes / Buck_AI Python + Gemini| BackendAgent[Backend & AI Engineer]
     Triage -->|Auth / DB / RLS / Security / Purge| SecurityAgent[Security & Data Auditor]
     
     FrontendAgent --> CodeExecution[Code Implementation]
@@ -486,10 +481,11 @@ flowchart TD
 - **1:1 Skeletal Loading Parity Policy**: Loading skeletons in [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx) must have 1:1 layout, geometry, card anatomy, and toolbar parity with rendered screens (especially Expenses and Wallets) to eliminate Cumulative Layout Shift (CLS).
 
 ### 4.3 Backend & ML Engineer
-- **Responsibilities**: Python FastAPI microservice ([`buck/BuckAI_Backend/main.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/main.py)), AI inference models ([`ai_models.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/ai_models.py)), and Next.js backend API routes ([`buck/src/app/api/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/)).
-- **AI Output Sanitization**: Strip `<think>` tags and reasoning noise using `clean_llama_output`.
+- **Responsibilities**: The Python [`Buck_AI/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/) service (`BuckAI_Advisor`, `BuckAI_Forecast`, `shared`) and the Next.js API routes ([`buck/src/app/api/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/)).
+- **Specialist Separation**: The AI Financial Advisor and the AI Forecaster are two different AIs with different jobs. Keep their prompts, tools and UI separate; they share only `Buck_AI/shared/`.
+- **AI Output Sanitization**: Drop Gemini thought parts (`part.thought`), validate structured output against its JSON schema, and pass free text through `shared/safety.py#clean_text`.
 - **Currency Standard**: All monetary calculations and prompt outputs must use Philippine Peso (`PHP` / `₱`) with 2 decimal precision.
-- **State Synchronization**: Prevent in-memory cache drift between FastAPI memory and Supabase PostgreSQL.
+- **Statelessness**: AI routes keep no conversation state; every request reloads the user's data from Supabase.
 
 ### 4.4 Security & Data Auditor
 - **Responsibilities**: Supabase schema integrity, RLS policies, SSR auth lifecycles, cryptographic token handling, session activity cookies, and compliance purge workflows.
@@ -506,7 +502,8 @@ flowchart TD
 | **ADR-001** | SSR Authentication & HMAC Cookies | `@supabase/ssr` combined with HMAC-SHA256 session activity cookies in `middleware.ts`. |
 | **ADR-002** | In-Memory Client Cache (`FinancialContext`) | Timestamped in-memory caching for dashboard data with Supabase Realtime invalidation. |
 | **ADR-003** | Soft-Deletion for Multi-Wallet Management | Added `wallets.deleted_at` to preserve historical transaction referential integrity. |
-| **ADR-004** | Decoupled Python FastAPI Microservice | Isolated Python ML workloads (LLaMA prompt orchestration, Prophet) into a dedicated service. |
+| **ADR-004** | Decoupled Python FastAPI Microservice | *Superseded by ADR-043* (service removed). |
+| **ADR-043** | Buck_AI: Python + Gemini, Two AIs | `Buck_AI/` FastAPI on Vercel with `BuckAI_Advisor` (saved, fingerprint-refreshed advice) and `BuckAI_Forecast` (planned); Supabase-JWT auth for web and mobile; queries run under RLS. |
 | **ADR-005** | Zero-Knowledge Password Reset Rate Limiting | Rate limiting tracked via SHA-256 HMAC hashes in `auth_security_events` (zero plaintext PII). |
 | **ADR-006** | Database Policy Consolidation & Hardening | Applied `(select auth.uid())` initplan caching and revoked trigger execution from public roles. |
 | **ADR-007** | Weekly Spending Donut with 5-Slice Cap | Donut chart capped at Top-4 categories + 5th "Others" slice, paired with contextual interpretation card. |
@@ -531,7 +528,7 @@ Categories are **fully custom per user**. Every new account is seeded with these
 
 Each account also gets 7 default income categories: `Salary`, `Allowance`, `Freelance`, `Business`, `Investment`, `Gift`, `Other` (fallback).
 - Users add, rename and delete categories on the **Categories** tab (`categories.kind = 'expense' | 'income'`). The fallbacks `Uncategorized` (expense) and `Other` (income) are protected.
-- AI classification must choose from the **user's own** categories (`categorizeItem()` in `utils/aiApi.ts` sends them). Anything that doesn't fit stays in the fallback for auto-categorize.
+- AI classification is part of the **AI Financial Advisor** module (`Buck_AI/BuckAI_Advisor/categorize.py`). It must choose from the **user's own** categories (read under RLS; Gemini output is an enum of them). Anything that doesn't fit stays in the fallback.
 
 ### 6.3 Mobile OCR Receipt Scanning
 - Exclusive to the Flutter mobile application via native camera hardware.
@@ -539,9 +536,10 @@ Each account also gets 7 default income categories: `Salary`, `Allowance`, `Free
 - 12% EVAT mathematical isolation separating tax and service fees from the net total payable.
 - Human-in-the-loop editable verification modal before saving.
 
-### 6.4 AI Forecasting & Trend Analysis (Prophet)
-- Additive time-series regression with 80% statistical confidence interval bounds.
-- Transactions marked with `is_emergency = TRUE` are automatically excluded from baseline spending trends.
+### 6.4 AI Forecaster
+- A separate Gemini Flash specialist from the Advisor: it projects, it does not coach.
+- Numbers are deterministic (rule-engine projections, 14/30/60-day moving averages, goal pacing x attitude savings multiplier); Gemini explains them and answers questions, stating the window used and a range when windows disagree.
+- Emergency exclusion: the schema has no `is_emergency` column yet (QA BUG-031), so no transactions are excluded today.
 
 ### 6.5 AI Financial Advisor & Attitude Multipliers
 - Output must be **strictly two sentences** long.
@@ -596,23 +594,19 @@ npm run start
 npm run lint
 ```
 
-### 7.2 Python FastAPI AI Microservice (`buck/BuckAI_Backend/`)
+### 7.2 Buck_AI (Python + Gemini)
 
 ```bash
-# Navigate to AI backend directory
-cd buck/BuckAI_Backend
-
-# Create and activate Python virtual environment
-python -m venv venv
-.\venv\Scripts\activate      # Windows (PowerShell)
-source venv/bin/activate     # macOS / Linux
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Start FastAPI server with live reload on port 8000
+cd Buck_AI
+python -m venv .venv
+.venv\Scripts\activate            # Windows
+pip install -r requirements-dev.txt
+copy .env.example .env            # GEMINI_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY, ALLOWED_ORIGINS
 uvicorn main:app --reload --port 8000
+python -m unittest -v             # offline tests
 ```
+
+The web app reads `NEXT_PUBLIC_BUCK_AI_URL` (default `http://localhost:8000`). Runs at ₱0: Gemini API free tier (no billing account, so over-quota calls get 429 and the Advisor serves rule-based advice), Vercel Hobby for both projects, Supabase Free.
 
 ---
 
@@ -634,6 +628,6 @@ uvicorn main:app --reload --port 8000
    - Always include corresponding Row-Level Security policies enforcing `auth.uid() = user_id`.
 
 5. **AI Prompt Engineering & Response Sanitation**:
-   - Always strip thinking tokens (`<think>...</think>`) before parsing model outputs.
+   - Never surface Gemini thought parts; constrain structured outputs with a JSON schema and re-validate them.
    - Ensure the AI advisor strictly adheres to the 2-sentence constraint with explicit numeric PHP recommendations.
-   - Sanitize all PII (emails, phone numbers, account numbers) using regex scrubber before sending transaction context to LLMs.
+   - Sanitize all PII (emails, phone numbers, account numbers) with `clean_text` / `scrub_pii` (`Buck_AI/shared/safety.py`) before any text reaches Gemini, and keep user data inside the `<financial_data>` fence.

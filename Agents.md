@@ -10,7 +10,7 @@ This document defines the roles, responsibilities, operational boundaries, and w
 |---|---|---|---|
 | **Senior QA & Documentation Engineer** | Code quality, traceability, architecture documentation, defect auditing | Whole repository (`buck/`, `docs/`, root) | Read / Documentation Write |
 | **Frontend UI/UX Architect** | Next.js App Router, Framer Motion, CSS Design System, Responsive Modals | `buck/src/app/`, `buck/src/component/`, `buck/src/styles/` | Full Workspace Write |
-| **Backend & ML Engineer** | FastAPI endpoints, Together AI prompting, Prophet time-series, XGBoost multipliers | `buck/BuckAI_Backend/`, `buck/src/app/api/` | Full Workspace Write / Terminal |
+| **Backend & AI Engineer** | Buck_AI Python service on Gemini: AI Financial Advisor (live), AI Forecaster (planned), prompts, tools, persistence | `Buck_AI/`, `buck/src/app/api/` |
 | **Security & Data Auditor** | Supabase RLS, Session security, Password hashing, Auth flow, Account purge | `buck/supabase/`, `buck/src/middleware.ts`, `buck/src/utils/` | Full Workspace Write |
 
 ---
@@ -64,21 +64,20 @@ Maintains and enhances user-facing components, design tokens, responsive layouts
 
 ---
 
-### 2.3 Backend & ML Engineer
+### 2.3 Backend & AI Engineer
 
 #### Purpose & Responsibilities
-Maintains the Python FastAPI microservice ([`buck/BuckAI_Backend/main.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/main.py)), AI inference models ([`ai_models.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/ai_models.py)), and Next.js backend API routes ([`buck/src/app/api/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/)).
+Maintains the Python [`Buck_AI/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/) service and the Next.js backend API routes ([`buck/src/app/api/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/)).
 
 #### Core Subsystems Owned
-- **Expense Categorization**: LLaMA 3.3 70B Turbo zero-shot classifier mapped to 17 standard categories.
-- **Saving Tip & Advice Generation**: Prompt-engineered 2-sentence output in Philippine Peso with multiplier context.
-- **Time-Series Forecasting**: Facebook Prophet modeling on historical expenses.
-- **Next.js Route Handlers**: `/api/advisor/route.ts`, `/api/forecast/route.ts`, `/api/admin/supabase/route.ts`, `/api/admin/vercel/route.ts`.
+- **AI Financial Advisor** (`Buck_AI/BuckAI_Advisor`): advice saved in `ai_advisories` and regenerated only when the data fingerprint changes, streaming chat with read-only tools, goal tips, and auto-categorize (`categorize.py`, user's own categories only).
+- **AI Forecaster** (`Buck_AI/BuckAI_Forecast`): planned, separate AI. Until then the rule engine (`/api/forecast`) and `utils/goalForecast.ts`.
+- **Next.js Route Handlers**: `/api/forecast`, `/api/cron/generate-insights` (forecast only), `/api/admin/*`, auth and account routes.
 
 #### Operational Boundaries
-- Ensure prompt outputs are strictly parsed and sanitized (`clean_llama_output` stripping `<think>` tags).
+- Keep the Advisor and Forecaster separate (own prompt, tools, UI). Drop Gemini thought parts, constrain structured output with JSON schemas, and sanitize with `cleanAiText`.
 - Standardize all currency handling to Philippine Peso (`PHP` / `₱`) with 2 decimal precision.
-- Prevent in-memory data desynchronization between FastAPI backend and Supabase PostgreSQL.
+- Buck_AI reads Supabase as the calling user (RLS) and never accepts a user id from the request or the model.
 
 ---
 
@@ -108,7 +107,7 @@ flowchart TD
     UserRequest([User Request / PR / Issue]) --> Triage{Agent Triage}
     
     Triage -->|UI / Visual / Dashboard| FrontendAgent[Frontend UI/UX Architect]
-    Triage -->|FastAPI / AI / Prediction| BackendAgent[Backend & ML Engineer]
+    Triage -->|API Routes / Buck_AI Python + Gemini| BackendAgent[Backend & AI Engineer]
     Triage -->|Auth / DB / RLS / Security| SecurityAgent[Security & Data Auditor]
     
     FrontendAgent --> CodeReview[Code Execution / Modification]

@@ -1,86 +1,99 @@
-import { aiBackendFetch } from "@/utils/aiBackend";
-
-// Utility to call the backend AI API
-// This function sends user data to the backend and returns the AI results
-
-export type ExpenseInput = {
-  text: string; // Description of the expense
-  past_expenses: number[]; // Array of past expense amounts
-  saving_attitude: 'Normal' | 'Moderate' | 'Aggressive'; // User's saving attitude
-};
-
-export type AIResponse = {
-  category: string;
-  base_forecast: number;
-  adjusted_forecast: number;
-};
-
-// Host comes from NEXT_PUBLIC_AI_BACKEND_URL (see aiBackend.ts). Calls are authenticated.
-const BACKEND_PATH = '/process_expense/';
-const SAVING_TIP_PATH = '/ai/saving_tip/';
-
-export async function processExpense(input: ExpenseInput): Promise<AIResponse> {
-  // Send a POST request to the backend
-  const response = await aiBackendFetch(BACKEND_PATH, {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
-  if (!response.ok) {
-    throw new Error('Failed to get AI response');
-  }
-  // Parse and return the JSON response
-  return response.json();
-}
-
-export async function getSavingTip(category: string, userContext: string = "", targetDate?: string, createdAt?: string): Promise<string> {
-  const body: Record<string, string> = { category, user_context: userContext };
-  if (targetDate) body.target_date = targetDate;
-  if (createdAt) body.created_at = createdAt;
-  const response = await aiBackendFetch(SAVING_TIP_PATH, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) {
-    throw new Error('Failed to get AI saving tip');
-  }
-  const data = await response.json();
-  if (data.tip) return data.tip;
-  throw new Error(data.error || 'Unknown error from AI');
-} 
-
-const CATEGORIZE_PATH = '/ai/categorize_expense/';
-
-export type CategorizeKind = 'expense' | 'income';
+import type { ChatRequest, ChatStreamEvent } from "@/utils/aiChat";
+import { buckAiError, buckAiFetch } from "@/utils/buckAi";
+import { createSseParser } from "@/utils/sse";
 
 /**
- * Asks the AI categorizer to file one item under one of the USER'S categories
- * (Design.md ADR-042). The request carries `kind` and the user's category
- * names; the backend currently ignores both and answers from the 17 canonical
- * expense categories (handoff in QA_Report BUG-029). Until it honours them,
- * only answers that match a user category are accepted.
- *
- * Returns the matching category name, or null when nothing fits ("Uncategorized",
- * unknown names, or AI unavailable).
+ * AI Financial Advisor calls (Buck_AI `/advisor/*`). Insights live in
+ * advisorApi.ts; this file holds auto-categorize, chat and goal tips.
  */
-export async function categorizeItem(
-  kind: CategorizeKind,
-  description: string,
-  categories: string[]
-): Promise<string | null> {
-  const text = description.trim().slice(0, 300);
-  if (!text || categories.length === 0) return null;
 
+export type CategorizeKind = "expense" | "income";
+
+/**
+ * Advisor auto-categorize: files up to 25 descriptions under the user's own
+ * categories in one request. Returns names in the same order; null means "no
+ * confident match" (or AI unavailable), so the item stays in the fallback.
+ */
+export async function categorizeItems(kind: CategorizeKind, descriptions: string[]): Promise<(string | null)[]> {
+  const none = descriptions.map(() => null);
+  if (descriptions.length === 0) return [];
   try {
-    const response = await aiBackendFetch(CATEGORIZE_PATH, {
-      method: 'POST',
-      body: JSON.stringify({ description: text, kind, categories }),
+    const response = await buckAiFetch("/advisor/categorize", {
+      method: "POST",
+      body: JSON.stringify({ kind, descriptions: descriptions.map((d) => d.trim().slice(0, 300)) }),
     });
-    if (!response.ok) return null;
-    const data: { category?: unknown } = await response.json();
-    const answer = typeof data.category === 'string' ? data.category.trim().toLowerCase() : '';
-    if (!answer) return null;
-    return categories.find((c) => c.toLowerCase() === answer) ?? null;
+    if (!response.ok) return none;
+    const data: { categories?: unknown } = await response.json();
+    const answers = Array.isArray(data.categories) ? data.categories : [];
+    return descriptions.map((_, i) => (typeof answers[i] === "string" && answers[i] ? (answers[i] as string) : null));
   } catch {
-    return null;
+    return none;
   }
+}
+
+/** Single-description convenience for add-expense flows. */
+export async function suggestCategory(kind: CategorizeKind, description: string) {
+  if (!description.trim()) return null;
+  return (await categorizeItems(kind, [description]))[0] ?? null;
+}
+
+/**
+ * Two-sentence Advisor tip for a saved goal (`{ goalId }`) or a goal being
+ * created. Empty string when no tip is available (tips are optional).
+ */
+export async function getGoalTip(
+  goal: { goalId: string } | { goalName: string; targetAmount: number | string; attitude: string; targetDate?: string }
+): Promise<string> {
+  try {
+    const body =
+      "goalId" in goal
+        ? goal
+        : { ...goal, targetAmount: Number(goal.targetAmount), targetDate: goal.targetDate || undefined };
+    const response = await buckAiFetch("/advisor/goal-tip", { method: "POST", body: JSON.stringify(body) });
+    if (!response.ok) return "";
+    const data: { tip?: unknown } = await response.json();
+    return typeof data.tip === "string" ? data.tip : "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Streams an Advisor chat answer and reports each event. Throws only for
+ * transport failures; API errors arrive as `error` events. Abort via `signal`.
+ */
+export async function streamAdvisorChat(
+  request: ChatRequest,
+  onEvent: (event: ChatStreamEvent) => void,
+  signal?: AbortSignal
+) {
+  const response = await buckAiFetch("/advisor/chat", {
+    method: "POST",
+    headers: { Accept: "text/event-stream" },
+    body: JSON.stringify(request),
+    signal,
+  });
+
+  if (!response.ok || !response.body) {
+    const message = await buckAiError(response, "Buck couldn't answer right now. Try again shortly.");
+    onEvent({ type: "error", message, retryable: response.status !== 401 });
+    onEvent({ type: "done" });
+    return;
+  }
+
+  const parser = createSseParser((data) => {
+    try {
+      onEvent(JSON.parse(data) as ChatStreamEvent);
+    } catch {
+      // Ignore malformed frames.
+    }
+  });
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    parser.feed(decoder.decode(value, { stream: true }));
+  }
+  parser.flush();
 }

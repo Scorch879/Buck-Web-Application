@@ -299,10 +299,6 @@ Buck-Web-Application/
 ├── QA_Report.md                # Quality audit, defects, and security tracking
 ├── README.md                   # Repository overview and entry guide
 ├── buck/                       # Next.js 15 Web Application
-│   ├── BuckAI_Backend/         # Python FastAPI AI microservice
-│   │   ├── ai_models.py        # Together AI, Prophet, XGBoost models
-│   │   ├── main.py             # FastAPI routing and endpoints
-│   │   └── requirements.txt    # Python dependencies
 │   ├── docs/                   # Domain-specific UI/Auth documentation
 │   ├── public/                 # Static assets (images, SVGs, audio)
 │   ├── supabase/
@@ -1218,3 +1214,50 @@ Buck-Web-Application/
      - Sortable Date / Category / Amount columns, plus Description and Wallet.
      - The Add Income dialog lists the user's income categories.
 - **Consequences**: The `CLAUDE.md` "17 canonical categories" rule now describes seeded defaults, not a closed list. AI classification must use each user's own categories.
+
+### ADR-043: Buck_AI, a Python Gemini Service with Two AIs (Advisor Live, Forecaster Planned)
+
+- **Status**: AI Financial Advisor implemented in `Buck_AI/BuckAI_Advisor`. AI Forecaster planned in `Buck_AI/BuckAI_Forecast`. Supersedes ADR-004 and the short-lived TypeScript Gemini draft. No database migration.
+- **Context**:
+  - Product decisions (2026-10-14):
+    - AI is written in Python on Google Gemini (the newest and cheapest option).
+    - It lives in `Buck_AI/`, with **two AIs for two jobs**.
+    - It serves **both web and mobile**.
+    - The Advisor comes first, and its advice is **saved in the database** and adjusts to the user's data.
+    - Everything stays free for this SD3 project.
+  - The old Render/LLaMA service is shut down.
+- **Decision**:
+  1. **Service**: FastAPI app in `Buck_AI/main.py`, deployed as its own Vercel Hobby project (root `Buck_AI`). It contains `BuckAI_Advisor/`, `BuckAI_Forecast/` and `shared/` (config, auth, Supabase, Gemini, safety, rate limits).
+  2. **Auth without API keys**:
+     - Clients send the user's Supabase access token, which `shared/auth.py` verifies with Supabase Auth (cached 60 s by hash).
+     - A static app key was rejected because it would ship inside the mobile APK.
+     - `GEMINI_API_KEY` exists only in the Buck_AI environment.
+  3. **Database as the user**:
+     - Every PostgREST call uses the caller's token with the anon key, so existing RLS policies (`auth.uid() = user_id`, including `ai_advisories`) enforce isolation.
+     - Buck_AI holds no service-role key.
+  4. **Saved, self-updating advice** (`service.get_insight`):
+     - Each advisory row stores a fingerprint of material facts in `metadata`: spending in steps of 5% of the budget (at least ₱500), income, wallet, top 3 categories, goal progress, month and attitude.
+     - Same fingerprint and still valid (7 days): the row is served from the database, with no Gemini call.
+     - Fingerprint changed: Gemini gets the previous advice and the changed facts, writes new JSON-schema output (title, 1-sentence suggestion, 2-sentence advice, focus), and the result is saved as a new row. History is kept.
+     - Cooldowns (5 min after a data change, 60 s for a manual refresh) protect the free quota.
+     - Rule-based advice is used if Gemini fails, but it never replaces Gemini advice for unchanged data.
+  5. **Auto-categorize belongs to the Advisor** (`BuckAI_Advisor/categorize.py`, `POST /advisor/categorize`):
+     - One request per batch of up to 25 items.
+     - The user's own categories are read under RLS. Gemini's output is an enum of them plus `NONE`, and every answer is re-matched, so it can never invent a category.
+     - It is used by the Categories tab, Add Expense and the Goals expense modal.
+  6. **Chat**:
+     - Streams Server-Sent Events, grounded on the live snapshot and the saved advice, so the chat and the card agree.
+     - Read-only tools are bound to the user and validate their arguments; at most 4 tool rounds.
+     - Thought parts are never shown, and the offline summary is used on failure.
+  7. **Web**:
+     - The browser calls Buck_AI directly (`utils/buckAi.ts`; `NEXT_PUBLIC_BUCK_AI_URL` is added to CSP `connect-src`; CORS is limited to `ALLOWED_ORIGINS`).
+     - The Advisor tab card, the home card and the chat use it.
+     - The TypeScript Gemini code (`src/server/ai`, `/api/ai/*`, `/api/advisor`, `@google/genai`) is removed.
+  8. **Until BuckAI_Forecast exists**:
+     - `/api/forecast` and the cron use the rule engine only.
+     - Goal charts use `utils/goalForecast.ts` (plain math).
+- **Consequences**:
+  - Web and mobile share one AI implementation and contract.
+  - Advice reads are database-fast, and Gemini runs only when the advice would change.
+  - Rate limits are per instance.
+  - Zero cost: Gemini API free tier with no billing account (over-quota calls get 429 and the Advisor serves rule-based advice), Vercel Hobby for both projects, Supabase Free. On the free tier Google may use prompts to improve its products; Buck_AI sends only PII-scrubbed numbers.
