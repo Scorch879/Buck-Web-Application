@@ -63,7 +63,7 @@ function getSafeRedirectPath(redirectTo: string | null) {
       // Return pathname + search (preserves query params, but ignores potential malicious fragments)
       return parsedUrl.pathname + parsedUrl.search;
     }
-  } catch (e) {
+  } catch {
     // If parsing fails, fall through to default
   }
 

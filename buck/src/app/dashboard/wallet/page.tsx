@@ -10,7 +10,6 @@ import MonthlyCashFlowCard from "@/component/income/MonthlyCashFlowCard";
 import { useIncomes } from "@/hooks/useIncomes";
 import { formatCurrency } from "@/utils/formatters";
 import {
-  addWallet,
   deleteWallet,
   getActiveWalletId,
   listExpenses,
@@ -38,8 +37,6 @@ export default function WalletPage() {
   const hadInitialData = useRef(hasInitialData);
 
   const [wallets, setWallets] = useState<BuckWallet[]>(() => userCache.wallets ?? []);
-  const [name, setName] = useState("");
-  const [budget, setBudget] = useState("");
   const [loading, setLoading] = useState(() => !hasInitialData);
   const [error, setError] = useState("");
   const [activeWalletId, setActiveWalletId] = useState<string | null>(() => userCache.activeWalletId ?? null);
@@ -197,28 +194,9 @@ export default function WalletPage() {
       unsubscribeWallets();
       unsubscribeProfile();
     };
+    // Subscribe once per user; the fetch helpers are recreated every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
-
-  const handleAddWallet = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    if (!user) return;
-    if (!name.trim() || !budget.trim() || isNaN(Number(budget)) || Number(budget) <= 0) {
-      setError("Please enter a valid name and a budget greater than 0.");
-      toast("Please enter a valid name and budget.", "error");
-      return;
-    }
-    try {
-      await addWallet(user.uid, name.trim(), Number(budget));
-      setName("");
-      setBudget("");
-      toast("Wallet created successfully", "success");
-      fetchWallets();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add wallet");
-      toast("Failed to create wallet", "error");
-    }
-  };
 
   const handleSetActive = async (id: string) => {
     if (!user) return;
@@ -232,7 +210,7 @@ export default function WalletPage() {
         ...(newActiveWallet ? { activeWalletBudget: newActiveWallet.budget } : {})
       }));
       toast("Active wallet updated", "success");
-    } catch (err) {
+    } catch {
       toast("Failed to update active wallet", "error");
     }
   };

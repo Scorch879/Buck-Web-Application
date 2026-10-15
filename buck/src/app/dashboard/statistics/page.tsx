@@ -224,6 +224,8 @@ const Statistics = () => {
       unsubExpenses();
       unsubWallets();
     };
+    // Keyed on user.uid: the user object itself is not referentially stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setDashboardCache, user.uid]);
 
   useEffect(() => {

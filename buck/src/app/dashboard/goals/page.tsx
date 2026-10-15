@@ -23,7 +23,7 @@ import {
 import ProgressBarCard from "./ProgressBarCard";
 import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import { getGoalTip, suggestCategory } from "@/utils/aiApi";
-import { computeGoalForecast } from "@/utils/goalForecast";
+import { computeGoalForecast, type GoalForecast } from "@/utils/goalForecast";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -111,7 +111,7 @@ const GoalsPage = () => {
   const [progressInput, setProgressInput] = useState("");
   const [progressLoading, setProgressLoading] = useState(false);
 
-  const [forecastData, setForecastData] = useState<any>(null);
+  const [forecastData, setForecastData] = useState<GoalForecast | null>(null);
   const [forecastLoading, setForecastLoading] = useState(false);
   const [forecastError, setForecastError] = useState<string | null>(null);
 
@@ -286,7 +286,7 @@ const GoalsPage = () => {
           : "Goal progress updated successfully",
         "success"
       );
-    } catch (err) {
+    } catch {
       toast("Failed to update progress.", "error");
     } finally {
       setProgressLoading(false);
@@ -295,7 +295,7 @@ const GoalsPage = () => {
 
   const handleSeeForecast = async () => {
     if (!selectedGoal || walletBudget == null || !user) {
-      let missing = [];
+      const missing: string[] = [];
       if (!selectedGoal) missing.push("goal");
       if (walletBudget == null) missing.push("wallet budget");
       if (!user) missing.push("user");
@@ -321,8 +321,8 @@ const GoalsPage = () => {
           Number(data.ai_recommended_budget)
         );
       }
-    } catch (err: any) {
-      setForecastError(err.message || "Unknown error");
+    } catch (err) {
+      setForecastError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setForecastLoading(false);
     }
@@ -424,6 +424,8 @@ const GoalsPage = () => {
     return () => {
       unsubscribeWallets();
     };
+    // Keyed on user.uid: the user object itself is not referentially stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setDashboardCache, user.uid]);
 
   useEffect(() => {
@@ -443,8 +445,8 @@ const GoalsPage = () => {
             Number(data.ai_recommended_budget)
           );
         }
-      } catch (err: any) {
-        setForecastError(err.message || "Unknown error");
+      } catch (err) {
+        setForecastError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setForecastLoading(false);
       }
@@ -581,9 +583,11 @@ const GoalsPage = () => {
     return () => {
       unsubscribeExpenses();
     };
+    // Keyed on user.uid: the user object itself is not referentially stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setDashboardCache, selectedGoal, user.uid]);
 
-  const chartRef = useRef<any>(null);
+  const chartRef = useRef<ChartJS<"line"> | null>(null);
 
   if (loadingGoals) {
     return <DashboardPageSkeleton variant="goals" />;
@@ -869,6 +873,7 @@ const GoalsPage = () => {
       {forecastModalOpen && selectedGoal && (
         <div
           className="modal-backdrop"
+          role="presentation"
           onClick={(e) => {
             if (e.target === e.currentTarget) setForecastModalOpen(false);
           }}

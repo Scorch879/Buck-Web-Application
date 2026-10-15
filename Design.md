@@ -1261,3 +1261,26 @@ Buck-Web-Application/
   - Advice reads are database-fast, and Gemini runs only when the advice would change.
   - Rate limits are per instance.
   - Zero cost: Gemini API free tier with no billing account (over-quota calls get 429 and the Advisor serves rule-based advice), Vercel Hobby for both projects, Supabase Free. On the free tier Google may use prompts to improve its products; Buck_AI sends only PII-scrubbed numbers.
+
+
+---
+
+### ADR-044: ESLint 9 Lint Standard (Next.js, TypeScript, React Hooks, jsx-a11y)
+
+- **Status**: Implemented 2026-10-15.
+- **Context**:
+  - `buck/package.json` had a `"lint": "next lint"` script with no ESLint dependency and no config behind it, so it never ran. `next lint` is also deprecated in Next 15.5.
+  - Missing accessible names and missing dialog roles (QA BUG-032) were found only by an outside audit, and `tsc` cannot see hook-dependency bugs.
+- **Decision**:
+  - Dev dependencies: `eslint@9`, `eslint-config-next@15.5` (bundles `jsx-a11y`, `react-hooks` and `@typescript-eslint`) and `@eslint/eslintrc` for `FlatCompat`.
+  - `buck/eslint.config.mjs` extends `next/core-web-vitals`, `next/typescript` and `plugin:jsx-a11y/recommended`.
+  - Scripts: `lint` (`eslint .`), `lint:fix` and `typecheck` (`tsc --noEmit`).
+  - Rule choices:
+    - `label-has-associated-control` treats `CustomSelect` and `CustomDatePicker` as controls.
+    - `no-autofocus` is off: focus only moves into dialogs and inline editors the user just opened.
+    - `no-img-element` is off: avatars come from private routes and `blob:` URLs that `next/image` cannot optimise.
+    - Unused names starting with `_` are allowed, and so are rest-sibling omissions.
+  - Bar: 0 errors and 0 warnings. Every `eslint-disable-next-line` carries a reason; today they cover only intentional effect dependency lists keyed on `user.uid`.
+- **Consequences**:
+  - `next build`, and therefore every Vercel build, now runs ESLint. A lint error fails the deploy.
+  - New icon-only buttons without a label and `any` types are caught locally instead of in review.

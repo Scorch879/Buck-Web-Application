@@ -182,6 +182,9 @@ export default function CustomDatePicker({
       
       <div 
         className={`${styles.inputBox} ${isOpen ? styles.inputBoxOpen : ""} ${!value ? styles.placeholder : ""}`}
+        role="button"
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}
         tabIndex={0}
         onKeyDown={(e) => {
@@ -192,7 +195,7 @@ export default function CustomDatePicker({
         }}
       >
         <span>{displayValue || placeholder}</span>
-        <FaCalendarAlt className={styles.icon} />
+        <FaCalendarAlt className={styles.icon} aria-hidden="true" />
       </div>
 
       <AnimatePresence>

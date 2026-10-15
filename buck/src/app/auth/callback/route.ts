@@ -26,7 +26,7 @@ function getSafeNextPath(value: string | null) {
     ) {
       return parsedUrl.pathname + parsedUrl.search;
     }
-  } catch (e) {
+  } catch {
     // If parsing fails, fall through to default
   }
 

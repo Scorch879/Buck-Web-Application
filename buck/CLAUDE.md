@@ -10,7 +10,8 @@
 # In this directory (buck/):
 npm run dev        # Next.js 15 App Router Turbopack dev server (port 3000)
 npm run build      # Production typecheck & build
-npx tsc --noEmit   # Type-check (no ESLint in this repo)
+npm run lint       # ESLint 9 + Next + jsx-a11y (ADR-044); must stay at 0 errors / 0 warnings
+npm run typecheck  # tsc --noEmit
 npm test           # Vitest unit tests
 
 # AI lives in ../Buck_AI (Python FastAPI + Gemini). Run it on :8000, then set

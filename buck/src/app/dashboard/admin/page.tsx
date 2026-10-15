@@ -4,18 +4,18 @@ import { useEffect, useState } from "react";
 import { FaDatabase, FaEnvelopeOpenText, FaServer, FaSpinner } from "react-icons/fa";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial } from "@/context/FinancialContext";
-import { getAdminFeedback, type BuckFeedback } from "@/utils/supabaseData";
-// @ts-ignore
+import { getAdminFeedback } from "@/utils/supabaseData";
 import "@/app/dashboard/settings/style.css";
-// @ts-ignore
 import "./style.css";
 import CustomSelect from "@/component/CustomSelect";
 
-function formatAdminDate(isoString: string) {
+function formatAdminDate(value: string | number) {
+  // Supabase analytics timestamps are epoch microseconds; Date wants milliseconds.
+  const date = typeof value === "number" && value > 1e14 ? new Date(value / 1000) : new Date(value);
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(new Date(isoString));
+  }).format(date);
 }
 
 export default function AdminPage() {
@@ -50,7 +50,7 @@ export default function AdminPage() {
         try {
           const data = await getAdminFeedback();
           if (active) setDashboardCache(c => ({...c, adminFeedback: data}));
-        } catch (err) {
+        } catch {
           if (active) setError("Failed to load feedback. Make sure the 'feedback' table exists in Supabase.");
         } finally {
           if (active) setIsFetchingFeedback(false);
@@ -69,7 +69,7 @@ export default function AdminPage() {
               setDashboardCache(c => ({...c, adminSupabaseError: data.error || "Failed to fetch Supabase logs."}));
             }
           }
-        } catch (err) {
+        } catch {
           if (active) setDashboardCache(c => ({...c, adminSupabaseError: "Fetch error"}));
         } finally {
           if (active) setIsFetchingSupabase(false);
@@ -88,7 +88,7 @@ export default function AdminPage() {
               setDashboardCache(c => ({...c, adminVercelError: data.error || "Failed to fetch Vercel data."}));
             }
           }
-        } catch (err) {
+        } catch {
           if (active) setDashboardCache(c => ({...c, adminVercelError: "Fetch error"}));
         } finally {
           if (active) setIsFetchingVercel(false);
@@ -101,6 +101,9 @@ export default function AdminPage() {
     return () => {
       active = false;
     };
+    // The cached lists are read only to skip the spinner; depending on them
+    // would refetch every time a fetch writes its result back.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, activeTab, setDashboardCache]);
 
   useEffect(() => {
@@ -129,20 +132,20 @@ export default function AdminPage() {
       : new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   });
 
-  const filteredSupabaseLogs = supabaseLogs?.filter((log: any) => {
+  const filteredSupabaseLogs = supabaseLogs?.filter((log) => {
     return log.event_message?.toLowerCase().includes(searchQuery.toLowerCase());
-  }).sort((a: any, b: any) => {
+  }).sort((a, b) => {
     return sortOrder === "newest" 
       ? new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       : new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
   });
 
-  const filteredVercelDeployments = vercelDeployments?.filter((dep: any) => {
+  const filteredVercelDeployments = vercelDeployments?.filter((dep) => {
     const matchesSearch = dep.url?.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           dep.meta?.githubCommitRef?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = filterCategory === "all" || dep.state === filterCategory;
     return matchesSearch && matchesCategory;
-  }).sort((a: any, b: any) => {
+  }).sort((a, b) => {
     return sortOrder === "newest" 
       ? new Date(b.created).getTime() - new Date(a.created).getTime()
       : new Date(a.created).getTime() - new Date(b.created).getTime();
@@ -285,7 +288,7 @@ export default function AdminPage() {
                 </div>
               ) : filteredSupabaseLogs && filteredSupabaseLogs.length > 0 ? (
                 <div className="admin-feedback-list" style={{ fontFamily: "monospace" }}>
-                  {filteredSupabaseLogs.map((log: any, index: number) => (
+                  {filteredSupabaseLogs.map((log, index) => (
                     <div key={index} className="admin-feedback-item" style={{ background: "rgba(0,0,0,0.05)" }}>
                       <div className="admin-feedback-meta" style={{ color: "var(--buck-ink)" }}>
                         {formatAdminDate(log.timestamp)}
@@ -317,7 +320,7 @@ export default function AdminPage() {
                 </div>
               ) : filteredVercelDeployments && filteredVercelDeployments.length > 0 ? (
                 <div className="admin-feedback-list">
-                  {filteredVercelDeployments.map((dep: any) => (
+                  {filteredVercelDeployments.map((dep) => (
                     <div key={dep.uid} className="admin-feedback-item">
                       <div className="admin-feedback-meta">
                         <span className="admin-feedback-category" style={{ color: dep.state === "READY" ? "#52b86a" : "var(--buck-orange)" }}>

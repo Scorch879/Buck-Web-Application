@@ -447,7 +447,24 @@ Scope: server routes, middleware, auth callback, deletion flow, session/state co
   - The inner panel (not the backdrop) now has `role="dialog"` (`alertdialog` for the error modal), `aria-modal="true"` and an `aria-label`.
   - Close buttons have `type="button"` and `aria-label="Close dialog"`, with the glyph wrapped in `aria-hidden`.
   - The month arrows are labelled "Previous month" and "Next month".
-- **Verification (2026-10-15)**: `tsc --noEmit` is clean and `npm test` passes 44/44. Every other overlay already had dialog semantics, and every other icon-only button already had an `aria-label`. ESLint is not used: the dead `"lint": "next lint"` script (no ESLint dependency or config was ever installed) was removed on 2026-10-15. Quality gates are `tsc --noEmit` and `npm test`.
+- **Verification (2026-10-15)**: `tsc --noEmit` is clean and `npm test` passes 44/44. Every other overlay already had dialog semantics, and every other icon-only button already had an `aria-label`. ESLint now enforces these rules (ADR-044, BUG-033).
+
+
+#### BUG-033: [RESOLVED] First ESLint Run: 53 Errors, 35 Warnings
+- **Location**: `buck/src/**` (first run after ADR-044 installed ESLint)
+- **Impact**: The lint script had never run. Its first pass reported 33 `no-explicit-any`, 23 unused variables, 8 `exhaustive-deps`, 13 jsx-a11y findings and some smaller rules. Real defects among them:
+  - `CreateGoalModal` could pass an `undefined` goal to the page, which then added it to the goal list.
+  - The admin Supabase log dates read epoch microseconds as milliseconds and showed far-future years.
+  - The `CustomDatePicker` trigger was a focusable `div` with no role.
+  - The `CustomSelect` combobox had no `aria-controls` pointing at its listbox.
+  - The Statistics "Category:" label pointed at nothing, and the Settings feedback-type label was not tied to its button group.
+  - Dead code on the Wallet page: an unused `handleAddWallet` and its `name`/`budget` state.
+- **Fix**:
+  - Real types replace `any`: `AdminSupabaseLog` and `AdminVercelDeployment` in `FinancialContext`, `GoalForecast`, Chart.js `ActiveElement`/`ChartEvent`/`TooltipItem`, and a typed `PieController` patch.
+  - Unused imports and variables removed; `catch {}` where the error is unused.
+  - Accessibility fixes as listed above.
+  - Intentional effect dependency lists keep a commented `eslint-disable-next-line`.
+- **Verification (2026-10-15)**: `npm run lint -- --max-warnings=0` reports 0 problems across 138 files. `npm run typecheck` is clean, `npm test` passes 44/44, `npm run build` passes (lint included), and `npm audit --omit=dev` finds 0 vulnerabilities.
 
 ---
 

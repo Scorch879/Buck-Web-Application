@@ -71,13 +71,9 @@ export default function ForecastPage() {
   };
 
   useEffect(() => {
-    let active = true;
-
     void loadForecast(false);
-
-    return () => {
-      active = false;
-    };
+    // Load once per user; loadForecast is recreated every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setDashboardCache, user.uid]);
 
   if (loading) {

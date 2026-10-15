@@ -590,8 +590,9 @@ npm run build
 # Start production server
 npm run start
 
-# Type-check and run unit tests (no ESLint: removed 2026-10-15)
-npx tsc --noEmit
+# Lint (ESLint 9 + Next + jsx-a11y, ADR-044), type-check, unit tests
+npm run lint
+npm run typecheck
 npm test
 ```
 

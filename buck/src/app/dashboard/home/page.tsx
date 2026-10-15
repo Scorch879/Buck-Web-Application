@@ -7,7 +7,7 @@ import {
   mergeDashboardDataCache,
   useFinancial,
 } from "@/context/FinancialContext";
-import { formatCurrency, toNumber } from "@/utils/formatters";
+import { toNumber } from "@/utils/formatters";
 import {
   ensureDefaultCategories,
   getUserProfile,
@@ -28,7 +28,6 @@ import "./style.css";
 type Category = BuckCategory;
 type Expense = BuckExpense;
 
-type SummaryItem = SummaryTableItem;
 
 type TimeframeFilter = "all" | "month" | "week";
 
@@ -616,13 +615,6 @@ export default function Dashboard() {
   if (loadingDashboardData) {
     return <DashboardPageSkeleton variant="home" />;
   }
-
-  const timeframeLabel =
-    timeframe === "week"
-      ? "This Week"
-      : timeframe === "month"
-      ? "This Month"
-      : "All Time";
 
   return (
     <div className="dashboard-container">

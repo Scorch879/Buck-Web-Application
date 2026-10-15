@@ -203,6 +203,8 @@ export default function FinancialAdvisorPage() {
       unsubscribeGoals();
       unsubscribeWallets();
     };
+    // Subscribe once per user; loadAI is recreated every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setDashboardCache, user.uid]);
 
   const activeGoal = useMemo(

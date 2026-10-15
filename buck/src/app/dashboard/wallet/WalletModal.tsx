@@ -120,6 +120,9 @@ export default function WalletModal({
     return () => {
       unsubscribeWallets();
     };
+    // Re-subscribe only when the modal opens or the user changes; the fetch
+    // helpers are recreated every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, user]);
 
   const handleAddWallet = async (e: React.FormEvent) => {
@@ -136,8 +139,8 @@ export default function WalletModal({
       setBudget("");
       fetchWallets();
       fetchActiveWallet();
-    } catch (err: any) {
-      setError(err.message || "Failed to add wallet");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add wallet");
     }
   };
 
@@ -152,8 +155,8 @@ export default function WalletModal({
       setConfirmDeleteId(null);
       fetchWallets();
       fetchActiveWallet();
-    } catch (err: any) {
-      setError(err.message || "Failed to delete wallet");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete wallet");
     }
   };
 
@@ -179,8 +182,8 @@ export default function WalletModal({
       setEditBudget("");
       setError("");
       fetchWallets();
-    } catch (err: any) {
-      setError(err.message || "Failed to update wallet");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update wallet");
     }
   };
 

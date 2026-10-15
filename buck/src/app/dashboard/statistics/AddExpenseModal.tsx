@@ -394,7 +394,7 @@ export default function AddExpenseModal({
             </div>
           </div>
           <div style={{ marginBottom: 12, width: "100%" }}>
-            <label
+            <span
               style={{
                 fontWeight: 700,
                 color: "var(--buck-orange)",
@@ -403,7 +403,7 @@ export default function AddExpenseModal({
               }}
             >
               Category:
-            </label>
+            </span>
             <CustomSelect
               value={selectedCategory}
               onChange={(val) => setSelectedCategory(val)}

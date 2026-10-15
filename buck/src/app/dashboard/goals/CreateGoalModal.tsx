@@ -4,10 +4,11 @@ import "./style.css";
 import CustomSelect from "@/component/CustomSelect";
 import CustomDatePicker from "@/component/CustomDatePicker";
 import { motion } from "framer-motion";
+import type { BuckGoal } from "@/utils/supabaseData";
 
 type CreateGoalModalProps = {
   onClose: () => void;
-  onGoalCreated: (goal: any) => void;
+  onGoalCreated: (goal: BuckGoal) => void;
 };
 
 const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreated }) => {
@@ -35,11 +36,12 @@ const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreate
       form.targetDate
     );
     setSubmitting(false);
-    if (result.success) {
+    const createdGoal = result.success ? result.goal : undefined;
+    if (createdGoal) {
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
-        onGoalCreated(result.goal); // Pass the new goal object up!
+        onGoalCreated(createdGoal); // Pass the new goal object up!
       }, 1000);
     }
   };
