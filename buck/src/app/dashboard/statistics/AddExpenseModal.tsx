@@ -140,6 +140,9 @@ export default function AddExpenseModal({
         >
           <motion.div
             className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Add expense"
             initial={{ y: 20, opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 20, opacity: 0, scale: 0.95 }}
@@ -161,6 +164,8 @@ export default function AddExpenseModal({
             }}
           >
             <button
+              type="button"
+              aria-label="Close dialog"
               onClick={() => onClose()}
               style={{
               position: "absolute",
@@ -175,7 +180,7 @@ export default function AddExpenseModal({
               transition: "color 0.2s",
             }}
           >
-            &times;
+            <span aria-hidden="true">&times;</span>
           </button>
           <h3
             style={{

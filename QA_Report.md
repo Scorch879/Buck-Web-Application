@@ -435,6 +435,20 @@ Scope: server routes, middleware, auth callback, deletion flow, session/state co
 - **Impact**: Forecasts cannot exclude emergency spending because `expenses` has no `is_emergency` column and nothing sets one.
 - **Remediation**: Add `is_emergency boolean not null default false` with a UI toggle, then filter it in `data.ts#getDailySpending` and the rule engine.
 
+
+#### BUG-032: [RESOLVED] Modals Without Dialog Semantics; Unlabelled Icon Buttons
+- **Location**: `goals/CreateGoalModal.tsx`, `goals/page.tsx` (add-expense and "Action Not Allowed" modals), `statistics/AddExpenseModal.tsx`, `wallet/WalletModal.tsx`, `component/CustomDatePicker.tsx`
+- **Impact (WCAG 4.1.2 Name, Role, Value)**:
+  - Screen readers did not announce these overlays as modal dialogs: they had no `role="dialog"` and no `aria-modal`.
+  - The `×` close buttons were read aloud as "times" or "multiplication sign".
+  - The date picker's month arrows had no accessible name.
+- **Source**: an automated frontend check (Antigravity) suggested this. Its report named `Modal.tsx`, `Footer.tsx` and `OrderTracker.tsx`, which do not exist in this repo. The audit was therefore re-run against Buck's real components.
+- **Fix**:
+  - The inner panel (not the backdrop) now has `role="dialog"` (`alertdialog` for the error modal), `aria-modal="true"` and an `aria-label`.
+  - Close buttons have `type="button"` and `aria-label="Close dialog"`, with the glyph wrapped in `aria-hidden`.
+  - The month arrows are labelled "Previous month" and "Next month".
+- **Verification (2026-10-15)**: `tsc --noEmit` is clean and `npm test` passes 44/44. Every other overlay already had dialog semantics, and every other icon-only button already had an `aria-label`. ESLint could not run because the repo has no `eslint.config.*` (ESLint 9+ flat config); that gap predates this change.
+
 ---
 
 ## 3. Security & Compliance Audit Matrix

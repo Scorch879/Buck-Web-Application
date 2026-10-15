@@ -54,12 +54,17 @@ const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreate
     >
       <motion.div 
         className="modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Create a new goal"
         initial={{ y: 20, opacity: 0, scale: 0.95 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
         exit={{ y: 20, opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.2 }}
       >
-        <button className="modal-close" onClick={onClose}>×</button>
+        <button type="button" className="modal-close" onClick={onClose} aria-label="Close dialog">
+          <span aria-hidden="true">×</span>
+        </button>
         <h2 className="create-goal-title">Create a New Goal</h2>
         {success && (
           <div className="create-goal-success">

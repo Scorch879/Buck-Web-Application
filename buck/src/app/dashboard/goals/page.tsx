@@ -1042,6 +1042,9 @@ const GoalsPage = () => {
         >
           <div
             className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Add expense"
             style={{
               background: modalBackground,
               color: "var(--buck-ink)",
@@ -1062,6 +1065,8 @@ const GoalsPage = () => {
             }}
           >
             <button
+              type="button"
+              aria-label="Close dialog"
               onClick={() => setShowExpenseModal(false)}
               style={{
                 position: "absolute",
@@ -1076,7 +1081,7 @@ const GoalsPage = () => {
                 transition: "color 0.2s",
               }}
             >
-              &times;
+              <span aria-hidden="true">&times;</span>
             </button>
             <h3
               style={{
@@ -1266,6 +1271,9 @@ const GoalsPage = () => {
           >
             <motion.div
                 className="modal"
+                role="alertdialog"
+                aria-modal="true"
+                aria-label="Action not allowed"
                 initial={{ y: 20, opacity: 0, scale: 0.95 }}
                 animate={{ y: 0, opacity: 1, scale: 1 }}
                 exit={{ y: 20, opacity: 0, scale: 0.95 }}
@@ -1284,6 +1292,8 @@ const GoalsPage = () => {
             }}
           >
             <button
+              type="button"
+              aria-label="Close dialog"
               onClick={() => setShowErrorModal(false)}
               style={{
                 position: "absolute",
@@ -1295,7 +1305,7 @@ const GoalsPage = () => {
                 cursor: "pointer",
               }}
             >
-              &times;
+              <span aria-hidden="true">&times;</span>
             </button>
             <h3 style={{ marginTop: 0, color: "var(--buck-coral)" }}>
               Action Not Allowed
