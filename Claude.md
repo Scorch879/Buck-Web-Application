@@ -590,8 +590,9 @@ npm run build
 # Start production server
 npm run start
 
-# Run ESLint validation
-npm run lint
+# Type-check and run unit tests (no ESLint: removed 2026-10-15)
+npx tsc --noEmit
+npm test
 ```
 
 ### 7.2 Buck_AI (Python + Gemini)

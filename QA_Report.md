@@ -447,7 +447,7 @@ Scope: server routes, middleware, auth callback, deletion flow, session/state co
   - The inner panel (not the backdrop) now has `role="dialog"` (`alertdialog` for the error modal), `aria-modal="true"` and an `aria-label`.
   - Close buttons have `type="button"` and `aria-label="Close dialog"`, with the glyph wrapped in `aria-hidden`.
   - The month arrows are labelled "Previous month" and "Next month".
-- **Verification (2026-10-15)**: `tsc --noEmit` is clean and `npm test` passes 44/44. Every other overlay already had dialog semantics, and every other icon-only button already had an `aria-label`. ESLint could not run because the repo has no `eslint.config.*` (ESLint 9+ flat config); that gap predates this change.
+- **Verification (2026-10-15)**: `tsc --noEmit` is clean and `npm test` passes 44/44. Every other overlay already had dialog semantics, and every other icon-only button already had an `aria-label`. ESLint is not used: the dead `"lint": "next lint"` script (no ESLint dependency or config was ever installed) was removed on 2026-10-15. Quality gates are `tsc --noEmit` and `npm test`.
 
 ---
 

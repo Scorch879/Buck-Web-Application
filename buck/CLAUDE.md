@@ -10,7 +10,8 @@
 # In this directory (buck/):
 npm run dev        # Next.js 15 App Router Turbopack dev server (port 3000)
 npm run build      # Production typecheck & build
-npm run lint       # Run Next.js linting
+npx tsc --noEmit   # Type-check (no ESLint in this repo)
+npm test           # Vitest unit tests
 
 # AI lives in ../Buck_AI (Python FastAPI + Gemini). Run it on :8000, then set
 # NEXT_PUBLIC_BUCK_AI_URL=http://localhost:8000 in buck/.env.local (see ../Buck_AI/README.md)
