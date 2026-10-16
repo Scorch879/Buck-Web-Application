@@ -4,9 +4,6 @@ fallback is always accurate, just less personal."""
 
 from .snapshot import Snapshot
 
-ATTITUDE_SPEND_MULTIPLIER = {"Normal": 1.0, "Moderate": 0.8, "Aggressive": 0.6}
-
-
 def peso(amount: float) -> str:
     return f"₱{amount:,.2f}"
 
@@ -25,52 +22,81 @@ def priority_for(snapshot: Snapshot) -> str:
     return "medium"
 
 
+def wallet_advice(snapshot: Snapshot) -> str:
+    """Which wallet to spend from and which to leave alone, from real names and balances."""
+    wallets = snapshot.data.get("wallets") or []
+    active = next((w for w in wallets if w["active"]), None)
+    others = sorted((w for w in wallets if not w["active"]), key=lambda w: w["balance"], reverse=True)
+    if not wallets:
+        return "Add a wallet so Buck can track where your spending comes from."
+    if not active:
+        return "Pick an active wallet on the Wallet tab so day-to-day spending comes from one place."
+    text = f"Spend day to day from {active['name']} ({peso(active['balance'])})."
+    if others:
+        keep = others[0]
+        goal = snapshot.data.get("active_goal")
+        purpose = f"your {goal['name']} goal" if goal else "an emergency buffer"
+        text += f" Leave {keep['name']} ({peso(keep['balance'])}) untouched for {purpose}."
+    return text
+
+
 def rule_insight(snapshot: Snapshot) -> dict[str, str]:
     d = snapshot.data
+    plan = d["plan"]
     base = snapshot.spending_base
     spent = d["spent_this_month"]
     ratio = spent / base if base > 0 else 0.5
     top = (d["top_categories_this_month"] or [None])[0]
     goal = d["active_goal"]
-    multiplier = ATTITUDE_SPEND_MULTIPLIER[d["saving_attitude"]]
+    pace = plan.get("goal_pace")
+    cap = plan["daily_spending_cap"]["amount"]
+    typical = plan["typical_daily_spending"]["amount"]
+    month = f"this month so far ({d['month']['start']} to {d['today']})"
+    spending_line = (
+        f"You have spent {peso(spent)} {month}, and your last-30-day average is {peso(typical)} a day. "
+        f"Your {d['saving_attitude']} saving attitude sets a daily cap of {peso(cap)}."
+    )
 
     if ratio > 0.9:
         return {
             "title": "Budget Threshold Alert",
-            "suggestion": f"You have used {round(ratio * 100)}% of this month's budget, so pause non-essential purchases now.",
+            "suggestion": f"Keep spending under {peso(cap)} a day this week and pause non-essential purchases.",
             "advice": (
-                f"You have spent {peso(spent)} against {peso(base)} this month. "
-                f"Freeze spending on {top['name'] if top else 'leisure'} until the month resets to avoid a deficit."
+                f"{spending_line} That is {round(ratio * 100)}% of your {peso(base)} budget {month}. "
+                f"Hold {top['name'] if top else 'leisure'} spending until the month resets to avoid a deficit."
             ),
+            "wallet_advice": wallet_advice(snapshot),
+        }
+    if goal and pace and pace["recommended_per_week"] > 0:
+        weekly = pace["recommended_per_week"]
+        if pace["on_track_by_target_date"]:
+            pace_line = f"Saving {peso(weekly)} a week keeps {goal['name']} on track for {goal['target_date']}."
+        else:
+            weeks = pace["weeks_to_goal_at_recommended"]
+            pace_line = (
+                f"Finishing by {goal['target_date']} would need {peso(pace['required_per_week'] or 0)} a week, "
+                f"more than you can spare, so {peso(weekly)} a week reaches it in about {weeks} weeks instead."
+            )
+        return {
+            "title": f"Steady Pace: {goal['name']}"[:60],
+            "suggestion": (
+                f"Set aside {peso(weekly)} for {goal['name']} this week and keep daily spending near {peso(cap)}."
+            ),
+            "advice": f"{spending_line} {pace_line}",
+            "wallet_advice": wallet_advice(snapshot),
         }
     if top and base > 0 and top["amount"] > base * 0.35:
-        cap = round(top["amount"] * multiplier * 0.8, 2)
         return {
             "title": f"High Spending on {top['name']}",
-            "suggestion": f"{top['name']} is your biggest expense at {peso(top['amount'])}, so aim to cut it by 15% next week.",
-            "advice": (
-                f"Based on your {d['saving_attitude']} saving attitude, keep {top['name']} under {peso(cap)} for the rest of this month. "
-                "Plan those purchases ahead so your goal stays funded."
-            ),
+            "suggestion": f"Trim {top['name']} this week and keep daily spending near {peso(cap)}.",
+            "advice": f"{spending_line} {top['name']} is your biggest category {month} at {peso(top['amount'])}.",
+            "wallet_advice": wallet_advice(snapshot),
         }
-    if goal and goal["remaining"] > 0:
-        weekly = round(goal["remaining"] / 4 * multiplier, 2)
-        return {
-            "title": f"Goal Progress: {goal['name']}",
-            "suggestion": f"{goal['name']} still needs {peso(goal['remaining'])} to reach its target.",
-            "advice": (
-                f"Move {peso(weekly)} into {goal['name']} each week to stay on track. "
-                "Do it right after you receive money so it never feels like spending."
-            ),
-        }
-    room = max(0.0, d["active_wallet_balance"] - spent)
     return {
         "title": "Monthly Budget Check",
-        "suggestion": "Keep your current spending discipline to protect your wallet buffer.",
-        "advice": (
-            f"You have {peso(room)} of room left in your active wallet. "
-            "Set aside at least 15% of it as savings before any discretionary purchase."
-        ),
+        "suggestion": f"Keep daily spending near {peso(cap)} this week to protect your buffer.",
+        "advice": spending_line,
+        "wallet_advice": wallet_advice(snapshot),
     }
 
 

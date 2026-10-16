@@ -13,7 +13,7 @@ Buck provides an intelligent, accessible, cross-platform personal finance ecosys
 - **Instant Mobile Receipt Scanning**: Native on-device OCR with automatic 12% EVAT mathematical isolation.
 - **Automated AI Categorization**: Zero-shot NLP classification into 17 standard expense categories.
 - **AI Forecaster**: A dedicated Gemini Flash specialist that projects month-end spending and goal timing from 14/30/60-day moving averages, stating its window and a range.
-- **Attitude-Calibrated AI Financial Advisor**: Concise, strictly 2-sentence actionable guidance tailored to user-selected saving attitudes (Normal, Moderate, Aggressive).
+- **Attitude-Calibrated AI Financial Advisor**: Concise, actionable guidance with sourced ₱ figures, tailored to user-selected saving attitudes (Normal, Moderate, Aggressive).
 - **Multi-Wallet Net Worth Oversight**: Liquid wallet management with atomic inter-wallet transfers.
 - **Robust Security & Privacy**: Kernel-level PostgreSQL Row-Level Security (RLS), 30-minute inactivity session expiration with cross-tab synchronization, and a 10-day soft account deletion recovery window.
 
@@ -32,7 +32,7 @@ Buck provides an intelligent, accessible, cross-platform personal finance ecosys
 | **Multi-Wallet Ledger** | Web & Mobile | PostgreSQL `transfer_funds_atomic` stored procedure | Atomic debit/credit, soft deletion (`deleted_at`) |
 | **Budget Tracking & Alerts** | Web & Mobile | Category & Wallet budget progress evaluators | 80% Caution Alert (Amber), 100% Critical Alert (Crimson) |
 | **AI Forecaster** | Web & Mobile | `Buck_AI/BuckAI_Forecast` (Python, Gemini), *planned* | Until then: rule-engine month projection and plain-math goal trajectory (`utils/goalForecast.ts`) |
-| **AI Financial Advisor** | Web & Mobile | `Buck_AI/BuckAI_Advisor` (Python FastAPI, Gemini Flash) | Advice saved in `ai_advisories`, regenerated only when the data materially changes; chat and goal tips; 2 sentences, PHP, attitude multipliers |
+| **AI Financial Advisor** | Web & Mobile | `Buck_AI/BuckAI_Advisor` (Python FastAPI, Gemini Flash) | Advice saved in `ai_advisories`, regenerated only when the data materially changes; chat and goal tips; sourced PHP figures with named periods, attitude multipliers |
 | **Financial Goals** | Web & Mobile | Goal tracking & wallet fund allocation triggers | Completion pacing, days remaining, celebratory feedback |
 | **Analytics & Reports** | Web & Mobile | Chart.js & Framer Motion data visualizers | Category donut (Top-4 + Others cap), daily bars, velocity |
 | **Auth & Account Lifecycle** | Web & Mobile | Supabase GoTrue, SSR Cookies, HMAC session tokens | 30-min idle timeout, cross-tab sync, 10-day deletion recovery |
@@ -160,7 +160,7 @@ The system is decomposed into 10 cohesive, traceable subsystems aligned with the
 6. **Spending Forecasting & Trend Analysis Subsystem (MOD-06)**:
    - The **AI Forecaster** (`Buck_AI/BuckAI_Forecast`, planned): a separate AI from the Advisor. Until it ships, the Forecast tab uses the rule engine and goal charts use plain math (`utils/goalForecast.ts`).
 7. **AI Financial Advisor & Recommendation Subsystem (MOD-07)**:
-   - The **AI Financial Advisor** (`Buck_AI/BuckAI_Advisor`, Gemini): saved advice that updates itself with the data, streaming chat with read-only data tools, goal tips, and AI auto-categorize. Cards and tips are **strictly two sentences** with PHP amounts scaled by saving attitude (Normal 1.0x, Moderate 0.80x/1.15x, Aggressive 0.60x/1.30x).
+   - The **AI Financial Advisor** (`Buck_AI/BuckAI_Advisor`, Gemini): saved advice that updates itself with the data, streaming chat with read-only data tools, goal tips, and AI auto-categorize. Lengths: suggestion 1 sentence (this week's step), detailed analysis 3–5 sentences, wallet advice 1–2 sentences, goal tips 2 sentences; every ₱ figure names its period and comes from the deterministic plan. Amounts are scaled by saving attitude (Normal 1.0x, Moderate 0.80x/1.15x, Aggressive 0.60x/1.30x).
 8. **Financial Goals & Target Savings Subsystem (MOD-08)**:
    - Dedicated goal tracking with target amounts, target completion dates, wallet fund allocations, and completion pacing indicators.
 9. **Analytics, Statistics & Reports Subsystem (MOD-09)**:
@@ -542,7 +542,8 @@ Each account also gets 7 default income categories: `Salary`, `Allowance`, `Free
 - Emergency exclusion: the schema has no `is_emergency` column yet (QA BUG-031), so no transactions are excluded today.
 
 ### 6.5 AI Financial Advisor & Attitude Multipliers
-- Output must be **strictly two sentences** long.
+- Card lengths: **suggestion 1 sentence** (this week's step), **Detailed Analysis 3–5 sentences**, **wallet advice 1–2 sentences**, **goal tips 2 sentences**.
+- Numbers come from the deterministic plan (`Buck_AI/BuckAI_Advisor/plan.py`): typical daily spending (last 30 days ÷ 30), daily spending cap (× spend multiplier), required goal pace per week, affordable saving per week, and the recommended weekly saving (required × savings multiplier, capped at affordable). Gemini quotes them and names each period; it never invents targets or asks to move the whole remaining goal at once.
 - Recommendations must include explicit numeric amounts in Philippine Peso (`₱`).
 - Attitude multipliers:
   - **Normal**: `1.0x` baseline multiplier.
@@ -631,5 +632,5 @@ The web app reads `NEXT_PUBLIC_BUCK_AI_URL` (default `http://localhost:8000`). R
 
 5. **AI Prompt Engineering & Response Sanitation**:
    - Never surface Gemini thought parts; constrain structured outputs with a JSON schema and re-validate them.
-   - Ensure the AI advisor strictly adheres to the 2-sentence constraint with explicit numeric PHP recommendations.
+   - Keep the Advisor's card lengths (suggestion 1, analysis 3–5, wallet 1–2, tips 2 sentences) with explicit ₱ figures that name their period and come from `plan.py`.
    - Sanitize all PII (emails, phone numbers, account numbers) with `clean_text` / `scrub_pii` (`Buck_AI/shared/safety.py`) before any text reaches Gemini, and keep user data inside the `<financial_data>` fence.

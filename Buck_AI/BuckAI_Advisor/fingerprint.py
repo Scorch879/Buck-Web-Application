@@ -32,6 +32,8 @@ def fingerprint_parts(snapshot: Snapshot) -> dict[str, Any]:
         "income": _bucket(d["income_this_month"], step) if d["income_this_month"] else None,
         "wallet": _bucket(d["active_wallet_balance"], step),
         "top_categories": [c["name"] for c in d["top_categories_this_month"][:3]],
+        # Wallet set and which one is active (wallet advice names them).
+        "wallets": sorted(f"{w['name']}{'*' if w['active'] else ''}" for w in d.get("wallets", [])),
         "goal": [goal["name"], goal["target_date"], _bucket(goal["remaining"], goal_step)] if goal else None,
     }
 

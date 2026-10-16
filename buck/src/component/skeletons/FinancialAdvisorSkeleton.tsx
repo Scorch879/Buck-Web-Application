@@ -42,6 +42,19 @@ export default function FinancialAdvisorSkeleton() {
             <span className="skeleton-avatar advisor-icon" />
             <p className="advisor-eyebrow"><span className="skeleton-text">{eyebrow}</span></p>
             <h3><span className="skeleton-text">₱00,000.00</span></h3>
+            {eyebrow !== "Goal protection" ? (
+              <p className="advisor-wallet-active"><span className="skeleton-text">Active: Wallet · Total ₱000,000.00</span></p>
+            ) : null}
+            {eyebrow === "Wallet room" ? (
+              <ul className="advisor-wallet-list" aria-hidden="true">
+                {[0, 1].map((i) => (
+                  <li key={i}>
+                    <span className="skeleton-text">Wallet name</span>
+                    <span className="skeleton-text">₱00,000.00</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
             <p>
               <span className="skeleton-text">Advice based on your wallet, spending rhythm and goal appears here.</span>
             </p>

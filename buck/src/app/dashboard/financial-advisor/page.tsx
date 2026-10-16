@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FaBullseye, FaLightbulb, FaReceipt, FaWallet, FaSyncAlt } from "react-icons/fa";
+import InfoTip from "@/component/InfoTip";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useDashboardUser } from "@/context/DashboardUserContext";
 import {
@@ -10,39 +11,52 @@ import {
 } from "@/context/FinancialContext";
 import { formatCurrency, toNumber } from "@/utils/formatters";
 import {
-  getActiveWallet,
+  getActiveWalletId,
   listExpenses,
   listGoals,
+  listWallets,
   subscribeUserTable,
   type BuckExpense,
   type BuckGoal,
+  type BuckWallet,
 } from "@/utils/supabaseData";
 import { fetchAIAdvisorInsights, type AIAdvisorInsights } from "@/utils/advisorApi";
 import { useToast } from "@/component/toast";
 import AIChat from "@/component/AIChat";
 import "./style.css";
 
-function getCurrentWeekStart() {
-  const today = new Date();
-  const start = new Date(today);
-  start.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-  start.setHours(0, 0, 0, 0);
-
-  return start;
+/** "YYYY-MM-DD" in local time (expense dates are calendar days, not instants). */
+function dayKey(date: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-function getWeeklyTotal(expenses: BuckExpense[]) {
-  const weekStart = getCurrentWeekStart();
+function daysAgoKey(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return dayKey(d);
+}
 
-  return expenses.reduce((sum, expense) => {
-    const date = new Date(expense.date);
+/** Monday of the current week. */
+function weekStartKey() {
+  const d = new Date();
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return dayKey(d);
+}
 
-    if (Number.isNaN(date.getTime()) || date < weekStart) {
-      return sum;
-    }
-
-    return sum + toNumber(expense.amount);
+function totalSince(expenses: BuckExpense[], fromKey: string) {
+  const today = dayKey(new Date());
+  return expenses.reduce((sum, e) => {
+    const key = e.date.slice(0, 10);
+    return key >= fromKey && key <= today ? sum + toNumber(e.amount) : sum;
   }, 0);
+}
+
+function shortDate(key: string) {
+  const d = new Date(`${key.slice(0, 10)}T00:00:00`);
+  return Number.isNaN(d.getTime())
+    ? key
+    : d.toLocaleDateString("en-PH", { month: "short", day: "numeric" });
 }
 
 function getGoalProgress(goal: BuckGoal | undefined) {
@@ -70,6 +84,10 @@ export default function FinancialAdvisorPage() {
   const [walletBudget, setWalletBudget] = useState(
     () => userCache.activeWalletBudget ?? 0
   );
+  const [wallets, setWallets] = useState<BuckWallet[]>(
+    () => (userCache.wallets ?? []).filter((w) => !w.deletedAt)
+  );
+  const [activeWalletId, setActiveWalletId] = useState<string | null>(null);
   const [loading, setLoading] = useState(() => !hasInitialAdvisorData);
   const [error, setError] = useState("");
   const hadInitialAdvisorData = useRef(hasInitialAdvisorData);
@@ -147,13 +165,20 @@ export default function FinancialAdvisorPage() {
     };
 
     const loadWallet = async () => {
-      const activeWallet = await getActiveWallet(user.uid);
-      const nextWalletBudget = activeWallet?.budget ?? 0;
+      const [allWallets, nextActiveId] = await Promise.all([
+        listWallets(user.uid),
+        getActiveWalletId(user.uid),
+      ]);
+      const liveWallets = allWallets.filter((w) => !w.deletedAt);
+      const nextWalletBudget =
+        liveWallets.find((w) => w.id === nextActiveId)?.budget ?? 0;
 
       if (!active) {
         return;
       }
 
+      setWallets(liveWallets);
+      setActiveWalletId(nextActiveId);
       setWalletBudget(nextWalletBudget);
       setDashboardCache((currentCache) =>
         mergeDashboardDataCache(currentCache, user.uid, {
@@ -211,33 +236,40 @@ export default function FinancialAdvisorPage() {
     () => goals.find((goal) => goal.isActive && !goal.completed) ?? goals[0],
     [goals]
   );
-  const weeklyTotal = useMemo(() => getWeeklyTotal(expenses), [expenses]);
+  const weekStart = weekStartKey();
+  const weeklyTotal = useMemo(() => totalSince(expenses, weekStart), [expenses, weekStart]);
+  const last7Total = useMemo(() => totalSince(expenses, daysAgoKey(6)), [expenses]);
   const goalProgress = getGoalProgress(activeGoal);
-  const highestExpense = useMemo(
-    () =>
-      expenses.reduce<BuckExpense | null>(
-        (highest, expense) =>
-          !highest || expense.amount > highest.amount ? expense : highest,
+  // Largest expense in the last 30 days (not all time), with its date.
+  const highestExpense = useMemo(() => {
+    const from = daysAgoKey(29);
+    return expenses
+      .filter((e) => e.date.slice(0, 10) >= from)
+      .reduce<BuckExpense | null>(
+        (highest, e) => (!highest || e.amount > highest.amount ? e : highest),
         null
-      ),
-    [expenses]
-  );
+      );
+  }, [expenses]);
+
+  const activeWallet = wallets.find((w) => w.id === activeWalletId) ?? null;
+  const otherWallets = wallets
+    .filter((w) => w.id !== activeWalletId)
+    .sort((a, b) => b.budget - a.budget);
+  const totalBalance = wallets.reduce((sum, w) => sum + toNumber(w.budget), 0);
 
   const walletAdvice = useMemo(() => {
-    if (walletBudget <= 0) {
-      return "No wallet limit is set yet. Establish a budget to unlock pacing signals.";
-    }
+    if (aiInsights?.walletAdvice) return aiInsights.walletAdvice;
+    if (wallets.length === 0) return "Add a wallet so Buck can track where your spending comes from.";
+    if (!activeWallet) return "Pick an active wallet on the Wallet tab so daily spending comes from one place.";
+    const keep = otherWallets[0];
+    return keep
+      ? `Spend day to day from ${activeWallet.name}. Keep ${keep.name} for savings or emergencies.`
+      : `All spending comes from ${activeWallet.name}. Add a second wallet to keep savings separate.`;
+  }, [aiInsights?.walletAdvice, wallets.length, activeWallet, otherWallets]);
 
-    if (weeklyTotal > walletBudget) {
-      return `Spending is pacing ${formatCurrency(
-        weeklyTotal - walletBudget
-      )} ahead of your weekly baseline. Pause non-essential purchases.`;
-    }
-
-    return `You have ${formatCurrency(
-      walletBudget - weeklyTotal
-    )} in safe room left inside this cycle.`;
-  }, [walletBudget, weeklyTotal]);
+  const analysisPeriod = aiInsights?.period
+    ? `Figures cover ${shortDate(aiInsights.period.monthStart)}–${shortDate(aiInsights.period.asOf)} this month and your last 30 days of expenses.`
+    : null;
 
   const goalAdvice = useMemo(() => {
     if (!activeGoal) {
@@ -329,8 +361,28 @@ export default function FinancialAdvisorPage() {
           <span className="advisor-icon">
             <FaWallet aria-hidden="true" />
           </span>
-          <p className="advisor-eyebrow">Wallet room</p>
+          <p className="advisor-eyebrow advisor-eyebrow--tip">
+            Wallet room
+            <InfoTip label="About wallet room">
+              Balance of your active wallet (the one expenses are taken from). Other wallets are listed
+              below; total is across all wallets. Switch the active wallet on the Wallet tab.
+            </InfoTip>
+          </p>
           <h3>{formatCurrency(walletBudget)}</h3>
+          <p className="advisor-wallet-active">
+            {activeWallet ? `Active: ${activeWallet.name}` : "No active wallet"}
+            {wallets.length > 1 ? ` · Total ${formatCurrency(totalBalance)}` : ""}
+          </p>
+          {otherWallets.length > 0 ? (
+            <ul className="advisor-wallet-list" aria-label="Other wallets">
+              {otherWallets.slice(0, 3).map((w) => (
+                <li key={w.id}>
+                  <span>{w.name}</span>
+                  <span>{formatCurrency(w.budget)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <p>{walletAdvice}</p>
         </article>
 
@@ -338,12 +390,21 @@ export default function FinancialAdvisorPage() {
           <span className="advisor-icon">
             <FaReceipt aria-hidden="true" />
           </span>
-          <p className="advisor-eyebrow">This week</p>
+          <p className="advisor-eyebrow advisor-eyebrow--tip">
+            This week
+            <InfoTip label="About this week">
+              Total spent from Monday ({shortDate(weekStart)}) to today. Last 7 days counts the 7 days up to
+              today, so it can include last week. Largest expense looks at the last 30 days.
+            </InfoTip>
+          </p>
           <h3>{formatCurrency(weeklyTotal)}</h3>
+          <p className="advisor-wallet-active">
+            Since Mon, {shortDate(weekStart)} · Last 7 days {formatCurrency(last7Total)}
+          </p>
           <p>
             {highestExpense
-              ? `Largest recent expense: ${highestExpense.description || highestExpense.category} at ${formatCurrency(highestExpense.amount)}.`
-              : "No recent spending yet. Add expenses so advice can sharpen."}
+              ? `Largest in the last 30 days: ${highestExpense.description || highestExpense.category} at ${formatCurrency(highestExpense.amount)} on ${shortDate(highestExpense.date)}.`
+              : "No expenses in the last 30 days. Add expenses so advice can sharpen."}
           </p>
         </article>
 
@@ -381,6 +442,9 @@ export default function FinancialAdvisorPage() {
             <p style={{ minHeight: '80px', marginTop: '1rem' }}>
               {loadingAi || refreshingAi ? "Generating deep-dive analysis..." : aiInsights?.advice}
             </p>
+            {analysisPeriod && !(loadingAi || refreshingAi) ? (
+              <p className="advisor-footnote">{analysisPeriod}</p>
+            ) : null}
           </div>
         </section>
       </div>

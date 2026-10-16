@@ -27,7 +27,7 @@ Every call needs `Authorization: Bearer <Supabase access token>`, the token of t
 | Method & path | Body / query | Returns |
 |---|---|---|
 | `GET /` | | Health check: Advisor status and whether Gemini is configured |
-| `GET /advisor/insight` | `?refresh=true` to force a refresh (60 s cooldown) | `{ id, title, suggestion, advice, financialHealthScore, priority, focus, changed[], generatedWith, createdAt, cached, stale }` |
+| `GET /advisor/insight` | `?refresh=true` to force a refresh (60 s cooldown) | `{ id, title, suggestion, advice, walletAdvice, period{monthStart, asOf}, financialHealthScore, priority, focus, changed[], generatedWith, createdAt, cached, stale }`. Figures come from the deterministic plan (`plan.py`) and name their period. |
 | `GET /advisor/history` | `?limit=1..20` | Saved advisories, newest first |
 | `POST /advisor/chat` | `{ question (≤500), history? [{role, content}] (≤8) }` | `text/event-stream` events: `meta` (`ai` or `fallback`), `delta`, `error`, `done` |
 | `POST /advisor/categorize` | `{ kind: "expense" \| "income", descriptions: [1..25] }` | `{ categories: (name \| null)[] }`: only the user's own category names (Gemini is limited to an enum of them); `null` keeps the item in the fallback |

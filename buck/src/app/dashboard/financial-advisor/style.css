@@ -510,3 +510,107 @@ html[data-buck-theme="dark"] .advisor-card:focus-within {
     max-width: 94%;
   }
 }
+
+/* ---- Card detail rows and tooltips (Wallet room, This week, Detailed Analysis) ---- */
+
+.advisor-eyebrow--tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.advisor-card .advisor-wallet-active {
+  margin: -0.2rem 0 0;
+  color: var(--buck-ink);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.advisor-wallet-list {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.86rem;
+}
+
+.advisor-wallet-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--buck-muted);
+}
+
+.advisor-wallet-list li span:last-child {
+  color: var(--buck-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.advisor-card .advisor-footnote {
+  margin: 0.6rem 0 0;
+  font-size: 0.78rem;
+}
+
+.info-tip {
+  position: relative;
+  display: inline-flex;
+}
+
+.info-tip__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  color: var(--buck-muted);
+  font-size: 0.85rem;
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  cursor: help;
+}
+
+.info-tip__button:hover,
+.info-tip__button:focus-visible {
+  color: var(--buck-orange);
+}
+
+.info-tip__button:focus-visible {
+  outline: 2px solid var(--buck-orange);
+  outline-offset: 1px;
+}
+
+.info-tip__bubble {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  z-index: 20;
+  width: max-content;
+  max-width: min(280px, 80vw);
+  padding: 0.55rem 0.7rem;
+  color: var(--buck-ink);
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.45;
+  text-transform: none;
+  background: var(--buck-surface);
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+  box-shadow: var(--buck-shadow);
+  transform: translateX(-50%);
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.info-tip__bubble[data-open="true"] {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* The card clips overflow for its hover bar; let tooltips escape. */
+.advisor-grid .advisor-card {
+  overflow: visible;
+}
