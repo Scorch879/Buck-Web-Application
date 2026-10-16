@@ -77,6 +77,9 @@ def to_response(row: dict[str, Any], *, cached: bool, stale: bool = False) -> di
         "financialHealthScore": row.get("financial_health_score"),
         "priority": row.get("priority"),
         "focus": meta.get("focus"),
+        "walletAdvice": meta.get("wallet_advice"),
+        # The window the numbers describe, e.g. {"monthStart": "2026-10-01", "asOf": "2026-10-16"}.
+        "period": meta.get("period"),
         "changed": meta.get("changed", []),
         "generatedWith": meta.get("generated_with", "rules"),
         "createdAt": row.get("created_at"),
@@ -103,7 +106,8 @@ async def _write_with_gemini(snapshot: Snapshot, previous: dict[str, Any] | None
     text = {
         "title": clean_text(out.get("title"), 80),
         "suggestion": limit_sentences(clean_text(out.get("suggestion"), 300), 1),
-        "advice": limit_sentences(clean_text(out.get("advice"), 600), 2),
+        "advice": limit_sentences(clean_text(out.get("advice"), 1200), 5),
+        "wallet_advice": limit_sentences(clean_text(out.get("wallet_advice"), 400), 2),
         "focus": out.get("focus") if out.get("focus") in ("spending", "category", "goal", "income", "buffer") else None,
     }
     if not (text["title"] and text["suggestion"] and text["advice"]):
@@ -163,6 +167,8 @@ async def get_insight(db: UserDb, refresh: bool = False) -> dict[str, Any]:
             "fingerprint_parts": parts,
             "generated_with": generated_with,
             "focus": text.get("focus"),
+            "wallet_advice": text.get("wallet_advice"),
+            "period": {"monthStart": snapshot.data["month"]["start"], "asOf": snapshot.data["today"]},
             "changed": changed,
             "spent_this_month": snapshot.data["spent_this_month"],
             "spending_base": snapshot.spending_base,

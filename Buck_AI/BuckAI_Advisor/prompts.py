@@ -66,10 +66,25 @@ def insight_prompt(
     )
     return f"""{fence("financial_data", snapshot_data)}{history}
 The rule engine rates this situation "{rule_priority}" priority.
+
+Use the numbers in financial_data.plan exactly; do not compute your own targets. Each plan figure has a
+"basis" that says which period and data it comes from: name that period whenever you use the figure
+(for example "this month so far (Oct 1–16)", "your last-30-day average", "per week until <target date>").
+Never tell the user to move the whole remaining goal amount at once.
+
 Write the user's advisory card:
 - title: at most 6 words.
-- suggestion: one sentence, the single most important action, with a ₱ amount.
-- advice: exactly two sentences with explicit ₱ amounts and a time period, calibrated to the saving attitude.
+- suggestion: one sentence, the next step for THIS WEEK. Balance the goal with daily life: save
+  plan.goal_pace.recommended_per_week toward the active goal while keeping everyday spending near
+  plan.daily_spending_cap per day. If there is no active goal, protect a buffer instead.
+- advice: the detailed analysis, 3 to 5 sentences. Cover, in order: (1) spending so far this month and
+  the typical daily spending, naming each period; (2) how that compares with the daily spending cap for
+  the saving attitude; (3) the goal pace: required per week to finish by the target date versus the
+  recommended per week, and whether that is on track (if not, say how many weeks it takes instead);
+  (4) one concrete habit change in the top spending category. Every amount in ₱ with its period.
+- wallet_advice: one or two sentences naming the user's wallets from financial_data.wallets: which one to
+  spend from day to day (the active wallet) and which to keep untouched for the goal or an emergency
+  buffer. Use wallet names and balances exactly as given.
 - focus: the one area this advice is about ("spending", "category", "goal", "income", or "buffer")."""
 
 
@@ -79,9 +94,10 @@ INSIGHT_SCHEMA = {
         "title": {"type": "string"},
         "suggestion": {"type": "string"},
         "advice": {"type": "string"},
+        "wallet_advice": {"type": "string"},
         "focus": {"type": "string", "enum": ["spending", "category", "goal", "income", "buffer"]},
     },
-    "required": ["title", "suggestion", "advice", "focus"],
+    "required": ["title", "suggestion", "advice", "wallet_advice", "focus"],
 }
 
 GOAL_TIP_SCHEMA = {"type": "object", "properties": {"tip": {"type": "string"}}, "required": ["tip"]}
