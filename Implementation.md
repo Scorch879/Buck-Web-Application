@@ -25,11 +25,17 @@ This document details runtime setup procedures, environment configurations, low-
 | `VERCEL_ACCESS_TOKEN` | Server Only | Optional | Vercel API token for deployment metrics. |
 | `VERCEL_PROJECT_ID` | Server Only | Optional | Vercel project ID for deployment monitoring. |
 
-### 1.2 Python FastAPI Microservice Environment (`buck/BuckAI_Backend/.env.local`)
+### 1.2 Buck_AI Service (`Buck_AI/.env`, or Vercel project settings)
 
 | Variable Name | Scope | Required | Description |
 |---|---|---|---|
-| `TOGETHER_API_KEY` | Python Server | **Yes** | API key for Together AI inference (`meta-llama/Llama-3.3-70B-Instruct-Turbo-Free`). |
+| `GEMINI_API_KEY` | Buck_AI only | **Yes** for AI | Google AI Studio key. Without it the Advisor serves rule-based advice. |
+| `GEMINI_MODEL` | Buck_AI only | Optional | Default `gemini-3.8-flash`. |
+| `SUPABASE_URL` / `SUPABASE_ANON_KEY` | Buck_AI only | **Yes** | Same public values as the web app; queries run as the user under RLS. |
+| `ALLOWED_ORIGINS` | Buck_AI only | **Yes** in prod | Comma-separated web origins for CORS (mobile needs none). |
+| `NEXT_PUBLIC_BUCK_AI_URL` | Web (public) | **Yes** in prod | Buck_AI base URL; default `http://localhost:8000`. Also added to the CSP. |
+
+Zero cost: Gemini API free tier with no billing account (over-quota calls get 429 and the Advisor serves rule-based advice), Vercel Hobby for both projects, Supabase Free. On the free tier Google may use prompts to improve its products; Buck_AI sends only PII-scrubbed numbers.
 
 ---
 
@@ -55,26 +61,18 @@ npm run build
 npm run start
 ```
 
-### 2.2 Python FastAPI Backend Setup
+### 2.2 Buck_AI Setup
 
 ```bash
-# 1. Navigate to AI backend directory
-cd buck/BuckAI_Backend
-
-# 2. Create virtual environment
-python -m venv venv
-# On Windows:
-.\venv\Scripts\activate
-# On Linux/macOS:
-source venv/bin/activate
-
-# 3. Install required packages
-pip install -r requirements.txt
-
-# 4. Configure .env.local with TOGETHER_API_KEY
-# 5. Run FastAPI development server
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+cd Buck_AI
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements-dev.txt
+copy .env.example .env
+uvicorn main:app --reload --port 8000
 ```
+
+Deploy: create a second Vercel project from this repo with Root Directory `Buck_AI`, set its env vars, then set `NEXT_PUBLIC_BUCK_AI_URL` on the web project.
 
 ### 2.3 Supabase Database Migration Setup
 
@@ -458,6 +456,24 @@ Returns a composite score (0 to 5) and localized validation messages.
 - **1:1 Skeletal Loading Parity (`ExpensesSkeleton.tsx`)**:
   - Updated skeleton DOM with top visualizer placeholder (header, 24px segmented shimmer bar track, and 6-item legend shimmer row), along with the left 3 stacked KPI card skeletons and right tracker table skeleton with Add Spending trigger button placeholder, search/sort toolbar (using `skeleton-input` with exact 175px/38px bounds), `.expenses-list-items-container` wrapper with 8 list item skeletons, and 3-column pagination skeleton (matching Prev/Next buttons, page number blocks, spacer, and range text).
   - Guarantees 0px Cumulative Layout Shift (CLS = 0) during route transitions and hydration.
+
+
+### 3.29 Buck_AI: AI Financial Advisor on Gemini ([`Buck_AI/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/), [`AIChat.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/AIChat.tsx))
+- Rationale: Design.md ADR-043. Service guide: `Buck_AI/README.md`.
+- **Buck_AI**: `main.py` (FastAPI, CORS, health); `shared/` (`config`, `auth`, `http`, `supabase`, `gemini`, `safety`, `rate_limit`); `BuckAI_Advisor/` (`snapshot`, `fingerprint`, `rules`, `prompts`, `tools`, `service`, `categorize`, `router`); `BuckAI_Forecast/` (placeholder).
+- **Web**:
+  - New `utils/buckAi.ts`; `advisorApi.ts` and `aiApi.ts` now call Buck_AI.
+  - `AIChat` is Advisor-only, with `AIChatSkeleton` for parity.
+  - New `utils/goalForecast.ts` (plain math) for the Goals and Statistics charts.
+  - CSP allows the Buck_AI origin.
+  - Auto-categorize now calls the Advisor (`/advisor/categorize`) from the Categories tab (one batched request of up to 25), Add Expense and the Goals expense modal.
+  - `/api/forecast` and the cron are rule-engine only.
+- **Removed**: `buck/src/server/ai/`, `/api/ai/*`, `/api/advisor`, `@google/genai`, and the Forecaster chat on the Forecast tab.
+- **Verification (2026-10-14)**:
+  - Buck_AI: `python -m unittest` 19/19. The tests cover auth, every query sent with the user's token, saving, reuse while data is unchanged, regeneration with the previous advice, small-change tolerance, cooldown, rules fallback, auto-categorize (no invented categories, fallback never offered, AI-down nulls, batch limit), chat SSE and its fallback, validation, rate limits, the tool loop and thought signatures.
+  - Web: `vitest` 44/44 and `tsc` clean.
+  - Live local run: health OK. Missing and forged tokens get 401 on all Advisor routes; the forged token was rejected by the real Supabase Auth. CORS allows `localhost:3000` and refuses unknown origins.
+  - Not yet run with a real `GEMINI_API_KEY` or a signed-in user.
 
 ---
 

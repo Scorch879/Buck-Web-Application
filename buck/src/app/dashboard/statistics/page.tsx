@@ -1,5 +1,5 @@
 "use client";
-import { aiBackendFetch } from "@/utils/aiBackend";
+import { computeGoalForecast } from "@/utils/goalForecast";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { FaChevronLeft, FaChevronRight, FaPlus } from "react-icons/fa";
@@ -224,6 +224,8 @@ const Statistics = () => {
       unsubExpenses();
       unsubWallets();
     };
+    // Keyed on user.uid: the user object itself is not referentially stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setDashboardCache, user.uid]);
 
   useEffect(() => {
@@ -434,21 +436,7 @@ const Statistics = () => {
 
     const fetchForecast = async () => {
       try {
-        const res = await aiBackendFetch("/ai/forecast/", {
-            method: "POST",
-            body: JSON.stringify({
-              goal: {
-                id: forecastGoal.id,
-                userId: user.uid,
-                targetAmount: forecastGoal.targetAmount,
-                targetDate: forecastGoal.targetDate,
-                attitude: forecastGoal.attitude || "Normal",
-              },
-              budget: 0,
-            }),
-          });
-        if (!res.ok) throw new Error("Failed to fetch forecast");
-        const data: ForecastResponse = await res.json();
+        const data: ForecastResponse = computeGoalForecast(forecastGoal);
         if (!cancelled) setForecastData(data);
       } catch (err) {
         if (!cancelled) {

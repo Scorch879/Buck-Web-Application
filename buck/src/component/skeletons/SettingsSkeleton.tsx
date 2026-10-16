@@ -80,6 +80,8 @@ export default function SettingsSkeleton() {
                 </div>
                 <div className="settings-form">
                   <div className="settings-field">
+                    {/* <label> keeps `.settings-form label` styling for 1:1 parity; nothing to label in a skeleton. */}
+                    {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                     <label><span className="skeleton-text">Display name</span></label>
                     {/* real input: 0.72rem×2 padding + 1rem text + 2px border */}
                     <span className="skeleton-input" style={{ height: "calc(1.44rem + 1.2em + 2px)", borderRadius: 8 }} />

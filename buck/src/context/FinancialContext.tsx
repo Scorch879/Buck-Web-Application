@@ -8,6 +8,23 @@ import type {
   BuckProfile,
 } from "@/utils/supabaseData";
 
+/** One row of `/api/admin/supabase` (Supabase auth_logs). */
+export type AdminSupabaseLog = {
+  /** ISO string or epoch number (the analytics API returns microseconds). */
+  timestamp: string | number;
+  event_message?: string | null;
+};
+
+/** One deployment from `/api/admin/vercel` (Vercel v6 deployments API). */
+export type AdminVercelDeployment = {
+  uid: string;
+  url?: string | null;
+  state?: string | null;
+  /** Epoch milliseconds. */
+  created: number;
+  meta?: { githubCommitRef?: string | null } | null;
+};
+
 export type DashboardDataCache = {
   userId?: string;
   profile?: BuckProfile;
@@ -23,8 +40,8 @@ export type DashboardDataCache = {
   aiInsights?: import("@/utils/advisorApi").AIAdvisorInsights;
   forecastInsights?: import("@/utils/forecastApi").AIForecastInsights;
   adminFeedback?: import("@/utils/supabaseData").BuckFeedback[];
-  adminVercelDeployments?: any[];
-  adminSupabaseLogs?: any[];
+  adminVercelDeployments?: AdminVercelDeployment[];
+  adminSupabaseLogs?: AdminSupabaseLog[];
   adminVercelError?: string;
   adminSupabaseError?: string;
   updatedAt?: number;

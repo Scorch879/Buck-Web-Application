@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { headers } from "next/headers";
 import SessionManager from "@/component/SessionManager";
 import "./globals.css";
 import MaintenancePage from "./maintenance-page";
@@ -36,11 +37,12 @@ export const metadata: Metadata = {
   description: "Buck the budget tracker",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: ReactNode;
 }>) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   const maintenanceMode =
     process.env.MAINTENANCE_MODE === "true" ||
     process.env.NEXT_PUBLIC_MAINTENANCE_MODE === "true";
@@ -49,6 +51,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <script
+          nonce={nonce}
           suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: themeInitScript }}
         />

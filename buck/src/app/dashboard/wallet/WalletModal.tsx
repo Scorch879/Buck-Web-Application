@@ -8,6 +8,7 @@ import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial } from "@/context/FinancialContext";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
 import { formatCurrency } from "@/utils/formatters";
+import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import {
   addWallet,
   deleteWallet,
@@ -119,6 +120,9 @@ export default function WalletModal({
     return () => {
       unsubscribeWallets();
     };
+    // Re-subscribe only when the modal opens or the user changes; the fetch
+    // helpers are recreated every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, user]);
 
   const handleAddWallet = async (e: React.FormEvent) => {
@@ -135,8 +139,8 @@ export default function WalletModal({
       setBudget("");
       fetchWallets();
       fetchActiveWallet();
-    } catch (err: any) {
-      setError(err.message || "Failed to add wallet");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add wallet");
     }
   };
 
@@ -151,8 +155,8 @@ export default function WalletModal({
       setConfirmDeleteId(null);
       fetchWallets();
       fetchActiveWallet();
-    } catch (err: any) {
-      setError(err.message || "Failed to delete wallet");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete wallet");
     }
   };
 
@@ -178,8 +182,8 @@ export default function WalletModal({
       setEditBudget("");
       setError("");
       fetchWallets();
-    } catch (err: any) {
-      setError(err.message || "Failed to update wallet");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update wallet");
     }
   };
 
@@ -228,6 +232,9 @@ export default function WalletModal({
     >
       <motion.div 
         className={styles.modal} 
+        role="dialog"
+        aria-modal="true"
+        aria-label="Manage wallets"
         onClick={(e) => e.stopPropagation()}
         initial={{ y: 20, opacity: 0, scale: 0.95 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -341,31 +348,14 @@ export default function WalletModal({
                         >
                           Edit
                         </button>
-                        {confirmDeleteId === w.id ? (
-                          <>
-                            <button
-                              onClick={() => handleDelete(w.id)}
-                              className={styles.deleteBtn}
-                            >
-                              Confirm?
-                            </button>
-                            <button
-                              onClick={() => setConfirmDeleteId(null)}
-                              className={styles.cancelBtn}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => setConfirmDeleteId(w.id)}
-                            className={styles.deleteBtn}
-                            disabled={w.budget > 0}
-                            title={w.budget > 0 ? "Empty wallet first to delete" : ""}
-                          >
-                            Delete
-                          </button>
-                        )}
+                        <button
+                          onClick={() => setConfirmDeleteId(w.id)}
+                          className={styles.deleteBtn}
+                          disabled={w.budget > 0}
+                          title={w.budget > 0 ? "Empty wallet first to delete" : ""}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </>
                   )}
@@ -378,6 +368,16 @@ export default function WalletModal({
           Close
         </button>
       </motion.div>
+      <DangerDeleteDialog
+        open={Boolean(confirmDeleteId)}
+        itemType="wallet"
+        itemName={wallets.find((w) => w.id === confirmDeleteId)?.name ?? ""}
+        consequences={["The wallet is archived and stays in Wallet history; it cannot be restored."]}
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={async () => {
+          if (confirmDeleteId) await handleDelete(confirmDeleteId);
+        }}
+      />
     </motion.div>,
     document.body
   );

@@ -14,8 +14,6 @@ interface AIAdvisorPlaceholderCardProps {
 
 export default function AIAdvisorPlaceholderCard({
   userId,
-  activeWalletBudget,
-  totalExpensesCount = 0,
 }: AIAdvisorPlaceholderCardProps) {
   const { dashboardCache, setDashboardCache } = useFinancial();
   const userCache = userId && dashboardCache.userId === userId ? dashboardCache : {};

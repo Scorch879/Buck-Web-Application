@@ -41,13 +41,13 @@ function Toolbar({ placeholder, options }: { placeholder: string; options: Selec
 }
 
 const WALLETS = [
-  { name: "Main wallet", share: 70, active: true },
-  { name: "Savings", share: 30, active: false },
+  { name: "Main wallet", active: true },
+  { name: "Savings", active: false },
 ];
 
 /**
  * 1:1 Wallet Tab Skeleton (default "Wallets" view).
- * Renders the page's own classes: the Wallets | Income navigator, the wallet
+ * Renders the page's own classes: the header card with the Wallets | Income navigator, the wallet
  * overview KPI, then "Your Wallets" (toolbar, compact .wallet-row items) beside
  * "Wallet history". The stylesheet is imported because loading.tsx renders
  * before page.tsx (and its CSS) loads.
@@ -55,14 +55,20 @@ const WALLETS = [
 export default function WalletSkeleton() {
   return (
     <div className="settings-page wallet-page dashboard-skeleton" aria-busy="true" aria-label="Loading wallets">
-      <div className="wallet-view-nav">
-        <span className="wallet-view-tab" aria-selected="true">
-          <span className="skeleton-text">Wallets 0</span>
-        </span>
-        <span className="wallet-view-tab">
-          <span className="skeleton-text">Income 0</span>
-        </span>
-      </div>
+      <header className="settings-card wallet-page-header">
+        <div className="wallet-card-title-wrap">
+          <p className="settings-eyebrow"><span className="skeleton-text">Wallet</span></p>
+          <h2 className="wallet-card-title"><span className="skeleton-text">Wallets &amp; balances</span></h2>
+        </div>
+        <div className="wallet-view-nav">
+          <span className="wallet-view-tab" aria-selected="true">
+            <span className="skeleton-text">Wallets 0</span>
+          </span>
+          <span className="wallet-view-tab">
+            <span className="skeleton-text">Income 0</span>
+          </span>
+        </div>
+      </header>
 
       <div className="wallet-view-panel">
         <section className="settings-card wallet-overview">
@@ -102,17 +108,13 @@ export default function WalletSkeleton() {
                     <div className="wallet-row-title">
                       <strong className="settings-wallet-name"><span className="skeleton-text">{w.name}</span></strong>
                     </div>
-                    <div className="wallet-row-share">
-                      <span className="skeleton-line" style={{ width: `${w.share}%` }} />
-                    </div>
-                    <span className="wallet-row-share-label"><span className="skeleton-text">{w.share}% of total balance</span></span>
                   </div>
                   <div className="wallet-row-side">
                     <span className="settings-wallet-budget"><span className="skeleton-text">₱00,000.00</span></span>
                     <div className="wallet-row-actions">
-                      {!w.active && <span className="settings-wallet-set-active-btn skeleton-text">Set Active</span>}
-                      <span className="wallet-icon-btn skeleton-text" />
-                      <span className="wallet-icon-btn skeleton-text" />
+                      {!w.active && <span className="wallet-action-btn skeleton-text">Set Active</span>}
+                      <span className="wallet-action-btn skeleton-text">✎ Edit</span>
+                      <span className="wallet-action-btn skeleton-text">🗑 Delete</span>
                     </div>
                   </div>
                 </div>

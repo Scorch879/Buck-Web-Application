@@ -299,10 +299,6 @@ Buck-Web-Application/
 ├── QA_Report.md                # Quality audit, defects, and security tracking
 ├── README.md                   # Repository overview and entry guide
 ├── buck/                       # Next.js 15 Web Application
-│   ├── BuckAI_Backend/         # Python FastAPI AI microservice
-│   │   ├── ai_models.py        # Together AI, Prophet, XGBoost models
-│   │   ├── main.py             # FastAPI routing and endpoints
-│   │   └── requirements.txt    # Python dependencies
 │   ├── docs/                   # Domain-specific UI/Auth documentation
 │   ├── public/                 # Static assets (images, SVGs, audio)
 │   ├── supabase/
@@ -1158,3 +1154,133 @@ Buck-Web-Application/
      - **Income**: the Monthly cash flow KPI, then the "Income history" card with Add Income and search (`IncomeList embedded`).
      - The total-balance strip is removed from "Your Wallets"; the figure lives in the overview KPI.
      - `WalletSkeleton` mirrors the Wallets view.
+
+### ADR-041: Three-Step Delete Confirmation Standard; Wallet Header-Card Navigator & Row Actions
+
+- **Status**: Implemented. **Standing rule for every agent**: no user-facing delete may skip this flow.
+- **Context** (QA BUG-028):
+  - Deleting data in Buck has no undo, but the confirmations were inconsistent:
+    - Expenses deleted instantly with no confirmation at all.
+    - Goals and categories used `window.confirm`.
+    - Wallets and income used a single confirm click, and the wallet modal used an inline "Confirm?" button.
+  - On the Wallet tab, the Wallets | Income navigator floated above the content as a separate pill.
+  - Wallet rows showed an unneeded share-of-total bar, the Set Active / Edit / Delete buttons were small (30px icons), and Delete was not red.
+- **Decision**:
+  1. **Three-step delete** with [`DangerDeleteDialog`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DangerDeleteDialog.tsx) (GitHub-style). It is portalled to `<body>`, carries `role="alertdialog"`, and shows a 3-segment step indicator.
+     1. **Warning + slide**: the warning text and a `consequences` list, then a "Slide to delete" track. The handle must be dragged past 92% of the track or it snaps back. Keyboard: Arrow Right in steps, End or Enter to finish, Home or Arrow Left to reset.
+     2. **Acknowledge**: a red **"I understand, continue"** button next to **Cancel**.
+     3. **Type to confirm**: the user types the item's exact name (case-sensitive), e.g. the wallet name. Only then is the red **"Delete this {itemType}"** button enabled. The dialog stays open in a busy state until `onConfirm` settles.
+     - Escape, Cancel or a backdrop click cancels at any step, and every open starts again at step 1.
+     - The dialog stops click propagation at its root, so it can be nested inside other modals (React events bubble through portals).
+  2. **Usage**: render `<DangerDeleteDialog open itemType itemName consequences onConfirm onCancel />`. `consequences` must state truthfully what is lost, for example: wallets are archived and cannot be restored; an expense's amount returns to its wallet; deleting a goal sets linked expenses' `goal_id` to null.
+     - Applied to: wallets (Wallet tab and `WalletModal`), income (`IncomeList`), expenses (Expenses tab), goals (Goals tab) and categories (Statistics Add Expense dialog).
+     - **Exception**: Settings account deletion keeps its existing stronger flow (type DELETE, password, email confirmation, 10-day recovery).
+  3. **Destructive buttons are always red-tinted** (`--buck-coral` text on a 8% coral background with a coral border; solid coral on hover), with hit targets of at least 36px.
+  4. **Wallet tab layout**:
+     - The navigator lives in a page-header card (`.wallet-page-header`): eyebrow "Wallet" and a view title on the left, the segmented Wallets | Income control on the right. This matches the Statistics toolbar; below 560px the card stacks.
+     - Wallet rows drop the share-of-total bar. Actions are labelled 36px buttons (`.wallet-action-btn`: Set Active in orange, Edit neutral, Delete red).
+     - `WalletSkeleton` mirrors this.
+
+### ADR-042: User-Managed Expense & Income Categories (Categories Tab) and AI Auto-Categorize Hooks
+
+- **Status**: Implemented in the web client. Migration `202610130002_income_categories.sql` was **applied to the live Supabase project on 2026-10-12** (7 income defaults seeded per profile, existing incomes linked by name). It also limits `ensure_expense_relations_owner()` so an expense can only link to an expense category. The client still degrades gracefully on a database without the migration. The backend prompt change is a handoff (QA BUG-029).
+- **Context**:
+  - Expense categories were already per-user rows in `categories`, but the only UI for adding, renaming or deleting them was buried inside the Statistics "Add Expense" dialog.
+  - Income had no categories at all, only a fixed 7-item `incomeSources` list stored as free text in `incomes.source`.
+  - The AI classifier maps only to the 17 canonical categories and falls back to "Uncategorized".
+  - The product decision (2026-10-13): categories are **fully custom**. The 17 canonical expense categories and 7 income categories are seeded defaults that users may rename or delete.
+- **Decision**:
+  1. **Schema (one table)**:
+     - `categories.kind` (`'expense' | 'income'`, default `'expense'`), unique `(user_id, kind, lower(name))`.
+     - `incomes.category_id` (FK, `on delete set null`). `incomes.source` stays the denormalised name; a trigger resolves it from the category, or links the category from the name.
+     - A `sync_category_name` trigger copies renames onto `expenses.category_name` and `incomes.source`.
+     - Income defaults (Salary, Allowance, Freelance, Business, Investment, Gift, Other) are seeded for existing users and by `handle_new_user()`.
+     - RLS is unchanged: the existing `(select auth.uid()) = user_id` policies cover the new column.
+  2. **Fallback buckets are protected**: "Uncategorized" (expense) and "Other" (income) cannot be renamed or deleted, because the AI categorizer and `add_expense_atomic` fall back to them. Everything else is user-editable.
+  3. **Data layer** (`supabaseData.ts`):
+     - Types and constants: `CategoryKind`, `UNCATEGORIZED_EXPENSE`, `UNCATEGORIZED_INCOME`.
+     - Kind-aware `listCategories` (expense) and `listIncomeCategories` (seeds on first use; returns `null` when the migration is missing). `addCategory(userId, name, kind)`.
+     - `renameCategory` (syncs history), and `deleteCategoryAndReassign` (moves items to the fallback first, so nothing is orphaned).
+     - `listUncategorizedExpenses`, `listUncategorizedIncomes`, `setExpenseCategory`, `setIncomeCategory`.
+     - Before the migration, a missing `kind` column (Postgres `42703`) falls back to legacy expense-only queries.
+  4. **AI hook** (`aiApi.ts`): `categorizeItem(kind, description, categories)` posts `{ description, kind, categories }` to `/ai/categorize_expense/`. It only accepts an answer that matches one of the user's categories (case-insensitive); otherwise it returns `null` and the item stays in the fallback bucket.
+  5. **Categories tab** (`/dashboard/categories`, sidebar "Categories"):
+     - A header card with an Expense | Income switch.
+     - An "Needs a category" card with an **Auto-categorize with AI** button, which processes 25 items per click.
+     - A searchable table: Category, Entries, Total, Share, then Rename / Delete. Delete goes through `DangerDeleteDialog` (ADR-041) and states how many entries move to the fallback.
+     - `CategoriesSkeleton` mirrors the layout.
+  6. **Income history is a table** (`IncomeList`):
+     - A summary strip for the filtered rows: Entries, Total, Average, Largest.
+     - Sortable Date / Category / Amount columns, plus Description and Wallet.
+     - The Add Income dialog lists the user's income categories.
+- **Consequences**: The `CLAUDE.md` "17 canonical categories" rule now describes seeded defaults, not a closed list. AI classification must use each user's own categories.
+
+### ADR-043: Buck_AI, a Python Gemini Service with Two AIs (Advisor Live, Forecaster Planned)
+
+- **Status**: AI Financial Advisor implemented in `Buck_AI/BuckAI_Advisor`. AI Forecaster planned in `Buck_AI/BuckAI_Forecast`. Supersedes ADR-004 and the short-lived TypeScript Gemini draft. No database migration.
+- **Context**:
+  - Product decisions (2026-10-14):
+    - AI is written in Python on Google Gemini (the newest and cheapest option).
+    - It lives in `Buck_AI/`, with **two AIs for two jobs**.
+    - It serves **both web and mobile**.
+    - The Advisor comes first, and its advice is **saved in the database** and adjusts to the user's data.
+    - Everything stays free for this SD3 project.
+  - The old Render/LLaMA service is shut down.
+- **Decision**:
+  1. **Service**: FastAPI app in `Buck_AI/main.py`, deployed as its own Vercel Hobby project (root `Buck_AI`). It contains `BuckAI_Advisor/`, `BuckAI_Forecast/` and `shared/` (config, auth, Supabase, Gemini, safety, rate limits).
+  2. **Auth without API keys**:
+     - Clients send the user's Supabase access token, which `shared/auth.py` verifies with Supabase Auth (cached 60 s by hash).
+     - A static app key was rejected because it would ship inside the mobile APK.
+     - `GEMINI_API_KEY` exists only in the Buck_AI environment.
+  3. **Database as the user**:
+     - Every PostgREST call uses the caller's token with the anon key, so existing RLS policies (`auth.uid() = user_id`, including `ai_advisories`) enforce isolation.
+     - Buck_AI holds no service-role key.
+  4. **Saved, self-updating advice** (`service.get_insight`):
+     - Each advisory row stores a fingerprint of material facts in `metadata`: spending in steps of 5% of the budget (at least ₱500), income, wallet, top 3 categories, goal progress, month and attitude.
+     - Same fingerprint and still valid (7 days): the row is served from the database, with no Gemini call.
+     - Fingerprint changed: Gemini gets the previous advice and the changed facts, writes new JSON-schema output (title, 1-sentence suggestion, 2-sentence advice, focus), and the result is saved as a new row. History is kept.
+     - Cooldowns (5 min after a data change, 60 s for a manual refresh) protect the free quota.
+     - Rule-based advice is used if Gemini fails, but it never replaces Gemini advice for unchanged data.
+  5. **Auto-categorize belongs to the Advisor** (`BuckAI_Advisor/categorize.py`, `POST /advisor/categorize`):
+     - One request per batch of up to 25 items.
+     - The user's own categories are read under RLS. Gemini's output is an enum of them plus `NONE`, and every answer is re-matched, so it can never invent a category.
+     - It is used by the Categories tab, Add Expense and the Goals expense modal.
+  6. **Chat**:
+     - Streams Server-Sent Events, grounded on the live snapshot and the saved advice, so the chat and the card agree.
+     - Read-only tools are bound to the user and validate their arguments; at most 4 tool rounds.
+     - Thought parts are never shown, and the offline summary is used on failure.
+  7. **Web**:
+     - The browser calls Buck_AI directly (`utils/buckAi.ts`; `NEXT_PUBLIC_BUCK_AI_URL` is added to CSP `connect-src`; CORS is limited to `ALLOWED_ORIGINS`).
+     - The Advisor tab card, the home card and the chat use it.
+     - The TypeScript Gemini code (`src/server/ai`, `/api/ai/*`, `/api/advisor`, `@google/genai`) is removed.
+  8. **Until BuckAI_Forecast exists**:
+     - `/api/forecast` and the cron use the rule engine only.
+     - Goal charts use `utils/goalForecast.ts` (plain math).
+- **Consequences**:
+  - Web and mobile share one AI implementation and contract.
+  - Advice reads are database-fast, and Gemini runs only when the advice would change.
+  - Rate limits are per instance.
+  - Zero cost: Gemini API free tier with no billing account (over-quota calls get 429 and the Advisor serves rule-based advice), Vercel Hobby for both projects, Supabase Free. On the free tier Google may use prompts to improve its products; Buck_AI sends only PII-scrubbed numbers.
+
+
+---
+
+### ADR-044: ESLint 9 Lint Standard (Next.js, TypeScript, React Hooks, jsx-a11y)
+
+- **Status**: Implemented 2026-10-15.
+- **Context**:
+  - `buck/package.json` had a `"lint": "next lint"` script with no ESLint dependency and no config behind it, so it never ran. `next lint` is also deprecated in Next 15.5.
+  - Missing accessible names and missing dialog roles (QA BUG-032) were found only by an outside audit, and `tsc` cannot see hook-dependency bugs.
+- **Decision**:
+  - Dev dependencies: `eslint@9`, `eslint-config-next@15.5` (bundles `jsx-a11y`, `react-hooks` and `@typescript-eslint`) and `@eslint/eslintrc` for `FlatCompat`.
+  - `buck/eslint.config.mjs` extends `next/core-web-vitals`, `next/typescript` and `plugin:jsx-a11y/recommended`.
+  - Scripts: `lint` (`eslint .`), `lint:fix` and `typecheck` (`tsc --noEmit`).
+  - Rule choices:
+    - `label-has-associated-control` treats `CustomSelect` and `CustomDatePicker` as controls.
+    - `no-autofocus` is off: focus only moves into dialogs and inline editors the user just opened.
+    - `no-img-element` is off: avatars come from private routes and `blob:` URLs that `next/image` cannot optimise.
+    - Unused names starting with `_` are allowed, and so are rest-sibling omissions.
+  - Bar: 0 errors and 0 warnings. Every `eslint-disable-next-line` carries a reason; today they cover only intentional effect dependency lists keyed on `user.uid`.
+- **Consequences**:
+  - `next build`, and therefore every Vercel build, now runs ESLint. A lint error fails the deploy.
+  - New icon-only buttons without a label and `any` types are caught locally instead of in review.

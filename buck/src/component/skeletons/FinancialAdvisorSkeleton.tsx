@@ -3,6 +3,7 @@
 import React from "react";
 import "@/app/dashboard/financial-advisor/style.css";
 import "./skeletons.css";
+import AIChatSkeleton from "./AIChatSkeleton";
 
 /**
  * 1:1 High-Fidelity Financial Advisor Tab Skeleton
@@ -68,6 +69,9 @@ export default function FinancialAdvisorSkeleton() {
           </section>
         ))}
       </div>
+
+      {/* AI Advisor chat (same anatomy as AIChat) */}
+      <AIChatSkeleton />
     </div>
   );
 }

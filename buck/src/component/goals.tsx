@@ -1,4 +1,4 @@
-import { aiBackendFetch } from "@/utils/aiBackend";
+import { getGoalTip } from "@/utils/aiApi";
 import {
   createGoalRecord,
   deleteGoalRecord,
@@ -7,30 +7,6 @@ import {
   updateGoalStatusRecord,
 } from "@/utils/supabaseData";
 
-async function getGoalRecommendation(
-  goalName: string,
-  targetAmount: string,
-  attitude: string
-) {
-  try {
-    const aiResponse = await aiBackendFetch("/ai/saving_tip/", {
-        method: "POST",
-        body: JSON.stringify({
-          category: goalName,
-          user_context: `Attitude: ${attitude}, Target Amount: ${targetAmount}`,
-        }),
-      });
-
-    if (!aiResponse.ok) {
-      return "";
-    }
-
-    const data = await aiResponse.json();
-    return typeof data.tip === "string" ? data.tip : "";
-  } catch {
-    return "";
-  }
-}
 
 export async function createGoal(
   goalName: string,
@@ -39,11 +15,12 @@ export async function createGoal(
   targetDate: string
 ) {
   try {
-    const aiRecommendation = await getGoalRecommendation(
+    const aiRecommendation = await getGoalTip({
       goalName,
       targetAmount,
-      attitude
-    );
+      attitude,
+      targetDate,
+    });
     const goal = await createGoalRecord(
       goalName,
       targetAmount,
@@ -97,11 +74,12 @@ export async function updateGoal(
   targetDate: string
 ) {
   try {
-    const aiRecommendation = await getGoalRecommendation(
+    const aiRecommendation = await getGoalTip({
       goalName,
       targetAmount,
-      attitude
-    );
+      attitude,
+      targetDate,
+    });
     await updateGoalRecord(
       goalId,
       goalName,

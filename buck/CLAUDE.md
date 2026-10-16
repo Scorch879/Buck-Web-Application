@@ -10,10 +10,12 @@
 # In this directory (buck/):
 npm run dev        # Next.js 15 App Router Turbopack dev server (port 3000)
 npm run build      # Production typecheck & build
-npm run lint       # Run Next.js linting
+npm run lint       # ESLint 9 + Next + jsx-a11y (ADR-044); must stay at 0 errors / 0 warnings
+npm run typecheck  # tsc --noEmit
+npm test           # Vitest unit tests
 
-# BuckAI Backend (buck/BuckAI_Backend/):
-python -m uvicorn main:app --reload --port 8000
+# AI lives in ../Buck_AI (Python FastAPI + Gemini). Run it on :8000, then set
+# NEXT_PUBLIC_BUCK_AI_URL=http://localhost:8000 in buck/.env.local (see ../Buck_AI/README.md)
 ```
 
 ---
@@ -23,7 +25,8 @@ python -m uvicorn main:app --reload --port 8000
 - **Senior QA & Documentation Engineer**: Ground truth, zero-hallucination policy, sync markdown specs ([`Skills.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Skills.md), [`Design.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Design.md), [`Implementation.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Implementation.md)), catalog defects in [`QA_Report.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/QA_Report.md).
 - **Frontend UI/UX Architect**: Next.js App Router, Framer Motion, [`FinancialContext.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/context/FinancialContext.tsx) client cache layer, responsive modal bounds (`width: min(880px, 100%)`, max-height `min(82dvh, 760px)`), and **1:1 Skeletal Loading Parity** in [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx) for zero CLS.
   - **Dropdowns (ADR-040)**: `CustomSelect` only; options weight 400 (selected 500, colour not bold), trigger 600; toolbar filters use `fit` (no truncated labels, no fixed widths).
-- **Backend & ML Engineer**: Python FastAPI microservice (`BuckAI_Backend/main.py`), 17-category zero-shot NLP, strictly 2-sentence saving advice in PHP, Prophet additive regression (80% CI), anomaly exclusion for `is_emergency=TRUE`.
+  - **Deletes (ADR-041)**: always `DangerDeleteDialog` (1. slide with warning, 2. red "I understand" or Cancel, 3. type the exact name); never `window.confirm`; destructive buttons red-tinted, at least 36px.
+- **Backend & AI Engineer**: Next.js API routes and the Python `../Buck_AI` service (ADR-043). **AI Financial Advisor** = `BuckAI_Advisor` (live: saved advice refreshed when data changes, chat, goal tips, auto-categorize into the user's own categories; 2 sentences, PHP, attitude multipliers). **AI Forecaster** = `BuckAI_Forecast` (planned). Web and mobile call Buck_AI with the user's Supabase token; no app API keys.
 - **Security & Data Auditor**: Supabase RLS (`auth.uid() = user_id`), SSR cookies in `middleware.ts`, 30-min session timeout with `BroadcastChannel` cross-tab sync, 10-day soft account deletion grace period.
 
 ---
@@ -31,6 +34,6 @@ python -m uvicorn main:app --reload --port 8000
 ## 3. Strict Domain Requirements
 
 - **Currency**: Philippine Peso (`PHP` / `₱`), `numeric(14,2)` precision.
-- **17 Canonical Categories**: Food, Fare, Gas Money, Video Games, Shopping, Bills, Education, Electronics, Entertainment, Health, Home, Insurance, Social, Sport, Tax, Telephone, Transportation.
+- **Categories (ADR-042)**: fully custom per user. Seeded with 17 default expense categories (Food, Fare, Gas Money, Video Games, Shopping, Bills, Education, Electronics, Entertainment, Health, Home, Insurance, Social, Sport, Tax, Telephone, Transportation) + `Uncategorized`, and 7 income categories (Salary, Allowance, Freelance, Business, Investment, Gift, `Other`). Managed on the Categories tab; AI must classify into the user's own categories.
 - **Brand Tokens**: Buck Orange (`#F47536`), Buck Gold (`#FFC547`), Buck Coral (`#FF3838`), Neutral Cream (`#FFF1D8`), Dark Roast Espresso (`#120D0A`).
 - **Schedule**: Strict 9-Week project lifecycle cap ([`docs/Buck_Project_Schedule_Gantt_Chart.xlsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/Buck_Project_Schedule_Gantt_Chart.xlsx)).

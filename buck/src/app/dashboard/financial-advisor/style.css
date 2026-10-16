@@ -202,3 +202,311 @@ html[data-buck-theme="dark"] .advisor-card:focus-within {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ---- Ask Buck streaming chat ---------------------------------------------
+   The log has a fixed height so streaming never shifts the page (ADR-012);
+   FinancialAdvisorSkeleton mirrors this anatomy 1:1. */
+
+.advisor-chat {
+  gap: 0.75rem;
+  min-height: auto;
+  margin-top: clamp(1rem, 2vw, 1.25rem);
+}
+
+.advisor-chat:hover,
+.advisor-chat:focus-within {
+  transform: none;
+}
+
+.advisor-chat__head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.advisor-chat__head h3 {
+  margin: 0.1rem 0 0;
+}
+
+.advisor-chat__log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  height: 340px;
+  padding: 0.85rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--buck-paper);
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+}
+
+.advisor-chat__empty {
+  display: grid;
+  align-content: center;
+  gap: 0.85rem;
+  height: 100%;
+  text-align: center;
+}
+
+.advisor-card .advisor-chat__empty p {
+  margin: 0;
+}
+
+.advisor-chat__chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.advisor-chat__chip {
+  min-height: 36px;
+  padding: 0.45rem 0.85rem;
+  color: var(--buck-ink);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 500;
+  background: var(--buck-surface);
+  border: 1px solid rgba(244, 117, 54, 0.32);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.advisor-chat__chip:hover,
+.advisor-chat__chip:focus-visible {
+  background: rgba(255, 197, 71, 0.16);
+  border-color: var(--buck-orange);
+}
+
+.advisor-chat__msg {
+  max-width: min(78ch, 88%);
+  padding: 0.6rem 0.85rem;
+  line-height: 1.55;
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+
+.advisor-chat__msg--user {
+  align-self: flex-end;
+  color: #fff;
+  background: var(--buck-orange);
+  border-bottom-right-radius: 3px;
+  white-space: pre-wrap;
+}
+
+.advisor-chat__msg--bot {
+  align-self: flex-start;
+  color: var(--buck-ink);
+  background: var(--buck-surface);
+  border: 1px solid var(--buck-line);
+  border-bottom-left-radius: 3px;
+}
+
+.advisor-card .advisor-chat__md p {
+  margin: 0 0 0.45rem;
+  color: var(--buck-ink);
+}
+
+.advisor-chat__md p:last-child,
+.advisor-chat__md ul:last-child,
+.advisor-chat__md ol:last-child {
+  margin-bottom: 0;
+}
+
+.advisor-chat__md ul,
+.advisor-chat__md ol {
+  margin: 0 0 0.45rem;
+  padding-left: 1.2rem;
+}
+
+.advisor-chat__md li + li {
+  margin-top: 0.2rem;
+}
+
+.advisor-chat__md strong {
+  font-weight: 650;
+}
+
+.advisor-chat__badge {
+  display: inline-block;
+  margin-bottom: 0.4rem;
+  padding: 0.1rem 0.5rem;
+  color: var(--buck-ink);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: rgba(255, 197, 71, 0.28);
+  border-radius: 999px;
+}
+
+.advisor-chat__caret {
+  display: inline-block;
+  width: 0.5em;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--buck-orange);
+  animation: advisor-chat-blink 1s steps(2, start) infinite;
+}
+
+.advisor-chat__typing {
+  display: inline-flex;
+  gap: 4px;
+  padding: 0.3rem 0;
+}
+
+.advisor-chat__typing i {
+  width: 7px;
+  height: 7px;
+  background: var(--buck-orange);
+  border-radius: 50%;
+  animation: advisor-chat-bounce 1.1s ease-in-out infinite;
+}
+
+.advisor-chat__typing i:nth-child(2) { animation-delay: 0.15s; }
+.advisor-chat__typing i:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes advisor-chat-blink {
+  to { visibility: hidden; }
+}
+
+@keyframes advisor-chat-bounce {
+  0%, 80%, 100% { opacity: 0.35; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .advisor-chat__caret,
+  .advisor-chat__typing i {
+    animation: none;
+  }
+}
+
+.advisor-card .advisor-chat__note {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+}
+
+.advisor-chat__error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+  padding: 0.45rem 0.6rem;
+  color: var(--buck-ink);
+  font-size: 0.86rem;
+  background: rgba(255, 56, 56, 0.1);
+  border: 1px solid rgba(255, 56, 56, 0.32);
+  border-radius: 8px;
+}
+
+.advisor-chat__error button,
+.advisor-chat__actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 36px;
+  padding: 0.3rem 0.7rem;
+  color: var(--buck-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.advisor-chat__error button {
+  color: var(--buck-ink);
+}
+
+.advisor-chat__error button:disabled,
+.advisor-chat__actions button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.advisor-chat__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.35rem;
+}
+
+.advisor-chat__form {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.advisor-chat__form textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  max-height: 120px;
+  padding: 0.65rem 0.8rem;
+  color: var(--buck-ink);
+  font: inherit;
+  line-height: 1.4;
+  background: var(--buck-paper);
+  border: 1px solid var(--buck-line);
+  border-radius: 10px;
+  resize: vertical;
+}
+
+.advisor-chat__form textarea:focus-visible {
+  outline: 2px solid var(--buck-orange);
+  outline-offset: 1px;
+}
+
+.advisor-chat__send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  color: #fff;
+  background: var(--buck-orange);
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.advisor-chat__send:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.advisor-chat__send--stop {
+  background: var(--buck-coral);
+}
+
+.advisor-card .advisor-chat__disclaimer {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.advisor-chat__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  border: 0;
+}
+
+@media (max-width: 560px) {
+  .advisor-chat__log {
+    height: 300px;
+  }
+
+  .advisor-chat__msg {
+    max-width: 94%;
+  }
+}

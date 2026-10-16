@@ -25,6 +25,13 @@ This catalog documents the functions, tools, database interactions, API endpoint
 | [`addCategory(userId, name)`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L673) | `userId: string`, `name: string` | `Promise<BuckCategory>` | Inserts a custom category for the user. |
 | [`updateCategoryName(userId, categoryId, name)`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L696) | `userId: string`, `categoryId: string`, `name: string` | `Promise<BuckCategory>` | Renames an existing category owned by user. |
 | [`deleteCategory(userId, categoryId)`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L719) | `userId: string`, `categoryId: string` | `Promise<void>` | Deletes category record (expenses retain category name or fall back to Uncategorized). |
+| `listIncomeCategories(userId)` | `userId: string` | `Promise<BuckCategory[] \| null>` | Income categories (`kind = 'income'`), seeding the 7 defaults on first use; `null` until migration `202610130002` is applied (ADR-042). |
+| `addCategory(userId, name, kind?)` | `name: string`, `kind: 'expense' \| 'income'` (default `'expense'`) | `Promise<BuckCategory>` | Adds a custom category of the given kind; duplicate names (per kind) throw a readable error. |
+| `renameCategory(userId, category, newName)` | `category: BuckCategory`, `newName: string` | `Promise<void>` | Renames and copies the name onto `expenses.category_name` / `incomes.source`. |
+| `deleteCategoryAndReassign(userId, category, fallback)` | `category`, `fallback: BuckCategory \| null` | `Promise<number>` | Moves the category's items to `Uncategorized` / `Other`, deletes it, returns the number of items moved. |
+| `listUncategorizedExpenses(userId)` / `listUncategorizedIncomes(userId, incomeCategories)` | `userId`, income categories | `Promise<BuckExpense[]>` / `Promise<BuckIncome[]>` | Items still in the fallback bucket (input for AI auto-categorize). |
+| `setExpenseCategory(userId, expenseId, category)` / `setIncomeCategory(userId, incomeId, name)` | ids + target category | `Promise<void>` | Re-files one item (used by AI auto-categorize). |
+| `categorizeItem(kind, description, categories)` (`utils/aiApi.ts`) | `kind`, `description`, user category names | `Promise<string \| null>` | Asks `/ai/categorize_expense/` for a category and accepts only a name from the user's list. |
 
 ### 1.3 Wallets Management
 
@@ -85,20 +92,33 @@ This catalog documents the functions, tools, database interactions, API endpoint
 | [`/api/profile/avatar`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/profile/avatar/route.ts#L75) | `GET` | Authenticated | Streams private profile avatar binary with SSR authentication check. |
 | [`/api/admin/supabase`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/admin/supabase/route.ts#L7) | `GET` | Admin ([`isAdminUser`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/adminAccess.ts): confirmed account with `app_metadata.role = 'admin'` or email matching `ADMIN_EMAIL`; 403 otherwise) | Queries Supabase Management API for project authentication logs. |
 | [`/api/admin/vercel`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/admin/vercel/route.ts#L7) | `GET` | Admin (`isAdminUser`, as above) | Queries Vercel API for deployment status and build records. |
-| [`/api/advisor`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/advisor/route.ts#L15) | `POST` | Authenticated (user id from the SSR session via `getSessionUserId`; 401 otherwise) | Returns the latest non-dismissed `ai_advisories` row if younger than 7 days, otherwise generates one with `generateAdvisoryInsights` and stores it. Body `{ forceRefresh? }`; a forced refresh still reuses rows younger than 60 s. |
-| [`/api/forecast`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/forecast/route.ts#L18) | `POST` | Authenticated (user id from the SSR session via `getSessionUserId`; 401 otherwise) | Returns the cached `ai_forecasts` row for the period if younger than 7 days, otherwise generates one with `generateForecastInsights` and stores it. Body `{ periodType?: "weekly" \| "monthly" \| "quarterly" \| "custom", forceRefresh? }` (defaults to `monthly`; same 60 s refresh cooldown). |
+| [`/api/forecast`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/forecast/route.ts#L18) | `POST` | Authenticated (user id from the SSR session via `getSessionUserId`; 401 otherwise) | Returns the cached `ai_forecasts` row for the period if younger than 7 days, otherwise generates one with the rule engine (`generateForecastInsights`) and stores it. Accepts the web cookie or a mobile bearer token (`getRequestUserId`). Body `{ periodType?: "weekly" \| "monthly" \| "quarterly" \| "custom", forceRefresh? }` (defaults to `monthly`; same 60 s refresh cooldown). |
 ---
 
-## 3. Python FastAPI AI Engine Skills (`buck/BuckAI_Backend/main.py`)
+## 3. Buck_AI Service (Python FastAPI + Google Gemini Flash, `Buck_AI/`)
 
-> **Auth**: every endpoint requires `Authorization: Bearer <Supabase access token>` (verified in `auth.py`) and is limited to 20 requests / 60 s per user. The service is stateless; the caller's identity comes from the token, never the payload. Requires `SUPABASE_URL` and `SUPABASE_ANON_KEY` in the service environment.
+> **Two AIs**: `BuckAI_Advisor` (AI Financial Advisor, live) and `BuckAI_Forecast` (AI Forecaster, planned). `shared/` = config, auth, Supabase, Gemini, safety, rate limits. Full guide: [`Buck_AI/README.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/README.md).
+> **Auth**: `Authorization: Bearer <Supabase access token>` from web or mobile, verified with Supabase Auth (`shared/auth.py`). No app API keys. Supabase is queried **as the user** (anon key + user token), so RLS applies; no service-role key.
+> **Env**: `GEMINI_API_KEY`, `GEMINI_MODEL` (default `gemini-3.8-flash`), `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `ALLOWED_ORIGINS`. Web reads `NEXT_PUBLIC_BUCK_AI_URL`.
+> **Limits**: per user, per instance: chat 15/min, insight 20/min, tip 20/min, categorize 30/min.
 
-| Endpoint | Method | Input Schema | Output Schema | Description |
+| Endpoint | Method | Input | Output | Description |
 |---|---|---|---|---|
-| [`/ai/goal_recommendation/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/main.py#L55) | `POST` | `GoalInput { goal_name, target_amount, attitude, target_date }` | `{"recommendation": string}` | Generates 2-sentence actionable saving advice using LLaMA 3.3 70B Turbo with attitude multipliers. |
-| [`/ai/saving_tip/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/main.py#L70) | `POST` | `TipInput { category, user_context, target_date, created_at }` | `{"tip": string}` | Returns customized money-saving tip for category and target date in Philippine Peso. |
-| [`/ai/forecast/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/main.py#L101) | `POST` | `ForecastInput { goal: dict, budget: float, expenses?: [{date, amount}] }` | `{"forecast": string, "forecast_per_day": dict, "actual_per_day": dict, "days_left": int, "spent": float, "remaining": float, "ai_recommended_budget": float}` | Computes daily trajectory, days remaining, and LLM advice with budget extraction regex. |
-| [`/ai/categorize_expense/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/main.py#L162) | `POST` | `{"description": string}` | `{"category": string}` | Classifies text into one of 17 standard reference categories. |
+| [`/advisor/insight`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/router.py#L36) | `GET` | `?refresh=true\|false` | `{ id, title, suggestion, advice, financialHealthScore, priority, focus, changed[], generatedWith, createdAt, cached, stale }` | Returns the latest saved `ai_advisories` row (`monthly_strategy`) while the data fingerprint matches; otherwise Gemini writes new advice (given the previous advice + changed facts) and saves a new row. Cooldowns: 5 min after a data change, 60 s for refresh (returns `stale: true` meanwhile). Rule-based fallback on AI failure. |
+| [`/advisor/history`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/router.py#L45) | `GET` | `?limit=1..20` | `[insight]` | Saved advisories, newest first. |
+| [`/advisor/chat`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/router.py#L63) | `POST` | `{ question ≤500, history? ≤8 {role: user\|assistant, content ≤1500} }` | `text/event-stream`: `meta` / `delta` / `error` / `done` | Grounded on the live snapshot and the saved advice; read-only tools `get_spending_summary`, `list_expenses`, `get_income`, `get_goals`, `get_wallets` (max 4 rounds). Offline summary when Gemini is unavailable or silent for 20 s. |
+| [`/advisor/categorize`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/router.py#L122) | `POST` | `{ kind: expense\|income, descriptions[1..25] }` | `{ categories: (string\|null)[] }` | Advisor auto-categorize. Loads the user's own categories under RLS (minus the fallback), constrains Gemini to that enum plus `NONE`, re-matches every answer. All-null when AI is unavailable. |
+| [`/advisor/goal-tip`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/router.py#L98) | `POST` | `{ goalId }` or `{ goalName, targetAmount, attitude, targetDate? }` | `{ tip }` | Exactly two sentences, ₱ per week/month scaled by attitude. Empty when unavailable. |
+
+| Module | Key functions |
+|---|---|
+| `BuckAI_Advisor/snapshot.py` | `build_snapshot` (parallel RLS reads, Philippine time), `health_score` |
+| `BuckAI_Advisor/fingerprint.py` | `fingerprint_parts`, `fingerprint`, `changed_facts` (bucketed: 5% of budget, min ₱500) |
+| `BuckAI_Advisor/service.py` | `get_insight`, `saved_history`, `goal_tip`, `chat_events` |
+| `BuckAI_Advisor/categorize.py` | `categorize`, `user_categories` |
+| `BuckAI_Advisor/rules.py` | `rule_insight`, `priority_for`, `offline_chat_answer` |
+| `shared/gemini.py` | `stream_with_tools`, `generate_json`, `GeminiUnavailable` |
+| Web client | `utils/buckAi.ts` (`buckAiFetch`), `utils/advisorApi.ts` (`fetchAIAdvisorInsights`), `utils/aiApi.ts` (`categorizeItems`, `suggestCategory`, `streamAdvisorChat`, `getGoalTip`), `utils/goalForecast.ts` (`computeGoalForecast`, no AI) |
 
 ---
 

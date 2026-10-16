@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseAdminClient } from "@/utils/supabase/admin";
-import { getSessionUserId } from "@/utils/apiAuth";
+import { getRequestUserId } from "@/utils/apiAuth";
 import {
   fetchUserFinancialContext,
   generateForecastInsights,
@@ -17,7 +17,7 @@ const PERIOD_TYPES = ["weekly", "monthly", "quarterly", "custom"] as const;
 
 export async function POST(req: NextRequest) {
   try {
-    const userId = await getSessionUserId();
+    const userId = await getRequestUserId(req);
 
     if (!userId) {
       return NextResponse.json(
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. Generate fresh forecast
+    // 2. Generate fresh forecast (rule engine; BuckAI_Forecast will add AI later).
     const context = await fetchUserFinancialContext(userId);
     const forecast = generateForecastInsights(context);
 

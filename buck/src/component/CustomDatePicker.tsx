@@ -182,6 +182,9 @@ export default function CustomDatePicker({
       
       <div 
         className={`${styles.inputBox} ${isOpen ? styles.inputBoxOpen : ""} ${!value ? styles.placeholder : ""}`}
+        role="button"
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}
         tabIndex={0}
         onKeyDown={(e) => {
@@ -192,7 +195,7 @@ export default function CustomDatePicker({
         }}
       >
         <span>{displayValue || placeholder}</span>
-        <FaCalendarAlt className={styles.icon} />
+        <FaCalendarAlt className={styles.icon} aria-hidden="true" />
       </div>
 
       <AnimatePresence>
@@ -205,14 +208,14 @@ export default function CustomDatePicker({
             className={styles.popover}
           >
             <div className={styles.header}>
-              <button type="button" onClick={handlePrevMonth} className={styles.navButton}>
-                <FaChevronLeft />
+              <button type="button" onClick={handlePrevMonth} className={styles.navButton} aria-label="Previous month">
+                <FaChevronLeft aria-hidden="true" />
               </button>
               <div className={styles.currentMonth}>
                 {MONTHS[month]} {year}
               </div>
-              <button type="button" onClick={handleNextMonth} className={styles.navButton}>
-                <FaChevronRight />
+              <button type="button" onClick={handleNextMonth} className={styles.navButton} aria-label="Next month">
+                <FaChevronRight aria-hidden="true" />
               </button>
             </div>
             

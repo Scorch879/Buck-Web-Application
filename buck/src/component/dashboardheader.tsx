@@ -13,6 +13,7 @@ import {
   FaReceipt,
   FaRobot,
   FaSignOutAlt,
+  FaTags,
   FaTimes,
   FaWallet,
 } from "react-icons/fa";
@@ -32,6 +33,7 @@ const dashboardNavItems = [
     icon: FaReceipt,
   },
   { id: "wallet", label: "Wallet", href: "/dashboard/wallet", icon: FaWallet },
+  { id: "categories", label: "Categories", href: "/dashboard/categories", icon: FaTags },
   {
     id: "advisor",
     label: "Financial Advisor",

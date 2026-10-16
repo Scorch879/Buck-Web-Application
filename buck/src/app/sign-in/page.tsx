@@ -63,7 +63,7 @@ function getSafeRedirectPath(redirectTo: string | null) {
       // Return pathname + search (preserves query params, but ignores potential malicious fragments)
       return parsedUrl.pathname + parsedUrl.search;
     }
-  } catch (e) {
+  } catch {
     // If parsing fails, fall through to default
   }
 
@@ -112,6 +112,14 @@ const SignIn = () => {
   };
 
   useEffect(() => {
+    // A server-side idle logout redirects here without running the client
+    // sign-out, so drop any cached financial data left in this tab.
+    try {
+      window.sessionStorage.removeItem("buck-dashboard-cache-v1");
+    } catch {
+      // Storage may be unavailable; the cache is only a speed boost.
+    }
+
     const searchParams = new URLSearchParams(window.location.search);
 
     setRedirectTo(getSafeRedirectPath(searchParams.get("redirectTo")));

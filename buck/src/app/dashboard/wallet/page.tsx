@@ -10,7 +10,6 @@ import MonthlyCashFlowCard from "@/component/income/MonthlyCashFlowCard";
 import { useIncomes } from "@/hooks/useIncomes";
 import { formatCurrency } from "@/utils/formatters";
 import {
-  addWallet,
   deleteWallet,
   getActiveWalletId,
   listExpenses,
@@ -21,9 +20,10 @@ import {
   type BuckWallet,
 } from "@/utils/supabaseData";
 import { FaWallet, FaPlus, FaCheck, FaTrash, FaEdit, FaHistory, FaSearch, FaTimes, FaMoneyBillWave } from "react-icons/fa";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import "../settings/style.css";
 import WalletModal from "./WalletModal";
+import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import CustomSelect from "@/component/CustomSelect";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 
@@ -37,8 +37,6 @@ export default function WalletPage() {
   const hadInitialData = useRef(hasInitialData);
 
   const [wallets, setWallets] = useState<BuckWallet[]>(() => userCache.wallets ?? []);
-  const [name, setName] = useState("");
-  const [budget, setBudget] = useState("");
   const [loading, setLoading] = useState(() => !hasInitialData);
   const [error, setError] = useState("");
   const [activeWalletId, setActiveWalletId] = useState<string | null>(() => userCache.activeWalletId ?? null);
@@ -196,28 +194,9 @@ export default function WalletPage() {
       unsubscribeWallets();
       unsubscribeProfile();
     };
+    // Subscribe once per user; the fetch helpers are recreated every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
-
-  const handleAddWallet = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    if (!user) return;
-    if (!name.trim() || !budget.trim() || isNaN(Number(budget)) || Number(budget) <= 0) {
-      setError("Please enter a valid name and a budget greater than 0.");
-      toast("Please enter a valid name and budget.", "error");
-      return;
-    }
-    try {
-      await addWallet(user.uid, name.trim(), Number(budget));
-      setName("");
-      setBudget("");
-      toast("Wallet created successfully", "success");
-      fetchWallets();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add wallet");
-      toast("Failed to create wallet", "error");
-    }
-  };
 
   const handleSetActive = async (id: string) => {
     if (!user) return;
@@ -231,7 +210,7 @@ export default function WalletPage() {
         ...(newActiveWallet ? { activeWalletBudget: newActiveWallet.budget } : {})
       }));
       toast("Active wallet updated", "success");
-    } catch (err) {
+    } catch {
       toast("Failed to update active wallet", "error");
     }
   };
@@ -240,6 +219,7 @@ export default function WalletPage() {
   const totalBudget = activeWallets.reduce((sum, w) => sum + (Number(w.budget) || 0), 0);
   const activeWallet = activeWallets.find((w) => w.id === activeWalletId);
   const archivedCount = wallets.length - activeWallets.length;
+  const pendingDeleteWallet = wallets.find((w) => w.id === confirmDeleteId) ?? null;
 
   const filteredActiveWallets = activeWallets.filter(w =>
     w.name.toLowerCase().includes(activeSearchQuery.toLowerCase())
@@ -271,33 +251,42 @@ export default function WalletPage() {
     <div className="settings-page wallet-page">
       {error && <div className="settings-message settings-message--error">{error}</div>}
 
-      {/* Section navigator: wallets and income are separate views, never mixed */}
-      <div className="wallet-view-nav" role="tablist" aria-label="Wallet sections">
-        <button
-          type="button"
-          role="tab"
-          id="wallet-view-tab-wallets"
-          aria-selected={view === "wallets"}
-          aria-controls="wallet-view-panel"
-          className="wallet-view-tab"
-          onClick={() => setView("wallets")}
-        >
-          <FaWallet aria-hidden="true" /> Wallets
-          <span className="wallet-tab-count">{activeWallets.length}</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          id="wallet-view-tab-income"
-          aria-selected={view === "income"}
-          aria-controls="wallet-view-panel"
-          className="wallet-view-tab"
-          onClick={() => setView("income")}
-        >
-          <FaMoneyBillWave aria-hidden="true" /> Income
-          <span className="wallet-tab-count">{incomes.length}</span>
-        </button>
-      </div>
+      {/* Page header: title on the left, Wallets | Income navigator on the right
+          (same pattern as the Statistics toolbar). The two views never mix. */}
+      <header className="settings-card wallet-page-header">
+        <div className="wallet-card-title-wrap">
+          <p className="settings-eyebrow">Wallet</p>
+          <h2 className="wallet-card-title">
+            {view === "wallets" ? "Wallets & balances" : "Income & cash flow"}
+          </h2>
+        </div>
+        <div className="wallet-view-nav" role="tablist" aria-label="Wallet sections">
+          <button
+            type="button"
+            role="tab"
+            id="wallet-view-tab-wallets"
+            aria-selected={view === "wallets"}
+            aria-controls="wallet-view-panel"
+            className="wallet-view-tab"
+            onClick={() => setView("wallets")}
+          >
+            <FaWallet aria-hidden="true" /> Wallets
+            <span className="wallet-tab-count">{activeWallets.length}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="wallet-view-tab-income"
+            aria-selected={view === "income"}
+            aria-controls="wallet-view-panel"
+            className="wallet-view-tab"
+            onClick={() => setView("income")}
+          >
+            <FaMoneyBillWave aria-hidden="true" /> Income
+            <span className="wallet-tab-count">{incomes.length}</span>
+          </button>
+        </div>
+      </header>
 
       <div
         id="wallet-view-panel"
@@ -402,7 +391,6 @@ export default function WalletPage() {
             ) : (
               filteredActiveWallets.map((w) => {
                 const isActive = w.id === activeWalletId;
-                const share = totalBudget > 0 ? (Number(w.budget) / totalBudget) * 100 : 0;
                 return editId === w.id ? (
                   <div key={w.id} className="settings-action-panel settings-wallet-item">
                     <div className="settings-wallet-edit-container">
@@ -463,17 +451,13 @@ export default function WalletPage() {
                           </span>
                         )}
                       </div>
-                      <div className="wallet-row-share" aria-hidden="true">
-                        <span style={{ width: `${share}%` }} />
-                      </div>
-                      <span className="wallet-row-share-label">{Math.round(share)}% of total balance</span>
                     </div>
                     <div className="wallet-row-side">
                       <span className="settings-wallet-budget">{formatCurrency(Number(w.budget))}</span>
                       <div className="wallet-row-actions">
                         {!isActive && (
                           <button
-                            className="settings-wallet-set-active-btn"
+                            className="wallet-action-btn wallet-action-btn--accent"
                             onClick={() => handleSetActive(w.id)}
                             type="button"
                             aria-label={`Set ${w.name} as active wallet`}
@@ -482,22 +466,20 @@ export default function WalletPage() {
                           </button>
                         )}
                         <button
-                          className="wallet-icon-btn"
+                          className="wallet-action-btn"
                           onClick={() => handleEdit(w)}
                           type="button"
                           aria-label={`Edit ${w.name}`}
-                          title="Edit"
                         >
-                          <FaEdit aria-hidden="true" />
+                          <FaEdit aria-hidden="true" /> Edit
                         </button>
                         <button
-                          className="wallet-icon-btn wallet-icon-btn--danger"
+                          className="wallet-action-btn wallet-action-btn--danger"
                           onClick={() => setConfirmDeleteId(w.id)}
                           type="button"
                           aria-label={`Delete ${w.name}`}
-                          title="Delete"
                         >
-                          <FaTrash aria-hidden="true" />
+                          <FaTrash aria-hidden="true" /> Delete
                         </button>
                       </div>
                     </div>
@@ -640,6 +622,7 @@ export default function WalletPage() {
           {user && (
             <IncomeList
               embedded
+              wallets={wallets}
               query={incomeSearchQuery}
               userId={user.uid}
               incomes={incomes}
@@ -668,49 +651,23 @@ export default function WalletPage() {
         />
       )}
 
-      <AnimatePresence>
-        {confirmDeleteId && (
-          <motion.div 
-            className="settings-modal-backdrop" 
-            onClick={() => setConfirmDeleteId(null)}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <motion.div 
-              className="settings-modal-content" 
-              onClick={(e) => e.stopPropagation()}
-              initial={{ y: 20, opacity: 0, scale: 0.95 }}
-              animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: 20, opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.2 }}
-            >
-              <h3 style={{ marginTop: 0, color: "var(--buck-ink)" }}>Delete Wallet</h3>
-              <p style={{ color: "var(--buck-muted)" }}>
-                Are you sure you want to delete this wallet? This action cannot be undone.
-              </p>
-              <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", marginTop: "1.5rem" }}>
-                <button
-                  className="settings-button settings-button--secondary"
-                  onClick={() => setConfirmDeleteId(null)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="settings-button settings-button--danger"
-                  onClick={async () => {
-                    await handleDelete(confirmDeleteId);
-                    setConfirmDeleteId(null);
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <DangerDeleteDialog
+        open={Boolean(pendingDeleteWallet)}
+        itemType="wallet"
+        itemName={pendingDeleteWallet?.name ?? ""}
+        consequences={[
+          "The wallet is archived and stays in Wallet history; it cannot be restored.",
+          ...(pendingDeleteWallet && pendingDeleteWallet.id === activeWalletId
+            ? ["It is your active wallet, so no wallet will be active afterwards."]
+            : []),
+        ]}
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={async () => {
+          if (!confirmDeleteId) return;
+          await handleDelete(confirmDeleteId);
+          setConfirmDeleteId(null);
+        }}
+      />
       <AnimatePresence>
         {isModalOpen && (
           <WalletModal
