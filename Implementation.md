@@ -31,7 +31,7 @@ This document details runtime setup procedures, environment configurations, low-
 |---|---|---|---|
 | `GEMINI_API_KEY` | Buck_AI only | **Yes** for AI | Google AI Studio key. Without it the Advisor serves rule-based advice. |
 | `GEMINI_MODEL` | Buck_AI only | Optional | Default `gemini-3.8-flash`. |
-| `GEMINI_FALLBACK_MODEL` | Buck_AI only | Optional | Default `gemini-3.7-flash`. On 429/500/503/504 Buck_AI retries the primary once, then uses this model (own capacity and free quota). |
+| `GEMINI_MODELS` | Buck_AI only | Optional | Comma-separated chain, default `gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash` (overrides `GEMINI_MODEL`). On 429/500/503/504 Buck_AI tries the next model; each has its own capacity and free quota. A single model gets one retry. |
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` | Buck_AI only | **Yes** | Same public values as the web app; queries run as the user under RLS. |
 | `ALLOWED_ORIGINS` | Buck_AI only | **Yes** in prod | Comma-separated web origins for CORS (mobile needs none). |
 | `NEXT_PUBLIC_BUCK_AI_URL` | Web (public) | **Yes** in prod | Buck_AI base URL; default `http://localhost:8000`. Also added to the CSP. |
@@ -475,6 +475,22 @@ Returns a composite score (0 to 5) and localized validation messages.
   - Web: `vitest` 44/44 and `tsc` clean.
   - Live local run: health OK. Missing and forged tokens get 401 on all Advisor routes; the forged token was rejected by the real Supabase Auth. CORS allows `localhost:3000` and refuses unknown origins.
   - Not yet run with a real `GEMINI_API_KEY` or a signed-in user.
+
+### 3.30 Categories Table Redesign: Windowed Pagination, Consolidated Toolbar with AI Tooltip, Hover Entry Summary, Colorized Share Bars & Animated Inline Rename ([`categories/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/categories/page.tsx), [`categories/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/categories/style.css), [`CategoriesSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/CategoriesSkeleton.tsx))
+- **Consolidated Toolbar & AI Hover Tooltip**:
+  - Removed the standalone `.cat-ai-card` ("Needs a category") card and integrated its action into `.cat-toolbar` inside `.cat-list`.
+  - Ordered toolbar controls left-to-right: `.cat-search` (left), animated `+ Add Expense/Income Category` button that morphs into an inline form `.cat-add-inline` via Framer Motion `<AnimatePresence mode="wait">` (middle), and `Auto-categorize with AI` button `.cat-ai-btn` wrapped in `.cat-ai-tooltip-wrap` with count badge `.cat-ai-badge` and Framer Motion hover tooltip `.cat-ai-tooltip` (right).
+- **Left-Shifted Column Proportions & Detailed Hover Entries**:
+  - Proportioned `.cat-table` columns (`table-layout: fixed`) as `.cat-col-category` (`20%`), `.cat-col-entries` (`19%`), `.cat-col-total` (`11%`), `.cat-col-share` (`24%`, `padding-right: 2.25rem`), and `.cat-col-actions` (`26%`) so `Entries` sits close to `Category` and `Rename` / `Delete` buttons have room to be larger (`min-height: 38px; padding: 0 1rem; font-size: 0.85rem`).
+  - Upgraded the `Entries` cell to render `.cat-entries-pill` (`{entries} entries · Avg ₱{avg}`) and a Framer Motion hover summary popover (`.cat-entries-popover`) showing category total, max entry, and up to 4 recent entries with description, date, and amount. Rows 1–2 open the popover downward (`top: calc(100% + 0.5rem)`) to prevent header clipping; rows 3–8 open upward.
+- **Non-Bold Total, Share Bar Colorization & Default Badge**:
+  - Styled `.cat-amount` with `font-weight: 400` (non-bold).
+  - Enlarged `.cat-share-track` (`height: 11px; border-radius: 6px;`) and colorized `.cat-share-fill` and `.cat-share-pct` dynamically via `getShareTier` (`>=20%` dominant coral-red, `>=10%` high orange, `>=6%` moderate amber-gold, `>=3%` low emerald, `>0%` minimal sky-teal, `0%` muted neutral), animated with Framer Motion.
+  - Replaced the `"Fallback"` badge on `Uncategorized` / `Other` with `"Default"`.
+- **Animated Inline Rename & Centered Windowed Pagination**:
+  - Clicking `Rename` animates `.cat-rename` (`input` + Save `✓` + Cancel `✕`) via Framer Motion `<AnimatePresence mode="wait">` directly inside `.cat-actions` where the `Rename` button resides.
+  - Added client-side pagination (`PAGE_SIZE = 8`, `getPaginationPages`, `PAGE_VARIANTS`) with a 3-column `.cat-pagination` footer (centered `< Prev`, page buttons, `Next >`, and right-aligned `Showing X–Y of Z`).
+  - Updated [`CategoriesSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/CategoriesSkeleton.tsx) to match the consolidated toolbar, 8-row table, and pagination footer 1:1.
 
 ---
 

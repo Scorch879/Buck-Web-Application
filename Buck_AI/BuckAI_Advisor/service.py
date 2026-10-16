@@ -137,7 +137,8 @@ async def get_insight(db: UserDb, refresh: bool = False) -> dict[str, Any]:
     generated_with, model_name = "rules", "rules"
     try:
         text = await _write_with_gemini(snapshot, latest, changed, priority)
-        generated_with, model_name = "gemini", get_settings().gemini_model
+        # The model that actually answered (a fallback when the primary is busy).
+        generated_with, model_name = "gemini", gemini.answered_by.get() or get_settings().gemini_model
     except gemini.GeminiUnavailable as exc:
         log.warning("Advisor insight fell back to rules: %s", exc)
         if latest and same_data:

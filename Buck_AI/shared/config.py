@@ -21,8 +21,10 @@ DEFAULT_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
 @dataclass(frozen=True)
 class Settings:
     gemini_api_key: str
-    gemini_model: str
-    gemini_fallback_model: str
+    # Tried in order: the first is the primary, the rest are fallbacks for
+    # overload (503) or exhausted free quota (429). Each model has its own
+    # capacity and per-model quota.
+    gemini_models: tuple[str, ...]
     supabase_url: str
     supabase_anon_key: str
     allowed_origins: tuple[str, ...]
@@ -31,16 +33,30 @@ class Settings:
     def gemini_configured(self) -> bool:
         return bool(self.gemini_api_key)
 
+    @property
+    def gemini_model(self) -> str:
+        return self.gemini_models[0]
+
+
+DEFAULT_GEMINI_MODELS = ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash")
+
+
+def _gemini_models() -> tuple[str, ...]:
+    """GEMINI_MODELS (comma-separated) wins. Otherwise GEMINI_MODEL, if set, goes
+    first and the defaults follow. Duplicates and blanks are dropped."""
+    explicit = [m.strip() for m in os.getenv("GEMINI_MODELS", "").split(",") if m.strip()]
+    if not explicit:
+        primary = os.getenv("GEMINI_MODEL", "").strip()
+        explicit = ([primary] if primary else []) + list(DEFAULT_GEMINI_MODELS)
+    return tuple(dict.fromkeys(explicit))
+
 
 @lru_cache
 def get_settings() -> Settings:
     origins = os.getenv("ALLOWED_ORIGINS", DEFAULT_ORIGINS)
     return Settings(
         gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
-        gemini_model=os.getenv("GEMINI_MODEL", "").strip() or "gemini-3.8-flash",
-        # Used when the primary model is overloaded (503) or out of free quota
-        # (429): a different model has its own capacity and per-model quota.
-        gemini_fallback_model=os.getenv("GEMINI_FALLBACK_MODEL", "").strip() or "gemini-3.7-flash",
+        gemini_models=_gemini_models(),
         supabase_url=os.getenv("SUPABASE_URL", "").strip().rstrip("/"),
         # The public anon key: every database call runs as the signed-in user
         # under Row-Level Security, so no service-role key is needed here.

@@ -122,23 +122,36 @@ def overloaded():
     return errors.ServerError(503, {"error": {"code": 503, "message": "high demand", "status": "UNAVAILABLE"}})
 
 
-class RetryFallbackTests(unittest.IsolatedAsyncioTestCase):
+def fake_client(models):
+    client = type("C", (), {})()
+    client.aio = type("Aio", (), {})()
+    client.aio.models = models
+    return client
+
+
+def json_response(text):
+    return types.GenerateContentResponse(
+        candidates=[types.Candidate(content=types.Content(role="model", parts=[types.Part(text=text)]))]
+    )
+
+
+class ModelChainTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         get_settings.cache_clear()
-        self.sleep = mock.patch.object(gemini.asyncio, "sleep", mock.AsyncMock())
-        self.sleep.start()
+        self.sleep = mock.AsyncMock()
+        patcher = mock.patch.object(gemini.asyncio, "sleep", self.sleep)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.addCleanup(gemini.set_client, None)
+        self.addCleanup(get_settings.cache_clear)
 
-    def tearDown(self):
-        self.sleep.stop()
-        gemini.set_client(None)
-
-    async def test_stream_retries_then_uses_fallback_model(self):
-        models_used = []
+    async def test_stream_walks_the_chain_without_waiting(self):
+        used = []
 
         class Models:
             async def generate_content_stream(self, model, contents, config):
-                models_used.append(model)
-                if len(models_used) < 3:
+                used.append(model)
+                if model != "gemini-3.6-flash":
                     raise overloaded()
 
                 async def gen():
@@ -146,45 +159,88 @@ class RetryFallbackTests(unittest.IsolatedAsyncioTestCase):
 
                 return gen()
 
-        client = type("C", (), {})()
-        client.aio = type("Aio", (), {})()
-        client.aio.models = Models()
-        gemini.set_client(client)
-        out = await collect(gemini.stream_with_tools("sys", [], []))
-        self.assertEqual(out, ["ok"])
-        self.assertEqual(models_used, ["gemini-3.8-flash", "gemini-3.8-flash", "gemini-3.7-flash"])
+        gemini.set_client(fake_client(Models()))
+        self.assertEqual(await collect(gemini.stream_with_tools("sys", [], [])), ["ok"])
+        self.assertEqual(used, ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"])
+        self.sleep.assert_not_awaited()  # switching models needs no pause
 
-    async def test_json_falls_back_and_non_transient_errors_do_not_retry(self):
-        from google.genai import errors
-
-        calls = []
+    async def test_json_records_the_model_that_answered(self):
+        used = []
 
         class Models:
             async def generate_content(self, model, contents, config):
-                calls.append(model)
-                if model == "gemini-3.8-flash":
+                used.append(model)
+                if model != "gemini-3.6-flash":
                     raise overloaded()
-                return types.GenerateContentResponse(
-                    candidates=[types.Candidate(content=types.Content(role="model", parts=[types.Part(text='{"tip":"x"}')]))]
-                )
+                return json_response('{"tip":"x"}')
 
-        client = type("C", (), {})()
-        client.aio = type("Aio", (), {})()
-        client.aio.models = Models()
-        gemini.set_client(client)
+        gemini.set_client(fake_client(Models()))
         self.assertEqual(await gemini.generate_json("sys", "p", {"type": "object"}), {"tip": "x"})
-        self.assertEqual(calls, ["gemini-3.8-flash", "gemini-3.8-flash", "gemini-3.7-flash"])
+        self.assertEqual(used, ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"])
+        self.assertEqual(gemini.answered_by.get(), "gemini-3.6-flash")
 
-        calls.clear()
+    async def test_all_models_down_and_non_transient_errors(self):
+        from google.genai import errors
 
-        async def bad_request(model, contents, config):
-            calls.append(model)
-            raise errors.ClientError(400, {"error": {"code": 400, "message": "bad", "status": "INVALID_ARGUMENT"}})
+        used = []
 
-        client.aio.models.generate_content = bad_request
+        class Models:
+            async def generate_content(self, model, contents, config):
+                used.append(model)
+                raise overloaded()
+
+        gemini.set_client(fake_client(Models()))
         with self.assertRaises(gemini.GeminiUnavailable):
             await gemini.generate_json("sys", "p", {"type": "object"})
-        self.assertEqual(calls, ["gemini-3.8-flash"])
+        self.assertEqual(len(used), 3)
+
+        used.clear()
+
+        async def bad_request(model, contents, config):
+            used.append(model)
+            raise errors.ClientError(400, {"error": {"code": 400, "message": "bad", "status": "INVALID_ARGUMENT"}})
+
+        gemini._client.aio.models.generate_content = bad_request
+        with self.assertRaises(gemini.GeminiUnavailable):
+            await gemini.generate_json("sys", "p", {"type": "object"})
+        self.assertEqual(used, ["gemini-3.8-flash"])  # fail fast
+
+    async def test_single_model_gets_one_paused_retry(self):
+        used = []
+
+        class Models:
+            async def generate_content(self, model, contents, config):
+                used.append(model)
+                if len(used) == 1:
+                    raise overloaded()
+                return json_response('{"ok":true}')
+
+        with mock.patch.dict(os.environ, {"GEMINI_MODELS": "gemini-3.6-flash"}):
+            get_settings.cache_clear()
+            gemini.set_client(fake_client(Models()))
+            await gemini.generate_json("sys", "p", {"type": "object"})
+        self.assertEqual(used, ["gemini-3.6-flash", "gemini-3.6-flash"])
+        self.sleep.assert_awaited_once()
+
+
+class ModelConfigTests(unittest.TestCase):
+    def tearDown(self):
+        get_settings.cache_clear()
+
+    def models(self, env):
+        keys = {"GEMINI_MODELS": "", "GEMINI_MODEL": ""} | env
+        with mock.patch.dict(os.environ, keys):
+            get_settings.cache_clear()
+            return get_settings().gemini_models
+
+    def test_defaults_and_overrides(self):
+        self.assertEqual(self.models({}), ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"))
+        # GEMINI_MODEL goes first; duplicates drop out.
+        self.assertEqual(self.models({"GEMINI_MODEL": "gemini-3.7-flash"}),
+                         ("gemini-3.7-flash", "gemini-3.8-flash", "gemini-3.6-flash"))
+        # GEMINI_MODELS wins outright.
+        self.assertEqual(self.models({"GEMINI_MODELS": " gemini-3.6-flash , gemini-3.5-flash,,", "GEMINI_MODEL": "x"}),
+                         ("gemini-3.6-flash", "gemini-3.5-flash"))
 
 
 if __name__ == "__main__":
