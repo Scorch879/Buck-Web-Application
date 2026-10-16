@@ -6,6 +6,7 @@ in the server environment.
 """
 
 import asyncio
+import contextvars
 import json
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -13,15 +14,27 @@ from dataclasses import dataclass
 from typing import Any
 
 from google import genai
-from google.genai import types
+from google.genai import errors, types
 
 from .config import get_settings
 
 log = logging.getLogger("buck_ai.gemini")
 
 MAX_TOOL_ROUNDS = 4
+# Overloaded (503), internal (500), timeout (504) and quota (429) errors move
+# on to the next model in the chain; anything else fails fast.
+TRANSIENT_CODES = frozenset({429, 500, 503, 504})
+# Pause before retrying the same model (only when a single model is configured).
+RETRY_DELAY_SECONDS = 0.8
+# Tools are declared, never Python callables, so the SDK's automatic function
+# calling has nothing to do; disabling it also drops its "AFC is enabled" log.
+_NO_AFC = types.AutomaticFunctionCallingConfig(disable=True)
 
 _client: genai.Client | None = None
+
+# The model that answered the latest generate_json call in this request
+# (contextvars keep concurrent requests apart). Saved with the advice.
+answered_by: contextvars.ContextVar[str | None] = contextvars.ContextVar("answered_by", default=None)
 
 
 class GeminiUnavailable(RuntimeError):
@@ -42,6 +55,24 @@ def set_client(client: Any) -> None:
     """Tests inject a fake client."""
     global _client
     _client = client
+
+
+def is_transient(exc: BaseException) -> bool:
+    return isinstance(exc, errors.APIError) and exc.code in TRANSIENT_CODES
+
+
+def attempt_plan() -> tuple[str, ...]:
+    """Models to try, in order: each configured model once (primary first).
+    A single configured model gets one retry instead."""
+    models = get_settings().gemini_models
+    return models if len(models) > 1 else models * 2
+
+
+async def _before_next(plan: tuple[str, ...], attempt: int, exc: BaseException) -> None:
+    """Log the switch and pause only when retrying the same model."""
+    log.info("Gemini %s busy (%s); trying %s", plan[attempt - 1], getattr(exc, "code", "?"), plan[attempt])
+    if plan[attempt] == plan[attempt - 1]:
+        await asyncio.sleep(RETRY_DELAY_SECONDS)
 
 
 @dataclass
@@ -92,27 +123,37 @@ async def stream_with_tools(
         tools=[types.Tool(function_declarations=[t.declaration() for t in tools])] if tools else None,
         thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.LOW),
         max_output_tokens=max_output_tokens,
+        automatic_function_calling=_NO_AFC,
     )
+    plan = attempt_plan()
+    attempt = 0  # shared across rounds: once on a fallback model, stay there
 
     for _ in range(MAX_TOOL_ROUNDS):
-        model_parts: list[types.Part] = []
-        calls: list[types.FunctionCall] = []
-        try:
-            stream = await client.aio.models.generate_content_stream(
-                model=get_settings().gemini_model, contents=contents, config=config
-            )
-            async for chunk in stream:
-                candidate = (chunk.candidates or [None])[0]
-                for part in (candidate.content.parts if candidate and candidate.content else None) or []:
-                    model_parts.append(part)
-                    if part.function_call:
-                        calls.append(part.function_call)
-                    elif part.text and not part.thought:
-                        yield part.text
-        except GeminiUnavailable:
-            raise
-        except Exception as exc:  # SDK/network/quota errors
-            raise GeminiUnavailable(str(exc)) from exc
+        while True:
+            model_parts: list[types.Part] = []
+            calls: list[types.FunctionCall] = []
+            try:
+                stream = await client.aio.models.generate_content_stream(
+                    model=plan[attempt], contents=contents, config=config
+                )
+                async for chunk in stream:
+                    candidate = (chunk.candidates or [None])[0]
+                    for part in (candidate.content.parts if candidate and candidate.content else None) or []:
+                        model_parts.append(part)
+                        if part.function_call:
+                            calls.append(part.function_call)
+                        elif part.text and not part.thought:
+                            yield part.text
+                break
+            except GeminiUnavailable:
+                raise
+            except Exception as exc:  # SDK/network/quota errors
+                # Retry only before this round produced anything, so no text repeats.
+                if not model_parts and is_transient(exc) and attempt + 1 < len(plan):
+                    attempt += 1
+                    await _before_next(plan, attempt, exc)
+                    continue
+                raise GeminiUnavailable(str(exc)) from exc
 
         if not calls:
             return
@@ -150,17 +191,29 @@ async def generate_json(
         response_json_schema=schema,
         thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.LOW),
         max_output_tokens=1024,
+        automatic_function_calling=_NO_AFC,
     )
-    try:
-        response = await asyncio.wait_for(
-            client.aio.models.generate_content(
-                model=get_settings().gemini_model, contents=[user_turn(prompt)], config=config
-            ),
-            timeout=timeout_seconds,
-        )
-        data = json.loads(response.text or "")
-    except Exception as exc:
-        raise GeminiUnavailable(str(exc)) from exc
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout_seconds  # one budget across all attempts
+    plan = attempt_plan()
+    attempt = 0
+    while True:
+        try:
+            response = await asyncio.wait_for(
+                client.aio.models.generate_content(
+                    model=plan[attempt], contents=[user_turn(prompt)], config=config
+                ),
+                timeout=max(0.1, deadline - loop.time()),
+            )
+            data = json.loads(response.text or "")
+            answered_by.set(plan[attempt])
+            break
+        except Exception as exc:
+            if is_transient(exc) and attempt + 1 < len(plan) and deadline - loop.time() > 2 * RETRY_DELAY_SECONDS:
+                attempt += 1
+                await _before_next(plan, attempt, exc)
+                continue
+            raise GeminiUnavailable(str(exc)) from exc
     if not isinstance(data, dict):
         raise GeminiUnavailable("Model returned non-object JSON.")
     return data
