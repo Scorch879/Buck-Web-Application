@@ -67,5 +67,5 @@ python -m unittest -v
 **Staying at ₱0:**
 
 - Use a Gemini key from [Google AI Studio](https://aistudio.google.com) on the free tier, and don't attach a billing account.
-- When the free quota runs out, Gemini returns 429 and the Advisor serves its rule-based fallback.
+- When Gemini is overloaded (503) or a model's free quota runs out (429), Buck_AI retries once, then switches to `GEMINI_FALLBACK_MODEL` (default `gemini-3.7-flash`, separate capacity and quota). Only if that also fails does the Advisor serve its rule-based fallback.
 - On the free tier, Google may use prompts to improve its products. Buck only sends PII-scrubbed numbers.

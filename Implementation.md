@@ -31,6 +31,7 @@ This document details runtime setup procedures, environment configurations, low-
 |---|---|---|---|
 | `GEMINI_API_KEY` | Buck_AI only | **Yes** for AI | Google AI Studio key. Without it the Advisor serves rule-based advice. |
 | `GEMINI_MODEL` | Buck_AI only | Optional | Default `gemini-3.8-flash`. |
+| `GEMINI_FALLBACK_MODEL` | Buck_AI only | Optional | Default `gemini-3.7-flash`. On 429/500/503/504 Buck_AI retries the primary once, then uses this model (own capacity and free quota). |
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` | Buck_AI only | **Yes** | Same public values as the web app; queries run as the user under RLS. |
 | `ALLOWED_ORIGINS` | Buck_AI only | **Yes** in prod | Comma-separated web origins for CORS (mobile needs none). |
 | `NEXT_PUBLIC_BUCK_AI_URL` | Web (public) | **Yes** in prod | Buck_AI base URL; default `http://localhost:8000`. Also added to the CSP. |

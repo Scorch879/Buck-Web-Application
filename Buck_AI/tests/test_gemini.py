@@ -2,6 +2,7 @@
 
 import os
 import unittest
+from unittest import mock
 
 os.environ.setdefault("GEMINI_API_KEY", "test-key")
 
@@ -113,6 +114,77 @@ class ToolLoopTests(unittest.IsolatedAsyncioTestCase):
         finally:
             os.environ["GEMINI_API_KEY"] = "test-key"
             get_settings.cache_clear()
+
+
+def overloaded():
+    from google.genai import errors
+
+    return errors.ServerError(503, {"error": {"code": 503, "message": "high demand", "status": "UNAVAILABLE"}})
+
+
+class RetryFallbackTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        get_settings.cache_clear()
+        self.sleep = mock.patch.object(gemini.asyncio, "sleep", mock.AsyncMock())
+        self.sleep.start()
+
+    def tearDown(self):
+        self.sleep.stop()
+        gemini.set_client(None)
+
+    async def test_stream_retries_then_uses_fallback_model(self):
+        models_used = []
+
+        class Models:
+            async def generate_content_stream(self, model, contents, config):
+                models_used.append(model)
+                if len(models_used) < 3:
+                    raise overloaded()
+
+                async def gen():
+                    yield chunk(types.Part(text="ok"))
+
+                return gen()
+
+        client = type("C", (), {})()
+        client.aio = type("Aio", (), {})()
+        client.aio.models = Models()
+        gemini.set_client(client)
+        out = await collect(gemini.stream_with_tools("sys", [], []))
+        self.assertEqual(out, ["ok"])
+        self.assertEqual(models_used, ["gemini-3.8-flash", "gemini-3.8-flash", "gemini-3.7-flash"])
+
+    async def test_json_falls_back_and_non_transient_errors_do_not_retry(self):
+        from google.genai import errors
+
+        calls = []
+
+        class Models:
+            async def generate_content(self, model, contents, config):
+                calls.append(model)
+                if model == "gemini-3.8-flash":
+                    raise overloaded()
+                return types.GenerateContentResponse(
+                    candidates=[types.Candidate(content=types.Content(role="model", parts=[types.Part(text='{"tip":"x"}')]))]
+                )
+
+        client = type("C", (), {})()
+        client.aio = type("Aio", (), {})()
+        client.aio.models = Models()
+        gemini.set_client(client)
+        self.assertEqual(await gemini.generate_json("sys", "p", {"type": "object"}), {"tip": "x"})
+        self.assertEqual(calls, ["gemini-3.8-flash", "gemini-3.8-flash", "gemini-3.7-flash"])
+
+        calls.clear()
+
+        async def bad_request(model, contents, config):
+            calls.append(model)
+            raise errors.ClientError(400, {"error": {"code": 400, "message": "bad", "status": "INVALID_ARGUMENT"}})
+
+        client.aio.models.generate_content = bad_request
+        with self.assertRaises(gemini.GeminiUnavailable):
+            await gemini.generate_json("sys", "p", {"type": "object"})
+        self.assertEqual(calls, ["gemini-3.8-flash"])
 
 
 if __name__ == "__main__":

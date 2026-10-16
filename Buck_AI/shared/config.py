@@ -22,6 +22,7 @@ DEFAULT_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
 class Settings:
     gemini_api_key: str
     gemini_model: str
+    gemini_fallback_model: str
     supabase_url: str
     supabase_anon_key: str
     allowed_origins: tuple[str, ...]
@@ -37,6 +38,9 @@ def get_settings() -> Settings:
     return Settings(
         gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
         gemini_model=os.getenv("GEMINI_MODEL", "").strip() or "gemini-3.8-flash",
+        # Used when the primary model is overloaded (503) or out of free quota
+        # (429): a different model has its own capacity and per-model quota.
+        gemini_fallback_model=os.getenv("GEMINI_FALLBACK_MODEL", "").strip() or "gemini-3.7-flash",
         supabase_url=os.getenv("SUPABASE_URL", "").strip().rstrip("/"),
         # The public anon key: every database call runs as the signed-in user
         # under Row-Level Security, so no service-role key is needed here.
