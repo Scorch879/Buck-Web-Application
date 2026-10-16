@@ -1206,9 +1206,10 @@ Buck-Web-Application/
   4. **AI hook** (`aiApi.ts`): `categorizeItem(kind, description, categories)` posts `{ description, kind, categories }` to `/ai/categorize_expense/`. It only accepts an answer that matches one of the user's categories (case-insensitive); otherwise it returns `null` and the item stays in the fallback bucket.
   5. **Categories tab** (`/dashboard/categories`, sidebar "Categories"):
      - A header card with an Expense | Income switch.
-     - An "Needs a category" card with an **Auto-categorize with AI** button, which processes 25 items per click.
-     - A searchable table: Category, Entries, Total, Share, then Rename / Delete. Delete goes through `DangerDeleteDialog` (ADR-041) and states how many entries move to the fallback.
-     - `CategoriesSkeleton` mirrors the layout.
+     - A consolidated table toolbar ordered left-to-right: Search bar (`.cat-search`), animated `+ Add Expense/Income Category` trigger/inline form, and **Auto-categorize with AI** button (`.cat-ai-btn`) with count badge and Framer Motion hover tooltip (`.cat-ai-tooltip`) detailing uncategorized entries and total amount (replacing the standalone "Needs a category" card).
+     - A paginated (`PAGE_SIZE = 8`), left-shifted table: Category (with `Default` badge on `Uncategorized`/`Other`), detailed Entries pill (`X entries · Avg ₱Y`) with Framer Motion hover summary popover (`.cat-entries-popover`), non-bold Total (`font-weight: 400`), bigger 11px share-colorized Share progress bar, and enlarged Rename / Delete buttons with animated inline Rename right at the Rename button position. Delete goes through `DangerDeleteDialog` (ADR-041) and states how many entries move to the default category.
+     - Centered windowed pagination (`.cat-pagination`) with right-aligned range indicator (`Showing X–Y of Z`).
+     - `CategoriesSkeleton` mirrors the consolidated toolbar, 8-row table, and pagination footer 1:1.
   6. **Income history is a table** (`IncomeList`):
      - A summary strip for the filtered rows: Entries, Total, Average, Largest.
      - Sortable Date / Category / Amount columns, plus Description and Wallet.
@@ -1283,4 +1284,31 @@ Buck-Web-Application/
   - Bar: 0 errors and 0 warnings. Every `eslint-disable-next-line` carries a reason; today they cover only intentional effect dependency lists keyed on `user.uid`.
 - **Consequences**:
   - `next build`, and therefore every Vercel build, now runs ESLint. A lint error fails the deploy.
-  - New icon-only buttons without a label and `any` types are caught locally instead of in review.
+  - New icon-only buttons without a label and `any` types are caught locally instead of in review.
+
+---
+
+### ADR-045: Categories Table Redesign — Windowed Pagination, Consolidated Toolbar with AI Tooltip, Hover Entry Summary, Share Colorization & Animated Inline Rename
+
+- **Status**: Implemented 2026-10-16.
+- **Context**:
+  - The Categories table rendered all categories in an unpaginated list, causing vertical page stretching when users had many categories.
+  - Right-aligned `Entries` and `Total` columns sat far away from the `Category` column across a wide empty gap, while squeezing the `Rename` and `Delete` actions on the right.
+  - The standalone "Needs a category" card occupied a full vertical section above the table, and clicking `Rename` on the right replaced the category name in the far-left `Category` column instead of animating near the `Rename` button.
+- **Decision**:
+  1. **Windowed Pagination (`PAGE_SIZE = 8`)**:
+     - Added centered windowed pagination (`.cat-pagination`) with `< Prev`, page buttons with ellipsis windowing (`getPaginationPages`), `Next >`, and right-aligned range info (`Showing X–Y of Z`), animated via Framer Motion (`PAGE_VARIANTS` on `<motion.tbody>`).
+  2. **Consolidated Table Toolbar**:
+     - Replaced the standalone "Needs a category" card with a single toolbar inside `.cat-list`: Search bar (left), animated `+ Add Expense/Income Category` button/inline form (middle), and `Auto-categorize with AI` button with count badge and Framer Motion hover tooltip (`.cat-ai-tooltip`, right).
+  3. **Left-Shifted Column Proportions & Detailed Hover Entries**:
+     - Proportioned columns as `20% / 19% / 11% / 24% / 26%` (left-aligned data columns) so `Entries` sits close to `Category` and `Actions` has room for larger `Rename` and `Delete` buttons (`min-height: 38px; padding: 0 1rem; font-size: 0.85rem`).
+     - Replaced the bare entry count with an interactive `.cat-entries-pill` (`14 entries · Avg ₱498.45`) that opens a Framer Motion hover summary popover (`.cat-entries-popover`) displaying category total, max entry, and up to 4 recent entries.
+  4. **Typography, Share Colorization & Default Badge**:
+     - Set `.cat-amount` (`Total`) to regular weight (`font-weight: 400`).
+     - Enlarged `.cat-share-track` to `11px` height (`border-radius: 6px`) and dynamically colorized both fill gradient and percentage label by share tier (`getShareTier`: `>=20%` dominant coral-red, `>=10%` high orange, `>=6%` moderate amber-gold, `>=3%` low emerald, `>0%` minimal sky-teal, `0%` muted neutral).
+     - Changed the badge on `Uncategorized`/`Other` from `"Fallback"` to `"Default"`.
+  5. **Animated Inline Rename at the Rename Button**:
+     - Clicking `Rename` animates the inline rename form (`input` + Save `✓` + Cancel `✕`) via Framer Motion (`AnimatePresence mode="wait"`) directly inside the Actions cell where the `Rename` button resides, while keeping the left `Category` column intact.
+- **Consequences**:
+  - Zero vertical page bloat regardless of category count, higher information density on hover, and 1:1 skeletal loading parity via updated [`CategoriesSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/CategoriesSkeleton.tsx).
+
