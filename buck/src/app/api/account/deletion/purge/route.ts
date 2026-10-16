@@ -60,6 +60,13 @@ export async function POST(request: NextRequest) {
 
   const admin = createSupabaseAdminClient();
   const now = new Date().toISOString();
+
+  // Daily housekeeping on the same cron: security events, AI usage counters,
+  // expired forecasts and old advisories (see purge_expired_data()).
+  const { error: retentionError } = await admin.rpc("purge_expired_data");
+  if (retentionError) {
+    console.error("Data retention purge failed:", retentionError.message);
+  }
   const { data, error } = await admin
     .from("account_deletion_requests")
     .select("id, user_id")

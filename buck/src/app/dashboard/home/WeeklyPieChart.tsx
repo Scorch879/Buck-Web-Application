@@ -8,7 +8,11 @@ import {
   Tooltip,
   Legend,
   PieController,
+  type ActiveElement,
+  type ChartEvent,
   type Plugin,
+  type TooltipItem,
+  type UpdateMode,
 } from "chart.js";
 import { formatCurrency } from "@/utils/formatters";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
@@ -16,14 +20,24 @@ import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 ChartJS.register(ArcElement, Tooltip, Legend, PieController);
 
 // Ensure PieController smoothly animates per-slice outerRadius zoom transitions
+type ZoomPatchedPieController = PieController & { _hasOuterRadiusZoomPatch?: boolean };
+type ZoomDataset = { outerRadiusMultipliers?: number[] };
+
 if (typeof window !== "undefined" || typeof global !== "undefined") {
-  const originalUpdateElements = PieController.prototype.updateElements;
-  if (!(PieController.prototype as any)._hasOuterRadiusZoomPatch) {
-    PieController.prototype.updateElements = function (arcs: any, start: number, count: number, mode: any) {
+  const pieProto = PieController.prototype as ZoomPatchedPieController;
+  const originalUpdateElements = pieProto.updateElements;
+  if (!pieProto._hasOuterRadiusZoomPatch) {
+    pieProto.updateElements = function (
+      this: PieController,
+      arcs: ArcElement[],
+      start: number,
+      count: number,
+      mode: UpdateMode
+    ) {
       originalUpdateElements.call(this, arcs, start, count, mode);
-      const dataset = this.getDataset();
-      if (dataset && Array.isArray((dataset as any).outerRadiusMultipliers)) {
-        const mults = (dataset as any).outerRadiusMultipliers;
+      const dataset = this.getDataset() as ZoomDataset | undefined;
+      if (dataset && Array.isArray(dataset.outerRadiusMultipliers)) {
+        const mults = dataset.outerRadiusMultipliers;
         const baseR = this.outerRadius;
         for (let i = start; i < start + count; ++i) {
           const mult = mults[i] !== undefined ? mults[i] : 1;
@@ -34,7 +48,7 @@ if (typeof window !== "undefined" || typeof global !== "undefined") {
         }
       }
     };
-    (PieController.prototype as any)._hasOuterRadiusZoomPatch = true;
+    pieProto._hasOuterRadiusZoomPatch = true;
   }
 }
 
@@ -158,9 +172,18 @@ function getCalloutSidePadding(
  * Draws leader pointer lines extending from each pie slice perimeter
  * to an outside category label and percentage, with collision avoidance.
  */
-const excelDataCalloutPlugin: Plugin<"pie"> = {
+type CalloutPluginOptions = {
+  slices?: WeeklyPieSlice[];
+  selectedCategory?: string | null;
+  isDarkTheme?: boolean;
+  total?: number;
+  isOthersChild?: boolean;
+  selectedCategoryAmount?: number;
+};
+
+const excelDataCalloutPlugin: Plugin<"pie", CalloutPluginOptions> = {
   id: "excelDataCallout",
-  afterDatasetsDraw(chart, _args, pluginOptions: any) {
+  afterDatasetsDraw(chart, _args, pluginOptions: CalloutPluginOptions) {
     const {
       slices,
       selectedCategory,
@@ -197,7 +220,7 @@ const excelDataCalloutPlugin: Plugin<"pie"> = {
     const labelItems: LabelCallout[] = [];
 
     for (let i = 0; i < meta.data.length; i++) {
-      const arc: any = meta.data[i];
+      const arc = meta.data[i] as ArcElement;
       const slice = slices[i];
       if (!arc || !slice || slice.amount <= 0 || slice.percentage < 1) continue;
 
@@ -300,7 +323,8 @@ const excelDataCalloutPlugin: Plugin<"pie"> = {
 
     for (const item of labelItems) {
       const { slice, isSelected, isDimmed, edgeX, edgeY, kneeX, kneeY, isRight } = item;
-      let { endX, endY } = item;
+      const { endY } = item;
+      let { endX } = item;
 
       const lineColor = isSelected
         ? isDarkTheme ? "#ff8c42" : "#f47536"
@@ -485,7 +509,7 @@ export default function WeeklyPieChart({
                 : 0.85
               : 1.0
           ),
-        } as any),
+        } as ZoomDataset),
       },
     ],
   };
@@ -507,7 +531,7 @@ export default function WeeklyPieChart({
         return { top: 38, bottom: 38, left: side, right: side };
       },
     },
-    onClick: (_event: any, elements: any[]) => {
+    onClick: (_event: ChartEvent, elements: ActiveElement[]) => {
       if (elements && elements.length > 0 && onSelectCategory) {
         const index = elements[0].index;
         const clickedSlice = slices[index];
@@ -520,7 +544,7 @@ export default function WeeklyPieChart({
         }
       }
     },
-    onHover: (event: any, chartElement: any[]) => {
+    onHover: (event: ChartEvent, chartElement: ActiveElement[]) => {
       if (event?.native?.target) {
         (event.native.target as HTMLElement).style.cursor =
           chartElement && chartElement.length > 0 ? "pointer" : "default";
@@ -549,7 +573,7 @@ export default function WeeklyPieChart({
         displayColors: true,
         boxPadding: 4,
         callbacks: {
-          labelColor: function (context: any) {
+          labelColor: function (context: TooltipItem<"pie">) {
             const slice = slices[context.dataIndex];
             const sliceColor = slice?.color || "#f47536";
             return {
@@ -559,7 +583,7 @@ export default function WeeklyPieChart({
               borderRadius: 2,
             };
           },
-          label: function (context: any) {
+          label: function (context: TooltipItem<"pie">) {
             const label = context.label || "";
             const value = Number(context.raw) || 0;
             const pct = total > 0 ? ((value / total) * 100).toFixed(1) : "0";

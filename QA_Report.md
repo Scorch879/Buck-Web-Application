@@ -52,6 +52,43 @@ Findings from the backend audit (middleware, `/api/*`, FastAPI). Status reflects
 
 **Breaking change for other clients**: every `/ai/*` call now needs `Authorization: Bearer <Supabase access token>`. The Flutter app must send it, and `/expenses/` is gone.
 
+### 🔐 Full Re-Audit (2026-10-14)
+
+Scope: server routes, middleware, auth callback, deletion flow, session/state code, live RLS policies, function grants, storage config, `npm audit`. Python files excluded (being redesigned); the uncommitted Ask Buck chat work was read but not edited.
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-012** | 🔴 Critical | `next@15.5.19` carried 11 advisories (unauthenticated RCE on Windows hosts and via AVIF image optimisation, SSRF, cache poisoning/confusion, Server Action DoS). | **Resolved.** Upgraded to `15.5.27`; also patched `nanoid`, `sharp`, `source-map-js`. |
+| **SEC-013** | 🟠 High (functional) | Account-deletion confirmation e-mail link (`/auth/callback?next=/account/delete/confirm...`) was rejected by the callback allow-list and sent users to `/dashboard/home`, so deletion could never be confirmed. | **Resolved.** `/account/delete/confirm` added to the allow-list. Needs an end-to-end check with a real e-mail. |
+| **SEC-014** | 🟡 Medium | No security headers (clickjacking, MIME sniffing, referrer leakage, HSTS). | **Resolved.** `next.config.ts` sets `frame-ancestors 'none'` CSP, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, HSTS; `poweredByHeader` off. **Resolved (follow-up):** `middleware.ts` now issues a per-request nonce CSP (`script-src 'self' 'nonce-…' 'strict-dynamic'`, no `unsafe-eval` in production; `connect-src` limited to Supabase + the AI host; `frame-ancestors 'none'`), built by `utils/csp.ts`; the root layout stamps the nonce on the theme script. Checked on a second dev server: headers present, all scripts nonced, no violations on `/sign-in` and `/forgot-password`. Not checked: logged-in pages, production build. The root layout is now dynamic. |
+| **SEC-015** | 🟡 Medium | Admin feedback e-mails and infra logs were persisted to `sessionStorage` with the dashboard cache; stale financial data survived a server-forced idle logout. | **Resolved.** Admin keys are memory-only; the sign-in page clears the cached dashboard data. |
+| **SEC-016** | 🟡 Medium | `ensure_income_wallet_owner()` regained EXECUTE for PUBLIC/anon/authenticated after `202610130002` re-created it. | **Resolved.** [`202610140001_revoke_trigger_fn_execute.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610140001_revoke_trigger_fn_execute.sql) applied to live and recorded. |
+| **OPT-001** | 🟠 High (correctness) | `listExpenses` was one unpaged query; PostgREST caps responses at 1,000 rows, so users with more expenses silently lost older rows from every page and total. | **Resolved.** Pages of 1,000 with a stable order. |
+| **OPT-002** | 🟡 Medium | Every realtime row event triggered a full refetch on each page (a bulk insert meant one refetch per row). | **Resolved.** `subscribeUserTable` coalesces events (300 ms). |
+| **OPT-003** | 🟡 Medium | 8-10 pages each call `listExpenses` and keep their own copy; the shared cache is only a start-up seed. | **Resolved.** `utils/dataCache.ts`: list reads (expenses, goals, wallets, categories, incomes) are cached 15 s and invalidated by any mutating REST/RPC request (via the Supabase client's fetch wrapper) or realtime event; concurrent callers share one request. `subscribeUserTable` now shares one realtime channel per table/user across pages. No page code changed. Unit-tested; not exercised in a signed-in browser session. |
+| **SEC-017** | 🟢 Low | `.claude/settings.json` (pre-approves SQL on the live project) was untracked and could be committed. | **Resolved.** Git-ignored (root and `buck/`). |
+| **SEC-020** | 🟡 Medium | Password reset revealed whether an account existed (404 "No Buck account…", and a distinct error only real accounts could hit). | **Resolved.** Unknown and known addresses both get the same 200 and message; provider errors are logged, not surfaced. Rate limits (429) apply before the lookup to every address. Residual: response time differs slightly (the real path calls the mailer). |
+| **SEC-018** | 🟢 Low | `profiles` UPDATE policy allows editing `email`; password-reset lookup trusts `profiles.email`. Impact is limited to account-existence probing. | **Resolved.** [`202610140002_pin_profile_email.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610140002_pin_profile_email.sql): a `BEFORE UPDATE OF email` trigger keeps the old value whenever `auth.uid()` is set (end-user writes); the auth-sync trigger and service role are unaffected. Applied to live. Not exercised with a real e-mail change. |
+| **SEC-019** | 🟢 Low | `npm audit` items in `postcss`, `styled-components` and the test tooling (`vitest`/`vite`/`esbuild`/`tinypool`), plus `moment`. | **Resolved.** `npm audit` reports 0 vulnerabilities. Removed unused `styled-components`; `overrides` pins `postcss ^8.5.30`; `vitest 5` + `vite 8` + `@types/node 22`; `npm audit fix` for `moment`. |
+
+**Verified**: `tsc --noEmit` clean; `npm test` 39/39. **Not verified**: `next build` (a build would clobber the running dev server's `.next`), the deletion e-mail round trip, headers in a browser.
+
+### 🔐 Database + Backend Audit (2026-10-16)
+
+Scope: live Supabase (RLS, grants, functions, constraints, storage, advisors), `Buck_AI/`, new web routes. Migration [`202610160001`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610160001_privileges_feedback_retention_ai_limits.sql) applied to live and recorded in history.
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-021** | 🟡 Medium | `Buck_AI` rate limiter was in memory per serverless instance, so one user could spread requests over instances and drain the shared Gemini free quota. | **Resolved.** `ai_rate_limit_take()` (user-scoped, advisory-locked sliding window in `ai_usage_events`, insert/select-only RLS so events cannot be deleted) is called from `shared/rate_limit.py`; the local window runs first and is the fallback if the RPC fails. Live-tested: 2 calls allowed, 3rd blocked with a wait. 3 new Python tests. |
+| **SEC-022** | 🟡 Medium | `anon` held full DML/TRUNCATE on 10 public tables; `authenticated` held TRUNCATE/REFERENCES/TRIGGER. RLS was the only barrier. | **Resolved.** All `anon` table privileges revoked (also from default privileges); `authenticated` keeps SELECT/INSERT/UPDATE/DELETE only. Verified: anon 0 privileges. |
+| **SEC-023** | 🟢 Low | `feedback` had no length limits and `user_email` was client-supplied (forgeable sender in admin triage). | **Resolved.** CHECK limits (title 200, details 5000, e-mail 254); insert policy requires `user_email` = the caller's JWT e-mail. |
+| **SEC-024** | 🟢 Low | No retention: `auth_security_events`, expired `ai_forecasts`, unbounded `ai_advisories`. | **Resolved.** `purge_expired_data()` (service_role only; 30 d events, 1 d usage, 30 d past forecast expiry, newest 50 advisories per user) runs from the daily `/api/account/deletion/purge` cron. First run removed 27 old security events. |
+| **SEC-025** | 🟢 Low | `Buck_AI` `GET /` disclosed whether `GEMINI_API_KEY` was set and the model name. | **Resolved.** Returns `{service, ok}` only. |
+| **SEC-026** | 🟢 Low | Raw database error text was returned to Gemini (and could reach users) from failed tools. | **Resolved.** Generic tool error; detail only in the log. |
+| **SEC-027** | 🟢 Low | `npm audit`: 5 high in the dev-only `eslint-config-next` chain (`braces`/`micromatch`/`fast-glob`); the fix is a downgrade. Python deps not audited (no `pip-audit`). | **Accepted / open.** Add `pip-audit` to CI. Token-verification cache lets a revoked token live up to 60 s (accepted). |
+
+**Verified**: `tsc` clean, `eslint` clean, vitest 44/44, Buck_AI unittest 23/23, live DB checks above. **Not verified**: the shared limiter against a deployed `Buck_AI`, the feedback insert from the signed-in UI after the new e-mail policy, `next build`.
+
 ### 🟠 High Severity
 
 #### BUG-002: [RESOLVED 2026-10-12] Inconsistent Backend Host Domains Across Frontend Modules
@@ -265,6 +302,51 @@ Findings from the backend audit (middleware, `/api/*`, FastAPI). Status reflects
   - 390px: no horizontal overflow in either view.
   - `tsc --noEmit` clean.
 
+#### BUG-028: [RESOLVED] Unsafe / Inconsistent Delete Confirmations; Wallet Navigator & Row Actions
+- **Location**: `buck/src/app/dashboard/{expenses,goals,wallet}/page.tsx`, `wallet/WalletModal.tsx`, `statistics/AddExpenseModal.tsx`, `component/income/IncomeList.tsx`, `settings/style.css` (wallet section), `component/skeletons/WalletSkeleton.tsx`
+- **Impact**:
+  - **Expenses** were deleted with one click and no confirmation; the amount was also returned to the wallet.
+  - **Goals and categories** used the browser's `window.confirm`.
+  - **Wallets and income** used a single confirm click.
+  - **Wallet tab**: the navigator floated outside any card, rows carried an unneeded share bar, and the action buttons were small with a non-red Delete.
+- **Resolution** (ADR-041, a standing rule for all agents):
+  - New `DangerDeleteDialog` with three steps: slide-to-delete with a warning, then a red "I understand" button or Cancel, then type the exact name to enable Delete. It is applied to every delete above.
+  - The Wallet navigator moved into a page-header card. Share bars were removed, and row actions are now labelled 36px buttons with a red Delete.
+  - The income delete button is red-tinted and 36px.
+  - Dead `.wallet-icon-btn` and `.wallet-row-share*` CSS removed.
+- **Verification**: Design-preview harness, 1500px:
+  - The slide advanced to step 2, and "I understand" advanced to step 3.
+  - In step 3, Delete stayed disabled when the field was empty and for "savings buffer" (wrong case), and enabled only for the exact "Savings Buffer".
+  - The final click deleted the wallet and showed the "Wallet deleted successfully" toast.
+  - 390px: no overflow, dialog 358px wide with a 16px gutter.
+  - `tsc --noEmit` clean.
+
+#### BUG-029: [OPEN: backend + DB handoff] Categories Not User-Manageable; Income Uncategorizable; AI Ignores User Categories
+- **Location**: `buck/src/utils/supabaseData.ts`, `utils/aiApi.ts`, `app/dashboard/categories/*` (new), `component/income/IncomeList.tsx`, `AddIncomeModal.tsx`, `supabase/migrations/202610130002_income_categories.sql` (new), `BuckAI_Backend/main.py` + `ai_models.py`
+- **Impact**:
+  - Users had no real place to manage categories; expense category editing lived inside the Statistics "Add Expense" dialog.
+  - Income could only use 7 hard-coded sources.
+  - The AI categorizer only knows the 17 canonical names, so custom categories were never chosen.
+  - Income history was a plain list with little information.
+- **Resolved (web, ADR-042)**:
+  - New Categories tab (Expense | Income) with add, rename, delete (three-step dialog) and protected fallbacks.
+  - Kind-aware data layer.
+  - `categorizeItem()` hook and an "Auto-categorize with AI" action.
+  - Income history as a sortable table with a summary strip.
+  - Add Income lists the user's income categories.
+- **Open / handoff**:
+  1. ~~Apply migration~~ **Done 2026-10-12**: `202610130002_income_categories.sql` applied to live Supabase. 56 income categories were seeded (8 profiles × 7) and all 77 existing incomes were linked to a category. The migration also adds a kind check to `ensure_expense_relations_owner()`. The security advisor shows no new findings.
+  2. **Backend & ML Engineer**:
+     - Extend `CategorizeInput` with optional `kind: Literal['expense','income']` and `categories: list[str]` (max about 60 names, each 1–40 characters, PII-scrubbed).
+     - In `get_expense_category`, prompt with the supplied `categories` (falling back to `REFERENCE_CATEGORIES` when absent). Return exactly one supplied name, or "Uncategorized" / "Other".
+     - Today the endpoint ignores these fields (Pydantic drops them), so the client accepts only answers that match a user category.
+     - Optional: a batch endpoint for uncategorized items, to replace the client's 25-at-a-time loop.
+  3. Mobile app: read `categories.kind` and `incomes.category_id` after the migration so both clients share user categories.
+- **Verification (web)**:
+  - Design-preview harness, 1500px: Categories Expense and Income tabs render (Income shows the 7 defaults, with "Other" marked Fallback). The Income history table renders sortable columns and the summary strip.
+  - 390px: no page overflow (the tables scroll inside their frames).
+  - `tsc --noEmit` clean.
+
 #### BUG-005: [RESOLVED 2026-10-12] Hardcoded Administrator Email Address in Multiple Files
 - **Impact**: Inability to configure or rotate administrator credentials without modifying and redeploying core source code.
 - **Resolution**:
@@ -351,6 +433,54 @@ Findings from the backend audit (middleware, `/api/*`, FastAPI). Status reflects
   - Section 3 (FastAPI): the endpoint set matches `main.py` (4 `POST` routes), but the `#L55`, `#L70`, `#L101`, `#L162` anchors are stale (decorators are at lines 83, 97, 106, 179). Left unedited because the Python service is being redesigned.
 - **Remediation**: Update the section 2 rows; refresh section 3 after the FastAPI redesign.
 - **Resolution (section 2)**: Rows rewritten from the route handlers: cron row added, advisor/forecast and admin auth described as implemented, line anchors refreshed. Section 3 stays open until the FastAPI redesign lands.
+
+
+#### BUG-030: [OPEN: follow-ups] Buck_AI Rollout Items (ADR-043)
+- **Location**: [`Buck_AI/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/), [`buck/src/utils/buckAi.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/buckAi.ts)
+- **Items**:
+  - **Deploy**: create the Buck_AI Vercel project (root `Buck_AI`) and set `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `ALLOWED_ORIGINS`. Set `NEXT_PUBLIC_BUCK_AI_URL` on the web project. Until then the web Advisor cannot reach the service in production.
+  - **Mobile**: no AI screens yet (by request). When added, call Buck_AI `/advisor/*` with the Supabase access token; no CORS is needed.
+  - **Paused features**: AI forecast wording and the Forecaster chat return with BuckAI_Forecast. Auto-categorize stays live as part of the AI Financial Advisor.
+  - **Cost**: Zero cost: Gemini API free tier with no billing account (over-quota calls get 429 and the Advisor serves rule-based advice), Vercel Hobby for both projects, Supabase Free. On the free tier Google may use prompts to improve its products; Buck_AI sends only PII-scrubbed numbers.
+  - **Rate limits** are in-memory per serverless instance.
+  - **Old data**: `ai_advisories` rows written by the previous stack (`weekly_review` from the cron, older `monthly_strategy` rows without a fingerprint) are treated as changed data and replaced on the next read after the cooldown.
+  - **Verification gap**: end-to-end with a real Gemini key and a signed-in user not yet run.
+
+#### BUG-031: [OPEN] `is_emergency` Exclusion Documented but Not in Schema
+- **Location**: `Claude.md` §6.4, `public.expenses` ([`202606010001_initial_buck_schema.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202606010001_initial_buck_schema.sql))
+- **Impact**: Forecasts cannot exclude emergency spending because `expenses` has no `is_emergency` column and nothing sets one.
+- **Remediation**: Add `is_emergency boolean not null default false` with a UI toggle, then filter it in `data.ts#getDailySpending` and the rule engine.
+
+
+#### BUG-032: [RESOLVED] Modals Without Dialog Semantics; Unlabelled Icon Buttons
+- **Location**: `goals/CreateGoalModal.tsx`, `goals/page.tsx` (add-expense and "Action Not Allowed" modals), `statistics/AddExpenseModal.tsx`, `wallet/WalletModal.tsx`, `component/CustomDatePicker.tsx`
+- **Impact (WCAG 4.1.2 Name, Role, Value)**:
+  - Screen readers did not announce these overlays as modal dialogs: they had no `role="dialog"` and no `aria-modal`.
+  - The `×` close buttons were read aloud as "times" or "multiplication sign".
+  - The date picker's month arrows had no accessible name.
+- **Source**: an automated frontend check (Antigravity) suggested this. Its report named `Modal.tsx`, `Footer.tsx` and `OrderTracker.tsx`, which do not exist in this repo. The audit was therefore re-run against Buck's real components.
+- **Fix**:
+  - The inner panel (not the backdrop) now has `role="dialog"` (`alertdialog` for the error modal), `aria-modal="true"` and an `aria-label`.
+  - Close buttons have `type="button"` and `aria-label="Close dialog"`, with the glyph wrapped in `aria-hidden`.
+  - The month arrows are labelled "Previous month" and "Next month".
+- **Verification (2026-10-15)**: `tsc --noEmit` is clean and `npm test` passes 44/44. Every other overlay already had dialog semantics, and every other icon-only button already had an `aria-label`. ESLint now enforces these rules (ADR-044, BUG-033).
+
+
+#### BUG-033: [RESOLVED] First ESLint Run: 53 Errors, 35 Warnings
+- **Location**: `buck/src/**` (first run after ADR-044 installed ESLint)
+- **Impact**: The lint script had never run. Its first pass reported 33 `no-explicit-any`, 23 unused variables, 8 `exhaustive-deps`, 13 jsx-a11y findings and some smaller rules. Real defects among them:
+  - `CreateGoalModal` could pass an `undefined` goal to the page, which then added it to the goal list.
+  - The admin Supabase log dates read epoch microseconds as milliseconds and showed far-future years.
+  - The `CustomDatePicker` trigger was a focusable `div` with no role.
+  - The `CustomSelect` combobox had no `aria-controls` pointing at its listbox.
+  - The Statistics "Category:" label pointed at nothing, and the Settings feedback-type label was not tied to its button group.
+  - Dead code on the Wallet page: an unused `handleAddWallet` and its `name`/`budget` state.
+- **Fix**:
+  - Real types replace `any`: `AdminSupabaseLog` and `AdminVercelDeployment` in `FinancialContext`, `GoalForecast`, Chart.js `ActiveElement`/`ChartEvent`/`TooltipItem`, and a typed `PieController` patch.
+  - Unused imports and variables removed; `catch {}` where the error is unused.
+  - Accessibility fixes as listed above.
+  - Intentional effect dependency lists keep a commented `eslint-disable-next-line`.
+- **Verification (2026-10-15)**: `npm run lint -- --max-warnings=0` reports 0 problems across 138 files. `npm run typecheck` is clean, `npm test` passes 44/44, `npm run build` passes (lint included), and `npm audit --omit=dev` finds 0 vulnerabilities.
 
 ---
 

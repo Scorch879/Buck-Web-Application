@@ -1,5 +1,4 @@
 "use client";
-import { aiBackendFetch } from "@/utils/aiBackend";
 import React, { useEffect, useState, useRef } from "react";
 import CustomSelect from "@/component/CustomSelect";
 import CustomDatePicker from "@/component/CustomDatePicker";
@@ -22,7 +21,9 @@ import {
   setOnlyGoalActive,
 } from "@/component/goals";
 import ProgressBarCard from "./ProgressBarCard";
-import { getSavingTip } from "@/utils/aiApi";
+import DangerDeleteDialog from "@/component/DangerDeleteDialog";
+import { getGoalTip, suggestCategory } from "@/utils/aiApi";
+import { computeGoalForecast, type GoalForecast } from "@/utils/goalForecast";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -110,7 +111,7 @@ const GoalsPage = () => {
   const [progressInput, setProgressInput] = useState("");
   const [progressLoading, setProgressLoading] = useState(false);
 
-  const [forecastData, setForecastData] = useState<any>(null);
+  const [forecastData, setForecastData] = useState<GoalForecast | null>(null);
   const [forecastLoading, setForecastLoading] = useState(false);
   const [forecastError, setForecastError] = useState<string | null>(null);
 
@@ -128,22 +129,6 @@ const GoalsPage = () => {
     () => userCache.expenses ?? []
   );
   const hadInitialGoalsData = useRef(hasInitialGoalsData);
-
-  // --- AI category suggestion for goals page ---
-  async function getSuggestedCategory(
-    description: string
-  ): Promise<string | null> {
-    try {
-      const response = await aiBackendFetch("/ai/categorize_expense/", {
-          method: "POST",
-          body: JSON.stringify({ description }),
-        });
-      const data = await response.json();
-      return data.category || null;
-    } catch {
-      return null;
-    }
-  }
 
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorModalMessage, setErrorModalMessage] = useState("");
@@ -184,12 +169,11 @@ const GoalsPage = () => {
   }, [currentMonthIdx]);
 
   // --- CRUD Handlers ---
+  // Opened by the Delete button; the three-step dialog (ADR-041) calls handleDeleteGoal.
+  const [confirmGoalDelete, setConfirmGoalDelete] = useState(false);
+
   const handleDeleteGoal = async () => {
     if (!selectedGoal) return;
-    const confirmDelete = window.confirm(
-      `Are you sure you want to delete the goal "${selectedGoal.goalName}"?`
-    );
-    if (!confirmDelete) return;
 
     const result = await deleteGoal(selectedGoal.id);
     if (result.success) {
@@ -302,7 +286,7 @@ const GoalsPage = () => {
           : "Goal progress updated successfully",
         "success"
       );
-    } catch (err) {
+    } catch {
       toast("Failed to update progress.", "error");
     } finally {
       setProgressLoading(false);
@@ -311,7 +295,7 @@ const GoalsPage = () => {
 
   const handleSeeForecast = async () => {
     if (!selectedGoal || walletBudget == null || !user) {
-      let missing = [];
+      const missing: string[] = [];
       if (!selectedGoal) missing.push("goal");
       if (walletBudget == null) missing.push("wallet budget");
       if (!user) missing.push("user");
@@ -328,22 +312,7 @@ const GoalsPage = () => {
     setForecastData(null);
     setForecastModalOpen(true);
     try {
-      const goalPayload = {
-        id: selectedGoal.id,
-        userId: user.uid,
-        targetAmount: selectedGoal.targetAmount,
-        targetDate: selectedGoal.targetDate,
-        attitude: selectedGoal.attitude || "Normal",
-      };
-      const res = await aiBackendFetch("/ai/forecast/", {
-          method: "POST",
-          body: JSON.stringify({
-            goal: goalPayload,
-            budget: walletBudget,
-          }),
-        });
-      if (!res.ok) throw new Error("Failed to fetch forecast");
-      const data = await res.json();
+      const data = computeGoalForecast(selectedGoal);
       setForecastData(data);
       if (data.ai_recommended_budget && selectedGoal && user) {
         await updateGoalAiRecommendedBudget(
@@ -352,8 +321,8 @@ const GoalsPage = () => {
           Number(data.ai_recommended_budget)
         );
       }
-    } catch (err: any) {
-      setForecastError(err.message || "Unknown error");
+    } catch (err) {
+      setForecastError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setForecastLoading(false);
     }
@@ -413,63 +382,19 @@ const GoalsPage = () => {
     };
   }, [setDashboardCache, user.uid]);
 
+  // AI Financial Advisor tip for the selected goal (read server-side by id).
   useEffect(() => {
-    let didCancel = false;
-    let timeoutId: NodeJS.Timeout;
-    let retryTimeoutId: NodeJS.Timeout;
-    let startTime = Date.now();
-    const MAX_TIMEOUT = 30000; // 30 seconds
-    const MAX_BACKOFF = 4000; // max 4s between retries
-
-    async function fetchWithRetry(backoff = 1000) {
-      if (didCancel) return;
-      try {
-        setAIRecommendation("Loading AI recommendation...");
-        const attitude = selectedGoal?.attitude || "Normal";
-        let multiplier = 1.0;
-        if (attitude === "Moderate") multiplier = 0.8;
-        if (attitude === "Aggressive") multiplier = 0.6;
-        const userContext = `Attitude: ${attitude} (multiplier: ${multiplier}), Target Amount: ${selectedGoal?.targetAmount}`;
-        const tip = await Promise.race([
-          getSavingTip(
-            selectedGoal?.goalName || "",
-            userContext,
-            selectedGoal?.targetDate,
-            selectedGoal?.createdAt
-          ),
-          new Promise((_, reject) => {
-            timeoutId = setTimeout(
-              () => reject(new Error("timeout")),
-              MAX_TIMEOUT - (Date.now() - startTime)
-            );
-          }),
-        ]);
-        if (!didCancel) setAIRecommendation(typeof tip === "string" ? tip : "");
-      } catch (err) {
-        if (didCancel) return;
-        if (Date.now() - startTime < MAX_TIMEOUT) {
-          // Retry with exponential backoff
-          retryTimeoutId = setTimeout(
-            () => fetchWithRetry(Math.min(backoff * 2, MAX_BACKOFF)),
-            backoff
-          );
-        } else {
-          setAIRecommendation(null); // Don't show error, just leave blank
-        }
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    }
-
-    if (selectedGoal) {
-      fetchWithRetry();
-    } else {
+    if (!selectedGoal) {
       setAIRecommendation(null);
+      return;
     }
+    let cancelled = false;
+    setAIRecommendation("Loading AI recommendation...");
+    void getGoalTip({ goalId: selectedGoal.id }).then((tip) => {
+      if (!cancelled) setAIRecommendation(tip || null);
+    });
     return () => {
-      didCancel = true;
-      clearTimeout(timeoutId);
-      clearTimeout(retryTimeoutId);
+      cancelled = true;
     };
   }, [selectedGoal]);
 
@@ -499,6 +424,8 @@ const GoalsPage = () => {
     return () => {
       unsubscribeWallets();
     };
+    // Keyed on user.uid: the user object itself is not referentially stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setDashboardCache, user.uid]);
 
   useEffect(() => {
@@ -507,36 +434,9 @@ const GoalsPage = () => {
       setForecastLoading(true);
       setForecastError(null);
       try {
-        const goalPayload = {
-          id: selectedGoal.id,
-          userId: user.uid,
-          targetAmount: selectedGoal.targetAmount,
-          targetDate: selectedGoal.targetDate,
-          attitude: selectedGoal.attitude || "Normal",
-        };
-        let range = {};
-        if (selectedMode === "week" && weekDateRanges[selectedWeek]) {
-          range = {
-            start: weekDateRanges[selectedWeek].start,
-            end: weekDateRanges[selectedWeek].end,
-          };
-        } else if (selectedMode === "month" && monthDateRanges[selectedMonth]) {
-          range = {
-            start: monthDateRanges[selectedMonth].start,
-            end: monthDateRanges[selectedMonth].end,
-          };
-        }
-        const res = await aiBackendFetch("/ai/forecast/", {
-            method: "POST",
-            body: JSON.stringify({
-              goal: goalPayload,
-              budget: walletBudget || 0,
-              mode: selectedMode,
-              ...range,
-            }),
-          });
-        if (!res.ok) throw new Error("Failed to fetch forecast");
-        const data = await res.json();
+        // Plain-math trajectory over the whole horizon (BuckAI_Forecast will
+        // add AI on top later); the chart slices it to the selected week/month.
+        const data = computeGoalForecast(selectedGoal);
         setForecastData(data);
         if (data.ai_recommended_budget && selectedGoal && user) {
           await updateGoalAiRecommendedBudget(
@@ -545,8 +445,8 @@ const GoalsPage = () => {
             Number(data.ai_recommended_budget)
           );
         }
-      } catch (err: any) {
-        setForecastError(err.message || "Unknown error");
+      } catch (err) {
+        setForecastError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setForecastLoading(false);
       }
@@ -585,7 +485,8 @@ const GoalsPage = () => {
     setExpenseLoading(true);
     setExpenseError("");
     try {
-      const aiCategory = await getSuggestedCategory(expenseDesc);
+      // The AI Advisor files the expense under one of the user's own categories.
+      const aiCategory = await suggestCategory("expense", expenseDesc);
       await addExpenseWithWalletDeduction(user.uid, {
         date: expenseDate,
         amount: expenseValue,
@@ -682,9 +583,11 @@ const GoalsPage = () => {
     return () => {
       unsubscribeExpenses();
     };
+    // Keyed on user.uid: the user object itself is not referentially stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setDashboardCache, selectedGoal, user.uid]);
 
-  const chartRef = useRef<any>(null);
+  const chartRef = useRef<ChartJS<"line"> | null>(null);
 
   if (loadingGoals) {
     return <DashboardPageSkeleton variant="goals" />;
@@ -847,7 +750,7 @@ const GoalsPage = () => {
                   <button
                     type="button"
                     className="goals-ghost-btn goals-ghost-btn--danger"
-                    onClick={handleDeleteGoal}
+                    onClick={() => setConfirmGoalDelete(true)}
                   >
                     Delete
                   </button>
@@ -970,6 +873,7 @@ const GoalsPage = () => {
       {forecastModalOpen && selectedGoal && (
         <div
           className="modal-backdrop"
+          role="presentation"
           onClick={(e) => {
             if (e.target === e.currentTarget) setForecastModalOpen(false);
           }}
@@ -1143,6 +1047,9 @@ const GoalsPage = () => {
         >
           <div
             className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Add expense"
             style={{
               background: modalBackground,
               color: "var(--buck-ink)",
@@ -1163,6 +1070,8 @@ const GoalsPage = () => {
             }}
           >
             <button
+              type="button"
+              aria-label="Close dialog"
               onClick={() => setShowExpenseModal(false)}
               style={{
                 position: "absolute",
@@ -1177,7 +1086,7 @@ const GoalsPage = () => {
                 transition: "color 0.2s",
               }}
             >
-              &times;
+              <span aria-hidden="true">&times;</span>
             </button>
             <h3
               style={{
@@ -1271,6 +1180,20 @@ const GoalsPage = () => {
           </div>
         </div>
       )}
+      <DangerDeleteDialog
+        open={confirmGoalDelete && Boolean(selectedGoal)}
+        itemType="goal"
+        itemName={selectedGoal?.goalName ?? ""}
+        consequences={[
+          "The goal, its progress and its AI recommendation are removed.",
+          "Expenses linked to it are kept but no longer linked to a goal.",
+        ]}
+        onCancel={() => setConfirmGoalDelete(false)}
+        onConfirm={async () => {
+          await handleDeleteGoal();
+          setConfirmGoalDelete(false);
+        }}
+      />
       <AnimatePresence>
         {showModal && (
           <CreateGoalModal
@@ -1353,6 +1276,9 @@ const GoalsPage = () => {
           >
             <motion.div
                 className="modal"
+                role="alertdialog"
+                aria-modal="true"
+                aria-label="Action not allowed"
                 initial={{ y: 20, opacity: 0, scale: 0.95 }}
                 animate={{ y: 0, opacity: 1, scale: 1 }}
                 exit={{ y: 20, opacity: 0, scale: 0.95 }}
@@ -1371,6 +1297,8 @@ const GoalsPage = () => {
             }}
           >
             <button
+              type="button"
+              aria-label="Close dialog"
               onClick={() => setShowErrorModal(false)}
               style={{
                 position: "absolute",
@@ -1382,7 +1310,7 @@ const GoalsPage = () => {
                 cursor: "pointer",
               }}
             >
-              &times;
+              <span aria-hidden="true">&times;</span>
             </button>
             <h3 style={{ marginTop: 0, color: "var(--buck-coral)" }}>
               Action Not Allowed

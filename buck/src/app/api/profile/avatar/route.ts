@@ -73,7 +73,7 @@ function getSafeSignedAvatarUrl(value: string | undefined) {
 }
 
 export async function GET(request: NextRequest) {
-  let cookieResponse = NextResponse.next({ request });
+  const cookieResponse = NextResponse.next({ request });
 
   if (!isSupabaseConfigured) {
     return createFallbackAvatarResponse(request, cookieResponse);

@@ -13,7 +13,6 @@ import {
   FaEnvelope,
   FaExclamationTriangle,
   FaGoogle,
-  FaLightbulb,
   FaLock,
   FaMoon,
   FaPaperPlane,
@@ -1072,8 +1071,8 @@ export default function SettingsPage() {
 
                 <form className="settings-form" onSubmit={handleSendFeedback}>
                   <div className="settings-field">
-                    <label style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--buck-muted)', letterSpacing: '0.05em' }}>What's this about?</label>
-                    <div className="feedback-category-grid" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.2rem' }}>
+                    <p id="feedback-category-label" style={{ margin: 0, fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--buck-muted)', letterSpacing: '0.05em' }}>What&apos;s this about?</p>
+                    <div className="feedback-category-grid" role="group" aria-labelledby="feedback-category-label" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.2rem' }}>
                       {[
                         { id: 'feature', title: 'Feature idea', desc: "Something new you'd love to see" },
                         { id: 'bug', title: 'Bug report', desc: "Something isn't working right" },

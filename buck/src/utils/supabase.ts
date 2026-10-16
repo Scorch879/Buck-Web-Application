@@ -1,5 +1,6 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createInvalidatingFetch } from "@/utils/dataCache";
 import {
   isSupabaseConfigured,
   supabaseAnonKey,
@@ -19,6 +20,8 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
         persistSession: true,
       },
       cookieOptions: supabaseCookieOptions,
+      // Mutating requests invalidate the shared list cache (utils/dataCache.ts).
+      global: { fetch: createInvalidatingFetch() },
     })
   : null;
 

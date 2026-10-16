@@ -14,6 +14,7 @@ import {
   addIncome,
   getActiveWallet,
   incomeSources,
+  listIncomeCategories,
   type BuckWallet,
 } from "@/utils/supabaseData";
 import styles from "./income.module.css";
@@ -36,6 +37,9 @@ export default function AddIncomeModal({
   const [walletLoading, setWalletLoading] = useState(true);
   const [amount, setAmount] = useState("");
   const [source, setSource] = useState<string>("");
+  // The user's income categories (ADR-042); the fixed list until migration
+  // 202610130002 is applied or while loading.
+  const [categoryNames, setCategoryNames] = useState<string[]>([...incomeSources]);
   const [date, setDate] = useState(() => toLocalDateString(new Date()));
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
@@ -65,6 +69,14 @@ export default function AddIncomeModal({
     setError("");
     setDate(toLocalDateString(new Date()));
     setWalletLoading(true);
+
+    listIncomeCategories(userId)
+      .then((cats) => {
+        if (active && cats && cats.length > 0) setCategoryNames(cats.map((c) => c.name));
+      })
+      .catch(() => {
+        /* keep the fixed list */
+      });
 
     getActiveWallet(userId)
       .then((activeWallet) => {
@@ -196,7 +208,7 @@ export default function AddIncomeModal({
                 onChange={setSource}
                 options={[
                   { value: "", label: "Select a category" },
-                  ...incomeSources.map((item) => ({ value: item, label: item })),
+                  ...categoryNames.map((item) => ({ value: item, label: item })),
                 ]}
               />
             </div>

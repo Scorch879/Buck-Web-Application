@@ -38,9 +38,10 @@ type RateLimitDecision =
   | { limited: false }
   | { limited: true; message: string; retryAfterSeconds: number };
 
-const accountNotFoundMessage =
-  "No Buck account exists for that email address.";
-const resetRequestMessage = "Password reset link sent. Check your email.";
+// Identical for existing and unknown addresses so the endpoint cannot be used
+// to discover which e-mails have a Buck account.
+const resetRequestMessage =
+  "If a Buck account exists for that email, a reset link is on its way. Check your inbox.";
 const passwordResetEventType = "password_reset";
 const passwordResetIpWindowMs = 15 * 60 * 1000;
 const passwordResetIpLimit = 8;
@@ -77,19 +78,6 @@ function getPasswordResetRedirectUrl(request: Request) {
   });
 
   return `${getSiteOrigin(request)}/auth/callback?${params.toString()}`;
-}
-
-function getPublicResetError(message: string) {
-  const normalizedMessage = message.toLowerCase();
-
-  if (
-    normalizedMessage.includes("rate") ||
-    normalizedMessage.includes("too many")
-  ) {
-    return "Too many reset attempts. Please wait a little while and try again.";
-  }
-
-  return "Buck could not send the reset email right now. Please try again later.";
 }
 
 function createPasswordResetResponse(
@@ -424,8 +412,8 @@ export async function POST(request: Request) {
       );
 
       return createPasswordResetResponse(
-        { success: false, message: accountNotFoundMessage },
-        { status: 404 }
+        { success: true, message: resetRequestMessage },
+        { status: 200 }
       );
     }
   } catch (error) {
@@ -468,9 +456,11 @@ export async function POST(request: Request) {
       "provider_error"
     );
 
+    // Only reachable for real accounts, so a distinct error would reveal
+    // existence. Rate limits (429) are checked earlier and apply to every address.
     return createPasswordResetResponse(
-      { success: false, message: getPublicResetError(error.message) },
-      { status: 502 }
+      { success: true, message: resetRequestMessage },
+      { status: 200 }
     );
   }
 

@@ -19,6 +19,7 @@ import {
 } from "@/utils/supabaseData";
 import { fetchAIAdvisorInsights, type AIAdvisorInsights } from "@/utils/advisorApi";
 import { useToast } from "@/component/toast";
+import AIChat from "@/component/AIChat";
 import "./style.css";
 
 function getCurrentWeekStart() {
@@ -202,6 +203,8 @@ export default function FinancialAdvisorPage() {
       unsubscribeGoals();
       unsubscribeWallets();
     };
+    // Subscribe once per user; loadAI is recreated every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setDashboardCache, user.uid]);
 
   const activeGoal = useMemo(
@@ -381,6 +384,8 @@ export default function FinancialAdvisorPage() {
           </div>
         </section>
       </div>
+
+      <AIChat />
     </div>
   );
 }

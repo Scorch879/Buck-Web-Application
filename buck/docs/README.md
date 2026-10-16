@@ -8,7 +8,7 @@ Welcome to the centralized technical documentation repository for the **Buck Bud
 
 ```
 buck/docs/
-├── 🤖 Core AI-First Source of Truth
+├── 🤖 Core AI-First Source of Truth (kept at the repo root, not in this folder)
 │   ├── Agents.md                      # AI agent personas, system scopes & execution boundaries
 │   ├── Skills.md                      # Function, API, endpoint & hook catalog
 │   ├── Design.md                      # Architecture, database schemas, flows & ADRs
@@ -40,11 +40,11 @@ These documents form the machine-readable foundation for autonomous AI agents an
 
 | Document | Description |
 |---|---|
-| [**`Agents.md`**](./Agents.md) | Defines multi-agent roles (**QA/Doc Engineer**, **Frontend Architect**, **Backend & ML Engineer**, **Security Auditor**), boundaries, and coordination workflows. |
-| [**`Skills.md`**](./Skills.md) | Exhaustive catalog of all Supabase CRUD & Realtime functions, Next.js server route handlers, Python FastAPI endpoints, and client hooks with types and signatures. |
-| [**`Design.md`**](./Design.md) | High-level system architecture (Mermaid), full PostgreSQL schemas & RLS policies, end-to-end data flows, and Architectural Decision Records (ADRs 001–005). |
-| [**`Implementation.md`**](./Implementation.md) | Execution logic, environment variable matrix, step-by-step setup guides for Next.js & FastAPI, and hardcoded system constraints. |
-| [**`QA_Report.md`**](./QA_Report.md) | Continuous quality assurance, defect backlog categorized by severity, security compliance audit, and automated/manual testing strategy. |
+| [**`Agents.md`**](../../Agents.md) | Defines multi-agent roles (**QA/Doc Engineer**, **Frontend Architect**, **Backend & ML Engineer**, **Security Auditor**), boundaries, and coordination workflows. |
+| [**`Skills.md`**](../../Skills.md) | Exhaustive catalog of all Supabase CRUD & Realtime functions, Next.js server route handlers, Python FastAPI endpoints, and client hooks with types and signatures. |
+| [**`Design.md`**](../../Design.md) | High-level system architecture (Mermaid), full PostgreSQL schemas & RLS policies, end-to-end data flows, and Architectural Decision Records (ADRs 001–005). |
+| [**`Implementation.md`**](../../Implementation.md) | Execution logic, environment variable matrix, step-by-step setup guides for Next.js & FastAPI, and hardcoded system constraints. |
+| [**`QA_Report.md`**](../../QA_Report.md) | Continuous quality assurance, defect backlog categorized by severity, security compliance audit, and automated/manual testing strategy. |
 
 ---
 

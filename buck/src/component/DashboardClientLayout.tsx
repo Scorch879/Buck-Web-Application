@@ -22,6 +22,10 @@ function getSkeletonVariant(pathname: string | null): import("@/component/Dashbo
     return "wallet";
   }
 
+  if (pathname?.startsWith("/dashboard/categories")) {
+    return "categories";
+  }
+
   if (pathname?.startsWith("/dashboard/financial-advisor")) {
     return "financial-advisor";
   }
@@ -51,6 +55,14 @@ function getSkeletonVariant(pathname: string | null): import("@/component/Dashbo
 
 
 function getPageChrome(pathname: string | null) {
+  if (pathname?.startsWith("/dashboard/categories")) {
+    return {
+      title: "Categories",
+      eyebrow: "Organize your money",
+      description: "Create, rename, and clean up your expense and income categories.",
+    };
+  }
+
   if (pathname?.startsWith("/dashboard/wallet")) {
     return {
       title: "Wallets",

@@ -1,0 +1,283 @@
+/* Three-step delete confirmation (Design.md ADR-041). */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(18, 13, 10, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: min(460px, 100%);
+  max-height: min(82dvh, 760px);
+  overflow-y: auto;
+  padding: clamp(1.1rem, 3vw, 1.4rem);
+  color: var(--buck-ink);
+  background: var(--buck-surface);
+  border: 1px solid rgba(255, 56, 56, 0.35);
+  border-radius: 12px;
+  box-shadow: var(--buck-shadow);
+}
+
+html[data-buck-theme="dark"] .dialog {
+  background: #22160f;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.headerIcon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  color: var(--buck-coral);
+  background: rgba(255, 56, 56, 0.12);
+  border-radius: 10px;
+}
+
+.headerText {
+  min-width: 0;
+}
+
+.headerText h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.itemName {
+  margin: 0.1rem 0 0;
+  overflow: hidden;
+  color: var(--buck-muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Step indicator */
+.steps {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stepDot {
+  flex: 1;
+  height: 4px;
+  background: var(--buck-line);
+  border-radius: 999px;
+}
+
+.stepDotDone {
+  background: var(--buck-coral);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.warning {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  color: var(--buck-ink);
+  background: rgba(255, 56, 56, 0.08);
+  border: 1px solid rgba(255, 56, 56, 0.3);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.consequences {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--buck-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+/* Step 1: slide to delete */
+.slideTrack {
+  --slide-progress: 0;
+  position: relative;
+  height: 48px;
+  overflow: hidden;
+  background: rgba(255, 56, 56, 0.08);
+  border: 1px solid rgba(255, 56, 56, 0.35);
+  border-radius: 999px;
+  user-select: none;
+  touch-action: none;
+}
+
+.slideFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--slide-progress) * 100%);
+  background: rgba(255, 56, 56, 0.22);
+}
+
+.slideTrack:not(.slideTrackActive) .slideFill {
+  transition: width 200ms ease;
+}
+
+.slideText {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding-left: 3rem;
+  color: var(--buck-coral);
+  font-size: 0.85rem;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.slideKnob {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  color: #ffffff;
+  background: var(--buck-coral);
+  border: 0;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(255, 56, 56, 0.35);
+  cursor: grab;
+  touch-action: none;
+}
+
+.slideTrack:not(.slideTrackActive) .slideKnob {
+  transition: transform 200ms ease;
+}
+
+.slideTrackActive .slideKnob {
+  cursor: grabbing;
+}
+
+.slideKnob:focus-visible {
+  outline: 3px solid rgba(255, 56, 56, 0.45);
+  outline-offset: 2px;
+}
+
+/* Step 3: type to confirm */
+.typeLabel {
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.code {
+  padding: 0.05rem 0.35rem;
+  color: var(--buck-coral);
+  background: rgba(255, 56, 56, 0.1);
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+
+.typeInput {
+  min-height: 42px;
+  padding: 0.6rem 0.8rem;
+  color: var(--buck-ink);
+  background: rgba(255, 250, 244, 0.72);
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.95rem;
+  outline: none;
+}
+
+html[data-buck-theme="dark"] .typeInput {
+  background: rgba(255, 197, 71, 0.08);
+}
+
+.typeInput:focus {
+  border-color: var(--buck-coral);
+  box-shadow: 0 0 0 3px rgba(255, 56, 56, 0.15);
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.cancelBtn,
+.dangerBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 40px;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cancelBtn {
+  color: var(--buck-ink);
+  background: transparent;
+  border: 1px solid var(--buck-line);
+}
+
+.cancelBtn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+html[data-buck-theme="dark"] .cancelBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dangerBtn {
+  color: #ffffff;
+  background: var(--buck-coral);
+  border: 1px solid var(--buck-coral);
+}
+
+.dangerBtn:hover:not(:disabled) {
+  background: #e62e2e;
+}
+
+.dangerBtn:disabled,
+.cancelBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@media (max-width: 480px) {
+  .actions > * {
+    flex: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slideFill,
+  .slideKnob {
+    transition: none !important;
+  }
+}

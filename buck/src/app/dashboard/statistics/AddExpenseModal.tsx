@@ -1,11 +1,12 @@
 "use client";
-import { aiBackendFetch } from "@/utils/aiBackend";
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import CustomSelect from "@/component/CustomSelect";
+import { suggestCategory } from "@/utils/aiApi";
 import CustomDatePicker from "@/component/CustomDatePicker";
 import { useToast } from "@/component/toast/ToastContext";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
+import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import {
   addCategory,
   addExpenseWithWalletDeduction,
@@ -59,20 +60,6 @@ export default function AddExpenseModal({
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editCategoryName, setEditCategoryName] = useState("");
 
-  // --- AI category suggestion ---
-  async function getSuggestedCategory(description: string): Promise<string | null> {
-    try {
-      const response = await aiBackendFetch("/ai/categorize_expense/", {
-          method: "POST",
-          body: JSON.stringify({ description }),
-        });
-      const data = await response.json();
-      return data.category || null;
-    } catch {
-      return null;
-    }
-  }
-
   const handleEditCategory = async (catId: string, newName: string) => {
     if (!newName.trim()) return;
     await updateCategoryName(userId, catId, newName);
@@ -80,8 +67,10 @@ export default function AddExpenseModal({
     setEditCategoryName("");
   };
 
+  // Category awaiting the three-step delete confirmation (ADR-041).
+  const [pendingCategory, setPendingCategory] = useState<BuckCategory | null>(null);
+
   const handleRemoveCategory = async (catId: string) => {
-    if (!window.confirm("Are you sure you want to delete this category?")) return;
     try {
       await deleteCategory(userId, catId);
       toast("Category deleted successfully", "success");
@@ -105,7 +94,8 @@ export default function AddExpenseModal({
     setExpenseLoading(true);
     setExpenseError("");
     try {
-      const aiCategory = selectedCategory ? null : await getSuggestedCategory(expenseDesc);
+      // No category picked: the AI Advisor suggests one of the user's own.
+      const aiCategory = selectedCategory ? null : await suggestCategory("expense", expenseDesc);
       await addExpenseWithWalletDeduction(userId, {
         date: expenseDate,
         amount: parseFloat(expenseAmount),
@@ -150,6 +140,9 @@ export default function AddExpenseModal({
         >
           <motion.div
             className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Add expense"
             initial={{ y: 20, opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 20, opacity: 0, scale: 0.95 }}
@@ -171,6 +164,8 @@ export default function AddExpenseModal({
             }}
           >
             <button
+              type="button"
+              aria-label="Close dialog"
               onClick={() => onClose()}
               style={{
               position: "absolute",
@@ -185,7 +180,7 @@ export default function AddExpenseModal({
               transition: "color 0.2s",
             }}
           >
-            &times;
+            <span aria-hidden="true">&times;</span>
           </button>
           <h3
             style={{
@@ -378,7 +373,7 @@ export default function AddExpenseModal({
                           Edit
                         </button>
                         <button
-                          onClick={() => handleRemoveCategory(cat.id)}
+                          onClick={() => setPendingCategory(cat)}
                           style={{
                             background: "none",
                             color: "var(--buck-coral)",
@@ -399,7 +394,7 @@ export default function AddExpenseModal({
             </div>
           </div>
           <div style={{ marginBottom: 12, width: "100%" }}>
-            <label
+            <span
               style={{
                 fontWeight: 700,
                 color: "var(--buck-orange)",
@@ -408,7 +403,7 @@ export default function AddExpenseModal({
               }}
             >
               Category:
-            </label>
+            </span>
             <CustomSelect
               value={selectedCategory}
               onChange={(val) => setSelectedCategory(val)}
@@ -512,6 +507,19 @@ export default function AddExpenseModal({
         </motion.div>
       </motion.div>
     )}
+      <DangerDeleteDialog
+        key="delete-category"
+        open={Boolean(pendingCategory)}
+        itemType="category"
+        itemName={pendingCategory?.name ?? ""}
+        consequences={["Existing expenses keep their category name but lose the link to this category."]}
+        onCancel={() => setPendingCategory(null)}
+        onConfirm={async () => {
+          if (!pendingCategory) return;
+          await handleRemoveCategory(pendingCategory.id);
+          setPendingCategory(null);
+        }}
+      />
     </AnimatePresence>
   );
 }

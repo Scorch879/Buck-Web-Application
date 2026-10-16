@@ -7,6 +7,7 @@ import {
   supabaseUrl,
 } from "@/utils/supabaseConfig";
 import { isAdminUser } from "@/utils/adminAccess";
+import { buildCsp, createNonce } from "@/utils/csp";
 
 const SESSION_ACTIVITY_COOKIE = "buck-session-activity";
 const DEFAULT_IDLE_TIMEOUT_MINUTES = 30;
@@ -303,6 +304,26 @@ function clearSupabaseAuthCookies(request: NextRequest, response: NextResponse) 
 }
 
 export async function middleware(request: NextRequest) {
+  // Per-request CSP nonce: the CSP travels on the forwarded request headers so
+  // Next can stamp its own scripts, and on the response for the browser.
+  const nonce = createNonce();
+  const csp = buildCsp(nonce, {
+    isDev: process.env.NODE_ENV !== "production",
+    supabaseUrl: supabaseUrl,
+    // Same host the browser's AI calls use (utils/buckAi.ts).
+    buckAiUrl: process.env.NEXT_PUBLIC_BUCK_AI_URL?.trim() || "http://localhost:8000",
+  });
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("content-security-policy", csp);
+
+  const response = await handleRequest(request, requestHeaders);
+  response.headers.set("Content-Security-Policy", csp);
+
+  return response;
+}
+
+async function handleRequest(request: NextRequest, requestHeaders: Headers) {
   const { pathname } = request.nextUrl;
   const isProtectedRoute = pathname.startsWith("/dashboard");
   const isAuthRoute = AUTH_ROUTES.has(pathname);
@@ -311,7 +332,7 @@ export async function middleware(request: NextRequest) {
     !NON_SESSION_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   const sessionCookieSecret = getSessionCookieSecret();
   const shouldEnforceServerIdle = Boolean(sessionCookieSecret);
-  let response = NextResponse.next({ request });
+  let response = NextResponse.next({ request: { headers: requestHeaders } });
 
   if (isRootAuthReturn(request)) {
     const redirectResponse = NextResponse.redirect(
@@ -365,6 +386,8 @@ export async function middleware(request: NextRequest) {
         cookiesToSet.forEach(({ name, value }) => {
           request.cookies.set(name, value);
         });
+        // Keep refreshed auth cookies visible to this request's server components.
+        requestHeaders.set("cookie", request.headers.get("cookie") ?? "");
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options);
         });

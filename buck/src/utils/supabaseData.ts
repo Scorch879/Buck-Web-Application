@@ -1,14 +1,27 @@
 import { getSupabaseClient } from "@/utils/supabase";
+import { bumpDataEpoch, cachedRead, copyList } from "@/utils/dataCache";
 import { toLocalDateString } from "@/utils/cashFlow";
 import {
   designPreviewUserId,
   isDesignPreviewMode,
 } from "@/utils/designPreview";
 
+/** Expense and income categories share one table (Design.md ADR-042). */
+export type CategoryKind = "expense" | "income";
+
 export type BuckCategory = {
   id: string;
   name: string;
+  kind?: CategoryKind;
 };
+
+/**
+ * Bucket used when no category fits. The AI categorizer (and the
+ * add_expense_atomic RPC) fall back to it, so it cannot be renamed or deleted.
+ */
+export const UNCATEGORIZED_EXPENSE = "Uncategorized";
+/** Income fallback; income rows default to it when no source is given. */
+export const UNCATEGORIZED_INCOME = "Other";
 
 export type BuckExpense = {
   id: string;
@@ -177,6 +190,7 @@ const uuidRegex =
 
 const defaultCategoryNames = [
   "Food",
+  "Fare",
   "Gas Money",
   "Video Games",
   "Shopping",
@@ -194,6 +208,12 @@ const defaultCategoryNames = [
   "Transportation",
   "Uncategorized",
 ];
+
+const previewIncomeCategories: BuckCategory[] = incomeSources.map((name) => ({
+  id: `preview-income-category-${name.toLowerCase()}`,
+  name,
+  kind: "income",
+}));
 
 const previewCategories: BuckCategory[] = [
   { id: "preview-category-food", name: "Food" },
@@ -307,7 +327,14 @@ function mapCategory(row: Record<string, unknown>): BuckCategory {
   return {
     id: String(row.id),
     name: String(row.name || "Unnamed category"),
+    kind: row.kind === "income" ? "income" : "expense",
   };
+}
+
+// Postgres "undefined column": the income-categories migration
+// (202610130002) has not been applied yet, so `categories.kind` is missing.
+function isMissingColumnError(error: { code?: string } | null) {
+  return error?.code === "42703";
 }
 
 function mapExpense(row: Record<string, unknown>): BuckExpense {
@@ -754,6 +781,15 @@ export async function removeUserAvatar(userId: string, avatarPath: string | null
   return getUserProfile(safeUserId);
 }
 
+// One realtime channel per (table, user), shared by every subscriber (OPT-003).
+// Each page used to open its own channel for the same rows.
+type SharedChannel = {
+  listeners: Set<() => void>;
+  timer: ReturnType<typeof setTimeout> | null;
+  teardown: () => void;
+};
+const sharedChannels = new Map<string, SharedChannel>();
+
 export function subscribeUserTable(
   table: TableName,
   userId: string,
@@ -764,24 +800,60 @@ export function subscribeUserTable(
   }
 
   const safeUserId = assertUuid(userId, "user id");
-  const supabase = getSupabaseClient();
-  const userColumn = table === "profiles" ? "id" : "user_id";
-  const channel = supabase
-    .channel(`${table}:${safeUserId}:${Math.random().toString(36).slice(2)}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table,
-        filter: `${userColumn}=eq.${safeUserId}`,
-      },
-      onChange
-    )
-    .subscribe();
+  const key = `${table}:${safeUserId}`;
+  let shared = sharedChannels.get(key);
+
+  if (!shared) {
+    const supabase = getSupabaseClient();
+    const userColumn = table === "profiles" ? "id" : "user_id";
+    const created: SharedChannel = {
+      listeners: new Set(),
+      timer: null,
+      teardown: () => {},
+    };
+
+    // A change from another tab or the mobile app invalidates cached reads at
+    // once; the fan-out is coalesced because a bulk write fires one event per row.
+    const notify = () => {
+      bumpDataEpoch();
+      if (created.timer) clearTimeout(created.timer);
+      created.timer = setTimeout(() => {
+        created.timer = null;
+        created.listeners.forEach((listener) => listener());
+      }, 300);
+    };
+
+    const channel = supabase
+      .channel(`${key}:${Math.random().toString(36).slice(2)}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table,
+          filter: `${userColumn}=eq.${safeUserId}`,
+        },
+        notify
+      )
+      .subscribe();
+
+    created.teardown = () => {
+      if (created.timer) clearTimeout(created.timer);
+      void supabase.removeChannel(channel);
+    };
+    sharedChannels.set(key, created);
+    shared = created;
+  }
+
+  const active = shared;
+  active.listeners.add(onChange);
 
   return () => {
-    void supabase.removeChannel(channel);
+    active.listeners.delete(onChange);
+    if (active.listeners.size === 0) {
+      active.teardown();
+      sharedChannels.delete(key);
+    }
   };
 }
 
@@ -813,7 +885,7 @@ export async function ensureDefaultCategories(userId: string) {
   return listCategories(safeUserId);
 }
 
-export async function listCategories(userId: string) {
+async function fetchListCategories(userId: string) {
   if (isDesignPreviewMode) {
     return previewCategories;
   }
@@ -822,39 +894,183 @@ export async function listCategories(userId: string) {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("categories")
-    .select("id, name, sort_order")
+    .select("id, name, kind, sort_order")
     .eq("user_id", safeUserId)
+    .eq("kind", "expense")
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
 
   if (error) {
+    if (isMissingColumnError(error)) {
+      // Before 202610130002 every category is an expense category.
+      const legacy = await supabase
+        .from("categories")
+        .select("id, name, sort_order")
+        .eq("user_id", safeUserId)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+      if (legacy.error) throw new Error(legacy.error.message);
+      return (legacy.data ?? []).map(mapCategory);
+    }
     throw new Error(error.message);
   }
 
   return (data ?? []).map(mapCategory);
 }
 
-export async function addCategory(userId: string, name: string) {
+/**
+ * The user's income categories, seeding the defaults on first use. Returns
+ * `null` when income categories are unavailable (migration 202610130002 not
+ * applied); callers then fall back to the fixed `incomeSources` list.
+ */
+export async function listIncomeCategories(userId: string): Promise<BuckCategory[] | null> {
+  if (isDesignPreviewMode) {
+    return previewIncomeCategories;
+  }
+
+  const safeUserId = assertUuid(userId, "user id");
+  const supabase = getSupabaseClient();
+  const select = () =>
+    supabase
+      .from("categories")
+      .select("id, name, kind, sort_order")
+      .eq("user_id", safeUserId)
+      .eq("kind", "income")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+
+  const { data, error } = await select();
+  if (error) {
+    if (isMissingColumnError(error)) return null;
+    throw new Error(error.message);
+  }
+  if (data && data.length > 0) return data.map(mapCategory);
+
+  const { error: seedError } = await supabase.from("categories").insert(
+    incomeSources.map((name, index) => ({
+      user_id: safeUserId,
+      name,
+      kind: "income",
+      sort_order: (index + 1) * 10,
+    }))
+  );
+  if (seedError && seedError.code !== "23505") throw new Error(seedError.message);
+
+  const seeded = await select();
+  if (seeded.error) throw new Error(seeded.error.message);
+  return (seeded.data ?? []).map(mapCategory);
+}
+
+/** Expenses still in the Uncategorized bucket (input for AI auto-categorize). */
+export async function listUncategorizedExpenses(userId: string) {
+  const expenses = await listExpenses(userId);
+  return expenses.filter(
+    (e) => !e.category || e.category === UNCATEGORIZED_EXPENSE
+  );
+}
+
+/**
+ * Incomes without a real category: source "Other", or a source that no longer
+ * matches any of the user's income categories (input for AI auto-categorize).
+ */
+export async function listUncategorizedIncomes(
+  userId: string,
+  incomeCategories: BuckCategory[]
+): Promise<BuckIncome[]> {
+  const incomes = (await listIncomes(userId)) ?? [];
+  const known = new Set(incomeCategories.map((c) => c.name.toLowerCase()));
+  return incomes.filter(
+    (i) => i.source === UNCATEGORIZED_INCOME || !known.has(i.source.toLowerCase())
+  );
+}
+
+/** Re-files an expense under a category (keeps category_name in sync). */
+export async function setExpenseCategory(
+  userId: string,
+  expenseId: string,
+  category: BuckCategory
+) {
+  if (isDesignPreviewMode) return;
+
+  const safeUserId = assertUuid(userId, "user id");
+  const safeExpenseId = assertUuid(expenseId, "expense id");
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("expenses")
+    .update({
+      category_id: assertUuid(category.id, "category id"),
+      category_name: category.name,
+    })
+    .eq("id", safeExpenseId)
+    .eq("user_id", safeUserId);
+
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Re-files an income under a category by name. After 202610130002 a trigger
+ * also sets incomes.category_id from the name.
+ */
+export async function setIncomeCategory(
+  userId: string,
+  incomeId: string,
+  categoryName: string
+) {
+  if (isDesignPreviewMode) return;
+
+  const safeUserId = assertUuid(userId, "user id");
+  const safeIncomeId = assertUuid(incomeId, "income id");
+  const name = categoryName.trim();
+  if (!name) throw new Error("Category name is required.");
+
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("incomes")
+    .update({ source: name })
+    .eq("id", safeIncomeId)
+    .eq("user_id", safeUserId);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function addCategory(
+  userId: string,
+  name: string,
+  kind: CategoryKind = "expense"
+) {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    throw new Error("Category name is required.");
+  }
+
   if (isDesignPreviewMode) {
     return {
-      id: `preview-category-${name.toLowerCase().replace(/\s+/g, "-")}`,
-      name: name.trim(),
+      id: `preview-category-${kind}-${trimmed.toLowerCase().replace(/\s+/g, "-")}`,
+      name: trimmed,
+      kind,
     };
   }
 
   const safeUserId = assertUuid(userId, "user id");
   const supabase = getSupabaseClient();
+  // `kind` is only sent for income so expense inserts keep working before
+  // migration 202610130002 (the column defaults to 'expense').
+  const row: Record<string, string> = { user_id: safeUserId, name: trimmed };
+  if (kind === "income") row.kind = kind;
   const { data, error } = await supabase
     .from("categories")
-    .insert({ user_id: safeUserId, name: name.trim() })
+    .insert(row)
     .select("id, name")
     .single();
 
   if (error) {
+    if (error.code === "23505") {
+      throw new Error(`A category named "${trimmed}" already exists.`);
+    }
     throw new Error(error.message);
   }
 
-  return mapCategory(data);
+  return { ...mapCategory(data), kind };
 }
 
 export async function updateCategoryName(
@@ -880,6 +1096,111 @@ export async function updateCategoryName(
   }
 }
 
+/**
+ * Renames a category and copies the new name onto the items filed under it
+ * (expenses.category_name / incomes.source). Migration 202610130002 adds a
+ * trigger that does the same; doing it here too keeps history correct before
+ * that migration is applied.
+ */
+export async function renameCategory(
+  userId: string,
+  category: BuckCategory,
+  newName: string
+) {
+  const name = newName.trim();
+  if (!name) throw new Error("Category name is required.");
+  if (isDesignPreviewMode) return;
+
+  const safeUserId = assertUuid(userId, "user id");
+  const safeCategoryId = assertUuid(category.id, "category id");
+  const supabase = getSupabaseClient();
+
+  const { error } = await supabase
+    .from("categories")
+    .update({ name })
+    .eq("id", safeCategoryId)
+    .eq("user_id", safeUserId);
+  if (error) {
+    if (error.code === "23505") throw new Error(`A category named "${name}" already exists.`);
+    throw new Error(error.message);
+  }
+
+  if (category.kind === "income") {
+    const { error: syncError } = await supabase
+      .from("incomes")
+      .update({ source: name })
+      .eq("user_id", safeUserId)
+      .eq("source", category.name);
+    if (syncError) throw new Error(syncError.message);
+  } else {
+    const { error: syncError } = await supabase
+      .from("expenses")
+      .update({ category_name: name })
+      .eq("user_id", safeUserId)
+      .eq("category_id", safeCategoryId);
+    if (syncError) throw new Error(syncError.message);
+  }
+}
+
+/**
+ * Deletes a category after moving its items to the fallback bucket
+ * (expenses -> "Uncategorized", incomes -> "Other"), so nothing is left
+ * pointing at a category that no longer exists. Moved items then show up for
+ * AI auto-categorize. Returns how many items were moved.
+ */
+export async function deleteCategoryAndReassign(
+  userId: string,
+  category: BuckCategory,
+  fallback: BuckCategory | null
+): Promise<number> {
+  if (isDesignPreviewMode) return 0;
+
+  const safeUserId = assertUuid(userId, "user id");
+  const safeCategoryId = assertUuid(category.id, "category id");
+  const supabase = getSupabaseClient();
+  let moved = 0;
+
+  if (category.kind === "income") {
+    const { data, error } = await supabase
+      .from("incomes")
+      .update({ source: fallback?.name ?? UNCATEGORIZED_INCOME })
+      .eq("user_id", safeUserId)
+      .eq("source", category.name)
+      .select("id");
+    if (error) throw new Error(error.message);
+    moved = data?.length ?? 0;
+  } else {
+    const { data, error } = await supabase
+      .from("expenses")
+      .update({
+        category_id: fallback ? assertUuid(fallback.id, "category id") : null,
+        category_name: fallback?.name ?? UNCATEGORIZED_EXPENSE,
+      })
+      .eq("user_id", safeUserId)
+      .eq("category_id", safeCategoryId)
+      .select("id");
+    if (error) throw new Error(error.message);
+    moved = data?.length ?? 0;
+
+    // Older rows may carry only the name (category_id null).
+    const legacy = await supabase
+      .from("expenses")
+      .update({
+        category_id: fallback ? assertUuid(fallback.id, "category id") : null,
+        category_name: fallback?.name ?? UNCATEGORIZED_EXPENSE,
+      })
+      .eq("user_id", safeUserId)
+      .is("category_id", null)
+      .eq("category_name", category.name)
+      .select("id");
+    if (legacy.error) throw new Error(legacy.error.message);
+    moved += legacy.data?.length ?? 0;
+  }
+
+  await deleteCategory(safeUserId, safeCategoryId);
+  return moved;
+}
+
 export async function deleteCategory(userId: string, categoryId: string) {
   if (isDesignPreviewMode) {
     return;
@@ -899,27 +1220,41 @@ export async function deleteCategory(userId: string, categoryId: string) {
   }
 }
 
-export async function listExpenses(userId: string) {
+async function fetchListExpenses(userId: string) {
   if (isDesignPreviewMode) {
     return previewExpenses;
   }
 
   const safeUserId = assertUuid(userId, "user id");
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from("expenses")
-    .select(
-      "id, user_id, wallet_id, goal_id, category_id, category_name, amount, description, spent_on, created_at"
-    )
-    .eq("user_id", safeUserId)
-    .order("spent_on", { ascending: false })
-    .order("created_at", { ascending: false });
+  // PostgREST returns at most 1,000 rows per request, so a single query would
+  // silently drop older expenses. Page until a short page comes back.
+  const pageSize = 1000;
+  const rows: Record<string, unknown>[] = [];
 
-  if (error) {
-    throw new Error(error.message);
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("expenses")
+      .select(
+        "id, user_id, wallet_id, goal_id, category_id, category_name, amount, description, spent_on, created_at"
+      )
+      .eq("user_id", safeUserId)
+      .order("spent_on", { ascending: false })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    rows.push(...(data ?? []));
+    if (!data || data.length < pageSize) {
+      break;
+    }
   }
 
-  return (data ?? []).map(mapExpense);
+  return rows.map(mapExpense);
 }
 
 async function getCategoryByName(userId: string, categoryName: string) {
@@ -1034,7 +1369,7 @@ export async function deleteExpense(userId: string, expenseId: string) {
   }
 }
 
-export async function listGoals(userId: string) {
+async function fetchListGoals(userId: string) {
   if (isDesignPreviewMode) {
     return previewGoals;
   }
@@ -1252,7 +1587,7 @@ export async function updateGoalAiRecommendedBudget(
   }
 }
 
-export async function listWallets(userId: string) {
+async function fetchListWallets(userId: string) {
   if (isDesignPreviewMode) {
     return previewWallets;
   }
@@ -1556,7 +1891,7 @@ function buildPreviewIncomes(): BuckIncome[] {
  * Lists the user's incomes, newest first. Returns `null` when income tracking
  * is unavailable (table missing), so callers can show "Not tracked yet".
  */
-export async function listIncomes(
+async function fetchListIncomes(
   userId: string,
   options: { since?: string } = {}
 ): Promise<BuckIncome[] | null> {
@@ -1942,4 +2277,33 @@ export async function dismissAIAdvisory(
     console.error("Failed to dismiss advisory:", error);
     throw new Error(error.message);
   }
+}
+
+// Cached, write-aware wrappers (utils/dataCache.ts). Internals above do the fetch.
+export function listExpenses(userId: string) {
+  return cachedRead(`expenses:${userId}`, () => fetchListExpenses(userId)).then(copyList);
+}
+
+export function listGoals(userId: string) {
+  return cachedRead(`goals:${userId}`, () => fetchListGoals(userId)).then(copyList);
+}
+
+export function listWallets(userId: string) {
+  return cachedRead(`wallets:${userId}`, () => fetchListWallets(userId)).then(copyList);
+}
+
+export function listCategories(userId: string) {
+  return cachedRead(`categories:${userId}`, () => fetchListCategories(userId)).then(copyList);
+}
+
+export async function listIncomes(
+  userId: string,
+  options: { since?: string } = {}
+): Promise<BuckIncome[] | null> {
+  const list = await cachedRead(
+    `incomes:${userId}:${options.since ?? ""}`,
+    () => fetchListIncomes(userId, options)
+  );
+
+  return list ? copyList(list) : list;
 }

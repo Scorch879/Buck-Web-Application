@@ -69,6 +69,7 @@ export default function ForecastSkeleton() {
           </section>
         ))}
       </div>
+
     </div>
   );
 }

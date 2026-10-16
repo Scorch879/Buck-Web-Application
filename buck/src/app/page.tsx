@@ -1,13 +1,13 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useScroll, useSpring, useTransform } from "framer-motion";
 import type { TargetAndTransition, Variants } from "framer-motion";
-import { FaArrowRight, FaBars, FaChevronRight, FaMoon, FaSun, FaTimes, FaEnvelope } from "react-icons/fa";
+import { FaArrowRight, FaBars, FaMoon, FaSun, FaTimes, FaEnvelope } from "react-icons/fa";
 import {
   legalContentByType,
   type LegalModalType,
