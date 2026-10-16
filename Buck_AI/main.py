@@ -44,14 +44,8 @@ async def unhandled(request: Request, exc: Exception):
 
 @app.get("/")
 async def health():
-    settings = get_settings()
-    return {
-        "service": "buck-ai",
-        "advisor": "ready",
-        "forecast": "planned",
-        "gemini": "configured" if settings.gemini_configured else "missing GEMINI_API_KEY (fallbacks only)",
-        "model": settings.gemini_model,
-    }
+    # Liveness only: no configuration state or model name for anonymous callers.
+    return {"service": "buck-ai", "ok": True}
 
 
 app.include_router(advisor_router)

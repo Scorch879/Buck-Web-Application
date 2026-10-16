@@ -7,6 +7,7 @@ in the server environment.
 
 import asyncio
 import json
+import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
@@ -15,6 +16,8 @@ from google import genai
 from google.genai import types
 
 from .config import get_settings
+
+log = logging.getLogger("buck_ai.gemini")
 
 MAX_TOOL_ROUNDS = 4
 
@@ -126,7 +129,9 @@ async def _run_tool(by_name: dict[str, Tool], call: types.FunctionCall) -> types
     try:
         response = {"result": await tool.run(dict(call.args or {}))} if tool else {"error": f"Unknown tool {call.name}"}
     except Exception as exc:  # report back to the model instead of crashing
-        response = {"error": str(exc) or "Tool failed."}
+        # Details stay in the log: database error text must not reach the model or the user.
+        log.warning("Tool %s failed: %s", call.name, exc)
+        response = {"error": "Tool failed. Answer from the snapshot or say the data is unavailable."}
     return types.Part(function_response=types.FunctionResponse(id=call.id, name=call.name, response=response))
 
 

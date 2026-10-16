@@ -37,7 +37,7 @@ def _unavailable() -> HTTPException:
 
 @router.get("/insight")
 async def insight(refresh: bool = False, user: AuthUser = Depends(current_user)):
-    rate_limit.enforce(user.id, "insight")
+    await rate_limit.enforce(_db(user), "insight")
     try:
         return await service.get_insight(_db(user), refresh=refresh)
     except DbError:
@@ -64,7 +64,7 @@ class ChatInput(BaseModel):
 
 @router.post("/chat")
 async def chat(body: ChatInput, user: AuthUser = Depends(current_user)):
-    rate_limit.enforce(user.id, "chat")
+    await rate_limit.enforce(_db(user), "chat")
     question = clean_text(body.question, 500)
     if not question:
         raise HTTPException(422, "Ask a question first.")
@@ -99,7 +99,7 @@ class GoalTipInput(BaseModel):
 
 @router.post("/goal-tip")
 async def goal_tip(body: GoalTipInput, user: AuthUser = Depends(current_user)):
-    rate_limit.enforce(user.id, "tip")
+    await rate_limit.enforce(_db(user), "tip")
     goal = (
         {"goal_id": body.goal_id}
         if body.goal_id
@@ -123,7 +123,7 @@ class CategorizeInput(BaseModel):
 async def categorize(body: CategorizeInput, user: AuthUser = Depends(current_user)):
     """`{ categories: (name | null)[] }` in input order. null means "no confident
     match" (or AI unavailable): leave the item in the fallback category."""
-    rate_limit.enforce(user.id, "categorize")
+    await rate_limit.enforce(_db(user), "categorize")
     try:
         names = await categorizer.categorize(_db(user), body.kind, [d[:300] for d in body.descriptions])
     except DbError:

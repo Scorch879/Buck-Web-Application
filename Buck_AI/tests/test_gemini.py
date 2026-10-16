@@ -90,7 +90,7 @@ class ToolLoopTests(unittest.IsolatedAsyncioTestCase):
         out = await collect(gemini.stream_with_tools(
             "sys", [], [gemini.Tool("boom", "x", {"type": "object", "properties": {}}, boom)]))
         responses = [p.function_response.response for p in fake.aio.models.calls[1][1].parts]
-        self.assertEqual(responses, [{"error": "Unknown tool drop_tables"}, {"error": "db down"}])
+        self.assertEqual(responses, [{"error": "Unknown tool drop_tables"}, {"error": "Tool failed. Answer from the snapshot or say the data is unavailable."}])
         self.assertEqual(out, ["ok"])
 
     async def test_round_limit(self):

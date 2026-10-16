@@ -53,6 +53,19 @@ class UserDb:
             raise DbError(f"Database unreachable: {exc.__class__.__name__}") from exc
         return self._check(response) or []
 
+    async def rpc(self, function: str, args: dict[str, Any]) -> Any:
+        """POST /rest/v1/rpc/<function> as the user (RLS and auth.uid() apply)."""
+        try:
+            response = await get_http().post(
+                f"{get_settings().supabase_url}/rest/v1/rpc/{function}",
+                json=args,
+                headers=self._headers(),
+                timeout=3,
+            )
+        except httpx.HTTPError as exc:
+            raise DbError(f"Database unreachable: {exc.__class__.__name__}") from exc
+        return self._check(response)
+
     async def insert(self, table: str, row: dict[str, Any]) -> dict[str, Any]:
         try:
             response = await get_http().post(

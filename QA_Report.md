@@ -73,6 +73,22 @@ Scope: server routes, middleware, auth callback, deletion flow, session/state co
 
 **Verified**: `tsc --noEmit` clean; `npm test` 39/39. **Not verified**: `next build` (a build would clobber the running dev server's `.next`), the deletion e-mail round trip, headers in a browser.
 
+### 🔐 Database + Backend Audit (2026-10-16)
+
+Scope: live Supabase (RLS, grants, functions, constraints, storage, advisors), `Buck_AI/`, new web routes. Migration [`202610160001`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610160001_privileges_feedback_retention_ai_limits.sql) applied to live and recorded in history.
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-021** | 🟡 Medium | `Buck_AI` rate limiter was in memory per serverless instance, so one user could spread requests over instances and drain the shared Gemini free quota. | **Resolved.** `ai_rate_limit_take()` (user-scoped, advisory-locked sliding window in `ai_usage_events`, insert/select-only RLS so events cannot be deleted) is called from `shared/rate_limit.py`; the local window runs first and is the fallback if the RPC fails. Live-tested: 2 calls allowed, 3rd blocked with a wait. 3 new Python tests. |
+| **SEC-022** | 🟡 Medium | `anon` held full DML/TRUNCATE on 10 public tables; `authenticated` held TRUNCATE/REFERENCES/TRIGGER. RLS was the only barrier. | **Resolved.** All `anon` table privileges revoked (also from default privileges); `authenticated` keeps SELECT/INSERT/UPDATE/DELETE only. Verified: anon 0 privileges. |
+| **SEC-023** | 🟢 Low | `feedback` had no length limits and `user_email` was client-supplied (forgeable sender in admin triage). | **Resolved.** CHECK limits (title 200, details 5000, e-mail 254); insert policy requires `user_email` = the caller's JWT e-mail. |
+| **SEC-024** | 🟢 Low | No retention: `auth_security_events`, expired `ai_forecasts`, unbounded `ai_advisories`. | **Resolved.** `purge_expired_data()` (service_role only; 30 d events, 1 d usage, 30 d past forecast expiry, newest 50 advisories per user) runs from the daily `/api/account/deletion/purge` cron. First run removed 27 old security events. |
+| **SEC-025** | 🟢 Low | `Buck_AI` `GET /` disclosed whether `GEMINI_API_KEY` was set and the model name. | **Resolved.** Returns `{service, ok}` only. |
+| **SEC-026** | 🟢 Low | Raw database error text was returned to Gemini (and could reach users) from failed tools. | **Resolved.** Generic tool error; detail only in the log. |
+| **SEC-027** | 🟢 Low | `npm audit`: 5 high in the dev-only `eslint-config-next` chain (`braces`/`micromatch`/`fast-glob`); the fix is a downgrade. Python deps not audited (no `pip-audit`). | **Accepted / open.** Add `pip-audit` to CI. Token-verification cache lets a revoked token live up to 60 s (accepted). |
+
+**Verified**: `tsc` clean, `eslint` clean, vitest 44/44, Buck_AI unittest 23/23, live DB checks above. **Not verified**: the shared limiter against a deployed `Buck_AI`, the feedback insert from the signed-in UI after the new e-mail policy, `next build`.
+
 ### 🟠 High Severity
 
 #### BUG-002: [RESOLVED 2026-10-12] Inconsistent Backend Host Domains Across Frontend Modules

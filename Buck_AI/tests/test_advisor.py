@@ -42,6 +42,8 @@ class FakeSupabase:
         ]
         self.advisories: list[dict] = []
         self.tokens_seen: set[str] = set()
+        self.rpc_wait: int | None = 0   # what ai_rate_limit_take answers; None = database error
+        self.rpc_calls: list[dict] = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         path = request.url.path
@@ -50,6 +52,11 @@ class FakeSupabase:
             return httpx.Response(200, json={"id": "user-1"}) if token == "good" else httpx.Response(401, json={})
         self.tokens_seen.add(token)
         table = path.rsplit("/", 1)[-1]
+        if table == "ai_rate_limit_take":
+            self.rpc_calls.append(json.loads(request.content))
+            if self.rpc_wait is None:
+                return httpx.Response(500, json={"message": "down"})
+            return httpx.Response(200, json=self.rpc_wait)
         if request.method == "POST" and table == "ai_advisories":
             row = {**json.loads(request.content), "id": f"adv-{len(self.advisories) + 1}",
                    "created_at": datetime.now(timezone.utc).isoformat()}
@@ -185,6 +192,26 @@ class AdvisorApiTests(unittest.IsolatedAsyncioTestCase):
             with mock.patch.object(gemini, "stream_with_tools", fake_stream):
                 self.assertEqual((await self.client.post("/advisor/chat", headers=GOOD, json={"question": "a"})).status_code, 200)
                 self.assertEqual((await self.client.post("/advisor/chat", headers=GOOD, json={"question": "b"})).status_code, 429)
+
+    async def test_shared_rate_limit_blocks_across_instances(self):
+        """Another instance already used the quota: the database says wait 42 s."""
+        self.supa.rpc_wait = 42
+        r = await self.client.post("/advisor/chat", headers=GOOD, json={"question": "hi"})
+        self.assertEqual(r.status_code, 429)
+        self.assertEqual(r.headers["retry-after"], "42")
+        self.assertEqual(self.supa.rpc_calls[0], {"p_bucket": "chat", "p_limit": 15, "p_window_seconds": 60})
+
+    async def test_rate_limit_falls_back_to_local_when_database_fails(self):
+        self.supa.rpc_wait = None
+        async def fake_stream(*_a, **_k):
+            yield "ok"
+        with mock.patch.dict(rate_limit.LIMITS, {"chat": (1, 60)}),              mock.patch.object(gemini, "stream_with_tools", fake_stream):
+            self.assertEqual((await self.client.post("/advisor/chat", headers=GOOD, json={"question": "a"})).status_code, 200)
+            self.assertEqual((await self.client.post("/advisor/chat", headers=GOOD, json={"question": "b"})).status_code, 429)
+
+    async def test_health_discloses_no_configuration(self):
+        r = await self.client.get("/")
+        self.assertEqual(r.json(), {"service": "buck-ai", "ok": True})
 
     async def test_goal_tip(self):
         self.gen.return_value = {"tip": "Save ₱2,875.00 a week. Skip one takeout meal. Extra sentence."}
