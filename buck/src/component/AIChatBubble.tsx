@@ -208,22 +208,37 @@ export default function AIChatBubble() {
     setReady(true);
   }, [x, y]);
 
-  // Re-clamp on resize and rotation, keeping the side and relative height.
+  // Re-clamp on resize and rotation, and when the content column changes
+  // width (sidebar collapse/expand), keeping the side and relative height.
   useEffect(() => {
-    const onResize = () => {
+    let frame = 0;
+    const reflow = () => {
+      frame = 0;
+      if (dragRef.current) return; // the drag owns the position until release
       const { top, bottom } = verticalBounds();
       const fraction = fractionRef.current;
       const nextY = fraction === null ? bottom : fraction * window.innerHeight;
-      x.set(edgeX(sideRef.current));
-      y.set(clamp(nextY, top, bottom));
+      x.jump(edgeX(sideRef.current));
+      y.jump(clamp(nextY, top, bottom));
       setIsMobile(window.matchMedia(MOBILE_QUERY).matches);
       if (openRef.current) layoutPanel();
     };
-    window.addEventListener("resize", onResize);
-    window.addEventListener("orientationchange", onResize);
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(reflow);
+    };
+
+    window.addEventListener("resize", schedule);
+    window.addEventListener("orientationchange", schedule);
+    const main = document.querySelector(".dashboard-main");
+    const observer =
+      main && typeof ResizeObserver !== "undefined" ? new ResizeObserver(schedule) : null;
+    if (main) observer?.observe(main);
+
     return () => {
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("orientationchange", onResize);
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("orientationchange", schedule);
     };
   }, [layoutPanel, x, y]);
 
