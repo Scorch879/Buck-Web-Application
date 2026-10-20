@@ -1312,3 +1312,53 @@ Buck-Web-Application/
 - **Consequences**:
   - Zero vertical page bloat regardless of category count, higher information density on hover, and 1:1 skeletal loading parity via updated [`CategoriesSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/CategoriesSkeleton.tsx).
 
+---
+
+### ADR-046: Categories Filter/Sort Dropdown & Wallets / Wallet History Pagination
+
+- **Status**: Implemented 2026-10-20.
+- **Context**:
+  - Users needed a filter/sort dropdown in `/dashboard/categories` to organize categories by **Largest Total**, **Alphabetical (A–Z)**, **Number of Entries**, or **Percentage Share**.
+  - On `/dashboard/wallet`, long lists in **Wallet history ("Log")** or **Manage your wallets ("Your Wallets")** caused vertical page scrolling past the viewport bounds.
+- **Decision**:
+  1. **Categories Filter / Sort Dropdown (`buck/src/app/dashboard/categories/page.tsx`, `style.css`, `CategoriesSkeleton.tsx`)**:
+     - Added an ADR-040 compliant [`CustomSelect`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/CustomSelect.tsx) (`fit`, with `FaFilter` prefix icon) inside `.cat-toolbar-actions` (`height: 40px`, `z-index: 96`) offering:
+       - `Largest Total` (`"largest-total"`)
+       - `Alphabetical (A–Z)` (`"alphabetical"`)
+       - `Number of Entries` (`"entries"`)
+       - `Percentage Share` (`"percentage-share"`)
+     - Changing the filter resets `currentPage` to `1` and triggers a clean Framer Motion opacity fade (`key={`${kind}-${safeCurrentPage}-${query.trim()}-${filterMode}`}`).
+  2. **Wallets & Wallet History Windowed Pagination (`buck/src/app/dashboard/wallet/page.tsx`, `settings/style.css`, `WalletSkeleton.tsx`)**:
+     - Added client-side windowed pagination (`WALLETS_PAGE_SIZE = 4`, `HISTORY_PAGE_SIZE = 4`) to both the **Manage your wallets** (`activePage`) and **Wallet history / Log** (`historyPage`) cards.
+     - Both panels render a 3-column `.wallet-pagination` footer (`< Prev`, windowed page numbers via `getPaginationPages`, `Next >`, and right-aligned `Showing X–Y of Z`), reset their page to `1` when search or filter/sort changes, and animate page switches with Framer Motion opacity transitions without horizontal/vertical offset transforms.
+  3. **Standalone Sign Out Card in Settings Sidebar (`buck/src/app/dashboard/settings/page.tsx`, `settings/style.css`, `SettingsSkeleton.tsx`)**:
+     - Wrapped the left column of `.settings-shell` in `.settings-sidebar-col` and added a separate `.settings-signout-card` containing `.settings-signout-btn` (`Sign Out` with `FaSignOutAlt`, coral-tinted per Buck's destructive/session action style) directly below the `.settings-tabs` card (which ends with `Feedback`).
+     - Synchronized [`WalletSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/WalletSkeleton.tsx), [`CategoriesSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/CategoriesSkeleton.tsx), and [`SettingsSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/SettingsSkeleton.tsx) for 1:1 skeletal loading parity.
+- **Consequences**:
+  - Eliminates vertical page scrolling on `/dashboard/wallet` when wallet history or active wallets grow, and gives users instant multi-criteria organization on `/dashboard/categories`.
+
+---
+
+### ADR-047: Collapsible Desktop Sidebar, Profile Tray Controls (Red-Tinted Sign Out + Collapse Toggle) & Responsive Table Proportions
+
+- **Status**: Implemented 2026-10-20.
+- **Context**:
+  - Users needed the ability to collapse the desktop sidebar (`buck/src/component/dashboardheader.tsx`, `buck/src/component/dashboard.css`) to the left to reclaim horizontal screen real estate for data tables and charts.
+  - The toggle button needed to live in the bottom Profile tray (`.dashboard-account-tray`) alongside a dedicated, red-tinted Sign Out button (in addition to the standalone Sign Out card in Settings).
+  - Additionally, Category renaming and Wallet editing needed visual loading spinners/progress bars, compact color-coded Save/Cancel buttons, comma-accepting budget inputs, and equalized row/card heights across `Manage your wallets` and `Wallet history`.
+- **Decision**:
+  1. **Collapsible / Expandable Desktop Sidebar (`buck/src/component/dashboardheader.tsx`, `buck/src/component/dashboard.css`)**:
+     - Added `sidebarCollapsed` state persisted in `localStorage` (`"buck:sidebar-collapsed"`) and reflected via `.dashboard-header--collapsed` and `html[data-buck-sidebar="collapsed"]`.
+     - On desktop (`> 1024px`), `.dashboard` smoothly transitions between `grid-template-columns: minmax(220px, 250px) minmax(0, 1fr)` (expanded) and `80px minmax(0, 1fr)` (collapsed icon-rail mode).
+     - In collapsed mode, `.dashboard-brand-copy`, `.nav-button-label`, and `.dashboard-account-copy` are hidden while centering the mascot, nav icons (with native `title` tooltips), user avatar, and profile tray buttons.
+  2. **Profile Tray Sign Out & Sidebar Toggle Buttons (`.dashboard-account-tray`)**:
+     - Refactored `.dashboard-account-tray` into a `role="group"` container housing `.dashboard-account-controls` on the right:
+       - **Sign Out Button (`.dashboard-tray-btn--signout`)**: Dedicated `<button>` with `<FaSignOutAlt />` (or loading spinner) and a distinct coral-red tint (`color: var(--buck-coral); background: rgba(255, 56, 56, 0.12); border: 1px solid rgba(255, 56, 56, 0.38)`).
+       - **Collapse / Expand Sidebar Button (`.dashboard-tray-btn--collapse`)**: Dedicated `<button>` with `<FaAngleDoubleLeft />` / `<FaAngleDoubleRight />` that toggles the sidebar state.
+  3. **Responsive Table & Grid Adjustments Across Pages**:
+     - Adjusted `.cat-table` column proportions in [`categories/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/categories/style.css) (`23% / 18% / 13% / 26% / 20%` when collapsed) and two-column grid ratios in [`expenses/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/expenses/style.css) and [`goals/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/goals/style.css) so tables expand fluidly when the sidebar collapses.
+  4. **Categories Rename & Wallet Edit UX Enhancements**:
+     - Added `renamingId` spinner (`FaSpinner`) and indeterminate bottom progress bar (`.cat-rename-progress`) + `toast.loading()` in `/dashboard/categories`.
+     - Replaced the oversized Wallet edit form with a compact single-row `.wallet-edit-row` (`min-height: 92px`), emerald Save button (`.wallet-action-btn--save`) with spinner/progress bar (`.wallet-edit-progress`), red-tinted Cancel button (`.wallet-action-btn--danger`), comma-accepting budget inputs (`sanitizeBudgetInput` / `parseBudgetInput`), and equalized `min-height: 92px` rows and stretched card heights across desktop, tablet, and mobile.
+- **Consequences**:
+  - Users can collapse the sidebar to an 80px rail at any time from the Profile section while retaining one-click access to Sign Out (both in the Profile tray with a red tint and in Settings below Feedback).

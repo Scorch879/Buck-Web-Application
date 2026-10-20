@@ -8,6 +8,7 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from "react";
+import { useRouter } from "next/navigation";
 import {
   FaCamera,
   FaEnvelope,
@@ -17,6 +18,7 @@ import {
   FaMoon,
   FaPaperPlane,
   FaShieldAlt,
+  FaSignOutAlt,
   FaSun,
   FaTimes,
   FaTrash,
@@ -24,6 +26,7 @@ import {
   FaUser,
 } from "react-icons/fa";
 import {
+  signOutUser,
   updateEmailAddress,
   updatePassword,
   verifyCurrentPassword,
@@ -153,6 +156,7 @@ function formatSettingsDate(value: string | null | undefined) {
 
 export default function SettingsPage() {
   const { user } = useDashboardUser();
+  const router = useRouter();
   const { dashboardCache, setDashboardCache } = useFinancial();
   const { toast } = useToast();
   const documentThemeIsDark = useAuthPageTheme();
@@ -198,6 +202,7 @@ export default function SettingsPage() {
   const [feedbackTitle, setFeedbackTitle] = useState("");
   const [feedbackDetails, setFeedbackDetails] = useState("");
   const [sendingFeedback, setSendingFeedback] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const hadInitialSettingsData = useRef(hasInitialSettingsData);
 
   const providerLabel = getProviderLabel(user.authProviders);
@@ -215,7 +220,8 @@ export default function SettingsPage() {
     savingEmail ||
     savingPassword ||
     requestingDeletion ||
-    recoveringAccount;
+    recoveringAccount ||
+    isSigningOut;
   const deletionConfirmed = Boolean(
     deletionStatus?.confirmedAt && deletionStatus.recoveryUntil
   );
@@ -673,6 +679,24 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSignOut = async () => {
+    if (isSigningOut) {
+      return;
+    }
+
+    setIsSigningOut(true);
+    const result = await signOutUser();
+
+    if (result.success) {
+      setDashboardCache({});
+      router.replace("/");
+      return;
+    }
+
+    setIsSigningOut(false);
+    toast(result.message || "Sign out failed.", "error");
+  };
+
   if (loadingProfile) {
     return <DashboardPageSkeleton variant="settings" />;
   }
@@ -690,25 +714,39 @@ export default function SettingsPage() {
       ) : null}
 
       <section className="settings-shell">
-        <nav className="settings-tabs" aria-label="Settings sections">
-          {settingsTabs.map((tab) => {
-            const TabIcon = tab.icon;
-            const isActive = activeSettingsTab === tab.id;
+        <div className="settings-sidebar-col">
+          <nav className="settings-tabs" aria-label="Settings sections">
+            {settingsTabs.map((tab) => {
+              const TabIcon = tab.icon;
+              const isActive = activeSettingsTab === tab.id;
 
-            return (
-              <button
-                key={tab.id}
-                className={`settings-tab${isActive ? " settings-tab--active" : ""}`}
-                type="button"
-                onClick={() => setActiveSettingsTab(tab.id)}
-                aria-pressed={isActive}
-              >
-                <TabIcon aria-hidden="true" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+              return (
+                <button
+                  key={tab.id}
+                  className={`settings-tab${isActive ? " settings-tab--active" : ""}`}
+                  type="button"
+                  onClick={() => setActiveSettingsTab(tab.id)}
+                  aria-pressed={isActive}
+                >
+                  <TabIcon aria-hidden="true" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="settings-signout-card">
+            <button
+              type="button"
+              className="settings-signout-btn"
+              onClick={handleSignOut}
+              disabled={isSigningOut}
+            >
+              <FaSignOutAlt aria-hidden="true" />
+              <span>{isSigningOut ? "Signing out..." : "Sign Out"}</span>
+            </button>
+          </div>
+        </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(0.7rem, 1.4vw, 0.95rem)' }}>
           <div className="settings-account-card">

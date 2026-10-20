@@ -7,15 +7,18 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaEdit,
+  FaFilter,
   FaListUl,
   FaMagic,
   FaPlus,
   FaSearch,
+  FaSpinner,
   FaTimes,
   FaTrash,
 } from "react-icons/fa";
 import { categorizeItems } from "@/utils/aiApi";
 import "./style.css";
+import CustomSelect, { type SelectOption } from "@/component/CustomSelect";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import { useToast } from "@/component/toast/ToastContext";
@@ -65,6 +68,19 @@ const AUTO_CATEGORIZE_BATCH = 25;
 
 /** Categories per page to prevent long vertical scrolling. */
 const PAGE_SIZE = 8;
+
+type CategoryFilterMode =
+  | "largest-total"
+  | "alphabetical"
+  | "entries"
+  | "percentage-share";
+
+const CATEGORY_FILTER_OPTIONS: SelectOption[] = [
+  { value: "largest-total", label: "Largest Total" },
+  { value: "alphabetical", label: "Alphabetical" },
+  { value: "entries", label: "Number of Entries" },
+  { value: "percentage-share", label: "Percentage Share" },
+];
 
 const PAGE_VARIANTS = {
   enter: {
@@ -183,11 +199,13 @@ export default function CategoriesPage() {
   );
 
   const [query, setQuery] = useState("");
+  const [filterMode, setFilterMode] = useState<CategoryFilterMode>("largest-total");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
   const [autoRunning, setAutoRunning] = useState(false);
   const [autoResult, setAutoResult] = useState("");
   const [showAiTooltip, setShowAiTooltip] = useState(false);
@@ -234,11 +252,11 @@ export default function CategoriesPage() {
     };
   }, [load, toast]);
 
-  // Reset pagination to page 1 when search query or category kind changes
+  // Reset pagination to page 1 when search query, filter mode, or category kind changes
   useEffect(() => {
     setPageDirection(0);
     setCurrentPage(1);
-  }, [query, kind]);
+  }, [query, filterMode, kind]);
 
   const incomeSupported = incomeCategories !== null;
   // Before the migration, income "categories" are the fixed source list.
@@ -322,8 +340,32 @@ export default function CategoriesPage() {
     const q = query.trim().toLowerCase();
     return rows
       .filter((r) => !q || r.category.name.toLowerCase().includes(q))
-      .sort((a, b) => b.total - a.total || a.category.name.localeCompare(b.category.name));
-  }, [query, rows]);
+      .sort((a, b) => {
+        switch (filterMode) {
+          case "alphabetical":
+            return a.category.name.localeCompare(b.category.name);
+          case "entries":
+            return (
+              b.entries - a.entries ||
+              b.total - a.total ||
+              a.category.name.localeCompare(b.category.name)
+            );
+          case "percentage-share":
+            return (
+              Math.round(b.share) - Math.round(a.share) ||
+              b.share - a.share ||
+              b.total - a.total ||
+              a.category.name.localeCompare(b.category.name)
+            );
+          case "largest-total":
+          default:
+            return (
+              b.total - a.total ||
+              a.category.name.localeCompare(b.category.name)
+            );
+        }
+      });
+  }, [filterMode, query, rows]);
 
   // Pagination slice
   const totalItems = visibleRows.length;
@@ -425,18 +467,25 @@ export default function CategoriesPage() {
   };
 
   const handleRename = async (row: Row) => {
+    if (renamingId) return;
     const name = editName.trim();
     if (!name || name === row.category.name) {
       setEditingId(null);
       return;
     }
+    setRenamingId(row.category.id);
+    const loadingToastId = toast.loading(`Renaming "${row.category.name}" to "${name}"…`);
     try {
       await renameCategory(user.uid, { ...row.category, kind }, name);
-      setEditingId(null);
       await load();
+      setEditingId(null);
+      toast.dismiss(loadingToastId);
       toast(`Renamed to "${name}"`, "success");
     } catch (err) {
+      toast.dismiss(loadingToastId);
       toast(err instanceof Error ? err.message : "Failed to rename category", "error");
+    } finally {
+      setRenamingId(null);
     }
   };
 
@@ -531,6 +580,16 @@ export default function CategoriesPage() {
           </div>
 
           <div className="cat-toolbar-actions">
+            <div className="cat-filter-dropdown">
+              <CustomSelect
+                fit
+                icon={<FaFilter aria-hidden="true" />}
+                value={filterMode}
+                onChange={(val) => setFilterMode(val as CategoryFilterMode)}
+                options={CATEGORY_FILTER_OPTIONS}
+              />
+            </div>
+
             {canEdit && (
               <div className="cat-add-slot">
                 {isAddOpen ? (
@@ -563,7 +622,12 @@ export default function CategoriesPage() {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.97 }}
                     >
-                      <FaCheck aria-hidden="true" /> {adding ? "Adding…" : "Save"}
+                      {adding ? (
+                        <FaSpinner aria-hidden="true" className="cat-spin" />
+                      ) : (
+                        <FaCheck aria-hidden="true" />
+                      )}{" "}
+                      {adding ? "Adding…" : "Save"}
                     </motion.button>
                     <motion.button
                       type="button"
@@ -689,7 +753,7 @@ export default function CategoriesPage() {
               </tr>
             </thead>
             <motion.tbody
-              key={`${kind}-${safeCurrentPage}-${query.trim()}`}
+              key={`${kind}-${safeCurrentPage}-${query.trim()}-${filterMode}`}
               custom={pageDirection}
               variants={PAGE_VARIANTS}
               initial="enter"
@@ -711,6 +775,7 @@ export default function CategoriesPage() {
                   const shareTier = getShareTier(roundedShare);
                   const isHoveredEntries = hoveredEntriesId === row.category.id;
                   const isEditing = editingId === row.category.id;
+                  const isRenaming = renamingId === row.category.id;
                   // Top half of page (rows 1-4) opens downward; bottom half (rows 5-8) opens upward
                   const openPopoverDown = rowIndex < 4;
                   const rowClassName =
@@ -942,34 +1007,50 @@ export default function CategoriesPage() {
                                   damping: 28,
                                 }}
                               >
-                                <input
-                                  value={editName}
-                                  onChange={(e) => setEditName(e.target.value)}
-                                  aria-label={`New name for ${row.category.name}`}
-                                  maxLength={40}
-                                  autoFocus
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Escape") {
-                                      setEditingId(null);
-                                    }
-                                  }}
-                                />
+                                <div className="cat-rename-input-wrap">
+                                  <input
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    aria-label={`New name for ${row.category.name}`}
+                                    maxLength={40}
+                                    autoFocus
+                                    disabled={isRenaming}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Escape" && !isRenaming) {
+                                        setEditingId(null);
+                                      }
+                                    }}
+                                  />
+                                  {isRenaming && (
+                                    <span
+                                      className="cat-rename-progress"
+                                      role="progressbar"
+                                      aria-label="Saving category rename"
+                                    />
+                                  )}
+                                </div>
                                 <motion.button
                                   type="submit"
                                   className="cat-icon-btn cat-icon-btn--save"
-                                  aria-label="Save name"
-                                  whileHover={{ scale: 1.06 }}
-                                  whileTap={{ scale: 0.94 }}
+                                  aria-label={isRenaming ? "Saving name" : "Save name"}
+                                  disabled={isRenaming || !editName.trim()}
+                                  whileHover={isRenaming ? undefined : { scale: 1.06 }}
+                                  whileTap={isRenaming ? undefined : { scale: 0.94 }}
                                 >
-                                  <FaCheck aria-hidden="true" />
+                                  {isRenaming ? (
+                                    <FaSpinner aria-hidden="true" className="cat-spin" />
+                                  ) : (
+                                    <FaCheck aria-hidden="true" />
+                                  )}
                                 </motion.button>
                                 <motion.button
                                   type="button"
                                   className="cat-icon-btn"
                                   aria-label="Cancel rename"
+                                  disabled={isRenaming}
                                   onClick={() => setEditingId(null)}
-                                  whileHover={{ scale: 1.06 }}
-                                  whileTap={{ scale: 0.94 }}
+                                  whileHover={isRenaming ? undefined : { scale: 1.06 }}
+                                  whileTap={isRenaming ? undefined : { scale: 0.94 }}
                                 >
                                   <FaTimes aria-hidden="true" />
                                 </motion.button>

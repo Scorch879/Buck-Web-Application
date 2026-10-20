@@ -22,6 +22,28 @@ import {
 
 type Wallet = BuckWallet;
 
+function sanitizeBudgetInput(raw: string): string {
+  const cleaned = raw.replace(/[^0-9.,]/g, "");
+  const firstDot = cleaned.indexOf(".");
+  if (firstDot === -1) return cleaned;
+  return (
+    cleaned.slice(0, firstDot + 1) +
+    cleaned.slice(firstDot + 1).replace(/\./g, "")
+  );
+}
+
+function parseBudgetInput(raw: string): number {
+  return Number(raw.replace(/,/g, "").trim());
+}
+
+function formatEditableBudget(value: number): string {
+  const num = Number(value) || 0;
+  return num.toLocaleString("en-US", {
+    minimumFractionDigits: num % 1 !== 0 ? 2 : 0,
+    maximumFractionDigits: 2,
+  });
+}
+
 export default function WalletModal({
   open,
   onClose,
@@ -128,13 +150,14 @@ export default function WalletModal({
   const handleAddWallet = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!name.trim() || !budget.trim() || isNaN(Number(budget)) || Number(budget) <= 0) {
+    const parsedBudget = parseBudgetInput(budget);
+    if (!name.trim() || !budget.trim() || isNaN(parsedBudget) || parsedBudget <= 0) {
       setError("Please enter a valid name and a budget greater than 0.");
       return;
     }
     if (!user) return;
     try {
-      await addWallet(user.uid, name, Number(budget));
+      await addWallet(user.uid, name.trim(), parsedBudget);
       setName("");
       setBudget("");
       fetchWallets();
@@ -163,19 +186,20 @@ export default function WalletModal({
   const handleEdit = (wallet: Wallet) => {
     setEditId(wallet.id);
     setEditName(wallet.name);
-    setEditBudget(wallet.budget.toString());
+    setEditBudget(formatEditableBudget(wallet.budget));
   };
 
   const handleEditSave = async (id: string) => {
     if (!user) return;
-    if (!editName.trim() || !editBudget.trim() || isNaN(Number(editBudget)) || Number(editBudget) <= 0) {
+    const parsedBudget = parseBudgetInput(editBudget);
+    if (!editName.trim() || !editBudget.trim() || isNaN(parsedBudget) || parsedBudget <= 0) {
       setError("Please enter a valid name and a budget greater than 0.");
       return;
     }
     try {
       await updateWallet(user.uid, id, {
-        name: editName,
-        budget: Number(editBudget),
+        name: editName.trim(),
+        budget: parsedBudget,
       });
       setEditId(null);
       setEditName("");
@@ -254,10 +278,10 @@ export default function WalletModal({
           />
           <input
             value={budget}
-            onChange={(e) => setBudget(e.target.value)}
-            placeholder="Budget"
-            type="number"
-            min="0"
+            onChange={(e) => setBudget(sanitizeBudgetInput(e.target.value))}
+            placeholder="Budget (e.g. 50,000)"
+            type="text"
+            inputMode="decimal"
             className={styles.input}
           />
           <motion.button
@@ -303,9 +327,9 @@ export default function WalletModal({
                       />
                       <input
                         value={editBudget}
-                        onChange={(e) => setEditBudget(e.target.value)}
-                        type="number"
-                        min="0"
+                        onChange={(e) => setEditBudget(sanitizeBudgetInput(e.target.value))}
+                        type="text"
+                        inputMode="decimal"
                         className={styles.editInput}
                       />
                       <div className={styles.actions}>

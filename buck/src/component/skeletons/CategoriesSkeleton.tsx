@@ -1,8 +1,18 @@
 "use client";
 
 import React from "react";
+import CustomSelect, { type SelectOption } from "@/component/CustomSelect";
 import "@/app/dashboard/categories/style.css";
 import "./skeletons.css";
+
+const noop = () => {};
+
+const CATEGORY_FILTER_OPTIONS: SelectOption[] = [
+  { value: "largest-total", label: "Largest Total" },
+  { value: "alphabetical", label: "Alphabetical" },
+  { value: "entries", label: "Number of Entries" },
+  { value: "percentage-share", label: "Percentage Share" },
+];
 
 const ROWS = [
   "Shopping",
@@ -55,6 +65,15 @@ export default function CategoriesSkeleton() {
             />
           </div>
           <div className="cat-toolbar-actions">
+            <div className="cat-filter-dropdown">
+              <CustomSelect
+                fit
+                value={CATEGORY_FILTER_OPTIONS[0].value}
+                onChange={noop}
+                disabled
+                options={CATEGORY_FILTER_OPTIONS}
+              />
+            </div>
             <span className="cat-secondary-btn skeleton-text">+ Add Expense Category</span>
             <span className="cat-primary-btn skeleton-text">Auto-categorize with AI 0</span>
           </div>

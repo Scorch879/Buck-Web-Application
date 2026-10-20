@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  FaAngleDoubleLeft,
+  FaAngleDoubleRight,
   FaBars,
   FaBullseye,
   FaChartArea,
@@ -23,6 +25,8 @@ import { useFinancial } from "@/context/FinancialContext";
 import { useToast } from "@/component/toast";
 import { signOutUser } from "./authentication";
 import "./dashboard.css";
+
+const SIDEBAR_STORAGE_KEY = "buck:sidebar-collapsed";
 
 const dashboardNavItems = [
   { id: "home", label: "Home", href: "/dashboard/home", icon: FaHome },
@@ -88,6 +92,7 @@ export default function DashboardHeader({
   const [menuOpen, setMenuOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
@@ -101,7 +106,7 @@ export default function DashboardHeader({
     user?.email?.split("@")[0] ||
     "Buck user";
   const accountSubtitle = user?.email || "Signed in";
-  
+
   const avatarSource = userCache.profile?.avatarPath
     ? `/api/profile/avatar${userCache.profile.avatarUpdatedAt ? `?v=${userCache.profile.avatarUpdatedAt}` : ""}`
     : null;
@@ -118,7 +123,27 @@ export default function DashboardHeader({
 
   useEffect(() => {
     setMounted(true);
+    try {
+      const saved = window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
+      setSidebarCollapsed(saved);
+      document.documentElement.dataset.buckSidebar = saved ? "collapsed" : "expanded";
+    } catch {
+      // Ignore storage access errors
+    }
   }, []);
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next));
+        document.documentElement.dataset.buckSidebar = next ? "collapsed" : "expanded";
+      } catch {
+        // Ignore storage access errors
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     dashboardNavItems.forEach((item) => {
@@ -189,6 +214,8 @@ export default function DashboardHeader({
             key={item.id}
             className={`nav-button ${activeNav === item.id ? "active" : ""}`}
             type="button"
+            title={sidebarCollapsed ? item.label : undefined}
+            aria-label={item.label}
             onClick={() => navigateTo(item)}
             onFocus={() => {
               if ("href" in item) {
@@ -201,20 +228,25 @@ export default function DashboardHeader({
               }
             }}
           >
-            <Icon aria-hidden="true" />
-            {item.label}
+            <Icon aria-hidden="true" className="nav-button-icon" />
+            <span className="nav-button-label">{item.label}</span>
           </button>
         );
       });
 
   return (
-    <header className="dashboard-header">
+    <header
+      className={`dashboard-header ${
+        sidebarCollapsed ? "dashboard-header--collapsed" : ""
+      }`}
+    >
       <div className="dashboard-header-inner">
         <button
           className="dashboard-brand"
           type="button"
           onClick={() => navigateTo(dashboardNavItems[0])}
           aria-label="Go to dashboard home"
+          title={sidebarCollapsed ? "Buck — Go to dashboard home" : undefined}
         >
           <span className="dashboard-mascot">
             <Image
@@ -241,15 +273,16 @@ export default function DashboardHeader({
         </nav>
 
         <div className="dashboard-header-actions">
-          <button
+          <div
             className="dashboard-account-tray"
-            type="button"
-            onClick={handleSignOut}
-            disabled={isSigningOut}
-            aria-busy={isSigningOut}
-            aria-label={isSigningOut ? "Signing out" : "Sign out"}
+            role="group"
+            aria-label="Profile and sidebar controls"
           >
-            <span className="dashboard-account-avatar" aria-hidden="true">
+            <span
+              className="dashboard-account-avatar"
+              aria-hidden="true"
+              title={sidebarCollapsed ? `${displayName} (${accountSubtitle})` : undefined}
+            >
               {mounted && avatarSource ? (
                 <img
                   src={avatarSource}
@@ -265,14 +298,38 @@ export default function DashboardHeader({
               <strong>{displayName}</strong>
               <span>{isSigningOut ? "Signing out..." : accountSubtitle}</span>
             </span>
-            <span className="dashboard-account-action" aria-hidden="true">
-              {isSigningOut ? (
-                <span className="dashboard-button-spinner" />
-              ) : (
-                <FaSignOutAlt />
-              )}
-            </span>
-          </button>
+            <div className="dashboard-account-controls">
+              <button
+                type="button"
+                className="dashboard-tray-btn dashboard-tray-btn--signout"
+                onClick={() => void handleSignOut()}
+                disabled={isSigningOut}
+                aria-busy={isSigningOut}
+                aria-label={isSigningOut ? "Signing out" : "Sign out"}
+                title="Sign out"
+              >
+                {isSigningOut ? (
+                  <span className="dashboard-button-spinner" />
+                ) : (
+                  <FaSignOutAlt aria-hidden="true" />
+                )}
+              </button>
+              <button
+                type="button"
+                className="dashboard-tray-btn dashboard-tray-btn--collapse"
+                onClick={toggleSidebar}
+                aria-expanded={!sidebarCollapsed}
+                aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              >
+                {sidebarCollapsed ? (
+                  <FaAngleDoubleRight aria-hidden="true" />
+                ) : (
+                  <FaAngleDoubleLeft aria-hidden="true" />
+                )}
+              </button>
+            </div>
+          </div>
         </div>
 
         <button
@@ -322,7 +379,7 @@ export default function DashboardHeader({
               <strong>{displayName}</strong>
               <span>{isSigningOut ? "Signing out..." : accountSubtitle}</span>
             </span>
-            <span className="dashboard-account-action" aria-hidden="true">
+            <span className="dashboard-tray-btn dashboard-tray-btn--signout" aria-hidden="true">
               {isSigningOut ? (
                 <span className="dashboard-button-spinner" />
               ) : (
