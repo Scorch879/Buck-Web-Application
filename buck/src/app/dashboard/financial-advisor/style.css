@@ -1,3 +1,12 @@
+/* ---- Financial Advisor page ----------------------------------------------
+   Type scale (one hierarchy for every card):
+     eyebrow  0.75rem / 700 / uppercase, Buck Orange
+     value    h3, 1.2–1.6rem / 650, tabular figures
+     meta     0.86rem / 500, muted
+     sub-list 0.86rem, name muted, amount ink 600
+     body     0.92rem / 400, muted, 1.55 line height
+   FinancialAdvisorSkeleton renders these same classes (ADR-012). */
+
 .advisor-page {
   display: grid;
   gap: clamp(0.75rem, 1.5vw, 1rem);
@@ -18,50 +27,138 @@
 
 .advisor-message {
   padding: 0.8rem 1rem;
-  color: #ffd1d1;
-  background: rgba(255, 56, 56, 0.16);
+  color: var(--buck-ink);
+  background: rgba(255, 56, 56, 0.12);
   border-color: rgba(255, 56, 56, 0.34);
-  font-weight: 900;
-}
-
-.advisor-hero {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: clamp(1rem, 2.4vw, 1.3rem);
+  font-weight: 600;
 }
 
 .advisor-eyebrow {
   margin: 0;
   color: var(--buck-orange);
-  font-size: 0.78rem;
-  font-weight: 900;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
   text-transform: uppercase;
 }
 
-.advisor-hero h2,
-.advisor-card h3 {
-  margin: 0.16rem 0 0.4rem;
+.advisor-eyebrow--tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+html[data-buck-theme="dark"] .advisor-eyebrow--gold {
+  color: var(--buck-gold);
+}
+
+/* ---- Hero ---------------------------------------------------------------- */
+
+.advisor-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(1rem, 3vw, 2rem);
+  padding: clamp(1rem, 2.4vw, 1.4rem);
+}
+
+.advisor-hero__copy {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.advisor-hero h2 {
+  margin: 0;
   color: var(--buck-ink);
+  font-size: clamp(1.45rem, 3.2vw, 2rem);
+  font-weight: 650;
   line-height: 1.15;
   letter-spacing: 0;
 }
 
-.advisor-hero h2 {
-  font-size: clamp(1.45rem, 3.2vw, 2rem);
-}
-
-.advisor-hero p:not(.advisor-eyebrow),
-.advisor-card p:not(.advisor-eyebrow) {
+.advisor-hero .advisor-hero__lead {
+  max-width: 60ch;
   margin: 0;
   color: var(--buck-muted);
-  line-height: 1.58;
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.advisor-hero__side {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.advisor-hero__actions {
+  display: grid;
+  justify-items: end;
+  gap: 0.6rem;
+}
+
+.advisor-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0.2rem 0.7rem;
+  color: var(--buck-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  background: var(--buck-gold-soft);
+  border: 1px solid var(--buck-line);
+  border-radius: 999px;
+}
+
+.advisor-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 40px;
+  padding: 0.55rem 1rem;
+  color: var(--buck-orange);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  background: rgba(255, 197, 71, 0.12);
+  border: 1px solid rgba(244, 117, 54, 0.32);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.advisor-refresh:hover:not(:disabled),
+.advisor-refresh:focus-visible {
+  background: rgba(255, 197, 71, 0.22);
+  border-color: var(--buck-orange);
+}
+
+.advisor-refresh:focus-visible {
+  outline: 2px solid var(--buck-orange);
+  outline-offset: 2px;
+}
+
+.advisor-refresh:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.advisor-spin {
+  animation: advisor-spin 1s linear infinite;
+}
+
+@keyframes advisor-spin {
+  to { transform: rotate(360deg); }
 }
 
 .advisor-score {
   display: grid;
-  place-items: center;
+  place-content: center;
+  justify-items: center;
+  gap: 0.2rem;
   width: 128px;
   height: 128px;
   flex: 0 0 auto;
@@ -80,15 +177,20 @@
 
 .advisor-score span {
   max-width: 88px;
-  font-size: 0.72rem;
-  font-weight: 900;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .advisor-score strong {
   font-size: 1.8rem;
+  font-weight: 700;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
+
+/* ---- Cards (shared) ------------------------------------------------------ */
 
 .advisor-grid {
   display: grid;
@@ -98,10 +200,10 @@
 
 .advisor-card {
   position: relative;
-  display: grid;
-  align-content: start;
-  gap: 0.55rem;
-  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
   padding: clamp(1rem, 2vw, 1.2rem);
   overflow: hidden;
   transition:
@@ -130,7 +232,6 @@
 .advisor-card:focus-within {
   border-color: rgba(244, 117, 54, 0.44);
   box-shadow: 0 22px 48px rgba(94, 59, 34, 0.14);
-  transform: translateY(-3px);
 }
 
 html[data-buck-theme="dark"] .advisor-card:hover,
@@ -144,413 +245,239 @@ html[data-buck-theme="dark"] .advisor-card:focus-within {
   transform: scaleX(1);
 }
 
+/* The card clips overflow for its hover bar; let tooltips escape. */
+.advisor-grid .advisor-card {
+  overflow: visible;
+}
+
 .advisor-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
   color: var(--buck-orange);
   background: rgba(255, 197, 71, 0.14);
   border: 1px solid rgba(244, 117, 54, 0.24);
   border-radius: 8px;
 }
 
-.advisor-card h3 {
-  font-size: clamp(1.15rem, 2.4vw, 1.5rem);
-  word-break: break-word;
-}
-
-.advisor-card--wide {
-  grid-template-columns: auto minmax(0, 1fr);
-  min-height: auto;
-}
-
-@media (max-width: 920px) {
-  .advisor-hero,
-  .advisor-card--wide {
-    align-items: flex-start;
-    grid-template-columns: 1fr;
-    flex-direction: column;
-  }
-
-  .advisor-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 560px) {
-  .advisor-page {
-    padding: 0.75rem;
-  }
-
-  .advisor-score {
-    width: 108px;
-    height: 108px;
-  }
-}
-
-.advisor-ai-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: clamp(1rem, 2vw, 1.25rem);
-  margin-top: 1rem;
-}
-
-@media (min-width: 768px) {
-  .advisor-ai-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-/* ---- Ask Buck streaming chat ---------------------------------------------
-   The log has a fixed height so streaming never shifts the page (ADR-012);
-   FinancialAdvisorSkeleton mirrors this anatomy 1:1. */
-
-.advisor-chat {
-  gap: 0.75rem;
-  min-height: auto;
-  margin-top: clamp(1rem, 2vw, 1.25rem);
-}
-
-.advisor-chat:hover,
-.advisor-chat:focus-within {
-  transform: none;
-}
-
-.advisor-chat__head {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.advisor-chat__head h3 {
-  margin: 0.1rem 0 0;
-}
-
-.advisor-chat__log {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  height: 340px;
-  padding: 0.85rem;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  background: var(--buck-paper);
-  border: 1px solid var(--buck-line);
-  border-radius: 8px;
-}
-
-.advisor-chat__empty {
-  display: grid;
-  align-content: center;
-  gap: 0.85rem;
-  height: 100%;
-  text-align: center;
-}
-
-.advisor-card .advisor-chat__empty p {
-  margin: 0;
-}
-
-.advisor-chat__chips {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.advisor-chat__chip {
-  min-height: 36px;
-  padding: 0.45rem 0.85rem;
-  color: var(--buck-ink);
-  font: inherit;
-  font-size: 0.86rem;
-  font-weight: 500;
-  background: var(--buck-surface);
-  border: 1px solid rgba(244, 117, 54, 0.32);
-  border-radius: 999px;
-  cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease;
-}
-
-.advisor-chat__chip:hover,
-.advisor-chat__chip:focus-visible {
-  background: rgba(255, 197, 71, 0.16);
+.advisor-icon--solid {
+  color: #fff;
+  background: var(--buck-orange);
   border-color: var(--buck-orange);
 }
 
-.advisor-chat__msg {
-  max-width: min(78ch, 88%);
-  padding: 0.6rem 0.85rem;
-  line-height: 1.55;
-  border-radius: 10px;
+.advisor-icon--gold {
+  color: #120d0a;
+  background: var(--buck-gold);
+  border-color: var(--buck-gold);
+}
+
+.advisor-stat__head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.15rem;
+}
+
+.advisor-card h3 {
+  margin: 0;
+  color: var(--buck-ink);
+  font-size: 1.15rem;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: 0;
   overflow-wrap: anywhere;
 }
 
-.advisor-chat__msg--user {
-  align-self: flex-end;
-  color: #fff;
-  background: var(--buck-orange);
-  border-bottom-right-radius: 3px;
-  white-space: pre-wrap;
+.advisor-stat__head h3 {
+  margin-top: 0.1rem;
 }
 
-.advisor-chat__msg--bot {
-  align-self: flex-start;
-  color: var(--buck-ink);
-  background: var(--buck-surface);
-  border: 1px solid var(--buck-line);
-  border-bottom-left-radius: 3px;
-}
-
-.advisor-card .advisor-chat__md p {
-  margin: 0 0 0.45rem;
-  color: var(--buck-ink);
-}
-
-.advisor-chat__md p:last-child,
-.advisor-chat__md ul:last-child,
-.advisor-chat__md ol:last-child {
-  margin-bottom: 0;
-}
-
-.advisor-chat__md ul,
-.advisor-chat__md ol {
-  margin: 0 0 0.45rem;
-  padding-left: 1.2rem;
-}
-
-.advisor-chat__md li + li {
-  margin-top: 0.2rem;
-}
-
-.advisor-chat__md strong {
-  font-weight: 650;
-}
-
-.advisor-chat__badge {
-  display: inline-block;
-  margin-bottom: 0.4rem;
-  padding: 0.1rem 0.5rem;
-  color: var(--buck-ink);
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  background: rgba(255, 197, 71, 0.28);
-  border-radius: 999px;
-}
-
-.advisor-chat__caret {
-  display: inline-block;
-  width: 0.5em;
-  height: 1em;
-  margin-left: 2px;
-  vertical-align: text-bottom;
-  background: var(--buck-orange);
-  animation: advisor-chat-blink 1s steps(2, start) infinite;
-}
-
-.advisor-chat__typing {
-  display: inline-flex;
-  gap: 4px;
-  padding: 0.3rem 0;
-}
-
-.advisor-chat__typing i {
-  width: 7px;
-  height: 7px;
-  background: var(--buck-orange);
-  border-radius: 50%;
-  animation: advisor-chat-bounce 1.1s ease-in-out infinite;
-}
-
-.advisor-chat__typing i:nth-child(2) { animation-delay: 0.15s; }
-.advisor-chat__typing i:nth-child(3) { animation-delay: 0.3s; }
-
-@keyframes advisor-chat-blink {
-  to { visibility: hidden; }
-}
-
-@keyframes advisor-chat-bounce {
-  0%, 80%, 100% { opacity: 0.35; transform: translateY(0); }
-  40% { opacity: 1; transform: translateY(-3px); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .advisor-chat__caret,
-  .advisor-chat__typing i {
-    animation: none;
-  }
-}
-
-.advisor-card .advisor-chat__note {
-  margin: 0.35rem 0 0;
-  font-size: 0.82rem;
-}
-
-.advisor-chat__error {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.4rem;
-  padding: 0.45rem 0.6rem;
-  color: var(--buck-ink);
-  font-size: 0.86rem;
-  background: rgba(255, 56, 56, 0.1);
-  border: 1px solid rgba(255, 56, 56, 0.32);
-  border-radius: 8px;
-}
-
-.advisor-chat__error button,
-.advisor-chat__actions button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  min-height: 36px;
-  padding: 0.3rem 0.7rem;
-  color: var(--buck-muted);
-  font: inherit;
-  font-size: 0.8rem;
-  font-weight: 600;
-  background: transparent;
-  border: 1px solid var(--buck-line);
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.advisor-chat__error button {
-  color: var(--buck-ink);
-}
-
-.advisor-chat__error button:disabled,
-.advisor-chat__actions button:disabled {
-  cursor: default;
-  opacity: 0.6;
-}
-
-.advisor-chat__actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 0.35rem;
-}
-
-.advisor-chat__form {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.5rem;
-}
-
-.advisor-chat__form textarea {
-  flex: 1;
-  min-width: 0;
-  min-height: 44px;
-  max-height: 120px;
-  padding: 0.65rem 0.8rem;
-  color: var(--buck-ink);
-  font: inherit;
-  line-height: 1.4;
-  background: var(--buck-paper);
-  border: 1px solid var(--buck-line);
-  border-radius: 10px;
-  resize: vertical;
-}
-
-.advisor-chat__form textarea:focus-visible {
-  outline: 2px solid var(--buck-orange);
-  outline-offset: 1px;
-}
-
-.advisor-chat__send {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 auto;
-  color: #fff;
-  background: var(--buck-orange);
-  border: 0;
-  border-radius: 10px;
-  cursor: pointer;
-}
-
-.advisor-chat__send:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.advisor-chat__send--stop {
-  background: var(--buck-coral);
-}
-
-.advisor-card .advisor-chat__disclaimer {
-  margin: 0;
-  font-size: 0.78rem;
-}
-
-.advisor-chat__sr {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  border: 0;
-}
-
-@media (max-width: 560px) {
-  .advisor-chat__log {
-    height: 300px;
-  }
-
-  .advisor-chat__msg {
-    max-width: 94%;
-  }
-}
-
-/* ---- Card detail rows and tooltips (Wallet room, This week, Detailed Analysis) ---- */
-
-.advisor-eyebrow--tip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.advisor-card .advisor-wallet-active {
-  margin: -0.2rem 0 0;
-  color: var(--buck-ink);
-  font-size: 0.86rem;
-  font-weight: 600;
-}
-
-.advisor-wallet-list {
-  display: grid;
-  gap: 0.2rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 0.86rem;
-}
-
-.advisor-wallet-list li {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  color: var(--buck-muted);
-}
-
-.advisor-wallet-list li span:last-child {
-  color: var(--buck-ink);
+.advisor-card .advisor-stat__value {
+  font-size: clamp(1.35rem, 2.4vw, 1.6rem);
   font-variant-numeric: tabular-nums;
 }
 
-.advisor-card .advisor-footnote {
-  margin: 0.6rem 0 0;
-  font-size: 0.78rem;
+.advisor-card .advisor-stat__value--name {
+  font-size: clamp(1.2rem, 2.2vw, 1.4rem);
 }
+
+.advisor-stat__meta {
+  margin: -0.25rem 0 0;
+  color: var(--buck-muted);
+  font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Name / amount sub-list (wallets, weekly details, goal details). */
+.advisor-sublist {
+  display: grid;
+  margin: 0.2rem 0 0;
+  padding: 0.15rem 0 0.15rem 0.75rem;
+  list-style: none;
+  font-size: 0.86rem;
+  border-left: 2px solid var(--buck-line);
+}
+
+.advisor-sublist li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.28rem 0;
+  color: var(--buck-muted);
+}
+
+.advisor-sublist li + li {
+  border-top: 1px dashed var(--buck-line);
+}
+
+.advisor-sublist li > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.advisor-sublist li > span:nth-child(2) {
+  flex: 0 0 auto;
+  color: var(--buck-ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.advisor-sublist li.is-empty,
+.advisor-sublist li.is-empty > span:nth-child(2) {
+  color: var(--buck-muted);
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.advisor-stat__body {
+  margin: auto 0 0;
+  padding-top: 0.6rem;
+  color: var(--buck-muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  border-top: 1px solid var(--buck-line);
+}
+
+/* Goal progress meter */
+.advisor-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.15rem;
+}
+
+.advisor-progress__track {
+  position: relative;
+  flex: 1;
+  height: 8px;
+  overflow: hidden;
+  background: var(--buck-gold-soft);
+  border-radius: 999px;
+}
+
+.advisor-progress__track > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--buck-orange), var(--buck-gold));
+  border-radius: inherit;
+}
+
+.advisor-progress__value {
+  color: var(--buck-ink);
+  font-size: 0.86rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- AI row: suggestion (emphasised) + detailed analysis ----------------- */
+
+.advisor-ai-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 0.85rem;
+}
+
+.advisor-next {
+  background:
+    linear-gradient(140deg, rgba(244, 117, 54, 0.14), rgba(255, 197, 71, 0.1) 60%, transparent),
+    var(--buck-surface);
+  border-color: rgba(244, 117, 54, 0.4);
+}
+
+.advisor-card .advisor-next__text {
+  margin: 0.35rem 0 0;
+  padding-left: 0.85rem;
+  color: var(--buck-ink);
+  font-size: clamp(1.05rem, 1.8vw, 1.2rem);
+  font-weight: 600;
+  line-height: 1.45;
+  border-left: 3px solid var(--buck-orange);
+}
+
+.advisor-next__ask {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 40px;
+  margin-top: auto;
+  padding: 0.5rem 0.95rem;
+  color: #fff;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  background: var(--buck-orange);
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: filter 160ms ease;
+}
+
+.advisor-next .advisor-next__text {
+  margin-bottom: 0.5rem;
+}
+
+.advisor-next__ask:hover {
+  filter: brightness(1.06);
+}
+
+.advisor-next__ask:focus-visible {
+  outline: 2px solid var(--buck-orange);
+  outline-offset: 2px;
+}
+
+.advisor-card .advisor-analysis__text {
+  margin: 0.35rem 0 0;
+  color: var(--buck-ink);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+/* Readable muted caption: 0.84rem on --buck-surface clears 4.5:1 in both themes. */
+.advisor-card .advisor-footnote {
+  margin: auto 0 0;
+  padding-top: 0.65rem;
+  color: var(--buck-muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
+  border-top: 1px solid var(--buck-line);
+}
+
+.advisor-analysis .advisor-analysis__text {
+  margin-bottom: 0.5rem;
+}
+
+/* ---- InfoTip ------------------------------------------------------------- */
 
 .info-tip {
   position: relative;
@@ -593,6 +520,7 @@ html[data-buck-theme="dark"] .advisor-card:focus-within {
   color: var(--buck-ink);
   font-size: 0.8rem;
   font-weight: 500;
+  letter-spacing: 0;
   line-height: 1.45;
   text-transform: none;
   background: var(--buck-surface);
@@ -605,12 +533,58 @@ html[data-buck-theme="dark"] .advisor-card:focus-within {
   transition: opacity 120ms ease;
 }
 
+html[data-buck-theme="dark"] .info-tip__bubble {
+  background: var(--buck-paper);
+}
+
 .info-tip__bubble[data-open="true"] {
   visibility: visible;
   opacity: 1;
 }
 
-/* The card clips overflow for its hover bar; let tooltips escape. */
-.advisor-grid .advisor-card {
-  overflow: visible;
+/* ---- Responsive ---------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .advisor-ai-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 920px) {
+  .advisor-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .advisor-hero__side {
+    justify-content: space-between;
+  }
+
+  .advisor-hero__actions {
+    justify-items: start;
+  }
+
+  .advisor-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .advisor-page {
+    padding: 0.75rem;
+  }
+
+  .advisor-score {
+    width: 108px;
+    height: 108px;
+  }
+
+  .advisor-score strong {
+    font-size: 1.55rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .advisor-spin {
+    animation: none;
+  }
 }

@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FaBullseye, FaLightbulb, FaReceipt, FaWallet, FaSyncAlt } from "react-icons/fa";
+import {
+  FaBullseye,
+  FaCommentDots,
+  FaLightbulb,
+  FaReceipt,
+  FaWallet,
+  FaSyncAlt,
+} from "react-icons/fa";
 import InfoTip from "@/component/InfoTip";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useDashboardUser } from "@/context/DashboardUserContext";
@@ -9,7 +16,7 @@ import {
   mergeDashboardDataCache,
   useFinancial,
 } from "@/context/FinancialContext";
-import { formatCurrency, toNumber } from "@/utils/formatters";
+import { toNumber } from "@/utils/formatters";
 import {
   getActiveWalletId,
   listExpenses,
@@ -22,8 +29,20 @@ import {
 } from "@/utils/supabaseData";
 import { fetchAIAdvisorInsights, type AIAdvisorInsights } from "@/utils/advisorApi";
 import { useToast } from "@/component/toast";
-import AIChat from "@/component/AIChat";
 import "./style.css";
+
+/** Opens the floating AI Advisor chat (AIChatBubble listens for it). */
+const OPEN_AI_CHAT_EVENT = "open-ai-chat";
+
+const pesoFormatter = new Intl.NumberFormat("en-PH", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/** Every ₱ figure on this page shows exactly 2 decimals. */
+function peso(value: number | string | null | undefined) {
+  return `₱${pesoFormatter.format(toNumber(value))}`;
+}
 
 /** "YYYY-MM-DD" in local time (expense dates are calendar days, not instants). */
 function dayKey(date: Date) {
@@ -239,7 +258,13 @@ export default function FinancialAdvisorPage() {
   const weekStart = weekStartKey();
   const weeklyTotal = useMemo(() => totalSince(expenses, weekStart), [expenses, weekStart]);
   const last7Total = useMemo(() => totalSince(expenses, daysAgoKey(6)), [expenses]);
+  // Days counted so far this week (Monday = 1), for the daily average.
+  const daysThisWeek = ((new Date().getDay() + 6) % 7) + 1;
+  const weeklyDailyAverage = weeklyTotal / daysThisWeek;
   const goalProgress = getGoalProgress(activeGoal);
+  const goalRemaining = activeGoal
+    ? Math.max(0, activeGoal.targetAmount - activeGoal.currentAmount)
+    : 0;
   // Largest expense in the last 30 days (not all time), with its date.
   const highestExpense = useMemo(() => {
     const from = daysAgoKey(29);
@@ -282,7 +307,7 @@ export default function FinancialAdvisorPage() {
       return `${activeGoal.goalName} is fully funded. Time to lock in your next milestone.`;
     }
 
-    return `${activeGoal.goalName} needs ${formatCurrency(
+    return `${activeGoal.goalName} needs ${peso(
       remaining
     )} more. Keep discretionary spending steady to protect this target.`;
   }, [activeGoal]);
@@ -291,58 +316,47 @@ export default function FinancialAdvisorPage() {
     return <DashboardPageSkeleton variant="financial-advisor" />;
   }
 
+  const aiBusy = loadingAi || refreshingAi;
+
   return (
     <div className="advisor-page">
       {error ? <div className="advisor-message">{error}</div> : null}
 
       <section className="advisor-hero">
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-            <p className="advisor-eyebrow" style={{ margin: 0 }}>Financial Advisor</p>
-            {aiInsights?.createdAt && (
-              <span
-                style={{
-                  fontSize: "0.8rem",
-                  color: "var(--buck-muted)",
-                  background: "var(--buck-surface-soft, rgba(255,255,255,0.06))",
-                  padding: "0.2rem 0.6rem",
-                  borderRadius: "12px",
-                }}
-              >
-                {aiInsights.cached ? "Cached" : "Updated"}: {new Date(aiInsights.createdAt).toLocaleDateString()}
-              </span>
-            )}
-          </div>
+        <div className="advisor-hero__copy">
+          <p className="advisor-eyebrow">Financial Advisor</p>
           <h2>Advice that sounds like a next step.</h2>
-          <p>
+          <p className="advisor-hero__lead">
             Buck turns your current wallet, expense rhythm, and active goal into
             plain recommendations you can act on today.
           </p>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <button
-            type="button"
-            onClick={() => void loadAI(true)}
-            disabled={refreshingAi}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              background: "var(--buck-surface-card, rgba(255, 197, 71, 0.12))",
-              color: "var(--buck-orange, #f47536)",
-              border: "1px solid rgba(244, 117, 54, 0.3)",
-              padding: "0.6rem 1rem",
-              borderRadius: "10px",
-              cursor: refreshingAi ? "not-allowed" : "pointer",
-              fontWeight: 600,
-              fontSize: "0.9rem",
-              transition: "all 0.2s ease",
-            }}
-          >
-            <FaSyncAlt style={{ animation: refreshingAi ? "spin 1s linear infinite" : "none" }} />
-            {refreshingAi ? "Analyzing..." : "Refresh Advice"}
-          </button>
+        <div className="advisor-hero__side">
+          <div className="advisor-hero__actions">
+            {aiInsights?.createdAt ? (
+              <span className="advisor-pill">
+                {aiInsights.cached ? "Cached" : "Updated"}{" "}
+                {new Date(aiInsights.createdAt).toLocaleDateString("en-PH", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              className="advisor-refresh"
+              onClick={() => void loadAI(true)}
+              disabled={refreshingAi}
+            >
+              <FaSyncAlt
+                aria-hidden="true"
+                className={refreshingAi ? "advisor-spin" : undefined}
+              />
+              {refreshingAi ? "Analyzing..." : "Refresh Advice"}
+            </button>
+          </div>
 
           <div className="advisor-score">
             <span>Health Score</span>
@@ -357,99 +371,168 @@ export default function FinancialAdvisorPage() {
       </section>
 
       <section className="advisor-grid">
-        <article className="advisor-card">
-          <span className="advisor-icon">
-            <FaWallet aria-hidden="true" />
-          </span>
-          <p className="advisor-eyebrow advisor-eyebrow--tip">
-            Wallet room
-            <InfoTip label="About wallet room">
-              Balance of your active wallet (the one expenses are taken from). Other wallets are listed
-              below; total is across all wallets. Switch the active wallet on the Wallet tab.
-            </InfoTip>
-          </p>
-          <h3>{formatCurrency(walletBudget)}</h3>
-          <p className="advisor-wallet-active">
+        <article className="advisor-card advisor-stat">
+          <header className="advisor-stat__head">
+            <span className="advisor-icon">
+              <FaWallet aria-hidden="true" />
+            </span>
+            <p className="advisor-eyebrow advisor-eyebrow--tip">
+              Wallet room
+              <InfoTip label="About wallet room">
+                Balance of your active wallet (the one expenses are taken from). Other wallets are listed
+                below; total is across all wallets. Switch the active wallet on the Wallet tab.
+              </InfoTip>
+            </p>
+          </header>
+          <h3 className="advisor-stat__value">{peso(walletBudget)}</h3>
+          <p className="advisor-stat__meta">
             {activeWallet ? `Active: ${activeWallet.name}` : "No active wallet"}
-            {wallets.length > 1 ? ` · Total ${formatCurrency(totalBalance)}` : ""}
+            {wallets.length > 1 ? ` · Total ${peso(totalBalance)}` : ""}
           </p>
           {otherWallets.length > 0 ? (
-            <ul className="advisor-wallet-list" aria-label="Other wallets">
+            <ul className="advisor-sublist" aria-label="Other wallets">
               {otherWallets.slice(0, 3).map((w) => (
-                <li key={w.id}>
+                <li key={w.id} className={toNumber(w.budget) <= 0 ? "is-empty" : undefined}>
                   <span>{w.name}</span>
-                  <span>{formatCurrency(w.budget)}</span>
+                  <span>{peso(w.budget)}</span>
                 </li>
               ))}
+              {otherWallets.length > 3 ? (
+                <li className="is-empty">
+                  <span>+{otherWallets.length - 3} more on the Wallet tab</span>
+                </li>
+              ) : null}
             </ul>
           ) : null}
-          <p>{walletAdvice}</p>
+          <p className="advisor-stat__body">{walletAdvice}</p>
         </article>
 
-        <article className="advisor-card">
-          <span className="advisor-icon">
-            <FaReceipt aria-hidden="true" />
-          </span>
-          <p className="advisor-eyebrow advisor-eyebrow--tip">
-            This week
-            <InfoTip label="About this week">
-              Total spent from Monday ({shortDate(weekStart)}) to today. Last 7 days counts the 7 days up to
-              today, so it can include last week. Largest expense looks at the last 30 days.
-            </InfoTip>
-          </p>
-          <h3>{formatCurrency(weeklyTotal)}</h3>
-          <p className="advisor-wallet-active">
-            Since Mon, {shortDate(weekStart)} · Last 7 days {formatCurrency(last7Total)}
-          </p>
-          <p>
+        <article className="advisor-card advisor-stat">
+          <header className="advisor-stat__head">
+            <span className="advisor-icon">
+              <FaReceipt aria-hidden="true" />
+            </span>
+            <p className="advisor-eyebrow advisor-eyebrow--tip">
+              This week
+              <InfoTip label="About this week">
+                Total spent from Monday ({shortDate(weekStart)}) to today. Last 7 days counts the 7 days up to
+                today, so it can include last week. Largest expense looks at the last 30 days.
+              </InfoTip>
+            </p>
+          </header>
+          <h3 className="advisor-stat__value">{peso(weeklyTotal)}</h3>
+          <p className="advisor-stat__meta">Since Mon, {shortDate(weekStart)}</p>
+          <ul className="advisor-sublist" aria-label="Weekly spending details">
+            <li>
+              <span>Last 7 days</span>
+              <span>{peso(last7Total)}</span>
+            </li>
+            <li>
+              <span>
+                Daily average ({daysThisWeek} {daysThisWeek === 1 ? "day" : "days"})
+              </span>
+              <span>{peso(weeklyDailyAverage)}</span>
+            </li>
+          </ul>
+          <p className="advisor-stat__body">
             {highestExpense
-              ? `Largest in the last 30 days: ${highestExpense.description || highestExpense.category} at ${formatCurrency(highestExpense.amount)} on ${shortDate(highestExpense.date)}.`
+              ? `Largest in the last 30 days: ${highestExpense.description || highestExpense.category} at ${peso(highestExpense.amount)} on ${shortDate(highestExpense.date)}.`
               : "No expenses in the last 30 days. Add expenses so advice can sharpen."}
           </p>
         </article>
 
-        <article className="advisor-card">
-          <span className="advisor-icon">
-            <FaBullseye aria-hidden="true" />
-          </span>
-          <p className="advisor-eyebrow">Goal protection</p>
-          <h3>{activeGoal?.goalName || "No active goal"}</h3>
-          <p>{goalAdvice}</p>
+        <article className="advisor-card advisor-stat">
+          <header className="advisor-stat__head">
+            <span className="advisor-icon">
+              <FaBullseye aria-hidden="true" />
+            </span>
+            <p className="advisor-eyebrow">Goal protection</p>
+          </header>
+          <h3 className="advisor-stat__value advisor-stat__value--name">
+            {activeGoal?.goalName || "No active goal"}
+          </h3>
+          <p className="advisor-stat__meta">
+            {activeGoal
+              ? `${peso(activeGoal.currentAmount)} of ${peso(activeGoal.targetAmount)} saved`
+              : "Set one on the Goals tab"}
+          </p>
+          {activeGoal ? (
+            <>
+              <div className="advisor-progress">
+                <div
+                  className="advisor-progress__track"
+                  role="progressbar"
+                  aria-label={`${activeGoal.goalName} progress`}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={goalProgress}
+                >
+                  <span style={{ width: `${goalProgress}%` }} />
+                </div>
+                <span className="advisor-progress__value">{goalProgress}%</span>
+              </div>
+              <ul className="advisor-sublist" aria-label="Goal details">
+                <li>
+                  <span>Remaining</span>
+                  <span>{peso(goalRemaining)}</span>
+                </li>
+                {activeGoal.targetDate ? (
+                  <li>
+                    <span>Target date</span>
+                    <span>{shortDate(activeGoal.targetDate)}</span>
+                  </li>
+                ) : null}
+              </ul>
+            </>
+          ) : null}
+          <p className="advisor-stat__body">{goalAdvice}</p>
         </article>
       </section>
 
       <div className="advisor-ai-grid">
-        <section className="advisor-card advisor-card--wide" style={{ display: 'flex', flexDirection: 'column' }}>
-          <span className="advisor-icon">
-            <FaLightbulb aria-hidden="true" />
-          </span>
-          <div>
-            <p className="advisor-eyebrow">AI Suggestion</p>
-            <h3>What to do next</h3>
-            <p style={{ minHeight: '80px', marginTop: '1rem' }}>
-              {loadingAi || refreshingAi ? "Analyzing your financial data..." : aiInsights?.suggestion}
-            </p>
-          </div>
+        <section className="advisor-card advisor-next" aria-labelledby="advisor-next-title">
+          <header className="advisor-stat__head">
+            <span className="advisor-icon advisor-icon--solid">
+              <FaLightbulb aria-hidden="true" />
+            </span>
+            <div>
+              <p className="advisor-eyebrow">AI Suggestion</p>
+              <h3 id="advisor-next-title">What to do next</h3>
+            </div>
+          </header>
+          <p className="advisor-next__text">
+            {aiBusy
+              ? "Analyzing your financial data..."
+              : aiInsights?.suggestion || "No suggestion yet. Refresh to generate one."}
+          </p>
+          <button
+            type="button"
+            className="advisor-next__ask"
+            onClick={() => window.dispatchEvent(new Event(OPEN_AI_CHAT_EVENT))}
+          >
+            <FaCommentDots aria-hidden="true" />
+            Ask the Advisor about this
+          </button>
         </section>
 
-        <section className="advisor-card advisor-card--wide" style={{ display: 'flex', flexDirection: 'column' }}>
-          <span className="advisor-icon" style={{ background: 'var(--buck-gold)', color: 'var(--buck-ink)' }}>
-            <FaReceipt aria-hidden="true" />
-          </span>
-          <div>
-            <p className="advisor-eyebrow" style={{ color: 'var(--buck-gold)' }}>AI Advice</p>
-            <h3>Detailed Analysis</h3>
-            <p style={{ minHeight: '80px', marginTop: '1rem' }}>
-              {loadingAi || refreshingAi ? "Generating deep-dive analysis..." : aiInsights?.advice}
-            </p>
-            {analysisPeriod && !(loadingAi || refreshingAi) ? (
-              <p className="advisor-footnote">{analysisPeriod}</p>
-            ) : null}
-          </div>
+        <section className="advisor-card advisor-analysis" aria-labelledby="advisor-analysis-title">
+          <header className="advisor-stat__head">
+            <span className="advisor-icon advisor-icon--gold">
+              <FaReceipt aria-hidden="true" />
+            </span>
+            <div>
+              <p className="advisor-eyebrow advisor-eyebrow--gold">AI Advice</p>
+              <h3 id="advisor-analysis-title">Detailed Analysis</h3>
+            </div>
+          </header>
+          <p className="advisor-analysis__text">
+            {aiBusy ? "Generating deep-dive analysis..." : aiInsights?.advice}
+          </p>
+          {analysisPeriod && !aiBusy ? (
+            <p className="advisor-footnote">{analysisPeriod}</p>
+          ) : null}
         </section>
       </div>
-
-      <AIChat />
     </div>
   );
 }
