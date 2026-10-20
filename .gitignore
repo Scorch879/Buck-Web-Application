@@ -39,3 +39,7 @@ __pycache__/
 
 .claude/settings.json
 .claude/settings.local.json
+
+# automated task prompts
+*Automated_Task_Prompt.md
+Frontend_Automated_Task_Prompt.md
