@@ -408,6 +408,18 @@ Scope: live Supabase (RLS, grants, functions, constraints, storage, advisors), `
 - **Live RPC check (rolled back)**: a debit of 10.005 reduced a wallet from 60000.00 to 59989.99 and stored amount 10.01 (rounded); an amount above the balance was rejected with "Expense exceeds your wallet balance."; a zero amount was rejected.
 - **Not verified**: the browser UI and the mobile round trip.
 
+#### BUG-035: [RESOLVED] Buck_AI Reads Capped at 1,000 Rows (Silent Truncation)
+- **Location**: `Buck_AI/shared/supabase.py`, `BuckAI_Advisor/snapshot.py`, `BuckAI_Advisor/tools.py`.
+- **Cause**: `expenses` and `incomes` were read with one PostgREST request and no paging. PostgREST answers at most `max_rows` (Supabase default 1000) and does not flag a cut-off, so users with more rows in the window got wrong totals, health scores, fingerprints and advice. The web client (`fetchListExpenses`) already paged; Buck_AI did not.
+- **Resolution**: `UserDb.select_all` pages with `Range` headers (page 1000), adds an `id` tie-break to the order so pages never overlap or skip, and raises `DbError` past 20,000 rows instead of returning partial data. Snapshot and tools use it for expenses and incomes (an explicit `limit` stays a single page). `Buck_AI/tests/test_supabase.py`: 2,500 rows, exact page multiples, ordering and a 1,500-expense snapshot total; `unittest` is 43/43.
+- **Assumption**: `PAGE_SIZE` (1000) must not exceed the project's `max_rows`, or paging would stop early.
+
+#### BUG-036: [RESOLVED in code; migration pending apply] Fallback Categories Protected Only in the UI
+- **Cause**: `Uncategorized` (expense) and `Other` (income) were hidden from the Categories page's edit buttons, but a direct API call could delete or rename them, breaking the AI categorizer and `ensure_expense_relations_owner()`.
+- **Resolution**: [`202610240001_protect_fallback_categories.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240001_protect_fallback_categories.sql). Row trigger with a `WHEN` clause (runs only for the ~2 fallback rows per user, no overhead for other categories) rejects deleting or renaming/re-kinding a fallback (`23514`); colour, icon and sort order stay editable. A delete is allowed once the owning `auth.users` row is gone, so account purge still cascades. `SECURITY DEFINER` with `search_path = ''`, EXECUTE revoked from API roles. Includes an idempotent backfill for users missing a fallback (live: 0 missing).
+- **Verification (live, rolled back)**: new user seeded 25 categories; deleting either fallback, renaming one and changing its kind were blocked; editing a fallback's colour, renaming and deleting a normal category worked; deleting the auth user cascaded to 0 categories.
+- **Related**: live also has `trg_check_category_deletion` (from `202606130001`), which blocks deleting a category still used by expenses. `deleteCategoryAndReassign` moves items first, so the two triggers agree.
+
 ---
 
 ### 🟢 Low Severity / Tech Debt

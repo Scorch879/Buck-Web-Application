@@ -68,7 +68,8 @@ def advisor_tools(db: UserDb) -> list[Tool]:
             params.append(("category_name", f"ilike.{_escape_like(category)}"))
         if limit:
             params.append(("limit", str(limit)))
-        rows = await db.select("expenses", params)
+        # An explicit limit is a single bounded page; otherwise read every row so totals are exact.
+        rows = await (db.select if limit else db.select_all)("expenses", params)
         return start, end, [
             {"date": str(r.get("spent_on"))[:10], "amount": money(r.get("amount")),
              "category": clean_text(r.get("category_name"), 60) or "Uncategorized",
@@ -101,7 +102,7 @@ def advisor_tools(db: UserDb) -> list[Tool]:
     async def income(args: dict[str, Any]):
         start, end = resolve_range(args.get("start_date"), args.get("end_date"))
         try:
-            rows = await db.select("incomes", [("select", "amount,source"), ("user_id", uid),
+            rows = await db.select_all("incomes", [("select", "amount,source"), ("user_id", uid),
                                                ("received_on", f"gte.{start}"), ("received_on", f"lte.{end}")])
         except DbError:
             return {"tracked": False}
