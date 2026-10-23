@@ -482,6 +482,12 @@ Scope: live Supabase (RLS, grants, functions, constraints, storage, advisors), `
   - Intentional effect dependency lists keep a commented `eslint-disable-next-line`.
 - **Verification (2026-10-15)**: `npm run lint -- --max-warnings=0` reports 0 problems across 138 files. `npm run typecheck` is clean, `npm test` passes 44/44, `npm run build` passes (lint included), and `npm audit --omit=dev` finds 0 vulnerabilities.
 
+#### BUG-034: [RESOLVED] Advisor Ran Out of Gemini Models Within a Day
+- **Location**: `Buck_AI/shared/gemini.py`, `Buck_AI/shared/config.py`
+- **Impact**: The Gemini free tier allows about 20 requests a day per model, and one chat question can use 2–3 (tool rounds). By 2026-10-23, `gemini-3.8-flash` and `gemini-3.7-flash` were out of quota for the day, and `gemini-3.6-flash` was intermittently overloaded (503). Every request still tried the exhausted models first, a model that hung used up the whole time budget without moving on, and once 3.6 failed nothing was left, so users got the offline fallback instead of AI answers.
+- **Fix**: The default chain adds `gemini-3.5-flash` and `gemini-3.5-flash-lite` (each with its own free quota). A model that hits its daily quota (429) or is retired (404) is benched per instance until Google's retry delay passes (capped at 1 hour); if every model is benched, all are tried anyway. A model that doesn't answer within 8 s counts as busy and the next one is tried.
+- **Verification (2026-10-23)**: `python -m unittest` passes 36/36 (new tests for benching and slow models). Live run with the real key and fake Supabase: the insight was answered by 3.6 after 3.8 and 3.7 returned 429; the chat then skipped the benched models and streamed an AI answer in 7 s.
+
 ---
 
 ## 3. Security & Compliance Audit Matrix

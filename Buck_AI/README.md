@@ -67,5 +67,5 @@ python -m unittest -v
 **Staying at ₱0:**
 
 - Use a Gemini key from [Google AI Studio](https://aistudio.google.com) on the free tier, and don't attach a billing account.
-- When Gemini is overloaded (503) or a model's free quota runs out (429), Buck_AI moves down the model chain `GEMINI_MODELS` (default `gemini-3.8-flash` → `gemini-3.7-flash` → `gemini-3.6-flash`); each model has its own capacity and free quota. Only if every model fails does the Advisor serve its rule-based fallback. `ai_advisories.model_name` records the model that answered.
+- When Gemini is overloaded (503), a model is retired (404), slow (no answer in 8 s) or out of free quota (429), Buck_AI moves down the model chain `GEMINI_MODELS` (default `gemini-3.8-flash` → `gemini-3.7-flash` → `gemini-3.6-flash` → `gemini-3.5-flash` → `gemini-3.5-flash-lite`); each model has its own capacity and free quota (about 20 requests a day each). A model that runs out of its daily quota is skipped until Google says it may answer again (at most 1 hour per server instance), so later requests do not waste time on it. Only if every model fails does the Advisor serve its rule-based fallback. `ai_advisories.model_name` records the model that answered.
 - On the free tier, Google may use prompts to improve its products. Buck only sends PII-scrubbed numbers.

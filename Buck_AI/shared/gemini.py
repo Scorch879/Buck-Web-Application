@@ -9,6 +9,8 @@ import asyncio
 import contextvars
 import json
 import logging
+import re
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
@@ -21,9 +23,17 @@ from .config import get_settings
 log = logging.getLogger("buck_ai.gemini")
 
 MAX_TOOL_ROUNDS = 4
-# Overloaded (503), internal (500), timeout (504) and quota (429) errors move
-# on to the next model in the chain; anything else fails fast.
-TRANSIENT_CODES = frozenset({429, 500, 503, 504})
+# Overloaded (503), internal (500), timeout (504), quota (429) and retired
+# model (404) errors move on to the next model in the chain, as does a model
+# that doesn't answer within ATTEMPT_TIMEOUT_SECONDS; anything else fails fast.
+TRANSIENT_CODES = frozenset({404, 429, 500, 503, 504})
+ATTEMPT_TIMEOUT_SECONDS = 8.0
+# The free tier allows about 20 requests a day per model. A model that runs
+# out is skipped (per instance) until Google's retry delay passes, capped so
+# a long delay can't bench it for the rest of the day on a warm instance.
+BENCH_PER_MINUTE_SECONDS = 60.0
+BENCH_MAX_SECONDS = 3600.0
+_RETRY_DELAY = re.compile(r"retryDelay'?\"?:\s*'?\"?(\d+)s")
 # Pause before retrying the same model (only when a single model is configured).
 RETRY_DELAY_SECONDS = 0.8
 # Tools are declared, never Python callables, so the SDK's automatic function
@@ -31,6 +41,7 @@ RETRY_DELAY_SECONDS = 0.8
 _NO_AFC = types.AutomaticFunctionCallingConfig(disable=True)
 
 _client: genai.Client | None = None
+_benched: dict[str, float] = {}  # model -> time.monotonic() when it may be tried again
 
 # The model that answered the latest generate_json call in this request
 # (contextvars keep concurrent requests apart). Saved with the advice.
@@ -58,19 +69,43 @@ def set_client(client: Any) -> None:
 
 
 def is_transient(exc: BaseException) -> bool:
+    if isinstance(exc, asyncio.TimeoutError):
+        return True
     return isinstance(exc, errors.APIError) and exc.code in TRANSIENT_CODES
 
 
+def bench(model: str, exc: BaseException) -> None:
+    """Skip a model that ran out of quota until it may answer again."""
+    if not (isinstance(exc, errors.APIError) and exc.code in (404, 429)):
+        return
+    text = str(exc)
+    if exc.code == 404:
+        seconds = BENCH_MAX_SECONDS
+    elif "PerDay" in text:
+        match = _RETRY_DELAY.search(text)
+        seconds = min(float(match.group(1)), BENCH_MAX_SECONDS) if match else BENCH_MAX_SECONDS
+    else:
+        seconds = BENCH_PER_MINUTE_SECONDS
+    _benched[model] = time.monotonic() + seconds
+    log.info("Gemini %s benched for %.0fs (%s)", model, seconds, exc.code)
+
+
+def reset_bench() -> None:
+    _benched.clear()
+
+
 def attempt_plan() -> tuple[str, ...]:
-    """Models to try, in order: each configured model once (primary first).
-    A single configured model gets one retry instead."""
+    """Models to try, in order: each configured model once (primary first),
+    leaving out models still benched for quota. A single model gets one retry."""
     models = get_settings().gemini_models
-    return models if len(models) > 1 else models * 2
+    now = time.monotonic()
+    ready = tuple(m for m in models if _benched.get(m, 0.0) <= now) or models  # all benched: try anyway
+    return ready if len(ready) > 1 else ready * 2
 
 
 async def _before_next(plan: tuple[str, ...], attempt: int, exc: BaseException) -> None:
     """Log the switch and pause only when retrying the same model."""
-    log.info("Gemini %s busy (%s); trying %s", plan[attempt - 1], getattr(exc, "code", "?"), plan[attempt])
+    log.info("Gemini %s busy (%s); trying %s", plan[attempt - 1], getattr(exc, "code", None) or type(exc).__name__, plan[attempt])
     if plan[attempt] == plan[attempt - 1]:
         await asyncio.sleep(RETRY_DELAY_SECONDS)
 
@@ -133,8 +168,9 @@ async def stream_with_tools(
             model_parts: list[types.Part] = []
             calls: list[types.FunctionCall] = []
             try:
-                stream = await client.aio.models.generate_content_stream(
-                    model=plan[attempt], contents=contents, config=config
+                stream = await asyncio.wait_for(
+                    client.aio.models.generate_content_stream(model=plan[attempt], contents=contents, config=config),
+                    ATTEMPT_TIMEOUT_SECONDS,
                 )
                 async for chunk in stream:
                     candidate = (chunk.candidates or [None])[0]
@@ -148,6 +184,7 @@ async def stream_with_tools(
             except GeminiUnavailable:
                 raise
             except Exception as exc:  # SDK/network/quota errors
+                bench(plan[attempt], exc)
                 # Retry only before this round produced anything, so no text repeats.
                 if not model_parts and is_transient(exc) and attempt + 1 < len(plan):
                     attempt += 1
@@ -203,12 +240,13 @@ async def generate_json(
                 client.aio.models.generate_content(
                     model=plan[attempt], contents=[user_turn(prompt)], config=config
                 ),
-                timeout=max(0.1, deadline - loop.time()),
+                timeout=max(0.1, min(ATTEMPT_TIMEOUT_SECONDS, deadline - loop.time())),
             )
             data = json.loads(response.text or "")
             answered_by.set(plan[attempt])
             break
         except Exception as exc:
+            bench(plan[attempt], exc)
             if is_transient(exc) and attempt + 1 < len(plan) and deadline - loop.time() > 2 * RETRY_DELAY_SECONDS:
                 attempt += 1
                 await _before_next(plan, attempt, exc)
