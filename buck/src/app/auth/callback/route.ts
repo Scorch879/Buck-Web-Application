@@ -87,9 +87,12 @@ export async function GET(request: NextRequest) {
     // We return a small HTML page that checks the hash and either redirects to the nextPath or to sign-in.
     // To prevent XSS, we pass dynamic variables via safe HTML attributes instead of inline JS injection.
     const fallbackUrl = createSignInRedirect(request, "auth-callback-missing-code").toString();
-    
+    // The CSP (middleware.ts) only runs inline scripts that carry this request's nonce.
+    const nonce = request.headers.get("x-nonce");
+
     // Basic HTML escaping for attributes
     const escapeHtml = (str: string) => str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    const nonceAttribute = nonce ? ` nonce="${escapeHtml(nonce)}"` : "";
 
     return new NextResponse(
       `
@@ -97,7 +100,7 @@ export async function GET(request: NextRequest) {
       <html>
         <head>
           <meta id="redirect-data" data-next="${escapeHtml(nextPath)}" data-fallback="${escapeHtml(fallbackUrl)}" />
-          <script>
+          <script${nonceAttribute}>
             const meta = document.getElementById("redirect-data");
             const nextPath = meta.getAttribute("data-next");
             const fallbackPath = meta.getAttribute("data-fallback");
