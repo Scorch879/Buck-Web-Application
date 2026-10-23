@@ -15,6 +15,8 @@ This catalog documents the functions, tools, database interactions, API endpoint
 | [`getUserAvatarSignedUrl(avatarPath, expiresIn)`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L486) | `avatarPath: string`, `expiresIn?: number` (default 3600) | `Promise<string>` | Generates secure signed URL for private avatar image in `profile-avatars` bucket. |
 | [`replaceUserAvatar(userId, file)`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L506) | `userId: string`, `file: File` | `Promise<{ avatarPath: string }>` | Uploads new avatar (max 2MB, JPEG/PNG/WebP), updates profile avatar path, removes old avatars. |
 | [`removeUserAvatar(userId, avatarPath)`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L561) | `userId: string`, `avatarPath: string \| null` | `Promise<void>` | Deletes avatar files from storage bucket and nullifies avatar columns in profile. |
+| [`listConnectedApps()`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L2322) | — | `Promise<ConnectedAppGrant[]>` | Apps the user allowed to read their data (ADR-049), via `supabase.auth.oauth.listGrants()`: `clientId`, `name`, `website`, `logoUrl`, `scopes`, `grantedAt`. |
+| [`disconnectConnectedApp(clientId)`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L2344) | `clientId: string` | `Promise<void>` | Revokes a connected app's grant (`revokeGrant`); the app stops working at once and a trigger clears Buck's record. |
 
 ### 1.2 Categories Management
 

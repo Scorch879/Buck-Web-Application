@@ -275,7 +275,8 @@ html[data-buck-theme="dark"] .settings-section {
 }
 
 .settings-section--email,
-.settings-section--security {
+.settings-section--security,
+.settings-section--connected {
   grid-column: span 6;
 }
 
@@ -1308,7 +1309,8 @@ html[data-buck-theme="dark"] .settings-tab--active {
 .settings-tab-panel .settings-section--appearance,
 .settings-tab-panel .settings-section--danger,
 .settings-tab-panel .settings-section--email,
-.settings-tab-panel .settings-section--security {
+.settings-tab-panel .settings-section--security,
+.settings-tab-panel .settings-section--connected {
   grid-column: 1 / -1;
 }
 
@@ -1438,7 +1440,8 @@ html[data-buck-theme="dark"] .feedback-category-card.active {
   .settings-tab-panel .settings-section--appearance,
   .settings-tab-panel .settings-section--danger,
   .settings-tab-panel .settings-section--email,
-  .settings-tab-panel .settings-section--security {
+  .settings-tab-panel .settings-section--security,
+  .settings-tab-panel .settings-section--connected {
     grid-column: auto;
   }
 }
@@ -2497,5 +2500,143 @@ html[data-buck-theme="dark"] .wallet-page-btn--active {
   .wallet-pagination-info {
     justify-self: center;
     text-align: center;
+  }
+}
+
+/* Settings › Security › Connected apps (ADR-049) */
+.settings-connected-help {
+  margin: 0;
+  color: var(--buck-muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.settings-connected-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.settings-connected-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.settings-connected-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.72rem;
+  background: rgba(255, 250, 244, 0.44);
+  border: 1px solid rgba(244, 117, 54, 0.18);
+  border-radius: 8px;
+}
+
+html[data-buck-theme="dark"] .settings-connected-row {
+  background: rgba(255, 197, 71, 0.055);
+}
+
+.settings-connected-logo {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  background: #fffaf4;
+  border: 1px solid rgba(244, 117, 54, 0.22);
+  border-radius: 10px;
+}
+
+.settings-connected-logo--initial {
+  color: #241409;
+  background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
+  font-weight: 700;
+}
+
+.settings-connected-info {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.settings-connected-info strong {
+  width: fit-content;
+  color: var(--buck-ink);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.settings-connected-meta {
+  width: fit-content;
+  color: var(--buck-muted);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.settings-connected-scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.15rem;
+}
+
+.settings-connected-scope {
+  padding: 0.12rem 0.5rem;
+  color: var(--buck-ink);
+  background: rgba(255, 197, 71, 0.16);
+  border: 1px solid rgba(244, 117, 54, 0.2);
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
+.settings-connected-disconnect {
+  min-height: 40px;
+}
+
+.settings-connected-empty {
+  margin: 0;
+  padding: 1rem;
+  color: var(--buck-muted);
+  background: rgba(255, 197, 71, 0.06);
+  border: 1px dashed rgba(244, 117, 54, 0.28);
+  border-radius: 8px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.settings-connected-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.72rem;
+  color: #a81919;
+  background: rgba(255, 56, 56, 0.1);
+  border: 1px solid rgba(255, 56, 56, 0.3);
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+html[data-buck-theme="dark"] .settings-connected-error {
+  color: #ffd1d1;
+}
+
+@media (max-width: 560px) {
+  .settings-connected-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .settings-connected-disconnect {
+    grid-column: 1 / -1;
+    width: 100%;
   }
 }

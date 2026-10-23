@@ -2307,3 +2307,49 @@ export async function listIncomes(
 
   return list ? copyList(list) : list;
 }
+
+// Connected apps (ADR-049): grants live in Supabase Auth, not a table, so these
+// use the auth API. Revoking stops the app at once; a trigger clears Buck's record.
+export type ConnectedAppGrant = {
+  clientId: string;
+  name: string;
+  website: string | null;
+  logoUrl: string | null;
+  scopes: string[];
+  grantedAt: string;
+};
+
+export async function listConnectedApps(): Promise<ConnectedAppGrant[]> {
+  if (isDesignPreviewMode) {
+    return [];
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.auth.oauth.listGrants();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((grant) => ({
+    clientId: grant.client.id,
+    name: grant.client.name?.trim() || "Unnamed app",
+    website: grant.client.uri?.trim() || null,
+    logoUrl: grant.client.logo_uri?.trim() || null,
+    scopes: grant.scopes ?? [],
+    grantedAt: grant.granted_at,
+  }));
+}
+
+export async function disconnectConnectedApp(clientId: string) {
+  if (isDesignPreviewMode) {
+    return;
+  }
+
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.auth.oauth.revokeGrant({ clientId });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}

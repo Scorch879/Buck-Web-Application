@@ -1,0 +1,477 @@
+/* /oauth/consent (ADR-049). Follows the centred auth card (check-email). */
+.OC-Background {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 2rem);
+  color: #2b2523;
+  background: var(--buck-page-background);
+}
+
+.OC-Card {
+  display: grid;
+  gap: 1rem;
+  width: min(520px, 100%);
+  padding: clamp(1.15rem, 4vw, 1.75rem);
+  background: rgba(255, 250, 244, 0.92);
+  border: 1px solid rgba(222, 210, 199, 0.92);
+  border-radius: 8px;
+  box-shadow: 0 22px 60px rgba(94, 59, 34, 0.18);
+}
+
+.OC-Dark .OC-Card {
+  color: #fff8ed;
+  background: rgba(38, 25, 18, 0.92);
+  border-color: rgba(255, 211, 154, 0.2);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.32);
+}
+
+.OC-SrOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Brand */
+.OC-Brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: fit-content;
+  color: inherit;
+  text-decoration: none;
+}
+
+.OC-BrandMark {
+  display: grid;
+  place-items: end center;
+  width: 42px;
+  height: 42px;
+  overflow: hidden;
+  background: rgba(255, 197, 71, 0.18);
+  border: 1px solid rgba(244, 117, 54, 0.28);
+  border-radius: 999px;
+}
+
+.OC-BrandMascot {
+  width: 32px;
+  height: 44px;
+  object-fit: contain;
+  transform: translateY(7px);
+}
+
+.OC-Brand strong,
+.OC-Brand small {
+  display: block;
+  line-height: 1.1;
+}
+
+.OC-Brand strong {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.OC-Brand small {
+  color: #756d68;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.OC-Dark .OC-Brand small {
+  color: #d9c7b6;
+}
+
+/* App identity */
+.OC-AppHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-width: 0;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(244, 117, 54, 0.16);
+}
+
+.OC-Logo {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  background: #fffaf4;
+  border: 1px solid rgba(244, 117, 54, 0.24);
+  border-radius: 12px;
+}
+
+.OC-Logo--initial {
+  color: #241409;
+  background: linear-gradient(135deg, #ffc547, #f47536);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.OC-AppText {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.OC-AppText h1 {
+  margin: 0;
+  font-size: clamp(1.35rem, 5vw, 1.7rem);
+  font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.OC-Website {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: fit-content;
+  color: #b8461a;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.OC-Website svg {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+}
+
+.OC-Website:hover,
+.OC-Website:focus-visible {
+  text-decoration: underline;
+}
+
+.OC-Dark .OC-Website {
+  color: #ffc547;
+}
+
+.OC-Lead {
+  margin: -0.4rem 0 0;
+  color: #756d68;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.OC-Dark .OC-Lead {
+  color: #d9c7b6;
+}
+
+/* Warnings: amber (Buck Gold) for unreviewed, coral for "Buck" look-alikes */
+.OC-Warning,
+.OC-Note {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  padding: 0.8rem 0.9rem;
+  border-radius: 8px;
+  line-height: 1.5;
+}
+
+.OC-Warning p,
+.OC-Note p {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.OC-Warning svg,
+.OC-Note svg {
+  flex: 0 0 auto;
+  margin-top: 0.2rem;
+}
+
+.OC-Warning {
+  color: #6b4100;
+  background: rgba(255, 197, 71, 0.22);
+  border: 1px solid rgba(214, 150, 0, 0.45);
+}
+
+.OC-Warning svg {
+  color: #b77900;
+}
+
+.OC-Dark .OC-Warning {
+  color: #ffe7a3;
+  background: rgba(255, 197, 71, 0.12);
+  border-color: rgba(255, 197, 71, 0.36);
+}
+
+.OC-Dark .OC-Warning svg {
+  color: #ffc547;
+}
+
+.OC-Warning--danger {
+  color: #8f1414;
+  background: rgba(255, 56, 56, 0.12);
+  border-color: rgba(255, 56, 56, 0.5);
+}
+
+.OC-Warning--danger svg {
+  color: #ff3838;
+}
+
+.OC-Dark .OC-Warning--danger {
+  color: #ffd8d8;
+  background: rgba(255, 56, 56, 0.16);
+  border-color: rgba(255, 56, 56, 0.5);
+}
+
+.OC-Dark .OC-Warning--danger svg {
+  color: #ff6b6b;
+}
+
+/* Scopes */
+.OC-Section {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.OC-SectionTitle {
+  margin: 0;
+  width: fit-content;
+  color: #f47536;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.OC-Scopes {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.OC-Scopes li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: fit-content;
+  font-size: 0.95rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.OC-Scopes svg {
+  flex: 0 0 auto;
+  color: #2e7d32;
+  font-size: 0.8rem;
+}
+
+.OC-Dark .OC-Scopes svg {
+  color: #8fd694;
+}
+
+/* Read-only note */
+.OC-Note {
+  color: #3d2f27;
+  background: rgba(255, 241, 216, 0.7);
+  border: 1px solid rgba(244, 117, 54, 0.2);
+}
+
+.OC-Note svg {
+  color: #f47536;
+}
+
+.OC-Dark .OC-Note {
+  color: #f4e6d6;
+  background: rgba(255, 197, 71, 0.06);
+  border-color: rgba(255, 197, 71, 0.18);
+}
+
+.OC-Redirect {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin: 0;
+  color: #5c534e;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.OC-Redirect svg {
+  flex: 0 0 auto;
+  margin-top: 0.22rem;
+  color: #f47536;
+  font-size: 0.8rem;
+}
+
+.OC-Dark .OC-Redirect {
+  color: #d9c7b6;
+}
+
+.OC-Host {
+  color: #241409;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.OC-Dark .OC-Host {
+  color: #fff8ed;
+}
+
+.OC-Message {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  color: #b83324;
+  background: rgba(255, 56, 56, 0.1);
+  border: 1px solid rgba(255, 56, 56, 0.24);
+  border-radius: 8px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.OC-Dark .OC-Message {
+  color: #ffd8d8;
+  background: rgba(198, 40, 40, 0.22);
+  border-color: rgba(239, 154, 154, 0.28);
+}
+
+/* Actions: Deny (secondary) then Allow (primary, Buck Orange) */
+.OC-Actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-top: 0.2rem;
+}
+
+.OC-Button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 46px;
+  padding: 0.75rem 1.1rem;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    box-shadow 180ms ease,
+    transform 180ms ease,
+    opacity 180ms ease;
+}
+
+.OC-Button--primary {
+  color: #fff;
+  background: #f47536;
+  border: 1px solid #e0621f;
+  box-shadow: 0 12px 26px rgba(244, 117, 54, 0.24);
+}
+
+.OC-Button--secondary {
+  color: #6b2a12;
+  background: rgba(255, 250, 244, 0.6);
+  border: 1px solid rgba(184, 70, 26, 0.36);
+}
+
+.OC-Dark .OC-Button--primary {
+  color: #241409;
+}
+
+.OC-Dark .OC-Button--secondary {
+  color: #ffc547;
+  background: rgba(255, 197, 71, 0.08);
+  border-color: rgba(255, 197, 71, 0.28);
+}
+
+.OC-Button:hover:not(:disabled),
+.OC-Button:focus-visible:not(:disabled) {
+  box-shadow: 0 16px 32px rgba(94, 59, 34, 0.18);
+  transform: translateY(-2px);
+}
+
+.OC-Button:focus-visible {
+  outline: 3px solid rgba(244, 117, 54, 0.55);
+  outline-offset: 2px;
+}
+
+.OC-Button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Skeleton parity: keep the boxes, hide the fill */
+.OC-Card span.OC-Button.skeleton-text {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.OC-Card .skeleton-text svg,
+.OC-Card .skeleton-text.OC-Note {
+  border-color: transparent;
+}
+
+.OC-Card .skeleton-text svg {
+  visibility: hidden;
+}
+
+/* Status states (invalid, expired, error, redirecting) */
+.OC-Status {
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  padding: 0.8rem 0 0.2rem;
+  border-top: 1px solid rgba(244, 117, 54, 0.16);
+  text-align: center;
+}
+
+.OC-Status h1 {
+  margin: 0;
+  font-size: clamp(1.35rem, 5vw, 1.65rem);
+  font-weight: 700;
+}
+
+.OC-Status p {
+  max-width: 380px;
+  margin: 0;
+  color: #756d68;
+  line-height: 1.55;
+}
+
+.OC-Dark .OC-Status p {
+  color: #d9c7b6;
+}
+
+.OC-StatusIcon {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  color: #ff3838;
+  background: rgba(255, 197, 71, 0.2);
+  border: 1px solid rgba(244, 117, 54, 0.3);
+  border-radius: 999px;
+  font-size: 1.35rem;
+}
+
+.OC-StatusAction {
+  margin-top: 0.5rem;
+}
+
+.OC-Spinner {
+  width: 2rem;
+  height: 2rem;
+  color: #f47536;
+  border-width: 3px;
+}
+
+@media (max-width: 420px) {
+  .OC-Logo {
+    width: 48px;
+    height: 48px;
+  }
+}
