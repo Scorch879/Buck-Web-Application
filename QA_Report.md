@@ -89,6 +89,14 @@ Scope: live Supabase (RLS, grants, functions, constraints, storage, advisors), `
 
 **Verified**: `tsc` clean, `eslint` clean, vitest 44/44, Buck_AI unittest 23/23, live DB checks above. **Not verified**: the shared limiter against a deployed `Buck_AI`, the feedback insert from the signed-in UI after the new e-mail policy, `next build`.
 
+### 📦 Dependency Advisory: Next.js 15.5.27 (2026-10-24)
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-037** | 🔴 Critical | `npm audit --omit=dev` flagged the installed `next@15.5.27`: GHSA-2464-fhr4-w9xw (unauthenticated RCE in the Image Optimization API when SVGs are used) and GHSA-p3m5-59mp-jv5r (DoS in the App Router via Server Actions). | **Resolved.** `next` and `eslint-config-next` bumped to `^15.5.28` (latest 15.x); the lockfile changes only the Next packages. Exposure was lower than the rating: `next.config.ts` has no `images` block, so `dangerouslyAllowSVG` is at its default `false`. |
+
+**Verified**: `npm audit --omit=dev` and full `npm audit` both report 0 vulnerabilities; `eslint`, `tsc` clean; vitest 72/72; `next build` clean. **Not verified**: a deployed preview.
+
 ### 🔐 Two-Factor Authentication Backend (2026-10-24, ADR-048)
 
 Migrations [`202610240002_mfa_support.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240002_mfa_support.sql) and [`202610240003_mfa_enforce_rls.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240003_mfa_enforce_rls.sql) applied live and recorded in history. History drift fixed: `protect_fallback_categories` was stamped `20261023174201`, now `202610240001` like its file.
