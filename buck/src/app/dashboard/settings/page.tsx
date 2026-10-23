@@ -31,6 +31,7 @@ import {
   updatePassword,
   verifyCurrentPassword,
 } from "@/component/authentication";
+import ConnectedAppsSection from "@/component/ConnectedAppsSection";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useDashboardUser } from "@/context/DashboardUserContext";
 import {
@@ -67,7 +68,7 @@ const settingsTabs = [
   {
     id: "security",
     label: "Security",
-    description: "Email and password controls.",
+    description: "Email, password and connected apps.",
     icon: FaLock,
   },
   {
@@ -968,6 +969,8 @@ export default function SettingsPage() {
                     </div>
                   )}
                 </section>
+
+                <ConnectedAppsSection />
               </>
             ) : null}
 
