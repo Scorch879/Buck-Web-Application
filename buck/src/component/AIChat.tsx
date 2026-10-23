@@ -1,6 +1,14 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import {
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { FaCommentDots, FaFlag, FaMinus, FaPaperPlane, FaRedo, FaStop } from "react-icons/fa";
 import { useToast } from "@/component/toast";
 import { useDashboardUser } from "@/context/DashboardUserContext";
@@ -110,6 +118,18 @@ export default function AIChat({ variant = "card", onClose, onReplyDone }: AICha
 
   // Stop any in-flight answer when leaving the page.
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  // Panel: grow the question box with its text (up to 120px). While empty it
+  // is sized to the placeholder, which wraps to two lines in a narrow panel.
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el || !isPanel) return;
+    const value = el.value;
+    if (!value) el.value = el.placeholder;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight + 2, 120)}px`; // +2: borders
+    if (!value) el.value = value;
+  }, [draft, isPanel]);
 
   // Keep the newest text in view while streaming.
   useEffect(() => {

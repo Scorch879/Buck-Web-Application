@@ -151,11 +151,9 @@ export default function AIChatBubble() {
 
     if (window.matchMedia(MOBILE_QUERY).matches) {
       const sheetTop = Math.max(8, minTop - MARGIN + 8);
+      // left/right/bottom come from .ai-chat-panel--sheet (safe-area aware).
       setPanelStyle({
         top: sheetTop,
-        left: 8,
-        right: 8,
-        bottom: 8,
         transformOrigin: `${currentSide} ${Math.max(0, originY - sheetTop)}px`,
       });
       return;
