@@ -489,7 +489,7 @@ flowchart TD
 
 ### 4.4 Security & Data Auditor
 - **Responsibilities**: Supabase schema integrity, RLS policies, SSR auth lifecycles, cryptographic token handling, session activity cookies, and compliance purge workflows.
-- **Secret Isolation**: Never expose `SUPABASE_SERVICE_ROLE_KEY`, `AUTH_RATE_LIMIT_SECRET`, `SESSION_COOKIE_SECRET`, or `ACCOUNT_PURGE_SECRET` to client-side code (`NEXT_PUBLIC_`).
+- **Secret Isolation**: Never expose `SUPABASE_SERVICE_ROLE_KEY`, `AUTH_RATE_LIMIT_SECRET`, `SESSION_COOKIE_SECRET`, `ACCOUNT_PURGE_SECRET`, or `MFA_RECOVERY_SECRET` to client-side code (`NEXT_PUBLIC_`).
 - **Kernel Row Isolation**: All direct database operations from the client must strictly enforce PostgreSQL Row-Level Security (`auth.uid() = user_id`).
 - **Endpoint Authorization**: All administrative and purge routes must validate authorization headers and session roles before executing.
 
@@ -504,6 +504,7 @@ flowchart TD
 | **ADR-003** | Soft-Deletion for Multi-Wallet Management | Added `wallets.deleted_at` to preserve historical transaction referential integrity. |
 | **ADR-004** | Decoupled Python FastAPI Microservice | *Superseded by ADR-043* (service removed). |
 | **ADR-043** | Buck_AI: Python + Gemini, Two AIs | `Buck_AI/` FastAPI on Vercel with `BuckAI_Advisor` (saved, fingerprint-refreshed advice) and `BuckAI_Forecast` (planned); Supabase-JWT auth for web and mobile; queries run under RLS. |
+| **ADR-048** | Optional 2FA (TOTP), Passkeys & Recovery | `private.mfa_satisfied()` in RESTRICTIVE RLS + middleware/`apiAuth` + Buck_AI gate; backup codes and 24 h e-mail recovery under `/api/auth/mfa/*`; UI is a handoff. |
 | **ADR-005** | Zero-Knowledge Password Reset Rate Limiting | Rate limiting tracked via SHA-256 HMAC hashes in `auth_security_events` (zero plaintext PII). |
 | **ADR-006** | Database Policy Consolidation & Hardening | Applied `(select auth.uid())` initplan caching and revoked trigger execution from public roles. |
 | **ADR-007** | Weekly Spending Donut with 5-Slice Cap | Donut chart capped at Top-4 categories + 5th "Others" slice, paired with contextual interpretation card. |
@@ -552,6 +553,7 @@ Each account also gets 7 default income categories: `Salary`, `Allowance`, `Free
 - Recalibrated dynamically against 14-day, 30-day, and 60-day moving average spending velocity.
 
 ### 6.6 Security, Session & Deletion Lifecycle
+- **Optional 2FA (ADR-048)**: authenticator-app TOTP, plus passkey sign-in. One rule everywhere: `satisfied = aal2 OR no verified factor` (`private.mfa_satisfied()` in RESTRICTIVE RLS, `utils/mfa/assurance.ts` in middleware/routes, `Buck_AI/shared/auth.py`). Passkey sign-in alone is aal1 and does not satisfy it. Recovery: second app, 10 hashed backup codes, or e-mail link with a 24 h cool-off. Use `getRequestUserId`/`getRequestAuth` (`utils/apiAuth.ts`) in routes; never read data for an unsatisfied session.
 - **Inactivity Timeout**: Automatic logout after **30 minutes of user inactivity**.
 - **Cross-Tab Synchronization**: Inactivity timer and logout events synchronized across tabs via `BroadcastChannel` or `localStorage`.
 - **10-Day Account Deletion Grace Period**:

@@ -8,6 +8,7 @@ import {
 } from "@/utils/supabaseConfig";
 import { isAdminUser } from "@/utils/adminAccess";
 import { buildCsp, createNonce } from "@/utils/csp";
+import { createMfaVerifyPath, getMfaState, MFA_VERIFY_PATH } from "@/utils/mfa/assurance";
 
 const SESSION_ACTIVITY_COOKIE = "buck-session-activity";
 const DEFAULT_IDLE_TIMEOUT_MINUTES = 30;
@@ -97,6 +98,17 @@ function createDashboardRedirect(request: NextRequest) {
   redirectUrl.search = "";
 
   return redirectUrl;
+}
+
+function isAdminMfaRequired() {
+  return process.env.ADMIN_REQUIRE_MFA?.trim().toLowerCase() === "true";
+}
+
+function createMfaRedirect(request: NextRequest) {
+  return new URL(
+    createMfaVerifyPath(`${request.nextUrl.pathname}${request.nextUrl.search}`),
+    request.nextUrl.origin
+  );
 }
 
 function isRootAuthReturn(request: NextRequest) {
@@ -327,6 +339,8 @@ async function handleRequest(request: NextRequest, requestHeaders: Headers) {
   const { pathname } = request.nextUrl;
   const isProtectedRoute = pathname.startsWith("/dashboard");
   const isAuthRoute = AUTH_ROUTES.has(pathname);
+  // The 2FA code page: needs a signed-in user, but one who has NOT passed 2FA.
+  const isMfaRoute = pathname === MFA_VERIFY_PATH;
   const isSessionApiRoute =
     pathname.startsWith("/api/") &&
     !NON_SESSION_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
@@ -343,7 +357,7 @@ async function handleRequest(request: NextRequest, requestHeaders: Headers) {
     return redirectResponse;
   }
 
-  if (!isProtectedRoute && !isAuthRoute && !isSessionApiRoute) {
+  if (!isProtectedRoute && !isAuthRoute && !isMfaRoute && !isSessionApiRoute) {
     return response;
   }
 
@@ -403,7 +417,7 @@ async function handleRequest(request: NextRequest, requestHeaders: Headers) {
     error,
   } = await supabase.auth.getUser();
 
-  if (isProtectedRoute && (error || !user)) {
+  if ((isProtectedRoute || isMfaRoute) && (error || !user)) {
     const redirectResponse = NextResponse.redirect(
       createProtectedRedirect(request)
     );
@@ -459,6 +473,55 @@ async function handleRequest(request: NextRequest, requestHeaders: Headers) {
     // background polling) validate the window but never extend it.
     if (isProtectedRoute) {
       await refreshActivityCookie(response, user.id);
+    }
+  }
+
+  // Two-factor gate (ADR-048). getUser() above verified the session's access
+  // token, so its aal claim can be trusted. RLS enforces the same rule.
+  if (user && (isProtectedRoute || isMfaRoute || isSessionApiRoute)) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const mfa = getMfaState(user, session?.access_token);
+
+    if (!mfa.satisfied && (isProtectedRoute || isSessionApiRoute)) {
+      const mfaResponse = isProtectedRoute
+        ? NextResponse.redirect(createMfaRedirect(request))
+        : NextResponse.json(
+            { error: "mfa_required", message: "Enter your two-factor code first." },
+            { status: 401 }
+          );
+      copyResponseCookies(response, mfaResponse);
+      setNoStoreHeaders(mfaResponse);
+
+      return mfaResponse;
+    }
+
+    if (mfa.satisfied && isMfaRoute) {
+      const redirectResponse = NextResponse.redirect(createDashboardRedirect(request));
+      copyResponseCookies(response, redirectResponse);
+      setNoStoreHeaders(redirectResponse);
+
+      return redirectResponse;
+    }
+
+    const isAdminArea =
+      pathname.startsWith("/dashboard/admin") || pathname.startsWith("/api/admin");
+
+    if (isAdminArea && isAdminMfaRequired() && !mfa.hasVerifiedFactor) {
+      const enrollUrl = new URL("/dashboard/settings", request.nextUrl.origin);
+      enrollUrl.searchParams.set("tab", "security");
+      enrollUrl.searchParams.set("enroll", "2fa");
+      const enrollResponse = isProtectedRoute
+        ? NextResponse.redirect(enrollUrl)
+        : NextResponse.json(
+            { error: "mfa_enrollment_required", message: "Admins must turn on two-factor authentication." },
+            { status: 403 }
+          );
+      copyResponseCookies(response, enrollResponse);
+      setNoStoreHeaders(enrollResponse);
+
+      return enrollResponse;
     }
   }
 

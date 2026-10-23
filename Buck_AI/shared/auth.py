@@ -5,9 +5,20 @@ There is no app-level API key: a key shipped inside the mobile app could be
 extracted and used to drain the Gemini quota. The token is verified with
 Supabase Auth (so expired, revoked and signed-out sessions fail), and the
 user id always comes from Supabase, never from the request body.
+
+Two-factor (ADR-048): a user with a verified authenticator must present an
+aal2 token. Same rule as private.mfa_satisfied() (RLS) and the web's
+utils/mfa/assurance.ts:
+
+    satisfied = token is aal2  OR  the user has no verified MFA factor
+
+RLS already hides the data from an aal1 token; this check turns that into a
+clear 403 instead of empty advice.
 """
 
+import base64
 import hashlib
+import json
 import re
 import threading
 import time
@@ -23,7 +34,9 @@ TOKEN_CACHE_TTL_SECONDS = 60
 TOKEN_CACHE_MAX = 2048
 _BEARER = re.compile(r"^Bearer\s+(\S+)\s*$", re.IGNORECASE)
 
-_cache: dict[str, tuple[str, float]] = {}
+MFA_REQUIRED_MESSAGE = "Enter your two-factor code first."
+
+_cache: dict[str, tuple[str, bool, float]] = {}
 _lock = threading.Lock()
 
 
@@ -43,7 +56,28 @@ def _key(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-async def _verify(token: str) -> str:
+def token_aal(token: str) -> str:
+    """The `aal` claim of a token Supabase Auth has already accepted.
+
+    The signature is not re-checked here: _verify() only calls this after
+    /auth/v1/user returned 200 for the same token. Anything unreadable is aal1.
+    """
+    try:
+        payload = token.split(".")[1]
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+    except (IndexError, ValueError):
+        return "aal1"
+    return "aal2" if isinstance(claims, dict) and claims.get("aal") == "aal2" else "aal1"
+
+
+def mfa_satisfied(aal: str, user: dict) -> bool:
+    factors = user.get("factors") or []
+    has_verified = any(isinstance(f, dict) and f.get("status") == "verified" for f in factors)
+    return aal == "aal2" or not has_verified
+
+
+async def _verify(token: str) -> tuple[str, bool]:
+    """(user id, 2FA satisfied) for a token, or 401/503."""
     settings = get_settings()
     if not settings.supabase_url or not settings.supabase_anon_key:
         raise HTTPException(503, "Authentication is not configured.")
@@ -57,10 +91,11 @@ async def _verify(token: str) -> str:
         raise HTTPException(503, "Authentication service unavailable.")
     if response.status_code != 200:
         raise HTTPException(401, "Your session expired. Sign in again.")
-    user_id = response.json().get("id")
+    user = response.json()
+    user_id = user.get("id") if isinstance(user, dict) else None
     if not isinstance(user_id, str) or not user_id:
         raise HTTPException(401, "Your session expired. Sign in again.")
-    return user_id
+    return user_id, mfa_satisfied(token_aal(token), user)
 
 
 async def current_user(request: Request) -> AuthUser:
@@ -72,14 +107,17 @@ async def current_user(request: Request) -> AuthUser:
     key, now = _key(token), time.monotonic()
     with _lock:
         hit = _cache.get(key)
-        if hit and hit[1] > now:
-            return AuthUser(hit[0], token)
+    if hit and hit[2] > now:
+        user_id, satisfied = hit[0], hit[1]
+    else:
+        user_id, satisfied = await _verify(token)
+        with _lock:
+            if len(_cache) >= TOKEN_CACHE_MAX:
+                _cache.clear()
+            _cache[key] = (user_id, satisfied, now + TOKEN_CACHE_TTL_SECONDS)
 
-    user_id = await _verify(token)
-    with _lock:
-        if len(_cache) >= TOKEN_CACHE_MAX:
-            _cache.clear()
-        _cache[key] = (user_id, now + TOKEN_CACHE_TTL_SECONDS)
+    if not satisfied:
+        raise HTTPException(403, MFA_REQUIRED_MESSAGE, headers={"X-Buck-Error": "mfa_required"})
     return AuthUser(user_id, token)
 
 

@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseAdminClient } from "@/utils/supabase/admin";
 import { createSupabaseServerClient } from "@/utils/supabase/server";
+import { getMfaState, hasFreshStepUp } from "@/utils/mfa/assurance";
 import {
   isSupabaseAdminConfigured,
   isSupabaseConfigured,
@@ -87,6 +88,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { success: false, message: "You need to sign in again first." },
       { status: 401 }
+    );
+  }
+
+  // With 2FA on, deleting the account also needs an authenticator code from
+  // the last 10 minutes (step-up), not just a session that passed 2FA earlier.
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const mfa = getMfaState(user, session?.access_token);
+
+  if (!hasFreshStepUp(mfa, session?.access_token)) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "mfa_step_up_required",
+        message: "Enter your authenticator code again to confirm it's you.",
+      },
+      { status: 403 }
     );
   }
 
