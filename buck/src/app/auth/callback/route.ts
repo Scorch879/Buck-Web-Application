@@ -5,6 +5,7 @@ import {
   createMfaVerifyPath,
   EMAIL_RECOVERY_CONFIRM_PATH,
   getMfaState,
+  OAUTH_CONSENT_PATH,
 } from "@/utils/mfa/assurance";
 import {
   isSupabaseConfigured,
@@ -30,7 +31,9 @@ function getSafeNextPath(value: string | null) {
         // Account-deletion confirmation link (sent by /api/account/deletion/request).
         parsedUrl.pathname === "/account/delete/confirm" ||
         // 2FA email recovery link (sent by /api/auth/mfa/email-recovery).
-        parsedUrl.pathname === EMAIL_RECOVERY_CONFIRM_PATH)
+        parsedUrl.pathname === EMAIL_RECOVERY_CONFIRM_PATH ||
+        // Connected-app consent, after Google or magic-link sign-in (ADR-049).
+        parsedUrl.pathname === OAUTH_CONSENT_PATH)
     ) {
       return parsedUrl.pathname + parsedUrl.search;
     }

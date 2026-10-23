@@ -1379,3 +1379,52 @@ Buck-Web-Application/
 - **Routes**: `GET /api/auth/mfa/status`, `POST /api/auth/mfa/recovery-codes`, `POST /api/auth/mfa/recovery-codes/redeem`, `POST|DELETE /api/auth/mfa/email-recovery`, `POST /api/auth/mfa/email-recovery/complete`, `GET /account/mfa/recover/confirm`, `POST /api/admin/users/:id/mfa/reset`. TOTP enroll/challenge/verify/unenroll stay SDK calls (Supabase requires aal2 to add or remove a factor once one is verified).
 - **Handoff (not backend)**: Settings › Security "Two-factor authentication" (enroll with QR + manual secret, up to 2 apps, remove via `DangerDeleteDialog`, show backup codes once, pending-recovery banner with Cancel) and "Passkeys" sections; the `/verify-2fa` page (6-digit code, "Use a backup code", "Email me a recovery link", `emailRecovery` query states) with a 1:1 skeleton; "Sign in with passkey" on `/sign-in`. Flutter: route to a verify screen when `nextLevel == aal2 && currentLevel == aal1`, treat `401 mfa_required` (Next.js) and `403` + `X-Buck-Error: mfa_required` (Buck_AI) as "ask for the code", and call the same `/api/auth/mfa/*` routes with the bearer token.
 - **Consequences**: 2FA cannot be bypassed through any client or the REST API. Supabase dashboard setup still needed: enable Passkeys and fix the RP ID to the production domain before anyone enrolls (changing it later invalidates every passkey); keep token-verification rate limits at their defaults.
+
+
+### ADR-049: Connected Apps via the Supabase OAuth 2.1 Server: Read-Only, 2FA-Approved
+
+- **Status**: Backend implemented 2026-10-24 (migration `202610240004_oauth_apps.sql` applied live). Dashboard switch, consent page UI and app registration pending.
+- **Context**: Buck should let AI agents and MCP clients, the team's own other apps, and third-party apps read a user's data with their consent ("Sign in with Buck"). Supabase's OAuth 2.1 server issues these apps access tokens that look like session tokens plus a `client_id` claim and, by default, have the same data access as the user. Its consent endpoint also accepts an aal1 session, so on its own it would let a password-only attacker connect an app for a 2FA user.
+- **Decision**:
+  1. **Read-only.** RESTRICTIVE `"<table>: apps read-only (insert|update|delete)"` policies reject any token with a `client_id` (`private.is_oauth_app()`) on every user table and on avatar files. All write RPCs are SECURITY INVOKER, so they are covered.
+  2. **2FA-approved.** Approval goes through Buck's `POST /api/oauth/authorizations/[id]/consent` (web session cookie only, 2FA passed), which calls Supabase and then `record_oauth_app_grant()` to store the consent in `oauth_app_grants` with `mfa_verified`. `private.mfa_satisfied()` gains a branch for app tokens: a user with 2FA on must have a verified record for the **active** consent. `auth.oauth_consents` keeps one row per user and app, so trigger `buck_forget_oauth_app_grant` deletes the record whenever that row changes or is deleted; only a re-approval through Buck's route counts again. Users without 2FA are unaffected.
+  3. **Buck's own surfaces refuse app tokens.** `getRequestAuth` returns null for a bearer token with `client_id` (every `/api/*` route), and Buck_AI answers `403` + `X-Buck-Error: connected_app` (it spends the Gemini quota and writes advice).
+  4. **Consent page** at `/oauth/consent` (Site URL + Authorization Path). Middleware treats it like the dashboard (signed in, 2FA passed, idle timeout); sign-in, `auth/callback` and `createDashboardRedirect` keep its `?authorization_id=` through sign-in and the 2FA step.
+  5. **Self-registered apps** (dynamic registration, needed by MCP / AI clients) are flagged `registration: "dynamic"` via `get_oauth_app_registration()` so the consent screen can say Buck has not reviewed them.
+- **Routes**: `GET /api/oauth/authorizations/[id]` (app, scopes, `redirectHost`, `registration`, `access: "read-only"`, or `{ state: "redirect" }` when already approved) and `POST /api/oauth/authorizations/[id]/consent` `{ decision: "approve" | "deny" }` → `{ redirectUrl }`. Listing and disconnecting apps use the SDK (`supabase.auth.oauth.listGrants()` / `revokeGrant({ clientId })`); the trigger cleans up Buck's record.
+- **Handoff (not backend)**: the `/oauth/consent` page (app name, logo, website, redirect host, scopes, read-only note, "unreviewed app" warning for `dynamic`, Allow / Deny, then `window.location.assign(redirectUrl)`), and Settings › "Connected apps" (list + disconnect via `DangerDeleteDialog`).
+- **Dashboard setup**: asymmetric JWT signing keys (required for OpenID ID tokens), Site URL `https://bucktbt.vercel.app`, OAuth Server on with Authorization Path `/oauth/consent`, dynamic registration on only when MCP clients are wanted, then register apps (exact redirect URIs, separate dev and prod clients). No Auth Hook is needed.
+- **Consequences**: No connected app can change a user's data, spend AI quota or call Buck's routes, and a stolen password alone cannot connect an app to a 2FA account. A user who turns 2FA on later must reconnect their apps. Supabase supports only the standard scopes (`openid email profile phone`), so a connected app reads everything the user can; finer per-app limits would need policies on `client_id`.
+
+
+### ADR-050: Buck MCP Server: Read-Only Tools for Connected AI Agents
+
+- **Status**: Implemented 2026-10-24 on `maintenance-branch` (migration `202610240005_mcp_access_check.sql` applied live). It works once ADR-049's OAuth Server is switched on in the dashboard and the consent page ships.
+- **Context**: With the OAuth 2.1 server (ADR-049), AI agents can sign in to Buck, but they need a server to call. Users want to ask Claude, ChatGPT, Cursor and similar apps about their own spending.
+- **Decision**:
+  1. **Where**: a Next.js route at `https://<site>/api/mcp` in the web app, using the official TypeScript SDK `@modelcontextprotocol/server` 2.3.1 (`createMcpHandler`). It runs stateless, with one fresh server per request (Vercel functions keep no sessions). It serves 2025-era clients through the SDK's stateless fallback and 2026-07-28 clients directly. It is not part of Buck_AI: no Gemini is involved, so the AI quota and the Advisor/Forecaster separation are untouched.
+  2. **Auth**: Buck is the OAuth *resource server* and Supabase Auth is the authorization server.
+     - `/.well-known/oauth-protected-resource/api/mcp` (RFC 9728, also served at the bare well-known path) names `https://<ref>.supabase.co/auth/v1`.
+     - Requests without a valid token get `401` with `WWW-Authenticate: Bearer resource_metadata=...`.
+     - `connectedAppTokenVerifier` accepts **only connected-app tokens** (`client_id` claim; Buck's own web and mobile sessions are refused) and checks each one with Supabase Auth (`getUser`), so expired tokens and disconnected apps fail at once.
+  3. **Data**: every query runs with the app's own token (`createUserClient`), so RLS limits it to the user's rows and the ADR-049 read-only policies block writes. The tools only call `select` and `rpc("current_session_can_read")`.
+  4. **2FA**: `public.current_session_can_read()` (SECURITY INVOKER wrapper over `private.mfa_satisfied()`) is checked once per request. A 2FA user's app that was approved without 2FA gets a tool error telling them to disconnect and reconnect it, instead of empty data.
+  5. **Tools** (all `readOnlyHint`, amounts in PHP, dates as Asia/Manila calendar days):
+
+| Tool | Returns |
+|---|---|
+| `get_overview` | Total balance, open wallets, active wallet, this month's spent/income/net, top 5 categories, active goal |
+| `list_wallets` | Wallets with balances and ids (`includeArchived` optional) |
+| `list_categories` | The user's own expense and income category names |
+| `list_transactions` | Expenses and/or income, newest first. Defaults to the last 30 days. Filters: wallet, category, description search (ILIKE-escaped). Max 100 rows, with `hasMore` |
+| `spending_summary` | Spent, income, net and daily average for a period (default: this month), grouped by category, wallet, month or day. At most 2 years and 10,000 rows of each kind |
+| `list_goals` | Progress, days left, and the plain weekly amount needed (remaining ÷ weeks left) |
+| `get_saved_advice` | The Advisor's latest saved, non-dismissed advice (read only; nothing is generated) |
+
+- **Files**: `src/app/api/mcp/route.ts`, `src/app/.well-known/oauth-protected-resource/[[...path]]/route.ts`, `src/utils/mcp/{auth,buckData,tools,dates,http}.ts`; `/api/mcp` is in the middleware's `NON_SESSION_API_PREFIXES`.
+- **Connecting a client**: add a custom connector or remote MCP server with the URL `https://bucktbt.vercel.app/api/mcp`. The client discovers Supabase, registers itself (dynamic registration must be on), and sends the user to `/oauth/consent`.
+- **Consequences**:
+  - Users can query their own data from any MCP client, read-only, behind the same consent and 2FA rules as every connected app.
+  - Supabase does not support RFC 8707 resource indicators, so tokens are not bound to `/api/mcp`. Any Buck connected-app token is accepted here, which is acceptable because all of them grant the same read-only access.
+  - There is no MCP-specific rate limit yet; Vercel and Supabase limits apply.
+  - Each request costs one Supabase Auth call plus the queries.

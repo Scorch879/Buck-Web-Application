@@ -71,6 +71,16 @@ class TwoFactorTests(unittest.IsolatedAsyncioTestCase):
                 await auth.current_user(request_with(AAL1))
         self.assertEqual(self.user_calls, 1)
 
+    async def test_connected_app_token_is_refused_without_a_lookup(self):
+        self.use([])
+        with self.assertRaises(HTTPException) as caught:
+            await auth.current_user(request_with(jwt({"sub": "user-1", "aal": "aal2", "client_id": "app-1"})))
+        self.assertEqual(caught.exception.status_code, 403)
+        self.assertEqual(caught.exception.headers, {"X-Buck-Error": "connected_app"})
+        self.assertEqual(self.user_calls, 0)
+        self.assertFalse(auth.is_connected_app(AAL2))
+        self.assertFalse(auth.is_connected_app(jwt({"client_id": ""})))
+
     def test_unreadable_token_counts_as_aal1(self):
         self.assertEqual(auth.token_aal("opaque"), "aal1")
         self.assertEqual(auth.token_aal("a.%%%.c"), "aal1")

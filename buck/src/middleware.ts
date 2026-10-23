@@ -8,7 +8,12 @@ import {
 } from "@/utils/supabaseConfig";
 import { isAdminUser } from "@/utils/adminAccess";
 import { buildCsp, createNonce } from "@/utils/csp";
-import { createMfaVerifyPath, getMfaState, MFA_VERIFY_PATH } from "@/utils/mfa/assurance";
+import {
+  createMfaVerifyPath,
+  getMfaState,
+  MFA_VERIFY_PATH,
+  OAUTH_CONSENT_PATH,
+} from "@/utils/mfa/assurance";
 
 const SESSION_ACTIVITY_COOKIE = "buck-session-activity";
 const DEFAULT_IDLE_TIMEOUT_MINUTES = 30;
@@ -18,6 +23,8 @@ const NON_SESSION_API_PREFIXES = [
   "/api/auth/",
   "/api/cron/",
   "/api/account/deletion/purge",
+  // Buck MCP server: connected-app bearer tokens only (ADR-050).
+  "/api/mcp",
 ];
 
 type SessionActivity = {
@@ -91,13 +98,16 @@ function createProtectedRedirect(request: NextRequest, reason?: string) {
 }
 
 function createDashboardRedirect(request: NextRequest) {
-  const redirectUrl = request.nextUrl.clone();
   const requestedRedirect = request.nextUrl.searchParams.get("redirectTo");
 
-  redirectUrl.pathname = getSafeRedirectPath(requestedRedirect);
-  redirectUrl.search = "";
+  // Parsed as a URL so a target's own query (e.g. the consent page's
+  // ?authorization_id=) survives. "/\evil.com" parses to another origin, so
+  // anything that leaves Buck falls back to the dashboard.
+  const target = new URL(getSafeRedirectPath(requestedRedirect), request.nextUrl.origin);
 
-  return redirectUrl;
+  return target.origin === request.nextUrl.origin
+    ? target
+    : new URL("/dashboard/home", request.nextUrl.origin);
 }
 
 function isAdminMfaRequired() {
@@ -337,7 +347,10 @@ export async function middleware(request: NextRequest) {
 
 async function handleRequest(request: NextRequest, requestHeaders: Headers) {
   const { pathname } = request.nextUrl;
-  const isProtectedRoute = pathname.startsWith("/dashboard");
+  // The connected-app consent page needs a signed-in user who passed 2FA,
+  // exactly like the dashboard (ADR-049).
+  const isProtectedRoute =
+    pathname.startsWith("/dashboard") || pathname === OAUTH_CONSENT_PATH;
   const isAuthRoute = AUTH_ROUTES.has(pathname);
   // The 2FA code page: needs a signed-in user, but one who has NOT passed 2FA.
   const isMfaRoute = pathname === MFA_VERIFY_PATH;

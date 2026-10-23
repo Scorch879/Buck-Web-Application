@@ -103,6 +103,39 @@ Migrations [`202610240002_mfa_support.sql`](file:///d:/VS%20Code/Buck-Budget-Tra
 
 **Verified**: `tsc`, `eslint`, `next build` clean; vitest 70/70 (new: `utils/mfa/mfa.test.ts`, backup-code redeem route, 2FA cases in `apiAuth.test.ts`); Buck_AI unittest 48/48 (new `tests/test_auth.py`); live SQL in rolled-back transactions: `mfa_satisfied()` true/false/true for no-factor aal1 / factor aal1 / factor aal2, and a 2FA user at aal1 reads 0 expenses, wallets and profiles while aal2 reads all 240/4/1; signed-out probes of every new route (401/403/redirect to sign-in). **Not verified**: a real TOTP enroll and sign-in, the e-mail recovery round trip, passkey sign-in and its `amr` value (needs the UI and Supabase dashboard passkey setup).
 
+### 🤖 Buck MCP Server (2026-10-24, ADR-050)
+
+Migration [`202610240005_mcp_access_check.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240005_mcp_access_check.sql) applied live and recorded.
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-035** | 🟡 Medium | Supabase OAuth tokens carry `aud: authenticated`, not the MCP resource (no RFC 8707), so tokens are not audience-bound to `/api/mcp`. | **Accepted.** Only connected-app tokens are accepted, and all of them are read-only under RLS. |
+| **SEC-036** | 🟢 Low | No MCP-specific rate limit; every call does one Supabase Auth check plus its queries. | **Open.** Row caps per tool (100 listed, 10,000 summarized, 2-year range) limit the cost. Add a per-user limit if usage grows. |
+| **INFO-008** | — | 2025-era MCP clients get their reply as a short SSE event (stateless fallback); 2026-07-28 clients get JSON. | **By design** (SDK behaviour). |
+
+**Verified**:
+- vitest 114/114 (new: 7 protocol tests through the route covering initialize, the read-only tools list, overview totals, merged transactions with escaped search, bad periods, the 2FA reconnect message, and no write calls; plus 7 verifier and Manila-date tests). `tsc` and `eslint` clean.
+- Local probes:
+  - The metadata document is served at both paths (other paths 404).
+  - `/api/mcp` answers 401 + `resource_metadata` for no token, for a Buck session token, and for a forged app token.
+  - CORS preflight returns 204.
+- Live SQL (rolled back): with app-token claims the user reads every column the tools use (profiles 1, wallets 4, categories 25, expenses 240, incomes 11, goals 2, advice 2), sees 0 rows of other users, and a write changes 0 rows. `current_session_can_read()` returns false for a 2FA user's app without a verified grant and is not executable by `anon`.
+
+**Not verified**: a real MCP client end to end, which needs the dashboard OAuth switch and the consent UI.
+
+### 🔗 Connected Apps / OAuth 2.1 Server Backend (2026-10-24, ADR-049)
+
+Migration [`202610240004_oauth_apps.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240004_oauth_apps.sql) applied live and recorded.
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-032** | 🟠 High | Supabase gives OAuth app tokens the user's full data access, including writes. | **Mitigated.** Restrictive insert/update/delete policies reject tokens with `client_id`; Buck routes (`getRequestAuth`) and Buck_AI refuse them. |
+| **SEC-033** | 🟠 High | Supabase's consent endpoint accepts aal1, so a password-only attacker could connect an app to a 2FA account. Consents are one row per user and app, so a re-approval reuses the row. | **Mitigated.** Approval via Buck's route records the active consent with `mfa_verified`; `mfa_satisfied()` requires it for app tokens of 2FA users; trigger `buck_forget_oauth_app_grant` drops the record on any change to the consent row. |
+| **SEC-034** | 🟡 Medium | Dynamic client registration (needed by MCP clients) lets anyone register an app under any name: phishing risk on the consent screen. | **Partly mitigated.** Apps are read-only; the details route returns `registration: "dynamic"` and `redirectHost` for an "unreviewed app" warning. Keep dynamic registration off unless MCP is in use. |
+| **INFO-007** | — | OAuth Server is still off in the dashboard and `/oauth/consent` has no UI yet. | **Open (dashboard / frontend).** Steps in Design.md ADR-049. |
+
+**Verified**: live SQL in rolled-back transactions. For a user without 2FA, an app token reads 240 expenses while insert, update and `transfer_funds_atomic` are blocked. For a 2FA user the app reads 0 without a grant, 0 with an unverified grant, 240 with a verified grant (still read-only), 0 for another app, and 0 again after the consent row is revoked and re-approved outside Buck. Normal sessions are unchanged. `record_oauth_app_grant` refuses when there is no consent and cannot be called by `authenticated`. vitest 81/81 (consent route, connected-app bearer refusal), Buck_AI unittest 49/49, `tsc` and `eslint` clean. Signed-out probes: the consent page redirects to sign-in keeping `authorization_id`, the APIs return 401, a bad id returns 400. **Not verified**: a real end-to-end OAuth flow (needs the dashboard switch and the consent UI).
+
 ### 🟠 High Severity
 
 #### BUG-002: [RESOLVED 2026-10-12] Inconsistent Backend Host Domains Across Frontend Modules
