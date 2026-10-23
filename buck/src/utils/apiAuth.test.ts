@@ -108,4 +108,12 @@ describe("two-factor (ADR-048)", () => {
     getSessionFromCookie.mockResolvedValue({ data: { session: { access_token: jwt({ aal: "aal2" }) } } });
     expect(await getRequestUserId(request())).toBe("2fa-user");
   });
+
+  it("refuses a connected app's token (ADR-049) without asking Supabase", async () => {
+    getUserWithToken.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
+    const appToken = jwt({ aal: "aal2", client_id: "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d" });
+
+    expect(await getRequestAuth(request(`Bearer ${appToken}`))).toBeNull();
+    expect(getUserWithToken).not.toHaveBeenCalled();
+  });
 });

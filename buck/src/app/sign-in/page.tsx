@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { signInUser, signInWithGoogle } from "@/component/authentication";
 import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
+import { OAUTH_CONSENT_PATH } from "@/utils/mfa/assurance";
 import {
   getEmailValidationMessage,
   normalizeEmailAddress,
@@ -58,8 +59,12 @@ function getSafeRedirectPath(redirectTo: string | null) {
     // This works flawlessly in production because it only returns the relative pathname.
     const parsedUrl = new URL(redirectTo, "http://dummy.local");
     
-    // Check if it's strictly a relative path going to the dashboard
-    if (parsedUrl.origin === "http://dummy.local" && parsedUrl.pathname.startsWith("/dashboard")) {
+    // Check if it's strictly a relative path going to the dashboard, or to the
+    // connected-app consent page a third-party app sent the user to (ADR-049)
+    if (
+      parsedUrl.origin === "http://dummy.local" &&
+      (parsedUrl.pathname.startsWith("/dashboard") || parsedUrl.pathname === OAUTH_CONSENT_PATH)
+    ) {
       // Return pathname + search (preserves query params, but ignores potential malicious fragments)
       return parsedUrl.pathname + parsedUrl.search;
     }

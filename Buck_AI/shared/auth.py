@@ -14,6 +14,10 @@ utils/mfa/assurance.ts:
 
 RLS already hides the data from an aal1 token; this check turns that into a
 clear 403 instead of empty advice.
+
+Connected apps (ADR-049): tokens Supabase's OAuth server issues to other apps
+carry a `client_id` claim. They may read data through RLS but never use
+Buck_AI (it spends the Gemini quota and saves advice), so they get a 403.
 """
 
 import base64
@@ -35,6 +39,7 @@ TOKEN_CACHE_MAX = 2048
 _BEARER = re.compile(r"^Bearer\s+(\S+)\s*$", re.IGNORECASE)
 
 MFA_REQUIRED_MESSAGE = "Enter your two-factor code first."
+CONNECTED_APP_MESSAGE = "Connected apps can't use Buck AI."
 
 _cache: dict[str, tuple[str, bool, float]] = {}
 _lock = threading.Lock()
@@ -56,18 +61,32 @@ def _key(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def _claims(token: str) -> dict:
+    """Unverified JWT payload; {} when unreadable."""
+    try:
+        payload = token.split(".")[1]
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+    except (IndexError, ValueError):
+        return {}
+    return claims if isinstance(claims, dict) else {}
+
+
 def token_aal(token: str) -> str:
     """The `aal` claim of a token Supabase Auth has already accepted.
 
     The signature is not re-checked here: _verify() only calls this after
     /auth/v1/user returned 200 for the same token. Anything unreadable is aal1.
     """
-    try:
-        payload = token.split(".")[1]
-        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
-    except (IndexError, ValueError):
-        return "aal1"
-    return "aal2" if isinstance(claims, dict) and claims.get("aal") == "aal2" else "aal1"
+    return "aal2" if _claims(token).get("aal") == "aal2" else "aal1"
+
+
+def is_connected_app(token: str) -> bool:
+    """True for an OAuth access token issued to a connected app.
+
+    Checked before verification on purpose: refusing a forged token is safe.
+    """
+    client_id = _claims(token).get("client_id")
+    return isinstance(client_id, str) and client_id != ""
 
 
 def mfa_satisfied(aal: str, user: dict) -> bool:
@@ -103,6 +122,8 @@ async def current_user(request: Request) -> AuthUser:
     token = read_bearer(request.headers.get("authorization"))
     if not token:
         raise HTTPException(401, "Sign in first.")
+    if is_connected_app(token):
+        raise HTTPException(403, CONNECTED_APP_MESSAGE, headers={"X-Buck-Error": "connected_app"})
 
     key, now = _key(token), time.monotonic()
     with _lock:

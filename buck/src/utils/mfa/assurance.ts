@@ -18,6 +18,12 @@ export const MFA_VERIFY_PATH = "/verify-2fa";
 /** Target of the 2FA recovery email; reachable at aal1 by design. */
 export const EMAIL_RECOVERY_CONFIRM_PATH = "/account/mfa/recover/confirm";
 
+/**
+ * Consent page for connected apps (Supabase OAuth 2.1 server, ADR-049). Its
+ * URL is Site URL + this path in the dashboard's OAuth Server settings.
+ */
+export const OAUTH_CONSENT_PATH = "/oauth/consent";
+
 /** Fresh step-up window for destructive actions (account deletion). */
 export const MFA_STEP_UP_MAX_AGE_MS = 10 * 60 * 1000;
 
@@ -26,6 +32,8 @@ const TOTP_AMR_METHODS = new Set(["totp", "mfa/totp"]);
 export type AccessTokenClaims = {
   aal?: string;
   amr?: Array<{ method?: string; timestamp?: number } | string>;
+  /** Set only on tokens issued to a connected app (OAuth access tokens). */
+  client_id?: string;
 };
 
 export type MfaState = {
@@ -63,6 +71,15 @@ export function readAccessTokenClaims(token: string | null | undefined): AccessT
   } catch {
     return null;
   }
+}
+
+/**
+ * True for a token Supabase issued to a connected app. Those tokens are for
+ * reading data through RLS only; Buck's own API routes and Buck_AI refuse them.
+ */
+export function isConnectedAppToken(token: string | null | undefined) {
+  const clientId = readAccessTokenClaims(token)?.client_id;
+  return typeof clientId === "string" && clientId.length > 0;
 }
 
 export function countVerifiedFactors(user: Pick<User, "factors"> | null | undefined) {

@@ -505,6 +505,7 @@ flowchart TD
 | **ADR-004** | Decoupled Python FastAPI Microservice | *Superseded by ADR-043* (service removed). |
 | **ADR-043** | Buck_AI: Python + Gemini, Two AIs | `Buck_AI/` FastAPI on Vercel with `BuckAI_Advisor` (saved, fingerprint-refreshed advice) and `BuckAI_Forecast` (planned); Supabase-JWT auth for web and mobile; queries run under RLS. |
 | **ADR-048** | Optional 2FA (TOTP), Passkeys & Recovery | `private.mfa_satisfied()` in RESTRICTIVE RLS + middleware/`apiAuth` + Buck_AI gate; backup codes and 24 h e-mail recovery under `/api/auth/mfa/*`; UI is a handoff. |
+| **ADR-049** | Connected Apps (OAuth 2.1 Server) | App tokens (`client_id` claim) are read-only via RESTRICTIVE RLS and refused by `/api/*` and Buck_AI; approval via `/api/oauth/authorizations/[id]/consent` records a 2FA-verified grant that `mfa_satisfied()` requires for 2FA users. |
 | **ADR-005** | Zero-Knowledge Password Reset Rate Limiting | Rate limiting tracked via SHA-256 HMAC hashes in `auth_security_events` (zero plaintext PII). |
 | **ADR-006** | Database Policy Consolidation & Hardening | Applied `(select auth.uid())` initplan caching and revoked trigger execution from public roles. |
 | **ADR-007** | Weekly Spending Donut with 5-Slice Cap | Donut chart capped at Top-4 categories + 5th "Others" slice, paired with contextual interpretation card. |
@@ -554,6 +555,7 @@ Each account also gets 7 default income categories: `Salary`, `Allowance`, `Free
 
 ### 6.6 Security, Session & Deletion Lifecycle
 - **Optional 2FA (ADR-048)**: authenticator-app TOTP, plus passkey sign-in. One rule everywhere: `satisfied = aal2 OR no verified factor` (`private.mfa_satisfied()` in RESTRICTIVE RLS, `utils/mfa/assurance.ts` in middleware/routes, `Buck_AI/shared/auth.py`). Passkey sign-in alone is aal1 and does not satisfy it. Recovery: second app, 10 hashed backup codes, or e-mail link with a 24 h cool-off. Use `getRequestUserId`/`getRequestAuth` (`utils/apiAuth.ts`) in routes; never read data for an unsatisfied session.
+- **Connected apps (ADR-049)**: Supabase OAuth 2.1 server for AI agents/MCP and other apps. App tokens are read-only, can't call Buck routes or Buck_AI, and for 2FA users only work after approval through Buck's consent route. Consent page: `/oauth/consent`.
 - **Inactivity Timeout**: Automatic logout after **30 minutes of user inactivity**.
 - **Cross-Tab Synchronization**: Inactivity timer and logout events synchronized across tabs via `BroadcastChannel` or `localStorage`.
 - **10-Day Account Deletion Grace Period**:

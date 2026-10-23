@@ -2,7 +2,7 @@ import { createClient, type User } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured, supabaseAnonKey, supabaseUrl } from "@/utils/supabaseConfig";
-import { getMfaState, type MfaState } from "@/utils/mfa/assurance";
+import { getMfaState, isConnectedAppToken, type MfaState } from "@/utils/mfa/assurance";
 
 export type RequestAuth = {
   user: User;
@@ -60,11 +60,13 @@ async function getSessionAuth(): Promise<RequestAuth | null> {
  * session cookie is used. Either way the id comes only from Supabase.
  *
  * Does NOT require 2FA: check `auth.mfa.satisfied` (or use getRequestUserId).
+ * Tokens issued to connected apps (ADR-049) are refused: they may only read
+ * data through RLS, never call Buck's own routes.
  */
 export async function getRequestAuth(req: Request): Promise<RequestAuth | null> {
   const token = readBearerToken(req.headers.get("authorization"));
   if (!token) return getSessionAuth();
-  if (!isSupabaseConfigured) return null;
+  if (!isSupabaseConfigured || isConnectedAppToken(token)) return null;
 
   try {
     const supabase = createClient(supabaseUrl!, supabaseAnonKey!, {
