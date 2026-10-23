@@ -3,6 +3,7 @@
 import { useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
+import AIChatBubble from "@/component/AIChatBubble";
 import AuthGuard from "@/component/AuthGuard";
 import DashboardHeader from "@/component/dashboardheader";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
@@ -229,6 +230,8 @@ export default function DashboardClientLayout({
     >
       <FinancialProvider>
         <DashboardShell>{children}</DashboardShell>
+        {/* Mounted once here (not per page) so the chat survives navigation. */}
+        <AIChatBubble />
       </FinancialProvider>
     </AuthGuard>
   );

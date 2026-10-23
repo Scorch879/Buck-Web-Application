@@ -21,14 +21,23 @@ export default function SettingsSkeleton() {
   return (
     <div className="settings-page dashboard-skeleton" aria-busy="true" aria-label="Loading settings">
       <section className="settings-shell">
-        <nav className="settings-tabs" aria-hidden="true">
-          {TABS.map((label, i) => (
-            <span key={label} className={`settings-tab${i === 0 ? " settings-tab--active" : ""}`}>
+        <div className="settings-sidebar-col">
+          <nav className="settings-tabs" aria-hidden="true">
+            {TABS.map((label, i) => (
+              <span key={label} className={`settings-tab${i === 0 ? " settings-tab--active" : ""}`}>
+                <IconPlaceholder />
+                <span className="skeleton-text">{label}</span>
+              </span>
+            ))}
+          </nav>
+
+          <div className="settings-signout-card" aria-hidden="true">
+            <span className="settings-signout-btn">
               <IconPlaceholder />
-              <span className="skeleton-text">{label}</span>
+              <span className="skeleton-text">Sign Out</span>
             </span>
-          ))}
-        </nav>
+          </div>
+        </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "clamp(0.7rem, 1.4vw, 0.95rem)" }}>
           <div className="settings-account-card">

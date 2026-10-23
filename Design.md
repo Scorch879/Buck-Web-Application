@@ -1206,9 +1206,10 @@ Buck-Web-Application/
   4. **AI hook** (`aiApi.ts`): `categorizeItem(kind, description, categories)` posts `{ description, kind, categories }` to `/ai/categorize_expense/`. It only accepts an answer that matches one of the user's categories (case-insensitive); otherwise it returns `null` and the item stays in the fallback bucket.
   5. **Categories tab** (`/dashboard/categories`, sidebar "Categories"):
      - A header card with an Expense | Income switch.
-     - An "Needs a category" card with an **Auto-categorize with AI** button, which processes 25 items per click.
-     - A searchable table: Category, Entries, Total, Share, then Rename / Delete. Delete goes through `DangerDeleteDialog` (ADR-041) and states how many entries move to the fallback.
-     - `CategoriesSkeleton` mirrors the layout.
+     - A consolidated table toolbar ordered left-to-right: Search bar (`.cat-search`), animated `+ Add Expense/Income Category` trigger/inline form, and **Auto-categorize with AI** button (`.cat-ai-btn`) with count badge and Framer Motion hover tooltip (`.cat-ai-tooltip`) detailing uncategorized entries and total amount (replacing the standalone "Needs a category" card).
+     - A paginated (`PAGE_SIZE = 8`), left-shifted table: Category (with `Default` badge on `Uncategorized`/`Other`), detailed Entries pill (`X entries · Avg ₱Y`) with Framer Motion hover summary popover (`.cat-entries-popover`), non-bold Total (`font-weight: 400`), bigger 11px share-colorized Share progress bar, and enlarged Rename / Delete buttons with animated inline Rename right at the Rename button position. Delete goes through `DangerDeleteDialog` (ADR-041) and states how many entries move to the default category.
+     - Centered windowed pagination (`.cat-pagination`) with right-aligned range indicator (`Showing X–Y of Z`).
+     - `CategoriesSkeleton` mirrors the consolidated toolbar, 8-row table, and pagination footer 1:1.
   6. **Income history is a table** (`IncomeList`):
      - A summary strip for the filtered rows: Entries, Total, Average, Largest.
      - Sortable Date / Category / Amount columns, plus Description and Wallet.
@@ -1283,4 +1284,81 @@ Buck-Web-Application/
   - Bar: 0 errors and 0 warnings. Every `eslint-disable-next-line` carries a reason; today they cover only intentional effect dependency lists keyed on `user.uid`.
 - **Consequences**:
   - `next build`, and therefore every Vercel build, now runs ESLint. A lint error fails the deploy.
-  - New icon-only buttons without a label and `any` types are caught locally instead of in review.
+  - New icon-only buttons without a label and `any` types are caught locally instead of in review.
+
+---
+
+### ADR-045: Categories Table Redesign — Windowed Pagination, Consolidated Toolbar with AI Tooltip, Hover Entry Summary, Share Colorization & Animated Inline Rename
+
+- **Status**: Implemented 2026-10-16.
+- **Context**:
+  - The Categories table rendered all categories in an unpaginated list, causing vertical page stretching when users had many categories.
+  - Right-aligned `Entries` and `Total` columns sat far away from the `Category` column across a wide empty gap, while squeezing the `Rename` and `Delete` actions on the right.
+  - The standalone "Needs a category" card occupied a full vertical section above the table, and clicking `Rename` on the right replaced the category name in the far-left `Category` column instead of animating near the `Rename` button.
+- **Decision**:
+  1. **Windowed Pagination (`PAGE_SIZE = 8`)**:
+     - Added centered windowed pagination (`.cat-pagination`) with `< Prev`, page buttons with ellipsis windowing (`getPaginationPages`), `Next >`, and right-aligned range info (`Showing X–Y of Z`), animated via Framer Motion (`PAGE_VARIANTS` on `<motion.tbody>`).
+  2. **Consolidated Table Toolbar**:
+     - Replaced the standalone "Needs a category" card with a single toolbar inside `.cat-list`: Search bar (left), animated `+ Add Expense/Income Category` button/inline form (middle), and `Auto-categorize with AI` button with count badge and Framer Motion hover tooltip (`.cat-ai-tooltip`, right).
+  3. **Left-Shifted Column Proportions & Detailed Hover Entries**:
+     - Proportioned columns as `20% / 19% / 11% / 24% / 26%` (left-aligned data columns) so `Entries` sits close to `Category` and `Actions` has room for larger `Rename` and `Delete` buttons (`min-height: 38px; padding: 0 1rem; font-size: 0.85rem`).
+     - Replaced the bare entry count with an interactive `.cat-entries-pill` (`14 entries · Avg ₱498.45`) that opens a Framer Motion hover summary popover (`.cat-entries-popover`) displaying category total, max entry, and up to 4 recent entries.
+  4. **Typography, Share Colorization & Default Badge**:
+     - Set `.cat-amount` (`Total`) to regular weight (`font-weight: 400`).
+     - Enlarged `.cat-share-track` to `11px` height (`border-radius: 6px`) and dynamically colorized both fill gradient and percentage label by share tier (`getShareTier`: `>=20%` dominant coral-red, `>=10%` high orange, `>=6%` moderate amber-gold, `>=3%` low emerald, `>0%` minimal sky-teal, `0%` muted neutral).
+     - Changed the badge on `Uncategorized`/`Other` from `"Fallback"` to `"Default"`.
+  5. **Animated Inline Rename at the Rename Button**:
+     - Clicking `Rename` animates the inline rename form (`input` + Save `✓` + Cancel `✕`) via Framer Motion (`AnimatePresence mode="wait"`) directly inside the Actions cell where the `Rename` button resides, while keeping the left `Category` column intact.
+- **Consequences**:
+  - Zero vertical page bloat regardless of category count, higher information density on hover, and 1:1 skeletal loading parity via updated [`CategoriesSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/CategoriesSkeleton.tsx).
+
+---
+
+### ADR-046: Categories Filter/Sort Dropdown & Wallets / Wallet History Pagination
+
+- **Status**: Implemented 2026-10-20.
+- **Context**:
+  - Users needed a filter/sort dropdown in `/dashboard/categories` to organize categories by **Largest Total**, **Alphabetical (A–Z)**, **Number of Entries**, or **Percentage Share**.
+  - On `/dashboard/wallet`, long lists in **Wallet history ("Log")** or **Manage your wallets ("Your Wallets")** caused vertical page scrolling past the viewport bounds.
+- **Decision**:
+  1. **Categories Filter / Sort Dropdown (`buck/src/app/dashboard/categories/page.tsx`, `style.css`, `CategoriesSkeleton.tsx`)**:
+     - Added an ADR-040 compliant [`CustomSelect`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/CustomSelect.tsx) (`fit`, with `FaFilter` prefix icon) inside `.cat-toolbar-actions` (`height: 40px`, `z-index: 96`) offering:
+       - `Largest Total` (`"largest-total"`)
+       - `Alphabetical (A–Z)` (`"alphabetical"`)
+       - `Number of Entries` (`"entries"`)
+       - `Percentage Share` (`"percentage-share"`)
+     - Changing the filter resets `currentPage` to `1` and triggers a clean Framer Motion opacity fade (`key={`${kind}-${safeCurrentPage}-${query.trim()}-${filterMode}`}`).
+  2. **Wallets & Wallet History Windowed Pagination (`buck/src/app/dashboard/wallet/page.tsx`, `settings/style.css`, `WalletSkeleton.tsx`)**:
+     - Added client-side windowed pagination (`WALLETS_PAGE_SIZE = 4`, `HISTORY_PAGE_SIZE = 4`) to both the **Manage your wallets** (`activePage`) and **Wallet history / Log** (`historyPage`) cards.
+     - Both panels render a 3-column `.wallet-pagination` footer (`< Prev`, windowed page numbers via `getPaginationPages`, `Next >`, and right-aligned `Showing X–Y of Z`), reset their page to `1` when search or filter/sort changes, and animate page switches with Framer Motion opacity transitions without horizontal/vertical offset transforms.
+  3. **Standalone Sign Out Card in Settings Sidebar (`buck/src/app/dashboard/settings/page.tsx`, `settings/style.css`, `SettingsSkeleton.tsx`)**:
+     - Wrapped the left column of `.settings-shell` in `.settings-sidebar-col` and added a separate `.settings-signout-card` containing `.settings-signout-btn` (`Sign Out` with `FaSignOutAlt`, coral-tinted per Buck's destructive/session action style) directly below the `.settings-tabs` card (which ends with `Feedback`).
+     - Synchronized [`WalletSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/WalletSkeleton.tsx), [`CategoriesSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/CategoriesSkeleton.tsx), and [`SettingsSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/SettingsSkeleton.tsx) for 1:1 skeletal loading parity.
+- **Consequences**:
+  - Eliminates vertical page scrolling on `/dashboard/wallet` when wallet history or active wallets grow, and gives users instant multi-criteria organization on `/dashboard/categories`.
+
+---
+
+### ADR-047: Collapsible Desktop Sidebar, Profile Tray Controls (Red-Tinted Sign Out + Collapse Toggle) & Responsive Table Proportions
+
+- **Status**: Implemented 2026-10-20.
+- **Context**:
+  - Users needed the ability to collapse the desktop sidebar (`buck/src/component/dashboardheader.tsx`, `buck/src/component/dashboard.css`) to the left to reclaim horizontal screen real estate for data tables and charts.
+  - The toggle button needed to live in the bottom Profile tray (`.dashboard-account-tray`) alongside a dedicated, red-tinted Sign Out button (in addition to the standalone Sign Out card in Settings).
+  - Additionally, Category renaming and Wallet editing needed visual loading spinners/progress bars, compact color-coded Save/Cancel buttons, comma-accepting budget inputs, and equalized row/card heights across `Manage your wallets` and `Wallet history`.
+- **Decision**:
+  1. **Collapsible / Expandable Desktop Sidebar (`buck/src/component/dashboardheader.tsx`, `buck/src/component/dashboard.css`)**:
+     - Added `sidebarCollapsed` state persisted in `localStorage` (`"buck:sidebar-collapsed"`) and reflected via `.dashboard-header--collapsed` and `html[data-buck-sidebar="collapsed"]`.
+     - On desktop (`> 1024px`), `.dashboard` smoothly transitions between `grid-template-columns: minmax(220px, 250px) minmax(0, 1fr)` (expanded) and `80px minmax(0, 1fr)` (collapsed icon-rail mode).
+     - In collapsed mode, `.dashboard-brand-copy`, `.nav-button-label`, and `.dashboard-account-copy` are hidden while centering the mascot, nav icons (with native `title` tooltips), user avatar, and profile tray buttons.
+  2. **Profile Tray Sign Out & Sidebar Toggle Buttons (`.dashboard-account-tray`)**:
+     - Refactored `.dashboard-account-tray` into a `role="group"` container housing `.dashboard-account-controls` on the right:
+       - **Sign Out Button (`.dashboard-tray-btn--signout`)**: Dedicated `<button>` with `<FaSignOutAlt />` (or loading spinner) and a distinct coral-red tint (`color: var(--buck-coral); background: rgba(255, 56, 56, 0.12); border: 1px solid rgba(255, 56, 56, 0.38)`).
+       - **Collapse / Expand Sidebar Button (`.dashboard-tray-btn--collapse`)**: Dedicated `<button>` with `<FaAngleDoubleLeft />` / `<FaAngleDoubleRight />` that toggles the sidebar state.
+  3. **Responsive Table & Grid Adjustments Across Pages**:
+     - Adjusted `.cat-table` column proportions in [`categories/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/categories/style.css) (`23% / 18% / 13% / 26% / 20%` when collapsed) and two-column grid ratios in [`expenses/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/expenses/style.css) and [`goals/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/goals/style.css) so tables expand fluidly when the sidebar collapses.
+  4. **Categories Rename & Wallet Edit UX Enhancements**:
+     - Added `renamingId` spinner (`FaSpinner`) and indeterminate bottom progress bar (`.cat-rename-progress`) + `toast.loading()` in `/dashboard/categories`.
+     - Replaced the oversized Wallet edit form with a compact single-row `.wallet-edit-row` (`min-height: 92px`), emerald Save button (`.wallet-action-btn--save`) with spinner/progress bar (`.wallet-edit-progress`), red-tinted Cancel button (`.wallet-action-btn--danger`), comma-accepting budget inputs (`sanitizeBudgetInput` / `parseBudgetInput`), and equalized `min-height: 92px` rows and stretched card heights across desktop, tablet, and mobile.
+- **Consequences**:
+  - Users can collapse the sidebar to an 80px rail at any time from the Profile section while retaining one-click access to Sign Out (both in the Profile tray with a red tint and in Settings below Feedback).

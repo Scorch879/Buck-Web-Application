@@ -13,6 +13,8 @@ from typing import Any
 from shared.safety import clean_text
 from shared.supabase import DbError, UserDb
 
+from .plan import build_plan
+
 # Philippine time (UTC+8, no DST) decides what "this month" and "today" mean.
 PH_TZ = timezone(timedelta(hours=8))
 ATTITUDES = ("Normal", "Moderate", "Aggressive")
@@ -62,6 +64,8 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
     today = today or today_ph()
     month_start, month_end = month_bounds(today)
     prev_start, _ = month_bounds(month_start - timedelta(days=1))
+    # Enough history for both last month and a full last-30-day window.
+    history_start = min(prev_start, today - timedelta(days=29))
     uid = f"eq.{db.user_id}"
 
     async def incomes() -> list[dict[str, Any]] | None:
@@ -81,7 +85,7 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
         db.select(
             "expenses",
             [("select", "amount,category_name,spent_on"), ("user_id", uid),
-             ("spent_on", f"gte.{prev_start}"), ("spent_on", f"lte.{month_end}")],
+             ("spent_on", f"gte.{history_start}"), ("spent_on", f"lte.{month_end}")],
         ),
         db.select(
             "goals",
@@ -101,7 +105,7 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
 
     # Expense aggregates
     by_category: dict[str, float] = {}
-    spent_month = spent_prev = last7 = prior7 = 0.0
+    spent_month = spent_prev = last7 = prior7 = last30 = 0.0
     for row in expense_rows:
         amount = money(row.get("amount"))
         try:
@@ -114,9 +118,11 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
             spent_month += amount
             name = clean_text(row.get("category_name"), 60) or "Uncategorized"
             by_category[name] = by_category.get(name, 0.0) + amount
-        else:
+        elif spent_on >= prev_start:
             spent_prev += amount
         age = (today - spent_on).days
+        if age < 30:
+            last30 += amount
         if age < 7:
             last7 += amount
         elif age < 14:
@@ -164,6 +170,7 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
         "spent_previous_month": round(spent_prev, 2),
         "spent_last_7_days": round(last7, 2),
         "spent_prior_7_days": round(prior7, 2),
+        "spent_last_30_days": round(last30, 2),
         "average_daily_spending": round(avg_daily, 2),
         "projected_month_spending": round(projected, 2),
         "top_categories_this_month": [
@@ -171,6 +178,15 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
             for n, a in top
         ],
         "active_goal": goal,
+        "plan": build_plan(
+            attitude=attitude,
+            spent_last_30_days=last30,
+            income_this_month=income,
+            active_wallet_balance=active_balance,
+            days_in_month=days_total,
+            days_remaining_in_month=days_total - days_elapsed,
+            goal=goal,
+        ),
     }
     snapshot = Snapshot(data, {"goal_id": goal_row.get("id") if goal_row else None,
                                "wallet_id": active_wallet_id})

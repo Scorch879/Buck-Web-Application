@@ -10,6 +10,10 @@ export interface AIAdvisorInsights {
   priority?: string;
   /** What the advice is about: spending, category, goal, income or buffer. */
   focus?: string | null;
+  /** Which wallet to spend from and which to keep for the goal or a buffer. */
+  walletAdvice?: string | null;
+  /** The window the advice's figures describe (ISO dates, Philippine time). */
+  period?: { monthStart: string; asOf: string } | null;
   /** Material facts that changed since the previous saved advice. */
   changed?: string[];
   generatedWith?: "gemini" | "rules";

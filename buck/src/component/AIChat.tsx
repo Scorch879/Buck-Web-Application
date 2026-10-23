@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import { FaCommentDots, FaFlag, FaPaperPlane, FaRedo, FaStop } from "react-icons/fa";
+import { FaCommentDots, FaFlag, FaMinus, FaPaperPlane, FaRedo, FaStop } from "react-icons/fa";
 import { useToast } from "@/component/toast";
 import { useDashboardUser } from "@/context/DashboardUserContext";
 import { CHAT_HISTORY_MAX, CHAT_QUESTION_MAX, type ChatTurn } from "@/utils/aiChat";
@@ -76,15 +76,28 @@ function ChatMarkdown({ text }: { text: string }) {
   );
 }
 
+export interface AIChatProps {
+  /** "card" sits in a page grid; "panel" fills the floating AIChatBubble panel. */
+  variant?: "card" | "panel";
+  /** Panel only: shows a minimize button in the header. */
+  onClose?: () => void;
+  /** Called after a reply finishes streaming (used for the bubble's unread dot). */
+  onReplyDone?: () => void;
+}
+
+/** Element ids, shared with AIChatBubble (focus on open) and AIChatSkeleton. */
+export const ADVISOR_CHAT_IDS = { title: "ai-chat-advisor-title", input: "ai-chat-advisor-input" };
+
 /**
  * Streaming chat with Buck_AI's AI Financial Advisor (Gemini). The chat
  * itself is not stored; the last few turns are sent with each question, and
  * the Advisor grounds answers on live data plus the advice saved in the
  * database. The same endpoint serves the mobile app.
  */
-export default function AIChat() {
+export default function AIChat({ variant = "card", onClose, onReplyDone }: AIChatProps = {}) {
   const copy = ADVISOR_CHAT_COPY;
-  const ids = { title: "ai-chat-advisor-title", input: "ai-chat-advisor-input" };
+  const ids = ADVISOR_CHAT_IDS;
+  const isPanel = variant === "panel";
   const { user } = useDashboardUser();
   const { toast } = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -158,6 +171,7 @@ export default function AIChat() {
       );
       patch(answerId, (m) => (m.status === "streaming" ? { ...m, status: "done" } : m));
       setStatus("Reply finished.");
+      onReplyDone?.();
     } catch {
       if (controller.signal.aborted) {
         patch(answerId, (m) => ({ ...m, status: "stopped" }));
@@ -207,15 +221,29 @@ export default function AIChat() {
   };
 
   return (
-    <section className="advisor-card advisor-chat" aria-labelledby={ids.title}>
+    <section
+      className={isPanel ? "advisor-chat advisor-chat--panel" : "advisor-card advisor-chat"}
+      aria-labelledby={ids.title}
+    >
       <header className="advisor-chat__head">
-        <span className="advisor-icon">
+        <span className="advisor-chat__icon">
           <FaCommentDots aria-hidden="true" />
         </span>
-        <div>
-          <p className="advisor-eyebrow">{copy.eyebrow}</p>
+        <div className="advisor-chat__heading">
+          <p className="advisor-chat__eyebrow">{copy.eyebrow}</p>
           <h3 id={ids.title}>{copy.title}</h3>
         </div>
+        {isPanel && onClose ? (
+          <button
+            type="button"
+            className="advisor-chat__minimize"
+            onClick={onClose}
+            aria-label="Minimize chat"
+            title="Minimize (Esc)"
+          >
+            <FaMinus aria-hidden="true" />
+          </button>
+        ) : null}
       </header>
 
       <div

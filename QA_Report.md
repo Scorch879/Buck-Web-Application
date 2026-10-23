@@ -482,6 +482,12 @@ Scope: live Supabase (RLS, grants, functions, constraints, storage, advisors), `
   - Intentional effect dependency lists keep a commented `eslint-disable-next-line`.
 - **Verification (2026-10-15)**: `npm run lint -- --max-warnings=0` reports 0 problems across 138 files. `npm run typecheck` is clean, `npm test` passes 44/44, `npm run build` passes (lint included), and `npm audit --omit=dev` finds 0 vulnerabilities.
 
+#### BUG-034: [RESOLVED] Advisor Ran Out of Gemini Models Within a Day
+- **Location**: `Buck_AI/shared/gemini.py`, `Buck_AI/shared/config.py`
+- **Impact**: The Gemini free tier allows about 20 requests a day per model, and one chat question can use 2–3 (tool rounds). By 2026-10-23, `gemini-3.8-flash` and `gemini-3.7-flash` were out of quota for the day, and `gemini-3.6-flash` was intermittently overloaded (503). Every request still tried the exhausted models first, a model that hung used up the whole time budget without moving on, and once 3.6 failed nothing was left, so users got the offline fallback instead of AI answers.
+- **Fix**: The default chain grows to 11 models: 9 Gemini Flash models that answered live with the Advisor config (3.8, 3.7, 3.6, 3.5-flash, 3-flash-preview, 3.5-flash-lite, 3.1-flash-lite, 3.1-flash-lite-preview, flash-lite-latest), then Gemma 4 26B and 31B as a last resort (sent without thinking settings, which Gemma rejects). `gemini-flash-latest` is an alias that shares 3.8's quota, and the Pro and Omni models have no free quota, so they are left out. A model that hits its daily quota (429) or is retired (404) is benched per instance until Google's retry delay passes (capped at 1 hour); if every model is benched, all are tried anyway. A model that doesn't answer within 8 s counts as busy and the next one is tried.
+- **Verification (2026-10-23)**: `python -m unittest` passes 37/37 (new tests for benching, slow models and Gemma config). Gemma alone returned 500 on most real Advisor prompts, so it stays last. Live run with the real key and fake Supabase: the insight was answered by 3.6 after 3.8 and 3.7 returned 429; the chat then skipped the benched models and streamed an AI answer in 7 s.
+
 ---
 
 ## 3. Security & Compliance Audit Matrix
@@ -934,6 +940,24 @@ flowchart LR
         - [x] Verify transaction range summary (`1–8 of 315`) is right-aligned in column 3 and NEVER overlaps or collides with the `Next ›` button across any viewport width.
       - [x] **Build & Type Check**:
         - [x] Verify `npx tsc --noEmit` and `npm test` pass with 0 errors (29/29 tests passed).
+
+32. **Categories Table Redesign — Windowed Pagination, Consolidated Toolbar with AI Tooltip, Hover Entry Summary, Share Colorization & Animated Inline Rename Verification**:
+    - [x] Navigate to `/dashboard/categories`:
+      - [x] **Consolidated Toolbar & AI Hover Tooltip**:
+        - [x] Confirm standalone "Needs a category" card is removed and replaced by the table toolbar ordered left-to-right: Search bar (`.cat-search`), `+ Add Expense Category` button, and `Auto-categorize with AI` button with count badge.
+        - [x] Hover `Auto-categorize with AI` $\rightarrow$ confirm Framer Motion tooltip (`.cat-ai-tooltip`) appears showing uncategorized entry count, total amount, and AI categorization details.
+        - [x] Click `+ Add Expense Category` $\rightarrow$ confirm button animates into an inline form (`input` + `Add` + `✕`) via Framer Motion.
+      - [x] **Table Organization, Detailed Hover Entries, Non-Bold Total, Share Colorization & Default Badge**:
+        - [x] Confirm `Entries`, `Total`, and `Share` columns are left-shifted close to `Category` (`20% / 19% / 11% / 24% / 26%`), giving `Rename` and `Delete` larger button dimensions (`min-height: 38px; padding: 0 1rem; font-size: 0.85rem`).
+        - [x] Hover an `Entries` pill (`14 entries · Avg ₱498.45`) $\rightarrow$ confirm Framer Motion summary popover (`.cat-entries-popover`) opens with total, max, and up to 4 recent entries.
+        - [x] Confirm `Total` (`.cat-amount`) is non-bold (`font-weight: 400`).
+        - [x] Confirm `Share` bar is thicker (`11px`) and colorized by share tier (`dominant` coral-red, `high` orange, `moderate` amber-gold, `low` emerald-green, `minimal` sky-teal, `zero` muted).
+        - [x] Navigate to Page 3 $\rightarrow$ confirm `Uncategorized` displays the `Default` badge (instead of `Fallback`).
+      - [x] **Animated Inline Rename & Windowed Pagination**:
+        - [x] Click `Rename` on a row $\rightarrow$ confirm the inline rename input + Save (`✓`) + Cancel (`✕`) animates in with Framer Motion right in the Actions column where the `Rename` button is located.
+        - [x] Confirm table paginates at 8 rows per page (`PAGE_SIZE = 8`) with centered `< Prev`, page numbers, `Next >`, and right-aligned `Showing 1–8 of 18`.
+      - [x] **Lint, Type & Unit Test Verification**:
+        - [x] Verify `npm run lint` (0 errors, 0 warnings), `npx tsc --noEmit`, and `npm test` (44/44 passed).
 
 
 
