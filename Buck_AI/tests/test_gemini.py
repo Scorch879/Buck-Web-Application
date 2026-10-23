@@ -144,6 +144,8 @@ class ModelChainTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(patcher.stop)
         self.addCleanup(gemini.set_client, None)
         self.addCleanup(get_settings.cache_clear)
+        gemini.reset_bench()
+        self.addCleanup(gemini.reset_bench)
 
     async def test_stream_walks_the_chain_without_waiting(self):
         used = []
@@ -192,7 +194,7 @@ class ModelChainTests(unittest.IsolatedAsyncioTestCase):
         gemini.set_client(fake_client(Models()))
         with self.assertRaises(gemini.GeminiUnavailable):
             await gemini.generate_json("sys", "p", {"type": "object"})
-        self.assertEqual(len(used), 3)
+        self.assertEqual(used, list(get_settings().gemini_models))
 
         used.clear()
 
@@ -222,6 +224,47 @@ class ModelChainTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(used, ["gemini-3.6-flash", "gemini-3.6-flash"])
         self.sleep.assert_awaited_once()
 
+    async def test_daily_quota_benches_the_model_and_slow_models_are_skipped(self):
+        from google.genai import errors
+
+        used = []
+        quota = errors.ClientError(429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED", "message": "quota",
+                                                   "details": [{"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"},
+                                                               {"retryDelay": "57894s"}]}})
+
+        class Models:
+            async def generate_content(self, model, contents, config):
+                used.append(model)
+                if model == "gemini-3.8-flash":
+                    raise quota
+                if model == "gemini-3.7-flash":
+                    await gemini.asyncio.Event().wait()  # never answers
+                return json_response('{"ok":true}')
+
+        gemini.set_client(fake_client(Models()))
+        with mock.patch.object(gemini, "ATTEMPT_TIMEOUT_SECONDS", 0.05):
+            await gemini.generate_json("sys", "p", {"type": "object"})
+            self.assertEqual(used, ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"])
+            used.clear()
+            await gemini.generate_json("sys", "p", {"type": "object"})
+        self.assertEqual(used[0], "gemini-3.7-flash")  # 3.8 is out of quota for the day: skipped
+
+    def test_gemma_drops_thinking_and_last_model_gets_the_rest_of_the_budget(self):
+        from google.genai import types as t
+
+        cfg = t.GenerateContentConfig(thinking_config=t.ThinkingConfig(thinking_level=t.ThinkingLevel.LOW))
+        self.assertIsNone(gemini.config_for("gemma-4-31b-it", cfg).thinking_config)
+        self.assertIsNotNone(gemini.config_for("gemini-3.6-flash", cfg).thinking_config)
+        plan = ("a", "b")
+        self.assertEqual(gemini.attempt_timeout(plan, 0, 15.0), gemini.ATTEMPT_TIMEOUT_SECONDS)
+        self.assertEqual(gemini.attempt_timeout(plan, 1, 15.0), 15.0)
+        self.assertIsNone(gemini.attempt_timeout(plan, 1))
+
+    def test_all_benched_still_tries_everything(self):
+        for m in get_settings().gemini_models:
+            gemini._benched[m] = float("inf")
+        self.assertEqual(gemini.attempt_plan(), get_settings().gemini_models)
+
 
 class ModelConfigTests(unittest.TestCase):
     def tearDown(self):
@@ -234,9 +277,12 @@ class ModelConfigTests(unittest.TestCase):
             return get_settings().gemini_models
 
     def test_defaults_and_overrides(self):
-        self.assertEqual(self.models({}), ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"))
+        defaults = self.models({})
+        self.assertGreaterEqual(len(defaults), 10)
+        self.assertEqual(defaults[:3], ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"))
+        self.assertTrue(defaults[-1].startswith("gemma-"))  # big free quota: last resort
         # GEMINI_MODEL goes first; duplicates drop out.
-        self.assertEqual(self.models({"GEMINI_MODEL": "gemini-3.7-flash"}),
+        self.assertEqual(self.models({"GEMINI_MODEL": "gemini-3.7-flash"})[:3],
                          ("gemini-3.7-flash", "gemini-3.8-flash", "gemini-3.6-flash"))
         # GEMINI_MODELS wins outright.
         self.assertEqual(self.models({"GEMINI_MODELS": " gemini-3.6-flash , gemini-3.5-flash,,", "GEMINI_MODEL": "x"}),

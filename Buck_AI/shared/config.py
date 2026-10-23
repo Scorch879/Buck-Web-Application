@@ -38,7 +38,23 @@ class Settings:
         return self.gemini_models[0]
 
 
-DEFAULT_GEMINI_MODELS = ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash")
+# Best first. Each model has its own free daily quota (about 20 requests),
+# so a long chain keeps the Advisor on AI answers during heavy testing. The
+# Gemma models are slow and sometimes return 500, but have a much larger free
+# quota, so they are the last resort before the rule-based fallback.
+DEFAULT_GEMINI_MODELS = (
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3-flash-preview",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-3.1-flash-lite-preview",
+    "gemini-flash-lite-latest",
+    "gemma-4-26b-a4b-it",
+    "gemma-4-31b-it",
+)
 
 
 def _gemini_models() -> tuple[str, ...]:
