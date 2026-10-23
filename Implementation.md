@@ -31,7 +31,7 @@ This document details runtime setup procedures, environment configurations, low-
 |---|---|---|---|
 | `GEMINI_API_KEY` | Buck_AI only | **Yes** for AI | Google AI Studio key. Without it the Advisor serves rule-based advice. |
 | `GEMINI_MODEL` | Buck_AI only | Optional | Default `gemini-3.8-flash`. |
-| `GEMINI_MODELS` | Buck_AI only | Optional | Comma-separated chain, default `gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite` (overrides `GEMINI_MODEL`). On 404/429/500/503/504 or no answer within 8 s Buck_AI tries the next model; each has its own capacity and free quota (about 20 requests a day). Models out of daily quota are skipped until their retry delay passes (max 1 h per instance). A single model gets one retry. |
+| `GEMINI_MODELS` | Buck_AI only | Optional | Comma-separated chain (overrides `GEMINI_MODEL`). Leave unset for the built-in 11-model chain in `Buck_AI/shared/config.py` (9 Gemini Flash models, then 2 Gemma). On 404/429/500/503/504 or no answer within 8 s Buck_AI tries the next model; each has its own capacity and free quota (about 20 requests a day). Models out of daily quota are skipped until their retry delay passes (max 1 h per instance). A single model gets one retry. |
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` | Buck_AI only | **Yes** | Same public values as the web app; queries run as the user under RLS. |
 | `ALLOWED_ORIGINS` | Buck_AI only | **Yes** in prod | Comma-separated web origins for CORS (mobile needs none). |
 | `NEXT_PUBLIC_BUCK_AI_URL` | Web (public) | **Yes** in prod | Buck_AI base URL; default `http://localhost:8000`. Also added to the CSP. |

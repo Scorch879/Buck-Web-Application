@@ -90,6 +90,18 @@ def bench(model: str, exc: BaseException) -> None:
     log.info("Gemini %s benched for %.0fs (%s)", model, seconds, exc.code)
 
 
+def config_for(model: str, config: types.GenerateContentConfig) -> types.GenerateContentConfig:
+    """Gemma models reject thinking settings; everything else is shared."""
+    return config.model_copy(update={"thinking_config": None}) if model.startswith("gemma-") else config
+
+
+def attempt_timeout(plan: tuple[str, ...], attempt: int, remaining: float | None = None) -> float | None:
+    """The last model in the plan gets whatever time is left; earlier ones are capped."""
+    if attempt + 1 >= len(plan):
+        return remaining
+    return ATTEMPT_TIMEOUT_SECONDS if remaining is None else min(ATTEMPT_TIMEOUT_SECONDS, remaining)
+
+
 def reset_bench() -> None:
     _benched.clear()
 
@@ -169,8 +181,10 @@ async def stream_with_tools(
             calls: list[types.FunctionCall] = []
             try:
                 stream = await asyncio.wait_for(
-                    client.aio.models.generate_content_stream(model=plan[attempt], contents=contents, config=config),
-                    ATTEMPT_TIMEOUT_SECONDS,
+                    client.aio.models.generate_content_stream(
+                        model=plan[attempt], contents=contents, config=config_for(plan[attempt], config)
+                    ),
+                    attempt_timeout(plan, attempt),
                 )
                 async for chunk in stream:
                     candidate = (chunk.candidates or [None])[0]
@@ -238,9 +252,9 @@ async def generate_json(
         try:
             response = await asyncio.wait_for(
                 client.aio.models.generate_content(
-                    model=plan[attempt], contents=[user_turn(prompt)], config=config
+                    model=plan[attempt], contents=[user_turn(prompt)], config=config_for(plan[attempt], config)
                 ),
-                timeout=max(0.1, min(ATTEMPT_TIMEOUT_SECONDS, deadline - loop.time())),
+                timeout=max(0.1, attempt_timeout(plan, attempt, deadline - loop.time())),
             )
             data = json.loads(response.text or "")
             answered_by.set(plan[attempt])

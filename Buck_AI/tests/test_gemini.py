@@ -194,7 +194,7 @@ class ModelChainTests(unittest.IsolatedAsyncioTestCase):
         gemini.set_client(fake_client(Models()))
         with self.assertRaises(gemini.GeminiUnavailable):
             await gemini.generate_json("sys", "p", {"type": "object"})
-        self.assertEqual(len(used), 5)
+        self.assertEqual(used, list(get_settings().gemini_models))
 
         used.clear()
 
@@ -249,6 +249,17 @@ class ModelChainTests(unittest.IsolatedAsyncioTestCase):
             await gemini.generate_json("sys", "p", {"type": "object"})
         self.assertEqual(used[0], "gemini-3.7-flash")  # 3.8 is out of quota for the day: skipped
 
+    def test_gemma_drops_thinking_and_last_model_gets_the_rest_of_the_budget(self):
+        from google.genai import types as t
+
+        cfg = t.GenerateContentConfig(thinking_config=t.ThinkingConfig(thinking_level=t.ThinkingLevel.LOW))
+        self.assertIsNone(gemini.config_for("gemma-4-31b-it", cfg).thinking_config)
+        self.assertIsNotNone(gemini.config_for("gemini-3.6-flash", cfg).thinking_config)
+        plan = ("a", "b")
+        self.assertEqual(gemini.attempt_timeout(plan, 0, 15.0), gemini.ATTEMPT_TIMEOUT_SECONDS)
+        self.assertEqual(gemini.attempt_timeout(plan, 1, 15.0), 15.0)
+        self.assertIsNone(gemini.attempt_timeout(plan, 1))
+
     def test_all_benched_still_tries_everything(self):
         for m in get_settings().gemini_models:
             gemini._benched[m] = float("inf")
@@ -266,8 +277,10 @@ class ModelConfigTests(unittest.TestCase):
             return get_settings().gemini_models
 
     def test_defaults_and_overrides(self):
-        self.assertEqual(self.models({}), ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash",
-                                           "gemini-3.5-flash", "gemini-3.5-flash-lite"))
+        defaults = self.models({})
+        self.assertGreaterEqual(len(defaults), 10)
+        self.assertEqual(defaults[:3], ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"))
+        self.assertTrue(defaults[-1].startswith("gemma-"))  # big free quota: last resort
         # GEMINI_MODEL goes first; duplicates drop out.
         self.assertEqual(self.models({"GEMINI_MODEL": "gemini-3.7-flash"})[:3],
                          ("gemini-3.7-flash", "gemini-3.8-flash", "gemini-3.6-flash"))
