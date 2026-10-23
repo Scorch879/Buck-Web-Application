@@ -14,6 +14,7 @@ Ship it in one PR to `dev`.
 - An app sends the user to `https://<site>/oauth/consent?authorization_id=<id>`. Middleware already makes sure the user is signed in, has passed 2FA and is not idle. It sends signed-out users to `/sign-in?redirectTo=...`, and the user comes back here after signing in. The page never needs to handle the signed-out case itself.
 - **Connected apps can only read.** The database blocks every write from an app token, so the screen must say "read-only" plainly.
 - **Self-registered apps.** `registration: "dynamic"` means the app registered itself (MCP clients do this) and Buck has not reviewed it. Show a warning. `"manual"` means the Buck team registered it. `"unknown"` means the lookup failed; treat it like `"dynamic"`.
+- **Dynamic client registration is on**, so AI agents and MCP clients (Claude Desktop, Cursor, ChatGPT connectors, etc.) register themselves. Expect most consent screens to show `registration: "dynamic"`. These apps often come back to a loopback address such as `127.0.0.1:53682` or `localhost:3334`.
 - Always show `redirectHost`. Look-alike apps stand out by the host they send the user back to.
 - A user with 2FA who approves here is recorded as verified. Approving through Supabase directly would not work for them. Always use the Buck routes below, never `supabase.auth.oauth.approveAuthorization` in the browser.
 - Errors look like `{ error: string }`. Every response has `Cache-Control: no-store`. A `401 { error: "mfa_required" }` should not happen because middleware handles it first; if it does, send the user to `/verify-2fa?redirectTo=<current URL>`.
@@ -49,8 +50,9 @@ Check the exact field names against `@supabase/auth-js` 2.108 (`OAuthGrant`). Af
   - `phone` → "See your phone number".
   - Any other scope is shown as it is.
 - A fixed line: "**Read-only:** this app can see your wallets, expenses, income, goals and budgets. It can't add, change or delete anything, and it can't use Buck AI."
-- "You'll be sent to **{redirectHost}**".
+- "You'll be sent to **{redirectHost}**". If the host is `localhost`, `127.0.0.1` or `[::1]` (any port), say "You'll be sent back to an app running on this computer" instead.
 - If `registration !== "manual"`, show an amber warning (Buck Gold): "Buck hasn't reviewed this app. Only allow it if you trust it and started this yourself."
+- If a self-registered app (`registration !== "manual"`) has a name containing "Buck" (any case), make the warning stronger. Use Buck Coral and say: "This app calls itself '{name}', but it isn't made by Buck." Look-alike names are the main phishing risk of dynamic registration.
 - Buttons: **Deny** (secondary) and **Allow** (primary, Buck Orange). Keyboard order is Deny then Allow, with no autofocus on Allow.
 - Add a 1:1 skeleton for the loading state (ADR-012).
 - Missing `authorization_id` → show the "This link isn't valid" state; don't make a request.
@@ -67,7 +69,7 @@ Check the exact field names against `@supabase/auth-js` 2.108 (`OAuthGrant`). Af
 
 ## Done when
 - `npm run lint`, `npm run typecheck` and `npm test` all pass.
-- The consent page renders all states: loading, consent (manual), consent (dynamic warning), redirect, invalid link, expired, and error.
+- The consent page renders all states: loading, consent (manual), consent (dynamic warning), consent (dynamic app named "Buck…", strong warning), loopback redirect, redirect, invalid link, expired, and error.
 - Allow and Deny each send the browser to the returned `redirectUrl`.
 - Disconnect works through the three-step dialog.
 - Screenshots at desktop and 375px, in light and dark mode.
