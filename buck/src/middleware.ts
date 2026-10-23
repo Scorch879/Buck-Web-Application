@@ -23,6 +23,8 @@ const NON_SESSION_API_PREFIXES = [
   "/api/auth/",
   "/api/cron/",
   "/api/account/deletion/purge",
+  // Buck MCP server: connected-app bearer tokens only (ADR-050).
+  "/api/mcp",
 ];
 
 type SessionActivity = {

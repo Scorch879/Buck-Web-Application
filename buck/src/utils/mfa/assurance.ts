@@ -34,6 +34,10 @@ export type AccessTokenClaims = {
   amr?: Array<{ method?: string; timestamp?: number } | string>;
   /** Set only on tokens issued to a connected app (OAuth access tokens). */
   client_id?: string;
+  /** Expiry, seconds since epoch. */
+  exp?: number;
+  /** Space-separated OAuth scopes on connected-app tokens. */
+  scope?: string;
 };
 
 export type MfaState = {
@@ -75,7 +79,8 @@ export function readAccessTokenClaims(token: string | null | undefined): AccessT
 
 /**
  * True for a token Supabase issued to a connected app. Those tokens are for
- * reading data through RLS only; Buck's own API routes and Buck_AI refuse them.
+ * reading data through RLS only; Buck's own API routes and Buck_AI refuse them,
+ * and only the MCP server (/api/mcp, ADR-050) accepts them.
  */
 export function isConnectedAppToken(token: string | null | undefined) {
   const clientId = readAccessTokenClaims(token)?.client_id;

@@ -506,6 +506,7 @@ flowchart TD
 | **ADR-043** | Buck_AI: Python + Gemini, Two AIs | `Buck_AI/` FastAPI on Vercel with `BuckAI_Advisor` (saved, fingerprint-refreshed advice) and `BuckAI_Forecast` (planned); Supabase-JWT auth for web and mobile; queries run under RLS. |
 | **ADR-048** | Optional 2FA (TOTP), Passkeys & Recovery | `private.mfa_satisfied()` in RESTRICTIVE RLS + middleware/`apiAuth` + Buck_AI gate; backup codes and 24 h e-mail recovery under `/api/auth/mfa/*`; UI is a handoff. |
 | **ADR-049** | Connected Apps (OAuth 2.1 Server) | App tokens (`client_id` claim) are read-only via RESTRICTIVE RLS and refused by `/api/*` and Buck_AI; approval via `/api/oauth/authorizations/[id]/consent` records a 2FA-verified grant that `mfa_satisfied()` requires for 2FA users. |
+| **ADR-050** | Buck MCP Server | `/api/mcp` (Next.js, `@modelcontextprotocol/server`, stateless): 7 read-only tools for connected AI agents; RFC 9728 metadata points to Supabase Auth; queries run under RLS with the app's token; no Gemini. |
 | **ADR-005** | Zero-Knowledge Password Reset Rate Limiting | Rate limiting tracked via SHA-256 HMAC hashes in `auth_security_events` (zero plaintext PII). |
 | **ADR-006** | Database Policy Consolidation & Hardening | Applied `(select auth.uid())` initplan caching and revoked trigger execution from public roles. |
 | **ADR-007** | Weekly Spending Donut with 5-Slice Cap | Donut chart capped at Top-4 categories + 5th "Others" slice, paired with contextual interpretation card. |

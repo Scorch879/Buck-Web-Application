@@ -65,6 +65,10 @@ Check the exact field names against `@supabase/auth-js` 2.108 (`OAuthGrant`). Af
 - After a successful disconnect, show a toast with `toast.success` and refresh the list.
 - Empty state: "No apps connected. Apps you allow to read your Buck data will show here."
 - Helper text: "If you turn on two-factor authentication, reconnect your apps so they keep working."
+- **"Use Buck with your AI assistant" card** (ADR-050), above the list:
+  - The MCP server URL `${window.location.origin}/api/mcp` in a read-only field, with a Copy button (`toast.success("Copied")`).
+  - Short steps: "In Claude, ChatGPT, Cursor or another app that supports MCP, add a custom connector with this URL. You'll be asked to sign in to Buck and allow read-only access."
+  - Note: "AI assistants can read your wallets, transactions, goals and saved advice. They can't change anything."
 - Add a skeleton row set that matches the list (ADR-012).
 
 ## Done when
