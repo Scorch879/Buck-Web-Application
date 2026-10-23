@@ -1,5 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import type { Session } from "@supabase/supabase-js";
+import {
+  createMfaVerifyPath,
+  EMAIL_RECOVERY_CONFIRM_PATH,
+  getMfaState,
+} from "@/utils/mfa/assurance";
 import {
   isSupabaseConfigured,
   supabaseAnonKey,
@@ -22,7 +28,9 @@ function getSafeNextPath(value: string | null) {
       (parsedUrl.pathname.startsWith("/dashboard") ||
         parsedUrl.pathname === "/forgot-password" ||
         // Account-deletion confirmation link (sent by /api/account/deletion/request).
-        parsedUrl.pathname === "/account/delete/confirm")
+        parsedUrl.pathname === "/account/delete/confirm" ||
+        // 2FA email recovery link (sent by /api/auth/mfa/email-recovery).
+        parsedUrl.pathname === EMAIL_RECOVERY_CONFIRM_PATH)
     ) {
       return parsedUrl.pathname + parsedUrl.search;
     }
@@ -117,16 +125,16 @@ export async function GET(request: NextRequest) {
   }
 
   if (token_hash && type) {
-    const { error } = await supabase.auth.verifyOtp({ token_hash, type });
+    const { data, error } = await supabase.auth.verifyOtp({ token_hash, type });
     if (error) {
       console.error("Auth callback OTP verification failed:", error.message);
       return NextResponse.redirect(createSignInRedirect(request, "auth-callback-failed"));
     }
-    return redirectResponse;
+    return gateTwoFactor(request, redirectResponse, nextPath, data.session);
   }
 
   if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error) {
       console.error("Auth callback exchange failed:", error.message);
@@ -135,7 +143,35 @@ export async function GET(request: NextRequest) {
         createSignInRedirect(request, "auth-callback-failed")
       );
     }
+
+    return gateTwoFactor(request, redirectResponse, nextPath, data.session);
   }
+
+  return redirectResponse;
+}
+
+/**
+ * Magic links, Google and e-mail confirmation all land here at aal1. A user
+ * with 2FA on is sent to the code page first (ADR-048); only the 2FA email
+ * recovery link may continue without it, since it exists for users who lost
+ * their authenticator.
+ */
+function gateTwoFactor(
+  request: NextRequest,
+  redirectResponse: NextResponse,
+  nextPath: string,
+  session: Session | null
+) {
+  const isRecoveryLink = nextPath.startsWith(EMAIL_RECOVERY_CONFIRM_PATH);
+
+  if (!session || isRecoveryLink || getMfaState(session.user, session.access_token).satisfied) {
+    return redirectResponse;
+  }
+
+  redirectResponse.headers.set(
+    "Location",
+    new URL(createMfaVerifyPath(nextPath), request.nextUrl.origin).toString()
+  );
 
   return redirectResponse;
 }

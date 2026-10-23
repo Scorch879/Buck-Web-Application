@@ -89,6 +89,20 @@ Scope: live Supabase (RLS, grants, functions, constraints, storage, advisors), `
 
 **Verified**: `tsc` clean, `eslint` clean, vitest 44/44, Buck_AI unittest 23/23, live DB checks above. **Not verified**: the shared limiter against a deployed `Buck_AI`, the feedback insert from the signed-in UI after the new e-mail policy, `next build`.
 
+### 🔐 Two-Factor Authentication Backend (2026-10-24, ADR-048)
+
+Migrations [`202610240002_mfa_support.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240002_mfa_support.sql) and [`202610240003_mfa_enforce_rls.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240003_mfa_enforce_rls.sql) applied live and recorded in history. History drift fixed: `protect_fallback_categories` was stamped `20261023174201`, now `202610240001` like its file.
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-028** | 🟠 High | Passkeys must not count as a second factor. Passkey sign-in is aal1, and if Supabase lets an aal1 session register a passkey, a password-only attacker could add one and skip TOTP. | **Mitigated by design.** The 2FA rule accepts only aal2 (or no verified factor). Re-check when Supabase passkeys leave experimental: if registration then requires aal2, passkey sign-in could be allowed to satisfy 2FA. |
+| **SEC-029** | 🟡 Medium | Supabase's MFA Verification Attempt hook is Teams/Enterprise only, so TOTP brute force is throttled only by the project's token-verification rate limit. | **Accepted.** Keep Auth › Rate limits › token verifications at the default (≤ 30 / 5 min / IP). Our own routes (backup codes, email recovery) have their own limits in `auth_security_events`. |
+| **SEC-030** | 🟡 Medium | Email recovery would make 2FA only as strong as the inbox. | **Mitigated.** 24 h cool-off after confirmation (production floor), cancel from an aal2 session, pending state shown by `/api/auth/mfa/status`, 3 e-mails per day. |
+| **SEC-031** | 🟢 Low | Generating backup codes twice at the same time deletes then inserts in two requests, so both sets could stay valid. | **Accepted.** Same user, both sets are shown to them; regenerate once more to clear. |
+| **INFO-006** | — | 2FA UI not built yet (Settings sections, `/verify-2fa`, passkey button, Flutter verify screen). Until it ships nobody can enroll, so the new gate and RLS policies affect no one (0 rows in `auth.mfa_factors`). Web and mobile must release the verify screen together, or a user who enrolls on web gets empty data in an old mobile build. | **Open (frontend / mobile).** Contract in Design.md ADR-048. |
+
+**Verified**: `tsc`, `eslint`, `next build` clean; vitest 70/70 (new: `utils/mfa/mfa.test.ts`, backup-code redeem route, 2FA cases in `apiAuth.test.ts`); Buck_AI unittest 48/48 (new `tests/test_auth.py`); live SQL in rolled-back transactions: `mfa_satisfied()` true/false/true for no-factor aal1 / factor aal1 / factor aal2, and a 2FA user at aal1 reads 0 expenses, wallets and profiles while aal2 reads all 240/4/1; signed-out probes of every new route (401/403/redirect to sign-in). **Not verified**: a real TOTP enroll and sign-in, the e-mail recovery round trip, passkey sign-in and its `amr` value (needs the UI and Supabase dashboard passkey setup).
+
 ### 🟠 High Severity
 
 #### BUG-002: [RESOLVED 2026-10-12] Inconsistent Backend Host Domains Across Frontend Modules

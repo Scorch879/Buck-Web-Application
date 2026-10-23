@@ -1,4 +1,3 @@
-import { createHmac } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -16,6 +15,12 @@ import {
   getEmailValidationMessage,
   normalizeEmailAddress,
 } from "@/utils/emailValidation";
+import {
+  getClientIp,
+  getRetryAfterSeconds,
+  hashIdentifier,
+  toIsoDate,
+} from "@/utils/authRateLimit";
 
 type PasswordResetRequest = {
   email?: unknown;
@@ -103,41 +108,6 @@ async function readRequestBody(request: Request) {
   }
 }
 
-function getClientIp(request: Request) {
-  const forwardedFor = request.headers.get("x-forwarded-for");
-  const candidate =
-    forwardedFor?.split(",")[0]?.trim() ||
-    request.headers.get("cf-connecting-ip")?.trim() ||
-    request.headers.get("x-real-ip")?.trim() ||
-    "unknown";
-
-  return candidate.slice(0, 128);
-}
-
-function getRateLimitSecret() {
-  const secret =
-    process.env.AUTH_RATE_LIMIT_SECRET?.trim() ||
-    process.env.SESSION_COOKIE_SECRET?.trim();
-
-  if (secret) {
-    return secret;
-  }
-
-  if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "Password reset throttling needs AUTH_RATE_LIMIT_SECRET or SESSION_COOKIE_SECRET."
-    );
-  }
-
-  return "buck-local-password-reset-rate-limit";
-}
-
-function hashIdentifier(value: string) {
-  return createHmac("sha256", getRateLimitSecret())
-    .update(value)
-    .digest("hex");
-}
-
 function getPasswordResetSecurityContext(
   request: Request,
   email: string
@@ -151,18 +121,10 @@ function getPasswordResetSecurityContext(
   };
 }
 
-function toIsoDate(millisecondsAgo: number) {
-  return new Date(Date.now() - millisecondsAgo).toISOString();
-}
-
 function getResetLimitMessage(minutes: number) {
   return `Too many reset attempts. Please wait about ${minutes} minute${
     minutes === 1 ? "" : "s"
   } and try again.`;
-}
-
-function getRetryAfterSeconds(milliseconds: number) {
-  return Math.max(1, Math.ceil(milliseconds / 1000));
 }
 
 async function countPasswordResetEvents(

@@ -4,6 +4,7 @@ import DashboardClientLayout from "@/component/DashboardClientLayout";
 import { isAdminUser } from "@/utils/adminAccess";
 import { toBuckUser } from "@/utils/authUser";
 import { isDesignPreviewMode } from "@/utils/designPreview";
+import { createMfaVerifyPath, getMfaState } from "@/utils/mfa/assurance";
 import {
   createSupabaseServerClient,
   isSupabaseServerConfigured,
@@ -32,6 +33,16 @@ export default async function DashboardLayout({
 
     if (error || !user) {
       redirect("/sign-in?redirectTo=/dashboard/home");
+    }
+
+    // Defense in depth behind middleware.ts: a session that still owes its
+    // authenticator code never renders the dashboard.
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!getMfaState(user, session?.access_token).satisfied) {
+      redirect(createMfaVerifyPath("/dashboard/home"));
     }
 
     initialUser = toBuckUser(user, isAdminUser(user));

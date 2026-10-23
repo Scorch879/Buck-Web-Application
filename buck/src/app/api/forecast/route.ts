@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseAdminClient } from "@/utils/supabase/admin";
-import { getRequestUserId } from "@/utils/apiAuth";
+import { getRequestAuth, mfaRequiredResponse } from "@/utils/apiAuth";
 import {
   fetchUserFinancialContext,
   generateForecastInsights,
@@ -17,14 +17,20 @@ const PERIOD_TYPES = ["weekly", "monthly", "quarterly", "custom"] as const;
 
 export async function POST(req: NextRequest) {
   try {
-    const userId = await getRequestUserId(req);
+    const auth = await getRequestAuth(req);
 
-    if (!userId) {
+    if (!auth) {
       return NextResponse.json(
         { error: "You need to sign in again first." },
         { status: 401 }
       );
     }
+
+    if (!auth.mfa.satisfied) {
+      return mfaRequiredResponse();
+    }
+
+    const userId = auth.user.id;
 
     let body: RequestBody = {};
     try {
