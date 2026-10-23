@@ -434,6 +434,11 @@ Migrations [`202610240002_mfa_support.sql`](file:///d:/VS%20Code/Buck-Budget-Tra
 - **Verification (live, rolled back)**: new user seeded 25 categories; deleting either fallback, renaming one and changing its kind were blocked; editing a fallback's colour, renaming and deleting a normal category worked; deleting the auth user cascaded to 0 categories.
 - **Related**: live also has `trg_check_category_deletion` (from `202606130001`), which blocks deleting a category still used by expenses. `deleteCategoryAndReassign` moves items first, so the two triggers agree.
 
+#### BUG-037: [RESOLVED 2026-10-24] Password Reset Link Stuck on "Redirecting..."
+- **Location**: [`buck/src/app/auth/callback/route.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/auth/callback/route.ts), hash fallback page.
+- **Cause**: The reset e-mail uses the implicit flow, so Supabase sends the user to `/auth/callback?next=/forgot-password?type=recovery#access_token=…`. The server can't see the hash, so the route returns a small HTML page whose inline `<script>` forwards the hash. Since the CSP nonce change (`161127d`), middleware sends `script-src 'self' 'nonce-…' 'strict-dynamic'` on every response; that script had no nonce, so the browser blocked it and the reset never reached the new-password form. Production auth logs (2026-10-23 20:09 UTC) show a verified recovery that went no further. Magic links in the implicit flow were affected the same way.
+- **Resolution**: The route reads the `x-nonce` request header that middleware forwards and stamps it (HTML-escaped) on the script. Test: `app/auth/callback/route.test.ts`. Verified on localhost: the callback now forwards to `/forgot-password?type=recovery`, and a fake token shows "invalid or expired" with no CSP errors.
+
 ---
 
 ### 🟢 Low Severity / Tech Debt
