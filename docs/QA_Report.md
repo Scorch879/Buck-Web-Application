@@ -1,6 +1,6 @@
 # QA_Report.md: Code Quality, Defect Backlog & Test Strategy
 
-This document tracks identified bugs, architectural discrepancies, security vulnerabilities, technical debt, and test strategies across the **Buck Budget Tracker Web Application**. It is maintained by the Senior QA & Documentation Engineer role defined in [`Agents.md`](Agents.md).
+This document tracks identified bugs, architectural discrepancies, security vulnerabilities, technical debt, and test strategies across the **Buck Budget Tracker Web Application**. It is maintained by the Senior QA & Documentation Engineer role defined in [`Agents.md`](../Agents.md).
 
 ---
 
@@ -498,7 +498,7 @@ Migration [`202610240004_oauth_apps.sql`](file:///d:/VS%20Code/Buck-Budget-Track
 - **Remediation**: Clean up unused imports and align documentation with the Together AI integration.
 
 #### BUG-023: [PARTIALLY RESOLVED 2026-10-12] `Skills.md` Route Tables Drifted from Code
-- **Location**: [`Skills.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Skills.md) sections 2 and 3, found while reconciling the `buck/docs/` mirrors.
+- **Location**: [`Skills.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/Skills.md) sections 2 and 3, found while reconciling the `buck/docs/` mirrors.
 - **Discrepancies (code wins)**:
   - [`/api/cron/generate-insights`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/cron/generate-insights/route.ts) (`GET`, `POST`; Bearer `CRON_SECRET` via `isBearerAuthorized`, fails closed) has no row in section 2.
   - `/api/advisor` and `/api/forecast` are described as "Currently stubbed mock output". Both now resolve the user with `getSessionUserId` and read/write `ai_advisories` / `ai_forecasts` through `generateAdvisoryInsights` / `generateForecastInsights` (see BUG-004, SEC-001).

@@ -88,21 +88,17 @@ npm run start
 
 ---
 
-## 📚 Core Documentation & AI-First Source of Truth
+## 📚 Documentation
 
-The repository maintains an AI-first, machine-readable suite of core documentation:
+Start at [**`docs/README.md`**](./docs/README.md). It maps every document and says which one answers what.
 
-- [**Agents.md**](./Agents.md) — Multi-agent roles, system scopes, interaction boundaries, and execution lifecycle.
-- [**Skills.md**](./Skills.md) — Comprehensive catalog of Supabase data functions, API routes, AI specialist routes, and hooks.
-- [**Design.md**](./Design.md) — System architecture diagrams, database schemas, sequence workflows, and ADRs.
-- [**Implementation.md**](./Implementation.md) — Execution logic, environment variable matrix, setup instructions, and hardcoded boundaries.
-- [**QA_Report.md**](./QA_Report.md) — Continuous quality assurance, defect backlog, security audit, and test strategy.
-
-### Additional Domain Guides
-For focused UI and auth implementation guides, refer to [`buck/docs/`](./buck/docs/):
-- [**UI Motion & Scroll Effects**](./buck/docs/ui-motion-and-scroll-effects.md) — Header scroll indicators, modal perimeter glow, and Framer Motion integration.
-- [**Global UI Standardizations**](./buck/docs/global-ui.md) — Global button styles, dropdown accessibility, and design tokens.
-- [**Universal Button Styling & Wallet Refinements**](./buck/docs/universal-button-styling.md) — Action button gradients and wallet card action rows.
-- [**Wallet Layout & Search**](./buck/docs/wallet-layout.md) — Multi-wallet split-level flexbox layouts and search architecture.
-- [**Supabase Auth Setup**](./buck/docs/SUPABASE_AUTH_SETUP.md) — Authentication flow, password reset, and SSR client guidelines.
-- [**Admin Dashboard & Backend Caching**](./buck/docs/admin-dashboard.md) — Admin monitoring and in-memory context caching.
+| File | Purpose |
+|---|---|
+| [`Claude.md`](./Claude.md) | Master engineering guide for AI agents (architecture, rules, standards) |
+| [`Agents.md`](./Agents.md) | Agent roles and boundaries |
+| [`docs/Design.md`](./docs/Design.md) | Architecture, schemas, data flows and ADRs |
+| [`docs/Skills.md`](./docs/Skills.md) | Function, API route, Buck_AI endpoint and hook catalog |
+| [`docs/Implementation.md`](./docs/Implementation.md) | Setup, environment variables and execution logic |
+| [`docs/QA_Report.md`](./docs/QA_Report.md) | Defect backlog, security audit and test strategy |
+| [`docs/requirements/`](./docs/requirements/) | Software Requirements Specification |
+| [`Buck_AI/README.md`](./Buck_AI/README.md) | AI service (Python FastAPI + Gemini) |

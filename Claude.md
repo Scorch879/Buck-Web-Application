@@ -327,14 +327,20 @@ erDiagram
 d:/VS Code/Buck-Budget-Tracker/Buck-Web-Application/
 ├── Claude.md                           # Master Claude Architecture & Engineering Guide (Single Source of Truth)
 ├── Agents.md                           # Multi-agent roles, operational scopes, and lifecycle rules
-├── Skills.md                           # Complete function catalog for Supabase Data Layer, APIs, and ML endpoints
-├── Design.md                           # Comprehensive architectural design, ERDs, and 13 ADRs
-├── Implementation.md                   # Sprint progress, technical deliverables, and verification checkpoints
-├── QA_Report.md                        # Defect catalog, regression audits, and security vulnerability tracking
 ├── README.md                           # Project onboarding and developer quick-start
 │
-├── docs/                               # Project Schedules & Offline Planning Assets
-│   └── Buck_Project_Schedule_Gantt_Chart.xlsx  # 9-week Gantt schedule with status dropdowns
+├── docs/                               # All project documentation (map: docs/README.md)
+│   ├── README.md                       # Documentation map: which doc answers what
+│   ├── Skills.md                       # Function catalog: Supabase data layer, API routes, Buck_AI endpoints, hooks
+│   ├── Design.md                       # Architecture, ERDs, data flows, ADR-001 to ADR-050
+│   ├── Implementation.md               # Setup, environment variables, execution logic, constraints
+│   ├── QA_Report.md                    # Defect catalog, security audit, test strategy
+│   ├── requirements/                   # SRS.md, SRS_exact_aligned.md, Buck_SRS.docx
+│   ├── project/                        # Buck_Project_Schedule_Gantt_Chart.xlsx (9-week schedule)
+│   ├── guides/                         # frontend/ change notes, supabase/ e-mail templates
+│   └── handoffs/                       # Prompts written for other agents
+│
+├── Buck_AI/                            # Python FastAPI + Gemini AI service (see Buck_AI/README.md)
 │
 └── buck/                               # Core Next.js Web Application & Backend Subsystem
     ├── CLAUDE.md                       # Subdirectory Claude reference mirror
@@ -468,9 +474,9 @@ flowchart TD
 ```
 
 ### 4.1 Senior QA & Documentation Engineer
-- **Responsibilities**: Maintains single source of truth across all Markdown specs ([`Agents.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Agents.md), [`Skills.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Skills.md), [`Design.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Design.md), [`Implementation.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Implementation.md), [`QA_Report.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/QA_Report.md)).
+- **Responsibilities**: Maintains single source of truth across all Markdown specs ([`Agents.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Agents.md), [`Skills.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/Skills.md), [`Design.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/Design.md), [`Implementation.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/Implementation.md), [`QA_Report.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/QA_Report.md)).
 - **Zero Hallucination Policy**: Every documented signature, column, and constraint must be traceable to concrete lines in the repository.
-- **Proactive Defect Logging**: Immediately catalog any bug, race condition, missing endpoint, or security flaw in [`QA_Report.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/QA_Report.md).
+- **Proactive Defect Logging**: Immediately catalog any bug, race condition, missing endpoint, or security flaw in [`QA_Report.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/QA_Report.md).
 
 ### 4.2 Frontend UI/UX Architect
 - **Responsibilities**: Next.js App Router, Framer Motion, CSS Design Tokens, responsive modal bounds, and client caching.
@@ -572,7 +578,7 @@ Each account also gets 7 default income categories: `Salary`, `Allowance`, `Free
 - **Dark Roast Espresso (High Contrast Text & Dark Accents)**: `#120D0A`
 
 ### 6.8 Project Schedule Boundary
-- All project planning, roadmaps, and sprint deliverables must strictly adhere to a **9-week project lifecycle** (never 12+ weeks). The authoritative tracking sheet is [`docs/Buck_Project_Schedule_Gantt_Chart.xlsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/Buck_Project_Schedule_Gantt_Chart.xlsx).
+- All project planning, roadmaps, and sprint deliverables must strictly adhere to a **9-week project lifecycle** (never 12+ weeks). The authoritative tracking sheet is [`docs/project/Buck_Project_Schedule_Gantt_Chart.xlsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/project/Buck_Project_Schedule_Gantt_Chart.xlsx).
 
 ---
 
