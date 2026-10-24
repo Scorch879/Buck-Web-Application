@@ -70,7 +70,7 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
 
     async def incomes() -> list[dict[str, Any]] | None:
         try:
-            return await db.select(
+            return await db.select_all(
                 "incomes",
                 [("select", "amount"), ("user_id", uid),
                  ("received_on", f"gte.{month_start}"), ("received_on", f"lte.{month_end}")],
@@ -82,7 +82,7 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
     profile_rows, wallet_rows, expense_rows, goal_rows, income_rows = await asyncio.gather(
         db.select("profiles", {"select": "active_wallet_id", "id": uid}),
         db.select("wallets", {"select": "id,name,budget", "user_id": uid, "deleted_at": "is.null"}),
-        db.select(
+        db.select_all(
             "expenses",
             [("select", "amount,category_name,spent_on"), ("user_id", uid),
              ("spent_on", f"gte.{history_start}"), ("spent_on", f"lte.{month_end}")],

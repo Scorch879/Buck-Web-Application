@@ -32,6 +32,7 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
+    expose_headers=["X-Buck-Error"],  # "mfa_required" from shared/auth.py
     max_age=600,
 )
 

@@ -92,7 +92,14 @@ html[data-buck-theme="dark"] .ai-bubble__badge {
   visibility: hidden;
 }
 
+/* Phones: a near-full-screen sheet above the bubble (which sits under the
+   backdrop), clear of the notch and home indicator. `top` comes from JS so
+   the sheet starts below the sticky mobile header. */
 .ai-chat-panel--sheet {
+  z-index: 94;
+  right: max(8px, env(safe-area-inset-right));
+  bottom: max(8px, env(safe-area-inset-bottom));
+  left: max(8px, env(safe-area-inset-left));
   width: auto;
   height: auto;
   border-radius: 16px;
@@ -101,7 +108,7 @@ html[data-buck-theme="dark"] .ai-bubble__badge {
 .ai-chat-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: 93;
   background: rgba(18, 13, 10, 0.42);
   visibility: hidden;
 }
@@ -435,8 +442,17 @@ html[data-buck-theme="dark"] .ai-bubble__badge {
   resize: vertical;
 }
 
+/* Panel: AIChat sizes the box to its text (or placeholder), up to 120px. */
 .advisor-chat--panel .advisor-chat__form textarea {
+  overflow-y: auto;
   resize: none;
+}
+
+/* 16px stops iOS Safari zooming the page when the box is focused. */
+@media (max-width: 767px) {
+  .advisor-chat--panel .advisor-chat__form textarea {
+    font-size: 16px;
+  }
 }
 
 .advisor-chat__form textarea:focus-visible {

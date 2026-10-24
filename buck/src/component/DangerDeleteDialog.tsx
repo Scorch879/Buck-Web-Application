@@ -21,6 +21,10 @@ export interface DangerDeleteDialogProps {
   itemName: string;
   /** What will be lost, shown in step 1 and step 2. */
   consequences?: React.ReactNode[];
+  /** Verb for the action, e.g. "Disconnect". Defaults to "Delete". */
+  verb?: string;
+  /** "-ing" form of `verb`, e.g. "Disconnecting". Defaults to "Deleting". */
+  verbing?: string;
   /** Performs the delete. The dialog stays open (busy) until it settles. */
   onConfirm: () => Promise<void> | void;
   onCancel: () => void;
@@ -33,6 +37,8 @@ export default function DangerDeleteDialog({
   itemType,
   itemName,
   consequences = [],
+  verb = "Delete",
+  verbing = "Deleting",
   onConfirm,
   onCancel,
 }: DangerDeleteDialogProps) {
@@ -113,7 +119,7 @@ export default function DangerDeleteDialog({
                 <FaExclamationTriangle />
               </span>
               <div className={styles.headerText}>
-                <h3 id={titleId}>Delete {itemType}</h3>
+                <h3 id={titleId}>{verb} {itemType}</h3>
                 <p className={styles.itemName} title={itemName}>
                   {itemName}
                 </p>
@@ -133,7 +139,7 @@ export default function DangerDeleteDialog({
             {step === 1 && (
               <div className={styles.body}>
                 <p className={styles.warning}>
-                  Deleting this {itemType} cannot be undone.
+                  {verbing} this {itemType} cannot be undone.
                 </p>
                 {consequences.length > 0 && (
                   <ul className={styles.consequences}>
@@ -143,7 +149,7 @@ export default function DangerDeleteDialog({
                   </ul>
                 )}
                 <SlideToConfirm
-                  label={`Slide to delete ${itemType}`}
+                  label={`Slide to ${verb.toLowerCase()} ${itemType}`}
                   onComplete={() => setStep(2)}
                 />
                 <div className={styles.actions}>
@@ -157,7 +163,7 @@ export default function DangerDeleteDialog({
             {step === 2 && (
               <div className={styles.body}>
                 <p className={styles.warning}>
-                  Are you sure? Deleting <strong>{itemName}</strong> cannot be reversed.
+                  Are you sure? {verbing} <strong>{itemName}</strong> cannot be reversed.
                 </p>
                 <div className={styles.actions}>
                   <button type="button" className={styles.cancelBtn} onClick={cancel}>
@@ -203,7 +209,7 @@ export default function DangerDeleteDialog({
                   </button>
                   <button type="submit" className={styles.dangerBtn} disabled={!matches || busy}>
                     <FaTrash aria-hidden="true" />
-                    {busy ? "Deleting…" : `Delete this ${itemType}`}
+                    {busy ? `${verbing}…` : `${verb} this ${itemType}`}
                   </button>
                 </div>
               </form>

@@ -18,6 +18,8 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
         detectSessionInUrl: true,
         flowType: "pkce",
         persistSession: true,
+        // Passkey sign-in/registration (ADR-048). Experimental in supabase-js.
+        experimental: { passkey: true },
       },
       cookieOptions: supabaseCookieOptions,
       // Mutating requests invalidate the shared list cache (utils/dataCache.ts).

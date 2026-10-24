@@ -1,6 +1,6 @@
 # QA_Report.md: Code Quality, Defect Backlog & Test Strategy
 
-This document tracks identified bugs, architectural discrepancies, security vulnerabilities, technical debt, and test strategies across the **Buck Budget Tracker Web Application**. It is maintained by the Senior QA & Documentation Engineer role defined in [`Agents.md`](Agents.md).
+This document tracks identified bugs, architectural discrepancies, security vulnerabilities, technical debt, and test strategies across the **Buck Budget Tracker Web Application**. It is maintained by the Senior QA & Documentation Engineer role defined in [`Agents.md`](../Agents.md).
 
 ---
 
@@ -88,6 +88,62 @@ Scope: live Supabase (RLS, grants, functions, constraints, storage, advisors), `
 | **SEC-027** | 🟢 Low | `npm audit`: 5 high in the dev-only `eslint-config-next` chain (`braces`/`micromatch`/`fast-glob`); the fix is a downgrade. Python deps not audited (no `pip-audit`). | **Accepted / open.** Add `pip-audit` to CI. Token-verification cache lets a revoked token live up to 60 s (accepted). |
 
 **Verified**: `tsc` clean, `eslint` clean, vitest 44/44, Buck_AI unittest 23/23, live DB checks above. **Not verified**: the shared limiter against a deployed `Buck_AI`, the feedback insert from the signed-in UI after the new e-mail policy, `next build`.
+
+### 📦 Dependency Advisory: Next.js 15.5.27 (2026-10-24)
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-037** | 🔴 Critical | `npm audit --omit=dev` flagged the installed `next@15.5.27`: GHSA-2464-fhr4-w9xw (unauthenticated RCE in the Image Optimization API when SVGs are used) and GHSA-p3m5-59mp-jv5r (DoS in the App Router via Server Actions). | **Resolved.** `next` and `eslint-config-next` bumped to `^15.5.28` (latest 15.x); the lockfile changes only the Next packages. Exposure was lower than the rating: `next.config.ts` has no `images` block, so `dangerouslyAllowSVG` is at its default `false`. |
+
+**Verified**: `npm audit --omit=dev` and full `npm audit` both report 0 vulnerabilities; `eslint`, `tsc` clean; vitest 72/72; `next build` clean. **Not verified**: a deployed preview.
+
+### 🔐 Two-Factor Authentication Backend (2026-10-24, ADR-048)
+
+Migrations [`202610240002_mfa_support.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240002_mfa_support.sql) and [`202610240003_mfa_enforce_rls.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240003_mfa_enforce_rls.sql) applied live and recorded in history. History drift fixed: `protect_fallback_categories` was stamped `20261023174201`, now `202610240001` like its file.
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-028** | 🟠 High | Passkeys must not count as a second factor. Passkey sign-in is aal1, and if Supabase lets an aal1 session register a passkey, a password-only attacker could add one and skip TOTP. | **Mitigated by design.** The 2FA rule accepts only aal2 (or no verified factor). Re-check when Supabase passkeys leave experimental: if registration then requires aal2, passkey sign-in could be allowed to satisfy 2FA. |
+| **SEC-029** | 🟡 Medium | Supabase's MFA Verification Attempt hook is Teams/Enterprise only, so TOTP brute force is throttled only by the project's token-verification rate limit. | **Accepted.** Keep Auth › Rate limits › token verifications at the default (≤ 30 / 5 min / IP). Our own routes (backup codes, email recovery) have their own limits in `auth_security_events`. |
+| **SEC-030** | 🟡 Medium | Email recovery would make 2FA only as strong as the inbox. | **Mitigated.** 24 h cool-off after confirmation (production floor), cancel from an aal2 session, pending state shown by `/api/auth/mfa/status`, 3 e-mails per day. |
+| **SEC-031** | 🟢 Low | Generating backup codes twice at the same time deletes then inserts in two requests, so both sets could stay valid. | **Accepted.** Same user, both sets are shown to them; regenerate once more to clear. |
+| **INFO-006** | — | 2FA UI not built yet (Settings sections, `/verify-2fa`, passkey button, Flutter verify screen). Until it ships nobody can enroll, so the new gate and RLS policies affect no one (0 rows in `auth.mfa_factors`). Web and mobile must release the verify screen together, or a user who enrolls on web gets empty data in an old mobile build. | **Open (frontend / mobile).** Contract in Design.md ADR-048. |
+
+**Verified**: `tsc`, `eslint`, `next build` clean; vitest 70/70 (new: `utils/mfa/mfa.test.ts`, backup-code redeem route, 2FA cases in `apiAuth.test.ts`); Buck_AI unittest 48/48 (new `tests/test_auth.py`); live SQL in rolled-back transactions: `mfa_satisfied()` true/false/true for no-factor aal1 / factor aal1 / factor aal2, and a 2FA user at aal1 reads 0 expenses, wallets and profiles while aal2 reads all 240/4/1; signed-out probes of every new route (401/403/redirect to sign-in). **Not verified**: a real TOTP enroll and sign-in, the e-mail recovery round trip, passkey sign-in and its `amr` value (needs the UI and Supabase dashboard passkey setup).
+
+### 🤖 Buck MCP Server (2026-10-24, ADR-050)
+
+Migration [`202610240005_mcp_access_check.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240005_mcp_access_check.sql) applied live and recorded.
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-035** | 🟡 Medium | Supabase OAuth tokens carry `aud: authenticated`, not the MCP resource (no RFC 8707), so tokens are not audience-bound to `/api/mcp`. | **Accepted.** Only connected-app tokens are accepted, and all of them are read-only under RLS. |
+| **SEC-036** | 🟢 Low | No MCP-specific rate limit; every call does one Supabase Auth check plus its queries. | **Open.** Row caps per tool (100 listed, 10,000 summarized, 2-year range) limit the cost. Add a per-user limit if usage grows. |
+| **INFO-008** | — | 2025-era MCP clients get their reply as a short SSE event (stateless fallback); 2026-07-28 clients get JSON. | **By design** (SDK behaviour). |
+
+**Verified**:
+- vitest 114/114 (new: 7 protocol tests through the route covering initialize, the read-only tools list, overview totals, merged transactions with escaped search, bad periods, the 2FA reconnect message, and no write calls; plus 7 verifier and Manila-date tests). `tsc` and `eslint` clean.
+- Local probes:
+  - The metadata document is served at both paths (other paths 404).
+  - `/api/mcp` answers 401 + `resource_metadata` for no token, for a Buck session token, and for a forged app token.
+  - CORS preflight returns 204.
+- Live SQL (rolled back): with app-token claims the user reads every column the tools use (profiles 1, wallets 4, categories 25, expenses 240, incomes 11, goals 2, advice 2), sees 0 rows of other users, and a write changes 0 rows. `current_session_can_read()` returns false for a 2FA user's app without a verified grant and is not executable by `anon`.
+
+**Not verified**: a real MCP client end to end, which needs the dashboard OAuth switch and the consent UI.
+
+### 🔗 Connected Apps / OAuth 2.1 Server Backend (2026-10-24, ADR-049)
+
+Migration [`202610240004_oauth_apps.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240004_oauth_apps.sql) applied live and recorded.
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-032** | 🟠 High | Supabase gives OAuth app tokens the user's full data access, including writes. | **Mitigated.** Restrictive insert/update/delete policies reject tokens with `client_id`; Buck routes (`getRequestAuth`) and Buck_AI refuse them. |
+| **SEC-033** | 🟠 High | Supabase's consent endpoint accepts aal1, so a password-only attacker could connect an app to a 2FA account. Consents are one row per user and app, so a re-approval reuses the row. | **Mitigated.** Approval via Buck's route records the active consent with `mfa_verified`; `mfa_satisfied()` requires it for app tokens of 2FA users; trigger `buck_forget_oauth_app_grant` drops the record on any change to the consent row. |
+| **SEC-034** | 🟡 Medium | Dynamic client registration (needed by MCP clients) lets anyone register an app under any name: phishing risk on the consent screen. | **Partly mitigated.** Apps are read-only; the details route returns `registration: "dynamic"` and `redirectHost` for an "unreviewed app" warning. Keep dynamic registration off unless MCP is in use. The consent page shows the amber warning for unreviewed apps and a coral "isn't made by Buck" warning when one calls itself Buck, and always shows the redirect host. |
+| **INFO-007** | — | OAuth Server is still off in the dashboard. | **Open (dashboard).** The `/oauth/consent` and Settings › Connected apps UI is built. Steps in Design.md ADR-049. |
+| **INFO-009** | — | The CSP `img-src` allows only self, `data:`, `blob:` and Supabase, so third-party app logos (`logo_uri`) are blocked on the consent page and in Settings. | **Open (security decision).** The UI falls back to the app's initial, which also avoids loading images from unreviewed apps. Allowing logos would need `https:` in `img-src` or a same-origin image proxy. |
+
+**Verified**: live SQL in rolled-back transactions. For a user without 2FA, an app token reads 240 expenses while insert, update and `transfer_funds_atomic` are blocked. For a 2FA user the app reads 0 without a grant, 0 with an unverified grant, 240 with a verified grant (still read-only), 0 for another app, and 0 again after the consent row is revoked and re-approved outside Buck. Normal sessions are unchanged. `record_oauth_app_grant` refuses when there is no consent and cannot be called by `authenticated`. vitest 81/81 (consent route, connected-app bearer refusal), Buck_AI unittest 49/49, `tsc` and `eslint` clean. Signed-out probes: the consent page redirects to sign-in keeping `authorization_id`, the APIs return 401, a bad id returns 400. **Not verified**: a real end-to-end OAuth flow (needs the dashboard switch and the consent UI).
 
 ### 🟠 High Severity
 
@@ -408,6 +464,23 @@ Scope: live Supabase (RLS, grants, functions, constraints, storage, advisors), `
 - **Live RPC check (rolled back)**: a debit of 10.005 reduced a wallet from 60000.00 to 59989.99 and stored amount 10.01 (rounded); an amount above the balance was rejected with "Expense exceeds your wallet balance."; a zero amount was rejected.
 - **Not verified**: the browser UI and the mobile round trip.
 
+#### BUG-035: [RESOLVED] Buck_AI Reads Capped at 1,000 Rows (Silent Truncation)
+- **Location**: `Buck_AI/shared/supabase.py`, `BuckAI_Advisor/snapshot.py`, `BuckAI_Advisor/tools.py`.
+- **Cause**: `expenses` and `incomes` were read with one PostgREST request and no paging. PostgREST answers at most `max_rows` (Supabase default 1000) and does not flag a cut-off, so users with more rows in the window got wrong totals, health scores, fingerprints and advice. The web client (`fetchListExpenses`) already paged; Buck_AI did not.
+- **Resolution**: `UserDb.select_all` pages with `Range` headers (page 1000), adds an `id` tie-break to the order so pages never overlap or skip, and raises `DbError` past 20,000 rows instead of returning partial data. Snapshot and tools use it for expenses and incomes (an explicit `limit` stays a single page). `Buck_AI/tests/test_supabase.py`: 2,500 rows, exact page multiples, ordering and a 1,500-expense snapshot total; `unittest` is 43/43.
+- **Assumption**: `PAGE_SIZE` (1000) must not exceed the project's `max_rows`, or paging would stop early.
+
+#### BUG-036: [RESOLVED in code; migration pending apply] Fallback Categories Protected Only in the UI
+- **Cause**: `Uncategorized` (expense) and `Other` (income) were hidden from the Categories page's edit buttons, but a direct API call could delete or rename them, breaking the AI categorizer and `ensure_expense_relations_owner()`.
+- **Resolution**: [`202610240001_protect_fallback_categories.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240001_protect_fallback_categories.sql). Row trigger with a `WHEN` clause (runs only for the ~2 fallback rows per user, no overhead for other categories) rejects deleting or renaming/re-kinding a fallback (`23514`); colour, icon and sort order stay editable. A delete is allowed once the owning `auth.users` row is gone, so account purge still cascades. `SECURITY DEFINER` with `search_path = ''`, EXECUTE revoked from API roles. Includes an idempotent backfill for users missing a fallback (live: 0 missing).
+- **Verification (live, rolled back)**: new user seeded 25 categories; deleting either fallback, renaming one and changing its kind were blocked; editing a fallback's colour, renaming and deleting a normal category worked; deleting the auth user cascaded to 0 categories.
+- **Related**: live also has `trg_check_category_deletion` (from `202606130001`), which blocks deleting a category still used by expenses. `deleteCategoryAndReassign` moves items first, so the two triggers agree.
+
+#### BUG-037: [RESOLVED 2026-10-24] Password Reset Link Stuck on "Redirecting..."
+- **Location**: [`buck/src/app/auth/callback/route.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/auth/callback/route.ts), hash fallback page.
+- **Cause**: The reset e-mail uses the implicit flow, so Supabase sends the user to `/auth/callback?next=/forgot-password?type=recovery#access_token=…`. The server can't see the hash, so the route returns a small HTML page whose inline `<script>` forwards the hash. Since the CSP nonce change (`161127d`), middleware sends `script-src 'self' 'nonce-…' 'strict-dynamic'` on every response; that script had no nonce, so the browser blocked it and the reset never reached the new-password form. Production auth logs (2026-10-23 20:09 UTC) show a verified recovery that went no further. Magic links in the implicit flow were affected the same way.
+- **Resolution**: The route reads the `x-nonce` request header that middleware forwards and stamps it (HTML-escaped) on the script. Test: `app/auth/callback/route.test.ts`. Verified on localhost: the callback now forwards to `/forgot-password?type=recovery`, and a fake token shows "invalid or expired" with no CSP errors.
+
 ---
 
 ### 🟢 Low Severity / Tech Debt
@@ -425,7 +498,7 @@ Scope: live Supabase (RLS, grants, functions, constraints, storage, advisors), `
 - **Remediation**: Clean up unused imports and align documentation with the Together AI integration.
 
 #### BUG-023: [PARTIALLY RESOLVED 2026-10-12] `Skills.md` Route Tables Drifted from Code
-- **Location**: [`Skills.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Skills.md) sections 2 and 3, found while reconciling the `buck/docs/` mirrors.
+- **Location**: [`Skills.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/Skills.md) sections 2 and 3, found while reconciling the `buck/docs/` mirrors.
 - **Discrepancies (code wins)**:
   - [`/api/cron/generate-insights`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/cron/generate-insights/route.ts) (`GET`, `POST`; Bearer `CRON_SECRET` via `isBearerAuthorized`, fails closed) has no row in section 2.
   - `/api/advisor` and `/api/forecast` are described as "Currently stubbed mock output". Both now resolve the user with `getSessionUserId` and read/write `ai_advisories` / `ai_forecasts` through `generateAdvisoryInsights` / `generateForecastInsights` (see BUG-004, SEC-001).

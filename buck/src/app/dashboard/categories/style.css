@@ -341,7 +341,7 @@ html[data-buck-theme="dark"] .cat-rename input {
 .cat-filter-dropdown {
   flex-shrink: 0;
   position: relative;
-  z-index: 96;
+  z-index: 90; /* below the AI chat (91+), above the topbar (80) */
   width: auto;
 }
 
@@ -421,7 +421,7 @@ html[data-buck-theme="dark"] .cat-ai-badge {
   position: absolute;
   top: calc(100% + 0.55rem);
   right: 0;
-  z-index: 95;
+  z-index: 89;
   width: min(320px, 86vw);
   padding: 0.85rem 1rem;
   color: var(--buck-ink);
@@ -705,7 +705,7 @@ html[data-buck-theme="dark"] .cat-table th {
 .cat-entries-popover {
   position: absolute;
   left: 0;
-  z-index: 90;
+  z-index: 88;
   width: 280px;
   padding: 0.8rem 0.9rem;
   color: var(--buck-ink);

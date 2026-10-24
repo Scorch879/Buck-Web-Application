@@ -327,14 +327,20 @@ erDiagram
 d:/VS Code/Buck-Budget-Tracker/Buck-Web-Application/
 ├── Claude.md                           # Master Claude Architecture & Engineering Guide (Single Source of Truth)
 ├── Agents.md                           # Multi-agent roles, operational scopes, and lifecycle rules
-├── Skills.md                           # Complete function catalog for Supabase Data Layer, APIs, and ML endpoints
-├── Design.md                           # Comprehensive architectural design, ERDs, and 13 ADRs
-├── Implementation.md                   # Sprint progress, technical deliverables, and verification checkpoints
-├── QA_Report.md                        # Defect catalog, regression audits, and security vulnerability tracking
 ├── README.md                           # Project onboarding and developer quick-start
 │
-├── docs/                               # Project Schedules & Offline Planning Assets
-│   └── Buck_Project_Schedule_Gantt_Chart.xlsx  # 9-week Gantt schedule with status dropdowns
+├── docs/                               # All project documentation (map: docs/README.md)
+│   ├── README.md                       # Documentation map: which doc answers what
+│   ├── Skills.md                       # Function catalog: Supabase data layer, API routes, Buck_AI endpoints, hooks
+│   ├── Design.md                       # Architecture, ERDs, data flows, ADR-001 to ADR-050
+│   ├── Implementation.md               # Setup, environment variables, execution logic, constraints
+│   ├── QA_Report.md                    # Defect catalog, security audit, test strategy
+│   ├── requirements/                   # SRS.md, SRS_exact_aligned.md, Buck_SRS.docx
+│   ├── project/                        # Buck_Project_Schedule_Gantt_Chart.xlsx (9-week schedule)
+│   ├── guides/                         # frontend/ change notes, supabase/ e-mail templates
+│   └── handoffs/                       # Prompts written for other agents
+│
+├── Buck_AI/                            # Python FastAPI + Gemini AI service (see Buck_AI/README.md)
 │
 └── buck/                               # Core Next.js Web Application & Backend Subsystem
     ├── CLAUDE.md                       # Subdirectory Claude reference mirror
@@ -468,9 +474,9 @@ flowchart TD
 ```
 
 ### 4.1 Senior QA & Documentation Engineer
-- **Responsibilities**: Maintains single source of truth across all Markdown specs ([`Agents.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Agents.md), [`Skills.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Skills.md), [`Design.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Design.md), [`Implementation.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Implementation.md), [`QA_Report.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/QA_Report.md)).
+- **Responsibilities**: Maintains single source of truth across all Markdown specs ([`Agents.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Agents.md), [`Skills.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/Skills.md), [`Design.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/Design.md), [`Implementation.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/Implementation.md), [`QA_Report.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/QA_Report.md)).
 - **Zero Hallucination Policy**: Every documented signature, column, and constraint must be traceable to concrete lines in the repository.
-- **Proactive Defect Logging**: Immediately catalog any bug, race condition, missing endpoint, or security flaw in [`QA_Report.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/QA_Report.md).
+- **Proactive Defect Logging**: Immediately catalog any bug, race condition, missing endpoint, or security flaw in [`QA_Report.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/QA_Report.md).
 
 ### 4.2 Frontend UI/UX Architect
 - **Responsibilities**: Next.js App Router, Framer Motion, CSS Design Tokens, responsive modal bounds, and client caching.
@@ -489,7 +495,7 @@ flowchart TD
 
 ### 4.4 Security & Data Auditor
 - **Responsibilities**: Supabase schema integrity, RLS policies, SSR auth lifecycles, cryptographic token handling, session activity cookies, and compliance purge workflows.
-- **Secret Isolation**: Never expose `SUPABASE_SERVICE_ROLE_KEY`, `AUTH_RATE_LIMIT_SECRET`, `SESSION_COOKIE_SECRET`, or `ACCOUNT_PURGE_SECRET` to client-side code (`NEXT_PUBLIC_`).
+- **Secret Isolation**: Never expose `SUPABASE_SERVICE_ROLE_KEY`, `AUTH_RATE_LIMIT_SECRET`, `SESSION_COOKIE_SECRET`, `ACCOUNT_PURGE_SECRET`, or `MFA_RECOVERY_SECRET` to client-side code (`NEXT_PUBLIC_`).
 - **Kernel Row Isolation**: All direct database operations from the client must strictly enforce PostgreSQL Row-Level Security (`auth.uid() = user_id`).
 - **Endpoint Authorization**: All administrative and purge routes must validate authorization headers and session roles before executing.
 
@@ -504,6 +510,9 @@ flowchart TD
 | **ADR-003** | Soft-Deletion for Multi-Wallet Management | Added `wallets.deleted_at` to preserve historical transaction referential integrity. |
 | **ADR-004** | Decoupled Python FastAPI Microservice | *Superseded by ADR-043* (service removed). |
 | **ADR-043** | Buck_AI: Python + Gemini, Two AIs | `Buck_AI/` FastAPI on Vercel with `BuckAI_Advisor` (saved, fingerprint-refreshed advice) and `BuckAI_Forecast` (planned); Supabase-JWT auth for web and mobile; queries run under RLS. |
+| **ADR-048** | Optional 2FA (TOTP), Passkeys & Recovery | `private.mfa_satisfied()` in RESTRICTIVE RLS + middleware/`apiAuth` + Buck_AI gate; backup codes and 24 h e-mail recovery under `/api/auth/mfa/*`; UI is a handoff. |
+| **ADR-049** | Connected Apps (OAuth 2.1 Server) | App tokens (`client_id` claim) are read-only via RESTRICTIVE RLS and refused by `/api/*` and Buck_AI; approval via `/api/oauth/authorizations/[id]/consent` records a 2FA-verified grant that `mfa_satisfied()` requires for 2FA users. |
+| **ADR-050** | Buck MCP Server | `/api/mcp` (Next.js, `@modelcontextprotocol/server`, stateless): 7 read-only tools for connected AI agents; RFC 9728 metadata points to Supabase Auth; queries run under RLS with the app's token; no Gemini. |
 | **ADR-005** | Zero-Knowledge Password Reset Rate Limiting | Rate limiting tracked via SHA-256 HMAC hashes in `auth_security_events` (zero plaintext PII). |
 | **ADR-006** | Database Policy Consolidation & Hardening | Applied `(select auth.uid())` initplan caching and revoked trigger execution from public roles. |
 | **ADR-007** | Weekly Spending Donut with 5-Slice Cap | Donut chart capped at Top-4 categories + 5th "Others" slice, paired with contextual interpretation card. |
@@ -552,6 +561,8 @@ Each account also gets 7 default income categories: `Salary`, `Allowance`, `Free
 - Recalibrated dynamically against 14-day, 30-day, and 60-day moving average spending velocity.
 
 ### 6.6 Security, Session & Deletion Lifecycle
+- **Optional 2FA (ADR-048)**: authenticator-app TOTP, plus passkey sign-in. One rule everywhere: `satisfied = aal2 OR no verified factor` (`private.mfa_satisfied()` in RESTRICTIVE RLS, `utils/mfa/assurance.ts` in middleware/routes, `Buck_AI/shared/auth.py`). Passkey sign-in alone is aal1 and does not satisfy it. Recovery: second app, 10 hashed backup codes, or e-mail link with a 24 h cool-off. Use `getRequestUserId`/`getRequestAuth` (`utils/apiAuth.ts`) in routes; never read data for an unsatisfied session.
+- **Connected apps (ADR-049)**: Supabase OAuth 2.1 server for AI agents/MCP and other apps. App tokens are read-only, can't call Buck routes or Buck_AI, and for 2FA users only work after approval through Buck's consent route. Consent page: `/oauth/consent`.
 - **Inactivity Timeout**: Automatic logout after **30 minutes of user inactivity**.
 - **Cross-Tab Synchronization**: Inactivity timer and logout events synchronized across tabs via `BroadcastChannel` or `localStorage`.
 - **10-Day Account Deletion Grace Period**:
@@ -567,7 +578,7 @@ Each account also gets 7 default income categories: `Salary`, `Allowance`, `Free
 - **Dark Roast Espresso (High Contrast Text & Dark Accents)**: `#120D0A`
 
 ### 6.8 Project Schedule Boundary
-- All project planning, roadmaps, and sprint deliverables must strictly adhere to a **9-week project lifecycle** (never 12+ weeks). The authoritative tracking sheet is [`docs/Buck_Project_Schedule_Gantt_Chart.xlsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/Buck_Project_Schedule_Gantt_Chart.xlsx).
+- All project planning, roadmaps, and sprint deliverables must strictly adhere to a **9-week project lifecycle** (never 12+ weeks). The authoritative tracking sheet is [`docs/project/Buck_Project_Schedule_Gantt_Chart.xlsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/project/Buck_Project_Schedule_Gantt_Chart.xlsx).
 
 ---
 

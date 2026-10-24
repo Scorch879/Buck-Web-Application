@@ -8,6 +8,12 @@ import {
 } from "@/utils/supabaseConfig";
 import { isAdminUser } from "@/utils/adminAccess";
 import { buildCsp, createNonce } from "@/utils/csp";
+import {
+  createMfaVerifyPath,
+  getMfaState,
+  MFA_VERIFY_PATH,
+  OAUTH_CONSENT_PATH,
+} from "@/utils/mfa/assurance";
 
 const SESSION_ACTIVITY_COOKIE = "buck-session-activity";
 const DEFAULT_IDLE_TIMEOUT_MINUTES = 30;
@@ -17,6 +23,8 @@ const NON_SESSION_API_PREFIXES = [
   "/api/auth/",
   "/api/cron/",
   "/api/account/deletion/purge",
+  // Buck MCP server: connected-app bearer tokens only (ADR-050).
+  "/api/mcp",
 ];
 
 type SessionActivity = {
@@ -90,13 +98,27 @@ function createProtectedRedirect(request: NextRequest, reason?: string) {
 }
 
 function createDashboardRedirect(request: NextRequest) {
-  const redirectUrl = request.nextUrl.clone();
   const requestedRedirect = request.nextUrl.searchParams.get("redirectTo");
 
-  redirectUrl.pathname = getSafeRedirectPath(requestedRedirect);
-  redirectUrl.search = "";
+  // Parsed as a URL so a target's own query (e.g. the consent page's
+  // ?authorization_id=) survives. "/\evil.com" parses to another origin, so
+  // anything that leaves Buck falls back to the dashboard.
+  const target = new URL(getSafeRedirectPath(requestedRedirect), request.nextUrl.origin);
 
-  return redirectUrl;
+  return target.origin === request.nextUrl.origin
+    ? target
+    : new URL("/dashboard/home", request.nextUrl.origin);
+}
+
+function isAdminMfaRequired() {
+  return process.env.ADMIN_REQUIRE_MFA?.trim().toLowerCase() === "true";
+}
+
+function createMfaRedirect(request: NextRequest) {
+  return new URL(
+    createMfaVerifyPath(`${request.nextUrl.pathname}${request.nextUrl.search}`),
+    request.nextUrl.origin
+  );
 }
 
 function isRootAuthReturn(request: NextRequest) {
@@ -325,8 +347,13 @@ export async function middleware(request: NextRequest) {
 
 async function handleRequest(request: NextRequest, requestHeaders: Headers) {
   const { pathname } = request.nextUrl;
-  const isProtectedRoute = pathname.startsWith("/dashboard");
+  // The connected-app consent page needs a signed-in user who passed 2FA,
+  // exactly like the dashboard (ADR-049).
+  const isProtectedRoute =
+    pathname.startsWith("/dashboard") || pathname === OAUTH_CONSENT_PATH;
   const isAuthRoute = AUTH_ROUTES.has(pathname);
+  // The 2FA code page: needs a signed-in user, but one who has NOT passed 2FA.
+  const isMfaRoute = pathname === MFA_VERIFY_PATH;
   const isSessionApiRoute =
     pathname.startsWith("/api/") &&
     !NON_SESSION_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
@@ -343,7 +370,7 @@ async function handleRequest(request: NextRequest, requestHeaders: Headers) {
     return redirectResponse;
   }
 
-  if (!isProtectedRoute && !isAuthRoute && !isSessionApiRoute) {
+  if (!isProtectedRoute && !isAuthRoute && !isMfaRoute && !isSessionApiRoute) {
     return response;
   }
 
@@ -403,7 +430,7 @@ async function handleRequest(request: NextRequest, requestHeaders: Headers) {
     error,
   } = await supabase.auth.getUser();
 
-  if (isProtectedRoute && (error || !user)) {
+  if ((isProtectedRoute || isMfaRoute) && (error || !user)) {
     const redirectResponse = NextResponse.redirect(
       createProtectedRedirect(request)
     );
@@ -459,6 +486,55 @@ async function handleRequest(request: NextRequest, requestHeaders: Headers) {
     // background polling) validate the window but never extend it.
     if (isProtectedRoute) {
       await refreshActivityCookie(response, user.id);
+    }
+  }
+
+  // Two-factor gate (ADR-048). getUser() above verified the session's access
+  // token, so its aal claim can be trusted. RLS enforces the same rule.
+  if (user && (isProtectedRoute || isMfaRoute || isSessionApiRoute)) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const mfa = getMfaState(user, session?.access_token);
+
+    if (!mfa.satisfied && (isProtectedRoute || isSessionApiRoute)) {
+      const mfaResponse = isProtectedRoute
+        ? NextResponse.redirect(createMfaRedirect(request))
+        : NextResponse.json(
+            { error: "mfa_required", message: "Enter your two-factor code first." },
+            { status: 401 }
+          );
+      copyResponseCookies(response, mfaResponse);
+      setNoStoreHeaders(mfaResponse);
+
+      return mfaResponse;
+    }
+
+    if (mfa.satisfied && isMfaRoute) {
+      const redirectResponse = NextResponse.redirect(createDashboardRedirect(request));
+      copyResponseCookies(response, redirectResponse);
+      setNoStoreHeaders(redirectResponse);
+
+      return redirectResponse;
+    }
+
+    const isAdminArea =
+      pathname.startsWith("/dashboard/admin") || pathname.startsWith("/api/admin");
+
+    if (isAdminArea && isAdminMfaRequired() && !mfa.hasVerifiedFactor) {
+      const enrollUrl = new URL("/dashboard/settings", request.nextUrl.origin);
+      enrollUrl.searchParams.set("tab", "security");
+      enrollUrl.searchParams.set("enroll", "2fa");
+      const enrollResponse = isProtectedRoute
+        ? NextResponse.redirect(enrollUrl)
+        : NextResponse.json(
+            { error: "mfa_enrollment_required", message: "Admins must turn on two-factor authentication." },
+            { status: 403 }
+          );
+      copyResponseCookies(response, enrollResponse);
+      setNoStoreHeaders(enrollResponse);
+
+      return enrollResponse;
     }
   }
 

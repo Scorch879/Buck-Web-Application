@@ -16,6 +16,9 @@ This document details runtime setup procedures, environment configurations, low-
 | `SESSION_COOKIE_SECRET` | Server Only | **Yes** | Secret string used for HMAC-SHA256 signing of session activity cookies. |
 | `AUTH_RATE_LIMIT_SECRET` | Server Only | Optional | Secret key for hashing IP and email in `auth_security_events`. (Falls back to `SESSION_COOKIE_SECRET`). |
 | `NEXT_PUBLIC_SITE_URL` | Client & Server | Optional | Production canonical URL (e.g. `https://buck-app.vercel.app`) used for email redirects. |
+| `MFA_RECOVERY_SECRET` | Server Only | **Yes (production)** | HMAC key for 2FA backup-code hashes (ADR-048). Changing it invalidates every issued backup code. |
+| `MFA_EMAIL_RECOVERY_DELAY_HOURS` | Server Only | Optional | Default: `24`. Cool-off between confirming a 2FA email recovery and 2FA removal; production never goes below 24. |
+| `ADMIN_REQUIRE_MFA` | Server Only | Optional | `true` forces admins to enroll 2FA before `/dashboard/admin` and `/api/admin/*`. Default off. |
 | `NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_MINUTES` | Client & Server | Optional | Default: `30`. Minutes of inactivity before auto sign-out. |
 | `NEXT_PUBLIC_SESSION_WARNING_SECONDS` | Client Only | Optional | Default: `60`. Seconds before timeout to display the session expiration countdown modal. |
 | `ACCOUNT_PURGE_SECRET` | Server Only | Optional | Bearer token required to trigger `/api/account/deletion/purge`. |

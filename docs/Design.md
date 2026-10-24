@@ -292,14 +292,20 @@ sequenceDiagram
 
 ```
 Buck-Web-Application/
+├── Claude.md                   # Master engineering guide for AI agents
 ├── Agents.md                   # AI agent roles and collaboration boundaries
-├── Skills.md                   # Machine-readable function and API catalog
-├── Design.md                   # Architecture, schemas, flows, and ADRs
-├── Implementation.md           # Setup, runtime configs, and execution logic
-├── QA_Report.md                # Quality audit, defects, and security tracking
 ├── README.md                   # Repository overview and entry guide
+├── docs/                       # All documentation (map: docs/README.md)
+│   ├── Skills.md               # Machine-readable function and API catalog
+│   ├── Design.md               # Architecture, schemas, flows, and ADRs
+│   ├── Implementation.md       # Setup, runtime configs, and execution logic
+│   ├── QA_Report.md            # Quality audit, defects, and security tracking
+│   ├── requirements/           # SRS (Markdown and Word)
+│   ├── project/                # 9-week Gantt schedule
+│   ├── guides/                 # Frontend change notes, Supabase e-mail templates
+│   └── handoffs/               # Prompts written for other agents
+├── Buck_AI/                    # Python FastAPI + Gemini AI service
 ├── buck/                       # Next.js 15 Web Application
-│   ├── docs/                   # Domain-specific UI/Auth documentation
 │   ├── public/                 # Static assets (images, SVGs, audio)
 │   ├── supabase/
 │   │   └── migrations/         # PostgreSQL schema migrations
@@ -341,7 +347,7 @@ Buck-Web-Application/
 ### ADR-004: Decoupled FastAPI Microservice for AI & ML Inference
 - **Context**: Running complex Python time-series models (Prophet) and LLM prompt orchestrations directly in Node.js serverless functions is computationally heavy.
 - **Decision**: Decoupled AI inference into a dedicated Python FastAPI service running on Render.
-- **Consequences**: Enables Python ML library execution; however, requires rigorous cross-service contract synchronization (see [`QA_Report.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/QA_Report.md)).
+- **Consequences**: Enables Python ML library execution; however, requires rigorous cross-service contract synchronization (see [`QA_Report.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/QA_Report.md)).
 
 ### ADR-005: Zero-Knowledge Password Reset Rate Limiting
 - **Context**: Reset endpoints must prevent brute-force attacks without storing plaintext user emails or IP addresses.
@@ -1311,8 +1317,7 @@ Buck-Web-Application/
      - Clicking `Rename` animates the inline rename form (`input` + Save `✓` + Cancel `✕`) via Framer Motion (`AnimatePresence mode="wait"`) directly inside the Actions cell where the `Rename` button resides, while keeping the left `Category` column intact.
 - **Consequences**:
   - Zero vertical page bloat regardless of category count, higher information density on hover, and 1:1 skeletal loading parity via updated [`CategoriesSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/CategoriesSkeleton.tsx).
-
----
+---
 
 ### ADR-046: Categories Filter/Sort Dropdown & Wallets / Wallet History Pagination
 
@@ -1362,3 +1367,69 @@ Buck-Web-Application/
      - Replaced the oversized Wallet edit form with a compact single-row `.wallet-edit-row` (`min-height: 92px`), emerald Save button (`.wallet-action-btn--save`) with spinner/progress bar (`.wallet-edit-progress`), red-tinted Cancel button (`.wallet-action-btn--danger`), comma-accepting budget inputs (`sanitizeBudgetInput` / `parseBudgetInput`), and equalized `min-height: 92px` rows and stretched card heights across desktop, tablet, and mobile.
 - **Consequences**:
   - Users can collapse the sidebar to an 80px rail at any time from the Profile section while retaining one-click access to Sign Out (both in the Profile tray with a red tint and in Settings below Feedback).
+
+---
+
+### ADR-048: Optional Two-Factor Authentication (TOTP), Passkeys & Recovery, Enforced by RLS
+
+- **Status**: Backend implemented 2026-10-24 (migrations `202610240002_mfa_support.sql`, `202610240003_mfa_enforce_rls.sql` applied live). Web and Flutter UI pending (handoff below).
+- **Context**: Sign-in was password, Google or email magic link only. Users asked for optional 2FA with authenticator apps (Aegis, Google Authenticator, 1Password). On the Supabase Free plan, TOTP MFA and passkeys are free; SMS MFA is a paid add-on; the MFA/Password Verification Attempt hooks are Teams/Enterprise only, so throttling is our own.
+- **Decision**:
+  1. **One rule, three copies**: `satisfied = session is aal2 OR the user has no verified MFA factor`. SQL `private.mfa_satisfied()`, TS [`utils/mfa/assurance.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/mfa/assurance.ts) `isMfaSatisfied`/`getMfaState`, Python `Buck_AI/shared/auth.py` `mfa_satisfied`. Passkey sign-ins are aal1 and do **not** satisfy it: a password-only attacker could otherwise register a passkey at aal1 and skip TOTP.
+  2. **Kernel enforcement**: a RESTRICTIVE `"<table>: 2FA required"` policy on every user table (profiles, wallets, categories, goals, expenses, incomes, ai_forecasts, ai_advisories, ai_usage_events, feedback, account_deletion_requests) and on `storage.objects` for `profile-avatars`. Covers web, mobile, Buck_AI, Realtime and the SECURITY INVOKER RPCs. Users without 2FA are unaffected.
+  3. **Web gate**: `middleware.ts` sends an unsatisfied session to `/verify-2fa?redirectTo=…` (pages) or returns `401 {error:"mfa_required"}` (session APIs); `/verify-2fa` itself needs a signed-in, not-yet-satisfied user. `dashboard/layout.tsx` repeats the check. `auth/callback` sends magic-link/Google/e-mail sign-ins of 2FA users to `/verify-2fa`, except the 2FA recovery link. `getRequestUserId` (`utils/apiAuth.ts`) returns null for unsatisfied cookie or bearer callers; `getRequestAuth` exposes the state. `ADMIN_REQUIRE_MFA=true` forces admins to enroll before `/dashboard/admin` and `/api/admin/*`.
+  4. **Recovery** (three ways): a second authenticator app (Supabase allows several factors); 10 single-use backup codes (`mfa_recovery_codes`, HMAC-SHA256 of `userId:code` with `MFA_RECOVERY_SECRET`, atomic single use, 5 failures / 15 min per user, 20 per IP); and an email link (`mfa_email_recovery_requests`) whose confirmation starts a **24 h cool-off** (`MFA_EMAIL_RECOVERY_DELAY_HOURS`, never below 24 in production) that the owner can cancel from an aal2 session. Without the cool-off 2FA would be only as strong as the inbox. Recovery removes the TOTP factors and backup codes and signs out other sessions; passkeys stay.
+  5. **Step-up**: account deletion by a 2FA user needs a TOTP verification from the last 10 minutes (`amr` timestamp).
+  6. **Passkeys**: `experimental: { passkey: true }` on the browser client; registration, sign-in and management use the supabase-js SDK directly.
+- **Routes**: `GET /api/auth/mfa/status`, `POST /api/auth/mfa/recovery-codes`, `POST /api/auth/mfa/recovery-codes/redeem`, `POST|DELETE /api/auth/mfa/email-recovery`, `POST /api/auth/mfa/email-recovery/complete`, `GET /account/mfa/recover/confirm`, `POST /api/admin/users/:id/mfa/reset`. TOTP enroll/challenge/verify/unenroll stay SDK calls (Supabase requires aal2 to add or remove a factor once one is verified).
+- **Handoff (not backend)**: Settings › Security "Two-factor authentication" (enroll with QR + manual secret, up to 2 apps, remove via `DangerDeleteDialog`, show backup codes once, pending-recovery banner with Cancel) and "Passkeys" sections; the `/verify-2fa` page (6-digit code, "Use a backup code", "Email me a recovery link", `emailRecovery` query states) with a 1:1 skeleton; "Sign in with passkey" on `/sign-in`. Flutter: route to a verify screen when `nextLevel == aal2 && currentLevel == aal1`, treat `401 mfa_required` (Next.js) and `403` + `X-Buck-Error: mfa_required` (Buck_AI) as "ask for the code", and call the same `/api/auth/mfa/*` routes with the bearer token.
+- **Consequences**: 2FA cannot be bypassed through any client or the REST API. Supabase dashboard setup still needed: enable Passkeys and fix the RP ID to the production domain before anyone enrolls (changing it later invalidates every passkey); keep token-verification rate limits at their defaults.
+
+
+### ADR-049: Connected Apps via the Supabase OAuth 2.1 Server: Read-Only, 2FA-Approved
+
+- **Status**: Backend implemented 2026-10-24 (migration `202610240004_oauth_apps.sql` applied live). Dashboard switch, consent page UI and app registration pending.
+- **Context**: Buck should let AI agents and MCP clients, the team's own other apps, and third-party apps read a user's data with their consent ("Sign in with Buck"). Supabase's OAuth 2.1 server issues these apps access tokens that look like session tokens plus a `client_id` claim and, by default, have the same data access as the user. Its consent endpoint also accepts an aal1 session, so on its own it would let a password-only attacker connect an app for a 2FA user.
+- **Decision**:
+  1. **Read-only.** RESTRICTIVE `"<table>: apps read-only (insert|update|delete)"` policies reject any token with a `client_id` (`private.is_oauth_app()`) on every user table and on avatar files. All write RPCs are SECURITY INVOKER, so they are covered.
+  2. **2FA-approved.** Approval goes through Buck's `POST /api/oauth/authorizations/[id]/consent` (web session cookie only, 2FA passed), which calls Supabase and then `record_oauth_app_grant()` to store the consent in `oauth_app_grants` with `mfa_verified`. `private.mfa_satisfied()` gains a branch for app tokens: a user with 2FA on must have a verified record for the **active** consent. `auth.oauth_consents` keeps one row per user and app, so trigger `buck_forget_oauth_app_grant` deletes the record whenever that row changes or is deleted; only a re-approval through Buck's route counts again. Users without 2FA are unaffected.
+  3. **Buck's own surfaces refuse app tokens.** `getRequestAuth` returns null for a bearer token with `client_id` (every `/api/*` route), and Buck_AI answers `403` + `X-Buck-Error: connected_app` (it spends the Gemini quota and writes advice).
+  4. **Consent page** at `/oauth/consent` (Site URL + Authorization Path). Middleware treats it like the dashboard (signed in, 2FA passed, idle timeout); sign-in, `auth/callback` and `createDashboardRedirect` keep its `?authorization_id=` through sign-in and the 2FA step.
+  5. **Self-registered apps** (dynamic registration, needed by MCP / AI clients) are flagged `registration: "dynamic"` via `get_oauth_app_registration()` so the consent screen can say Buck has not reviewed them.
+- **Routes**: `GET /api/oauth/authorizations/[id]` (app, scopes, `redirectHost`, `registration`, `access: "read-only"`, or `{ state: "redirect" }` when already approved) and `POST /api/oauth/authorizations/[id]/consent` `{ decision: "approve" | "deny" }` → `{ redirectUrl }`. Listing and disconnecting apps use the SDK (`supabase.auth.oauth.listGrants()` / `revokeGrant({ clientId })`); the trigger cleans up Buck's record.
+- **Frontend (done)**: [`/oauth/consent`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/oauth/consent/page.tsx) is a centred auth card: app logo (initial fallback), name, website, scopes in plain words, the read-only line, the redirect host ("an app running on this computer" for loopback hosts), an amber "unreviewed" warning when `registration !== "manual"` and a coral one when such an app calls itself "Buck". Deny then Allow (no autofocus); one decision only, then `window.location.assign(redirectUrl)`; 1:1 skeleton. Settings › Security › [Connected apps](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/ConnectedAppsSection.tsx) lists grants and disconnects through `DangerDeleteDialog` (which now takes an optional `verb`, e.g. "Disconnect"). Display rules live in [`utils/connectedApps.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/connectedApps.ts).
+- **Dashboard setup**: asymmetric JWT signing keys (required for OpenID ID tokens), Site URL `https://bucktbt.vercel.app`, OAuth Server on with Authorization Path `/oauth/consent`, dynamic registration on only when MCP clients are wanted, then register apps (exact redirect URIs, separate dev and prod clients). No Auth Hook is needed.
+- **Consequences**: No connected app can change a user's data, spend AI quota or call Buck's routes, and a stolen password alone cannot connect an app to a 2FA account. A user who turns 2FA on later must reconnect their apps. Supabase supports only the standard scopes (`openid email profile phone`), so a connected app reads everything the user can; finer per-app limits would need policies on `client_id`.
+
+
+### ADR-050: Buck MCP Server: Read-Only Tools for Connected AI Agents
+
+- **Status**: Implemented 2026-10-24 on `maintenance-branch` (migration `202610240005_mcp_access_check.sql` applied live). It works once ADR-049's OAuth Server is switched on in the dashboard and the consent page ships.
+- **Context**: With the OAuth 2.1 server (ADR-049), AI agents can sign in to Buck, but they need a server to call. Users want to ask Claude, ChatGPT, Cursor and similar apps about their own spending.
+- **Decision**:
+  1. **Where**: a Next.js route at `https://<site>/api/mcp` in the web app, using the official TypeScript SDK `@modelcontextprotocol/server` 2.3.1 (`createMcpHandler`). It runs stateless, with one fresh server per request (Vercel functions keep no sessions). It serves 2025-era clients through the SDK's stateless fallback and 2026-07-28 clients directly. It is not part of Buck_AI: no Gemini is involved, so the AI quota and the Advisor/Forecaster separation are untouched.
+  2. **Auth**: Buck is the OAuth *resource server* and Supabase Auth is the authorization server.
+     - `/.well-known/oauth-protected-resource/api/mcp` (RFC 9728, also served at the bare well-known path) names `https://<ref>.supabase.co/auth/v1`.
+     - Requests without a valid token get `401` with `WWW-Authenticate: Bearer resource_metadata=...`.
+     - `connectedAppTokenVerifier` accepts **only connected-app tokens** (`client_id` claim; Buck's own web and mobile sessions are refused) and checks each one with Supabase Auth (`getUser`), so expired tokens and disconnected apps fail at once.
+  3. **Data**: every query runs with the app's own token (`createUserClient`), so RLS limits it to the user's rows and the ADR-049 read-only policies block writes. The tools only call `select` and `rpc("current_session_can_read")`.
+  4. **2FA**: `public.current_session_can_read()` (SECURITY INVOKER wrapper over `private.mfa_satisfied()`) is checked once per request. A 2FA user's app that was approved without 2FA gets a tool error telling them to disconnect and reconnect it, instead of empty data.
+  5. **Tools** (all `readOnlyHint`, amounts in PHP, dates as Asia/Manila calendar days):
+
+| Tool | Returns |
+|---|---|
+| `get_overview` | Total balance, open wallets, active wallet, this month's spent/income/net, top 5 categories, active goal |
+| `list_wallets` | Wallets with balances and ids (`includeArchived` optional) |
+| `list_categories` | The user's own expense and income category names |
+| `list_transactions` | Expenses and/or income, newest first. Defaults to the last 30 days. Filters: wallet, category, description search (ILIKE-escaped). Max 100 rows, with `hasMore` |
+| `spending_summary` | Spent, income, net and daily average for a period (default: this month), grouped by category, wallet, month or day. At most 2 years and 10,000 rows of each kind |
+| `list_goals` | Progress, days left, and the plain weekly amount needed (remaining ÷ weeks left) |
+| `get_saved_advice` | The Advisor's latest saved, non-dismissed advice (read only; nothing is generated) |
+
+- **Files**: `src/app/api/mcp/route.ts`, `src/app/.well-known/oauth-protected-resource/[[...path]]/route.ts`, `src/utils/mcp/{auth,buckData,tools,dates,http}.ts`; `/api/mcp` is in the middleware's `NON_SESSION_API_PREFIXES`.
+- **Connecting a client**: add a custom connector or remote MCP server with the URL `https://bucktbt.vercel.app/api/mcp`. The client discovers Supabase, registers itself (dynamic registration must be on), and sends the user to `/oauth/consent`.
+- **Consequences**:
+  - Users can query their own data from any MCP client, read-only, behind the same consent and 2FA rules as every connected app.
+  - Supabase does not support RFC 8707 resource indicators, so tokens are not bound to `/api/mcp`. Any Buck connected-app token is accepted here, which is acceptable because all of them grant the same read-only access.
+  - There is no MCP-specific rate limit yet; Vercel and Supabase limits apply.
+  - Each request costs one Supabase Auth call plus the queries.
