@@ -292,14 +292,20 @@ sequenceDiagram
 
 ```
 Buck-Web-Application/
+├── Claude.md                   # Master engineering guide for AI agents
 ├── Agents.md                   # AI agent roles and collaboration boundaries
-├── Skills.md                   # Machine-readable function and API catalog
-├── Design.md                   # Architecture, schemas, flows, and ADRs
-├── Implementation.md           # Setup, runtime configs, and execution logic
-├── QA_Report.md                # Quality audit, defects, and security tracking
 ├── README.md                   # Repository overview and entry guide
+├── docs/                       # All documentation (map: docs/README.md)
+│   ├── Skills.md               # Machine-readable function and API catalog
+│   ├── Design.md               # Architecture, schemas, flows, and ADRs
+│   ├── Implementation.md       # Setup, runtime configs, and execution logic
+│   ├── QA_Report.md            # Quality audit, defects, and security tracking
+│   ├── requirements/           # SRS (Markdown and Word)
+│   ├── project/                # 9-week Gantt schedule
+│   ├── guides/                 # Frontend change notes, Supabase e-mail templates
+│   └── handoffs/               # Prompts written for other agents
+├── Buck_AI/                    # Python FastAPI + Gemini AI service
 ├── buck/                       # Next.js 15 Web Application
-│   ├── docs/                   # Domain-specific UI/Auth documentation
 │   ├── public/                 # Static assets (images, SVGs, audio)
 │   ├── supabase/
 │   │   └── migrations/         # PostgreSQL schema migrations
@@ -341,7 +347,7 @@ Buck-Web-Application/
 ### ADR-004: Decoupled FastAPI Microservice for AI & ML Inference
 - **Context**: Running complex Python time-series models (Prophet) and LLM prompt orchestrations directly in Node.js serverless functions is computationally heavy.
 - **Decision**: Decoupled AI inference into a dedicated Python FastAPI service running on Render.
-- **Consequences**: Enables Python ML library execution; however, requires rigorous cross-service contract synchronization (see [`QA_Report.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/QA_Report.md)).
+- **Consequences**: Enables Python ML library execution; however, requires rigorous cross-service contract synchronization (see [`QA_Report.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/QA_Report.md)).
 
 ### ADR-005: Zero-Knowledge Password Reset Rate Limiting
 - **Context**: Reset endpoints must prevent brute-force attacks without storing plaintext user emails or IP addresses.
@@ -1311,8 +1317,7 @@ Buck-Web-Application/
      - Clicking `Rename` animates the inline rename form (`input` + Save `✓` + Cancel `✕`) via Framer Motion (`AnimatePresence mode="wait"`) directly inside the Actions cell where the `Rename` button resides, while keeping the left `Category` column intact.
 - **Consequences**:
   - Zero vertical page bloat regardless of category count, higher information density on hover, and 1:1 skeletal loading parity via updated [`CategoriesSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/CategoriesSkeleton.tsx).
-
----
+---
 
 ### ADR-046: Categories Filter/Sort Dropdown & Wallets / Wallet History Pagination
 

@@ -43,3 +43,6 @@ __pycache__/
 # automated task prompts
 *Automated_Task_Prompt.md
 Frontend_Automated_Task_Prompt.md
+
+# local-only setup notes (moved from buck/docs)
+docs/guides/supabase/SUPABASE_AUTH_SETUP.md
