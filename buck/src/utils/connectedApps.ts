@@ -64,6 +64,24 @@ export function getWebsiteHost(website: string | null | undefined) {
   }
 }
 
+export const APP_LOGO_PATH = "/api/oauth/app-logo";
+
+const APP_LOGO_SRC_PATTERN =
+  /^\/api\/oauth\/app-logo\?client_id=[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Same-origin logo proxy for an app (ADR-051), or null when it has no logo.
+ * The browser never loads an app's own `logo_uri`.
+ */
+export function appLogoPath(clientId: string, logoUri: string | null | undefined) {
+  return logoUri?.trim() ? `${APP_LOGO_PATH}?client_id=${encodeURIComponent(clientId)}` : null;
+}
+
+/** The logo `src` to render: only Buck's own logo proxy path, anything else is null. */
+export function toAppLogoSrc(value: string | null | undefined) {
+  return value && APP_LOGO_SRC_PATTERN.test(value) ? value : null;
+}
+
 /** Only http(s) links are safe to render as `href` or `src`. */
 export function toSafeHttpUrl(value: string | null | undefined) {
   if (!value?.trim()) {

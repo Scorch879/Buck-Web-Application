@@ -1433,3 +1433,26 @@ Buck-Web-Application/
   - Supabase does not support RFC 8707 resource indicators, so tokens are not bound to `/api/mcp`. Any Buck connected-app token is accepted here, which is acceptable because all of them grant the same read-only access.
   - There is no MCP-specific rate limit yet; Vercel and Supabase limits apply.
   - Each request costs one Supabase Auth call plus the queries.
+
+
+### ADR-051: Connected-App Logos Through a Same-Origin Proxy
+
+- **Status**: Backend implemented 2026-10-25 (resolves QA INFO-009). No migration. The consent page and Settings list need a one-line UI change to render the proxy path (`docs/handoffs/ADR-051_Frontend_App_Logo_Prompt.md`).
+- **Context**: Apps can register a `logo_uri` with the Supabase OAuth server, and the consent page and Settings › Connected apps want to show it. The CSP `img-src` allows only `'self'`, `data:`, `blob:` and Supabase, so logos were blocked and the UI showed the app's initial. Many apps register themselves (dynamic registration, used by MCP clients), so the URL is untrusted input from an app Buck never reviewed.
+- **Options**:
+  - **(a) Initials only.** Safe and free, but every app looks the same, which makes look-alike apps harder to spot.
+  - **(b) Add `https:` to `img-src`.** Rejected. Any registered app could make the user's browser fetch a URL of its choosing when the consent page opens: a tracking pixel that leaks the user's IP, the time of the visit and the user agent. It would also widen the CSP for the whole site.
+  - **(c) A same-origin proxy.** Chosen. The browser only loads `/api/oauth/app-logo`, and the app's host sees Buck's server, never the user.
+- **Decision**: `GET /api/oauth/app-logo?client_id=<uuid>` ([`route.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/oauth/app-logo/route.ts), fetcher in [`utils/appLogo.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/appLogo.ts)):
+  1. **Who**: a signed-in web session that passed 2FA (`requireConsentSession`); bearer tokens get `400`. Middleware still applies the idle timeout.
+  2. **Which URL**: `logo_uri` is looked up server-side by client id with the service role (`auth.admin.oauth.getClient`). The query string carries only the uuid; no URL is ever taken from it.
+  3. **SSRF**: https only, default port 443, no credentials in the URL. IP literals and every DNS answer must be public: private, loopback, link-local, CGNAT, multicast and reserved ranges are refused, plus IPv6 forms that embed IPv4 (mapped, NAT64, 6to4, Teredo). The check runs inside the socket's `lookup`, so the address checked is the address dialled (no DNS-rebinding gap). Up to 3 redirects, each checked again. No cookies are sent.
+  4. **Content**: at most 256 KB (checked against `Content-Length` and again while streaming), a 5-second total timeout, status 200 only. The type is sniffed from magic bytes: PNG, JPEG, WebP or GIF. SVG, ICO, HTML and anything else are refused, and the upstream `Content-Type` is ignored.
+  5. **Response**: the sniffed `Content-Type`, `X-Content-Type-Options: nosniff`, `Cache-Control: private, max-age=86400`, `Content-Security-Policy: default-src 'none'; sandbox` and `Cross-Origin-Resource-Policy: same-origin`. Middleware leaves this one path's cache header alone (`PRIVATELY_CACHED_API_PATHS`). Every refusal is an uncached JSON `404`, and the reason is logged on the server only.
+  6. **API shape**: `logoUrl` in `GET /api/oauth/authorizations/[id]` and in `listConnectedApps()` is now `/api/oauth/app-logo?client_id=<id>` (`appLogoPath()`), or `null` when the app has no logo. The app's own URL never reaches the browser. `toAppLogoSrc()` in `utils/connectedApps.ts` accepts only that path, for the UI.
+- **Consequences**:
+  - Users see real logos without the browser contacting any third-party host, and the site-wide CSP is unchanged.
+  - The app's host still sees Buck's server fetch the logo (server IP, timing) about once a day per user, but not who the user is.
+  - Any signed-in user can make Buck fetch the logo of any app whose id they know. The URL is fixed by that app's registration, limited to public https and 256 KB, and returned only as a raster image, so the proxy is not an open fetcher.
+  - ICO and SVG logos fall back to the initial.
+  - There is no server-side cache: each user's first view per day costs one outbound fetch.
