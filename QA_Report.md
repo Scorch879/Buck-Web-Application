@@ -97,6 +97,32 @@ Scope: live Supabase (RLS, grants, functions, constraints, storage, advisors), `
 
 **Verified**: `npm audit --omit=dev` and full `npm audit` both report 0 vulnerabilities; `eslint`, `tsc` clean; vitest 72/72; `next build` clean. **Not verified**: a deployed preview.
 
+### 📦 Dependency Security Sweep (2026-10-25)
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-038** | 🟠 High | `npm audit` (buck/): `zod@4.6.5` (GHSA-mrhx-c7xc-m3w5, memory exhaustion when validating oversized constrained collections). Python: the previous local venv resolved `certifi 2026.7.22` (PYSEC-2026-4320, fixed in 2026.10.19), a transitive dependency of `httpx`/`requests`. | **Resolved.** `zod` pinned to `4.6.7`; Python requirement floors raised so a fresh install can no longer resolve the old versions (`certifi` is now 2026.10.23 on a clean install). |
+| **SEC-039** | ℹ️ Info | `postcss` override still needed: `next@15.5.28` depends on `postcss@8.4.31` (below the patched 8.5.x). | **Kept.** `overrides.postcss ^8.5.30` stays until a Next release moves off 8.4.31. |
+| **SEC-040** | ℹ️ Info | Majors not taken: `next` 16.4.3 (15.5.28 is the newest 15.x), `eslint` 10, `eslint-config-next` 16, `typescript` 7, `framer-motion` 14, `@types/node` 26 (runtime is Node 22). None carries an open advisory. | **Deferred.** Next 16 needs its own change (middleware/proxy rename, CSP nonce re-test). |
+
+**Before / after**
+
+| Check | Before | After |
+|---|---|---|
+| `npm audit` (buck/) | 1 high (zod) | 0 |
+| `npm audit` (root) | 0 | 0 |
+| `pip-audit` (Buck_AI deps, old venv set) | 1 (certifi, transitive) | 0 |
+| `pip-audit` (tooling) | pip 25.1.1: 12 advisories (dev tooling only, not shipped) | 0 after `pip` 26.2.2 |
+
+**Bumped (buck/)**: `zod` 4.6.5 -> 4.6.7, `@modelcontextprotocol/server` 2.3.1 -> 2.4.0, `@supabase/supabase-js` 2.108.1 -> 2.118.0, `@supabase/ssr` 0.12.0 -> 0.12.7, `react`/`react-dom` 19.1.0 -> 19.3.1, `chart.js` 4.5.0 -> 4.6.1, `react-chartjs-2` 5.3.0 -> 5.3.1, `framer-motion` 12.18.1 -> 12.43.0, `react-icons` 5.5.0 -> 5.7.0, `typescript` 5.8.3 -> 5.9.3, `vite` 8.3.4 -> 8.3.5, `vitest` 5.0.4 -> 5.0.5, `@types/react(-dom)` -> 19.3.0. Added `engines.node = 22.x` to match the Vercel project. **Bumped (Buck_AI)**: floors `fastapi>=0.162`, `google-genai>=2.33`, `httpx>=0.28.1`, `pydantic>=2.14.1`, `python-dotenv>=1.2.4` (installed: fastapi 0.162.0, starlette 1.10.0, anyio 4.15.1).
+
+**Platform review (read-only, nothing changed)**
+- **PHP**: none. No `composer.json` or `*.php` file exists; the only "PHP" hits are the peso currency code.
+- **Vercel** (`buck-web-application`): framework `nextjs`, Node `22.x` (auto-patched by Vercel), latest deployment READY, SSO protection on. Local dev Node is 22.16.0 while 22.23.4 is current; upgrade the workstation.
+- **Supabase** (`glnuzqmnmzuxgujmxigx`): Postgres 17.6.1.155 on the GA channel, `ACTIVE_HEALTHY`; installed extensions (`pgcrypto`, `uuid-ossp`, `pg_stat_statements`, `supabase_vault`, `plpgsql`) are all at the offered default versions. Security advisor: **1 WARN, leaked password protection disabled** (dashboard toggle under Auth, needs the Pro plan; not changed here). Performance advisor: 14 INFO unused indexes (no action; the data set is small).
+
+**Verified**: `npm audit` 0, `tsc` clean, `eslint` clean, vitest 114/114, `next build` clean (middleware 97.1 kB), Buck_AI unittest 49/49. **Not verified**: a deployed preview; the signed-in UI and CSP nonce flow in a browser.
+
 ### 🔐 Two-Factor Authentication Backend (2026-10-24, ADR-048)
 
 Migrations [`202610240002_mfa_support.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240002_mfa_support.sql) and [`202610240003_mfa_enforce_rls.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240003_mfa_enforce_rls.sql) applied live and recorded in history. History drift fixed: `protect_fallback_categories` was stamped `20261023174201`, now `202610240001` like its file.
