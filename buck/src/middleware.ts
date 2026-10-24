@@ -26,6 +26,8 @@ const NON_SESSION_API_PREFIXES = [
   // Buck MCP server: connected-app bearer tokens only (ADR-050).
   "/api/mcp",
 ];
+// Session API routes whose successful response sets its own private cache.
+const PRIVATELY_CACHED_API_PATHS = new Set(["/api/oauth/app-logo"]);
 
 type SessionActivity = {
   sub: string;
@@ -374,7 +376,11 @@ async function handleRequest(request: NextRequest, requestHeaders: Headers) {
     return response;
   }
 
-  setNoStoreHeaders(response);
+  // App logos keep the route's own private one-day cache (ADR-051); every
+  // refusal below still gets no-store.
+  if (!PRIVATELY_CACHED_API_PATHS.has(pathname)) {
+    setNoStoreHeaders(response);
+  }
 
   if (!isSupabaseConfigured) {
     if (isProtectedRoute) {

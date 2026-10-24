@@ -1,6 +1,7 @@
 import { getSupabaseClient } from "@/utils/supabase";
 import { bumpDataEpoch, cachedRead, copyList } from "@/utils/dataCache";
 import { toLocalDateString } from "@/utils/cashFlow";
+import { appLogoPath } from "@/utils/connectedApps";
 import {
   designPreviewUserId,
   isDesignPreviewMode,
@@ -2335,7 +2336,8 @@ export async function listConnectedApps(): Promise<ConnectedAppGrant[]> {
     clientId: grant.client.id,
     name: grant.client.name?.trim() || "Unnamed app",
     website: grant.client.uri?.trim() || null,
-    logoUrl: grant.client.logo_uri?.trim() || null,
+    // Buck's logo proxy (ADR-051); the browser never loads the app's own URL.
+    logoUrl: appLogoPath(grant.client.id, grant.client.logo_uri),
     scopes: grant.scopes ?? [],
     grantedAt: grant.granted_at,
   }));

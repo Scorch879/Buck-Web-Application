@@ -157,6 +157,19 @@ Migration [`202610240005_mcp_access_check.sql`](file:///d:/VS%20Code/Buck-Budget
 
 **Not verified**: a real MCP client end to end, which needs the dashboard OAuth switch and the consent UI.
 
+### 🖼️ Connected-App Logo Proxy (2026-10-25, ADR-051)
+
+Resolves INFO-009. No migration.
+
+**Verified**:
+- vitest 180/180, with 66 new tests (2 of them for the `appLogoPath` and `toAppLogoSrc` helpers):
+  - Route (16): bearer 400, signed out 401, no 2FA 401, invalid client id 400, a `url=` in the query never fetched, unknown app 404, no logo 404, and an uncached 404 for each refusal reason.
+  - Fetcher (48): private, loopback, link-local, CGNAT and IPv4-in-IPv6 addresses; http, `data:`, `file:`, credentials and non-443 ports; DNS answers with any private address; redirects to http or a private IP; too many redirects; non-200 responses; declared and streamed bodies over 256 KB; SVG and HTML; timeout; and `https://localhost` refused by the real transport.
+- `tsc` and `eslint` clean.
+- Live probe from the dev machine: a real GitHub PNG was served as `image/png`, and a Wikimedia SVG and an ICO were refused.
+
+**Not verified**: the route behind real middleware and Vercel with a registered app (the OAuth Server is still off, INFO-007), and the browser rendering, which waits for the UI handoff.
+
 ### 🔗 Connected Apps / OAuth 2.1 Server Backend (2026-10-24, ADR-049)
 
 Migration [`202610240004_oauth_apps.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240004_oauth_apps.sql) applied live and recorded.
@@ -167,7 +180,7 @@ Migration [`202610240004_oauth_apps.sql`](file:///d:/VS%20Code/Buck-Budget-Track
 | **SEC-033** | 🟠 High | Supabase's consent endpoint accepts aal1, so a password-only attacker could connect an app to a 2FA account. Consents are one row per user and app, so a re-approval reuses the row. | **Mitigated.** Approval via Buck's route records the active consent with `mfa_verified`; `mfa_satisfied()` requires it for app tokens of 2FA users; trigger `buck_forget_oauth_app_grant` drops the record on any change to the consent row. |
 | **SEC-034** | 🟡 Medium | Dynamic client registration (needed by MCP clients) lets anyone register an app under any name: phishing risk on the consent screen. | **Partly mitigated.** Apps are read-only; the details route returns `registration: "dynamic"` and `redirectHost` for an "unreviewed app" warning. Keep dynamic registration off unless MCP is in use. The consent page shows the amber warning for unreviewed apps and a coral "isn't made by Buck" warning when one calls itself Buck, and always shows the redirect host. |
 | **INFO-007** | — | OAuth Server is still off in the dashboard. | **Open (dashboard).** The `/oauth/consent` and Settings › Connected apps UI is built. Steps in Design.md ADR-049. |
-| **INFO-009** | — | The CSP `img-src` allows only self, `data:`, `blob:` and Supabase, so third-party app logos (`logo_uri`) are blocked on the consent page and in Settings. | **Open (security decision).** The UI falls back to the app's initial, which also avoids loading images from unreviewed apps. Allowing logos would need `https:` in `img-src` or a same-origin image proxy. |
+| **INFO-009** | — | The CSP `img-src` allows only self, `data:`, `blob:` and Supabase, so third-party app logos (`logo_uri`) are blocked on the consent page and in Settings. | **Resolved 2026-10-25 (ADR-051).** `img-src` is unchanged (adding `https:` would let any self-registered app track users by IP). Logos now come from the same-origin proxy `GET /api/oauth/app-logo?client_id=<uuid>`: URL looked up server-side by client id, https and public IPs only (checked at connect time), PNG/JPEG/WebP/GIF sniffed from bytes (no SVG), 256 KB, 5 s, `nosniff`, private 1-day cache, signed-in 2FA web session only. `logoUrl` in both APIs now points at the proxy. **UI follow-up**: the consent page and Settings render it only after swapping `toSafeHttpUrl` for `toAppLogoSrc` (handoff `docs/handoffs/ADR-051_Frontend_App_Logo_Prompt.md`); until then the initial stays. |
 
 **Verified**: live SQL in rolled-back transactions. For a user without 2FA, an app token reads 240 expenses while insert, update and `transfer_funds_atomic` are blocked. For a 2FA user the app reads 0 without a grant, 0 with an unverified grant, 240 with a verified grant (still read-only), 0 for another app, and 0 again after the consent row is revoked and re-approved outside Buck. Normal sessions are unchanged. `record_oauth_app_grant` refuses when there is no consent and cannot be called by `authenticated`. vitest 81/81 (consent route, connected-app bearer refusal), Buck_AI unittest 49/49, `tsc` and `eslint` clean. Signed-out probes: the consent page redirects to sign-in keeping `authorization_id`, the APIs return 401, a bad id returns 400. **Not verified**: a real end-to-end OAuth flow (needs the dashboard switch and the consent UI).
 

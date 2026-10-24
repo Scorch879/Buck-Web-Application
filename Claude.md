@@ -332,7 +332,7 @@ d:/VS Code/Buck-Budget-Tracker/Buck-Web-Application/
 ├── docs/                               # All project documentation (map: docs/README.md)
 │   ├── README.md                       # Documentation map: which doc answers what
 │   ├── Skills.md                       # Function catalog: Supabase data layer, API routes, Buck_AI endpoints, hooks
-│   ├── Design.md                       # Architecture, ERDs, data flows, ADR-001 to ADR-050
+│   ├── Design.md                       # Architecture, ERDs, data flows, ADR-001 to ADR-051
 │   ├── Implementation.md               # Setup, environment variables, execution logic, constraints
 │   ├── QA_Report.md                    # Defect catalog, security audit, test strategy
 │   ├── requirements/                   # SRS.md, SRS_exact_aligned.md, Buck_SRS.docx
@@ -513,6 +513,7 @@ flowchart TD
 | **ADR-048** | Optional 2FA (TOTP), Passkeys & Recovery | `private.mfa_satisfied()` in RESTRICTIVE RLS + middleware/`apiAuth` + Buck_AI gate; backup codes and 24 h e-mail recovery under `/api/auth/mfa/*`; UI is a handoff. |
 | **ADR-049** | Connected Apps (OAuth 2.1 Server) | App tokens (`client_id` claim) are read-only via RESTRICTIVE RLS and refused by `/api/*` and Buck_AI; approval via `/api/oauth/authorizations/[id]/consent` records a 2FA-verified grant that `mfa_satisfied()` requires for 2FA users. |
 | **ADR-050** | Buck MCP Server | `/api/mcp` (Next.js, `@modelcontextprotocol/server`, stateless): 7 read-only tools for connected AI agents; RFC 9728 metadata points to Supabase Auth; queries run under RLS with the app's token; no Gemini. |
+| **ADR-051** | Connected-App Logo Proxy | Logos load only from `GET /api/oauth/app-logo?client_id=<uuid>` (2FA web session): `logo_uri` looked up server-side, https + public IPs only (checked at connect), PNG/JPEG/WebP/GIF sniffed, 256 KB, 5 s, `nosniff`, private 1-day cache. CSP `img-src` stays closed to third-party hosts. |
 | **ADR-005** | Zero-Knowledge Password Reset Rate Limiting | Rate limiting tracked via SHA-256 HMAC hashes in `auth_security_events` (zero plaintext PII). |
 | **ADR-006** | Database Policy Consolidation & Hardening | Applied `(select auth.uid())` initplan caching and revoked trigger execution from public roles. |
 | **ADR-007** | Weekly Spending Donut with 5-Slice Cap | Donut chart capped at Top-4 categories + 5th "Others" slice, paired with contextual interpretation card. |
@@ -562,7 +563,7 @@ Each account also gets 7 default income categories: `Salary`, `Allowance`, `Free
 
 ### 6.6 Security, Session & Deletion Lifecycle
 - **Optional 2FA (ADR-048)**: authenticator-app TOTP, plus passkey sign-in. One rule everywhere: `satisfied = aal2 OR no verified factor` (`private.mfa_satisfied()` in RESTRICTIVE RLS, `utils/mfa/assurance.ts` in middleware/routes, `Buck_AI/shared/auth.py`). Passkey sign-in alone is aal1 and does not satisfy it. Recovery: second app, 10 hashed backup codes, or e-mail link with a 24 h cool-off. Use `getRequestUserId`/`getRequestAuth` (`utils/apiAuth.ts`) in routes; never read data for an unsatisfied session.
-- **Connected apps (ADR-049)**: Supabase OAuth 2.1 server for AI agents/MCP and other apps. App tokens are read-only, can't call Buck routes or Buck_AI, and for 2FA users only work after approval through Buck's consent route. Consent page: `/oauth/consent`.
+- **Connected apps (ADR-049)**: Supabase OAuth 2.1 server for AI agents/MCP and other apps. App tokens are read-only, can't call Buck routes or Buck_AI, and for 2FA users only work after approval through Buck's consent route. Consent page: `/oauth/consent`. App logos come through Buck's same-origin proxy (ADR-051), never straight from the app's host.
 - **Inactivity Timeout**: Automatic logout after **30 minutes of user inactivity**.
 - **Cross-Tab Synchronization**: Inactivity timer and logout events synchronized across tabs via `BroadcastChannel` or `localStorage`.
 - **10-Day Account Deletion Grace Period**:

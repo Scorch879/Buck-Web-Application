@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  appLogoPath,
   describeScope,
   getAppInitial,
   getWebsiteHost,
   isBuckLookalike,
   isLoopbackHost,
   isUnreviewedApp,
+  toAppLogoSrc,
   toSafeHttpUrl,
 } from "./connectedApps";
 
@@ -70,5 +72,27 @@ describe("display helpers", () => {
     expect(toSafeHttpUrl("javascript:alert(1)")).toBeNull();
     expect(toSafeHttpUrl("data:image/png;base64,AAAA")).toBeNull();
     expect(toSafeHttpUrl("")).toBeNull();
+  });
+});
+
+describe("app logo proxy (ADR-051)", () => {
+  const CLIENT_ID = "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d";
+
+  it("points at Buck's proxy only when the app has a logo", () => {
+    expect(appLogoPath(CLIENT_ID, "https://cdn.app.test/logo.png")).toBe(
+      `/api/oauth/app-logo?client_id=${CLIENT_ID}`
+    );
+    expect(appLogoPath(CLIENT_ID, " ")).toBeNull();
+    expect(appLogoPath(CLIENT_ID, null)).toBeNull();
+  });
+
+  it("renders only the proxy path, never an app's own URL", () => {
+    expect(toAppLogoSrc(`/api/oauth/app-logo?client_id=${CLIENT_ID}`)).toBe(
+      `/api/oauth/app-logo?client_id=${CLIENT_ID}`
+    );
+    expect(toAppLogoSrc("https://tracker.test/pixel.png")).toBeNull();
+    expect(toAppLogoSrc("//tracker.test/api/oauth/app-logo?client_id=" + CLIENT_ID)).toBeNull();
+    expect(toAppLogoSrc(`/api/oauth/app-logo?client_id=${CLIENT_ID}&x=1`)).toBeNull();
+    expect(toAppLogoSrc(null)).toBeNull();
   });
 });
