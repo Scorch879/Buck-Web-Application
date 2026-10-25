@@ -1437,7 +1437,7 @@ Buck-Web-Application/
 
 ### ADR-051: Connected-App Logos Through a Same-Origin Proxy
 
-- **Status**: Backend implemented 2026-10-25 (resolves QA INFO-009). No migration. The consent page and Settings list need a one-line UI change to render the proxy path (`docs/handoffs/ADR-051_Frontend_App_Logo_Prompt.md`).
+- **Status**: Implemented 2026-10-25 (resolves QA INFO-009). No migration. Backend first, then the UI: the consent page (`AppLogo`) and Settings › Connected apps (`ConnectedAppLogo`) render `toAppLogoSrc(logoUrl)` and fall back to the initial on any `404`, in the same box (ADR-012). `toSafeHttpUrl` is kept for website links only.
 - **Context**: Apps can register a `logo_uri` with the Supabase OAuth server, and the consent page and Settings › Connected apps want to show it. The CSP `img-src` allows only `'self'`, `data:`, `blob:` and Supabase, so logos were blocked and the UI showed the app's initial. Many apps register themselves (dynamic registration, used by MCP clients), so the URL is untrusted input from an app Buck never reviewed.
 - **Options**:
   - **(a) Initials only.** Safe and free, but every app looks the same, which makes look-alike apps harder to spot.

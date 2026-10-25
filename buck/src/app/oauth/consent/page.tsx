@@ -23,6 +23,7 @@ import {
   isBuckLookalike,
   isLoopbackHost,
   isUnreviewedApp,
+  toAppLogoSrc,
   toSafeHttpUrl,
 } from "@/utils/connectedApps";
 import "@/component/skeletons/skeletons.css";
@@ -55,7 +56,7 @@ async function readBody<T>(response: Response) {
 
 function AppLogo({ name, logoUrl }: { name: string; logoUrl: string | null }) {
   const [failed, setFailed] = useState(false);
-  const src = toSafeHttpUrl(logoUrl);
+  const src = toAppLogoSrc(logoUrl);
 
   if (!src || failed) {
     return (
@@ -66,7 +67,7 @@ function AppLogo({ name, logoUrl }: { name: string; logoUrl: string | null }) {
   }
 
   return (
-    // Third-party logo from any host, so a plain <img> rather than next/image.
+    // Buck's own logo proxy (ADR-051). A plain <img>: next/image would add its own optimiser hop.
     <img
       className="OC-Logo"
       src={src}
