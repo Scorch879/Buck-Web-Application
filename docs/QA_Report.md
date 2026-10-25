@@ -176,7 +176,14 @@ The consent page (`AppLogo`) and Settings › Connected apps (`ConnectedAppLogo`
 
 **Verified**: vitest 180/180, `tsc` and `eslint` clean. The dev server's `/api/oauth/app-logo` returns `401` signed out, with or without a `url=` parameter. The live project has 1 registered OAuth client and it has no `logo_uri`. Signed in on the dev server, Settings › Security › Connected apps shows that app ("Buck QA INFO-007") with its initial in a 40×40 box. The page made no logo request and contacted only `localhost:3000` and Supabase. Signed in, the proxy returns an uncached `404` for that app and for an unknown uuid, and `400` for a bad id or a `url=` parameter.
 
-**Not verified**: a real logo through the `<img>` branch, and the consent page, because no registered app has a `logo_uri` and no authorization was pending. The consent page uses the same `toAppLogoSrc` swap.
+Real logo, end to end:
+- I registered a throwaway test app, "Buck QA ADR-051", through dynamic registration, with a public GitHub PNG (96×96, 2,397 bytes) as `logo_uri`, and started a PKCE authorization.
+- On `/oauth/consent`, the logo is an `<img>` with `src=/api/oauth/app-logo?client_id=…`, loaded as `200` with the same 2,397 bytes, in the 56×56 box. The page made no request to GitHub and contacted only `localhost:3000`. The Buck look-alike warning also showed.
+- After Allow, Settings › Connected apps showed the same proxied `<img>` in the 40×40 box, again with no GitHub request.
+- I then disconnected the app through the three-step dialog and deleted the test client (admin API, `204`).
+- Supabase sends `/oauth/authorize` to the Site URL (`bucktbt.vercel.app/oauth/consent`). To test locally, open the same `authorization_id` on `localhost:3000`.
+
+**Not verified**: the `onError` fallback with a real proxy `404` for an app whose logo fails (for example an SVG). The initial path itself showed for the no-logo app.
 
 ### 🔗 Connected Apps / OAuth 2.1 Server Backend (2026-10-24, ADR-049)
 
