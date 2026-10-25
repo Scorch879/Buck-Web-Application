@@ -174,9 +174,9 @@ Resolves INFO-009. No migration.
 
 The consent page (`AppLogo`) and Settings › Connected apps (`ConnectedAppLogo`) now take their `src` from `toAppLogoSrc(logoUrl)`, so only Buck's proxy path for a uuid is ever loaded. `toSafeHttpUrl` still guards the website links. A `404` from the proxy swaps to the initial in the same 56 px / 40 px box (ADR-012). No API, middleware or migration changes.
 
-**Verified**: vitest 180/180, `tsc` and `eslint` clean. The dev server's `/api/oauth/app-logo` returns `401` signed out, with or without a `url=` parameter. The live project has 1 registered OAuth client and it has no `logo_uri`, so the UI shows its initial.
+**Verified**: vitest 180/180, `tsc` and `eslint` clean. The dev server's `/api/oauth/app-logo` returns `401` signed out, with or without a `url=` parameter. The live project has 1 registered OAuth client and it has no `logo_uri`. Signed in on the dev server, Settings › Security › Connected apps shows that app ("Buck QA INFO-007") with its initial in a 40×40 box. The page made no logo request and contacted only `localhost:3000` and Supabase. Signed in, the proxy returns an uncached `404` for that app and for an unknown uuid, and `400` for a bad id or a `url=` parameter.
 
-**Not verified**: a real logo rendering, because no registered app has a logo and the OAuth Server switch is still off (INFO-007).
+**Not verified**: a real logo through the `<img>` branch, and the consent page, because no registered app has a `logo_uri` and no authorization was pending. The consent page uses the same `toAppLogoSrc` swap.
 
 ### 🔗 Connected Apps / OAuth 2.1 Server Backend (2026-10-24, ADR-049)
 
