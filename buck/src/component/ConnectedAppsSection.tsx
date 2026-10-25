@@ -8,6 +8,7 @@ import {
   describeScope,
   getAppInitial,
   getWebsiteHost,
+  toAppLogoSrc,
   toSafeHttpUrl,
 } from "@/utils/connectedApps";
 import {
@@ -34,7 +35,7 @@ function formatGrantedAt(value: string) {
 
 function ConnectedAppLogo({ name, logoUrl }: { name: string; logoUrl: string | null }) {
   const [failed, setFailed] = useState(false);
-  const src = toSafeHttpUrl(logoUrl);
+  const src = toAppLogoSrc(logoUrl);
 
   if (!src || failed) {
     return (
@@ -45,7 +46,7 @@ function ConnectedAppLogo({ name, logoUrl }: { name: string; logoUrl: string | n
   }
 
   return (
-    // Third-party logo from any host, so a plain <img> rather than next/image.
+    // Buck's own logo proxy (ADR-051). A plain <img>: next/image would add its own optimiser hop.
     <img
       className="settings-connected-logo"
       src={src}
