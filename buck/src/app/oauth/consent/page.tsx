@@ -160,7 +160,8 @@ function ConsentSkeleton() {
         <FaShieldAlt />
         <p>
           Read-only: this app can see your wallets, expenses, income, goals and budgets. It can&apos;t
-          add, change or delete anything.
+          add, change or delete your Buck data, and it can&apos;t use Buck AI. Only allow apps you trust
+          with your Buck account.
         </p>
       </div>
       <p className="OC-Redirect skeleton-text" aria-hidden="true">
@@ -246,7 +247,8 @@ function ConsentCard({
         <FaShieldAlt aria-hidden="true" />
         <p>
           <strong>Read-only:</strong> this app can see your wallets, expenses, income, goals and budgets. It
-          can&apos;t add, change or delete anything, and it can&apos;t use Buck AI.
+          can&apos;t add, change or delete your Buck data, and it can&apos;t use Buck AI. Only allow apps you
+          trust with your Buck account.
         </p>
       </div>
 
