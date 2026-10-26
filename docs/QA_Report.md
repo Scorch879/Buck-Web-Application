@@ -133,9 +133,25 @@ Migrations [`202610240002_mfa_support.sql`](file:///d:/VS%20Code/Buck-Budget-Tra
 | **SEC-029** | 🟡 Medium | Supabase's MFA Verification Attempt hook is Teams/Enterprise only, so TOTP brute force is throttled only by the project's token-verification rate limit. | **Accepted.** Keep Auth › Rate limits › token verifications at the default (≤ 30 / 5 min / IP). Our own routes (backup codes, email recovery) have their own limits in `auth_security_events`. |
 | **SEC-030** | 🟡 Medium | Email recovery would make 2FA only as strong as the inbox. | **Mitigated.** 24 h cool-off after confirmation (production floor), cancel from an aal2 session, pending state shown by `/api/auth/mfa/status`, 3 e-mails per day. |
 | **SEC-031** | 🟢 Low | Generating backup codes twice at the same time deletes then inserts in two requests, so both sets could stay valid. | **Accepted.** Same user, both sets are shown to them; regenerate once more to clear. |
-| **INFO-006** | — | 2FA UI not built yet (Settings sections, `/verify-2fa`, passkey button, Flutter verify screen). Until it ships nobody can enroll, so the new gate and RLS policies affect no one (0 rows in `auth.mfa_factors`). Web and mobile must release the verify screen together, or a user who enrolls on web gets empty data in an old mobile build. | **Open (frontend / mobile).** Contract in Design.md ADR-048. |
+| **INFO-006** | — | 2FA UI. Web is built on `feat/2fa-ui` (2026-10-26): Settings › Security two-factor and passkey sections, `/verify-2fa`, the passkey button on `/sign-in`, the deletion step-up and a global `mfa_required` redirect. Flutter verify screen still to do. Web and mobile must release the verify screen together, or a user who enrolls on web gets empty data in an old mobile build. | **Web: ready for production test** (the user runs steps a–e after deploy). **Mobile: open.** Contract in Design.md ADR-048. |
 
 **Verified**: `tsc`, `eslint`, `next build` clean; vitest 70/70 (new: `utils/mfa/mfa.test.ts`, backup-code redeem route, 2FA cases in `apiAuth.test.ts`); Buck_AI unittest 48/48 (new `tests/test_auth.py`); live SQL in rolled-back transactions: `mfa_satisfied()` true/false/true for no-factor aal1 / factor aal1 / factor aal2, and a 2FA user at aal1 reads 0 expenses, wallets and profiles while aal2 reads all 240/4/1; signed-out probes of every new route (401/403/redirect to sign-in). **Not verified**: a real TOTP enroll and sign-in, the e-mail recovery round trip, passkey sign-in and its `amr` value (needs the UI and Supabase dashboard passkey setup).
+
+### 🔐 Two-Factor Web UI (2026-10-26, ADR-048)
+
+Branch `feat/2fa-ui`. No API, middleware or migration changes. New files: `component/mfa/*`, `app/verify-2fa/*`, `utils/mfa/client.ts` (+ test). Changed: Settings page and CSS, `/sign-in`, `DashboardClientLayout`.
+
+**Verified**:
+- vitest 191/191 (11 new in `utils/mfa/client.test.ts`: redirect safety, backup-code normalising, TOTP input, status parsing, `mfa_required` detection). `tsc`, `eslint` (0/0) and `next build` clean.
+- Dev server, signed out: `/sign-in` shows "Sign in with a passkey" (45 px tall, full width at 375 px, no sideways scroll), the e-mail field has `autocomplete="username webauthn"`, and `?reason=mfa-recovery-sign-in-required` shows its notice. `/verify-2fa` signed out goes to `/sign-in`. No console errors.
+- Buck_AI already sends `Access-Control-Expose-Headers: X-Buck-Error` (`Buck_AI/main.py`), so the browser can read `mfa_required` from it. No backend gap found.
+
+**Not verified** (needs a signed-in account; covered by the user's production test a–e, INFO-006):
+- Turn on 2FA from Settings, scan the QR, save the backup codes.
+- Sign out and in: password, then `/verify-2fa`, then back to the page asked for.
+- A backup code on `/verify-2fa` turns 2FA off and offers to set it up again.
+- Account deletion asks for a fresh code after 10 minutes.
+- Passkey add, rename, delete and sign-in (needs Passkeys on in the Supabase dashboard with the production RP ID).
 
 ### 🤖 Buck MCP Server (2026-10-24, ADR-050)
 
