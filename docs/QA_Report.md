@@ -97,6 +97,32 @@ Scope: live Supabase (RLS, grants, functions, constraints, storage, advisors), `
 
 **Verified**: `npm audit --omit=dev` and full `npm audit` both report 0 vulnerabilities; `eslint`, `tsc` clean; vitest 72/72; `next build` clean. **Not verified**: a deployed preview.
 
+### 📦 Dependency Security Sweep (2026-10-25)
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-038** | 🟠 High | `npm audit` (buck/): `zod@4.6.5` (GHSA-mrhx-c7xc-m3w5, memory exhaustion when validating oversized constrained collections). Python: the previous local venv resolved `certifi 2026.7.22` (PYSEC-2026-4320, fixed in 2026.10.19), a transitive dependency of `httpx`/`requests`. | **Resolved.** `zod` pinned to `4.6.7`; Python requirement floors raised so a fresh install can no longer resolve the old versions (`certifi` is now 2026.10.23 on a clean install). |
+| **SEC-039** | ℹ️ Info | `postcss` override still needed: `next@15.5.28` depends on `postcss@8.4.31` (below the patched 8.5.x). | **Kept.** `overrides.postcss ^8.5.30` stays until a Next release moves off 8.4.31. |
+| **SEC-040** | ℹ️ Info | Majors not taken: `next` 16.4.3 (15.5.28 is the newest 15.x), `eslint` 10, `eslint-config-next` 16, `typescript` 7, `framer-motion` 14, `@types/node` 26 (runtime is Node 22). None carries an open advisory. | **Deferred.** Next 16 needs its own change (middleware/proxy rename, CSP nonce re-test). |
+
+**Before / after**
+
+| Check | Before | After |
+|---|---|---|
+| `npm audit` (buck/) | 1 high (zod) | 0 |
+| `npm audit` (root) | 0 | 0 |
+| `pip-audit` (Buck_AI deps, old venv set) | 1 (certifi, transitive) | 0 |
+| `pip-audit` (tooling) | pip 25.1.1: 12 advisories (dev tooling only, not shipped) | 0 after `pip` 26.2.2 |
+
+**Bumped (buck/)**: `zod` 4.6.5 -> 4.6.7, `@modelcontextprotocol/server` 2.3.1 -> 2.4.0, `@supabase/supabase-js` 2.108.1 -> 2.118.0, `@supabase/ssr` 0.12.0 -> 0.12.7, `react`/`react-dom` 19.1.0 -> 19.3.1, `chart.js` 4.5.0 -> 4.6.1, `react-chartjs-2` 5.3.0 -> 5.3.1, `framer-motion` 12.18.1 -> 12.43.0, `react-icons` 5.5.0 -> 5.7.0, `typescript` 5.8.3 -> 5.9.3, `vite` 8.3.4 -> 8.3.5, `vitest` 5.0.4 -> 5.0.5, `@types/react(-dom)` -> 19.3.0. Added `engines.node = 22.x` to match the Vercel project. **Bumped (Buck_AI)**: floors `fastapi>=0.162`, `google-genai>=2.33`, `httpx>=0.28.1`, `pydantic>=2.14.1`, `python-dotenv>=1.2.4` (installed: fastapi 0.162.0, starlette 1.10.0, anyio 4.15.1).
+
+**Platform review (read-only, nothing changed)**
+- **PHP**: none. No `composer.json` or `*.php` file exists; the only "PHP" hits are the peso currency code.
+- **Vercel** (`buck-web-application`): framework `nextjs`, Node `22.x` (auto-patched by Vercel), latest deployment READY, SSO protection on. Local dev Node is 22.16.0 while 22.23.4 is current; upgrade the workstation.
+- **Supabase** (`glnuzqmnmzuxgujmxigx`): Postgres 17.6.1.155 on the GA channel, `ACTIVE_HEALTHY`; installed extensions (`pgcrypto`, `uuid-ossp`, `pg_stat_statements`, `supabase_vault`, `plpgsql`) are all at the offered default versions. Security advisor: **1 WARN, leaked password protection disabled** (dashboard toggle under Auth, needs the Pro plan; not changed here). Performance advisor: 14 INFO unused indexes (no action; the data set is small).
+
+**Verified**: `npm audit` 0, `tsc` clean, `eslint` clean, vitest 114/114, `next build` clean (middleware 97.1 kB), Buck_AI unittest 49/49. **Not verified**: a deployed preview; the signed-in UI and CSP nonce flow in a browser.
+
 ### 🔐 Two-Factor Authentication Backend (2026-10-24, ADR-048)
 
 Migrations [`202610240002_mfa_support.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240002_mfa_support.sql) and [`202610240003_mfa_enforce_rls.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240003_mfa_enforce_rls.sql) applied live and recorded in history. History drift fixed: `protect_fallback_categories` was stamped `20261023174201`, now `202610240001` like its file.
@@ -107,9 +133,25 @@ Migrations [`202610240002_mfa_support.sql`](file:///d:/VS%20Code/Buck-Budget-Tra
 | **SEC-029** | 🟡 Medium | Supabase's MFA Verification Attempt hook is Teams/Enterprise only, so TOTP brute force is throttled only by the project's token-verification rate limit. | **Accepted.** Keep Auth › Rate limits › token verifications at the default (≤ 30 / 5 min / IP). Our own routes (backup codes, email recovery) have their own limits in `auth_security_events`. |
 | **SEC-030** | 🟡 Medium | Email recovery would make 2FA only as strong as the inbox. | **Mitigated.** 24 h cool-off after confirmation (production floor), cancel from an aal2 session, pending state shown by `/api/auth/mfa/status`, 3 e-mails per day. |
 | **SEC-031** | 🟢 Low | Generating backup codes twice at the same time deletes then inserts in two requests, so both sets could stay valid. | **Accepted.** Same user, both sets are shown to them; regenerate once more to clear. |
-| **INFO-006** | — | 2FA UI not built yet (Settings sections, `/verify-2fa`, passkey button, Flutter verify screen). Until it ships nobody can enroll, so the new gate and RLS policies affect no one (0 rows in `auth.mfa_factors`). Web and mobile must release the verify screen together, or a user who enrolls on web gets empty data in an old mobile build. | **Open (frontend / mobile).** Contract in Design.md ADR-048. |
+| **INFO-006** | — | 2FA UI. Web is built on `feat/2fa-ui` (2026-10-26): Settings › Security two-factor and passkey sections, `/verify-2fa`, the passkey button on `/sign-in`, the deletion step-up and a global `mfa_required` redirect. Flutter verify screen still to do. Web and mobile must release the verify screen together, or a user who enrolls on web gets empty data in an old mobile build. | **Web: ready for production test** (the user runs steps a–e after deploy). **Mobile: open.** Contract in Design.md ADR-048. |
 
 **Verified**: `tsc`, `eslint`, `next build` clean; vitest 70/70 (new: `utils/mfa/mfa.test.ts`, backup-code redeem route, 2FA cases in `apiAuth.test.ts`); Buck_AI unittest 48/48 (new `tests/test_auth.py`); live SQL in rolled-back transactions: `mfa_satisfied()` true/false/true for no-factor aal1 / factor aal1 / factor aal2, and a 2FA user at aal1 reads 0 expenses, wallets and profiles while aal2 reads all 240/4/1; signed-out probes of every new route (401/403/redirect to sign-in). **Not verified**: a real TOTP enroll and sign-in, the e-mail recovery round trip, passkey sign-in and its `amr` value (needs the UI and Supabase dashboard passkey setup).
+
+### 🔐 Two-Factor Web UI (2026-10-26, ADR-048)
+
+Branch `feat/2fa-ui`. No API, middleware or migration changes. New files: `component/mfa/*`, `app/verify-2fa/*`, `utils/mfa/client.ts` (+ test). Changed: Settings page and CSS, `/sign-in`, `DashboardClientLayout`.
+
+**Verified**:
+- vitest 191/191 (11 new in `utils/mfa/client.test.ts`: redirect safety, backup-code normalising, TOTP input, status parsing, `mfa_required` detection). `tsc`, `eslint` (0/0) and `next build` clean.
+- Dev server, signed out: `/sign-in` shows "Sign in with a passkey" (45 px tall, full width at 375 px, no sideways scroll), the e-mail field has `autocomplete="username webauthn"`, and `?reason=mfa-recovery-sign-in-required` shows its notice. `/verify-2fa` signed out goes to `/sign-in`. No console errors.
+- Buck_AI already sends `Access-Control-Expose-Headers: X-Buck-Error` (`Buck_AI/main.py`), so the browser can read `mfa_required` from it. No backend gap found.
+
+**Not verified** (needs a signed-in account; covered by the user's production test a–e, INFO-006):
+- Turn on 2FA from Settings, scan the QR, save the backup codes.
+- Sign out and in: password, then `/verify-2fa`, then back to the page asked for.
+- A backup code on `/verify-2fa` turns 2FA off and offers to set it up again.
+- Account deletion asks for a fresh code after 10 minutes.
+- Passkey add, rename, delete and sign-in (needs Passkeys on in the Supabase dashboard with the production RP ID).
 
 ### 🤖 Buck MCP Server (2026-10-24, ADR-050)
 
@@ -131,6 +173,34 @@ Migration [`202610240005_mcp_access_check.sql`](file:///d:/VS%20Code/Buck-Budget
 
 **Not verified**: a real MCP client end to end, which needs the dashboard OAuth switch and the consent UI.
 
+### 🖼️ Connected-App Logo Proxy (2026-10-25, ADR-051)
+
+Resolves INFO-009. No migration.
+
+**Verified**:
+- vitest 180/180, with 66 new tests (2 of them for the `appLogoPath` and `toAppLogoSrc` helpers):
+  - Route (16): bearer 400, signed out 401, no 2FA 401, invalid client id 400, a `url=` in the query never fetched, unknown app 404, no logo 404, and an uncached 404 for each refusal reason.
+  - Fetcher (48): private, loopback, link-local, CGNAT and IPv4-in-IPv6 addresses; http, `data:`, `file:`, credentials and non-443 ports; DNS answers with any private address; redirects to http or a private IP; too many redirects; non-200 responses; declared and streamed bodies over 256 KB; SVG and HTML; timeout; and `https://localhost` refused by the real transport.
+- `tsc` and `eslint` clean.
+- Live probe from the dev machine: a real GitHub PNG was served as `image/png`, and a Wikimedia SVG and an ICO were refused.
+
+**Not verified**: the route behind real middleware and Vercel with a registered app (the OAuth Server is still off, INFO-007). The UI swap shipped the same day; see the frontend entry below for what was checked in the browser.
+
+### 🖼️ Connected-App Logos in the UI (2026-10-25, ADR-051)
+
+The consent page (`AppLogo`) and Settings › Connected apps (`ConnectedAppLogo`) now take their `src` from `toAppLogoSrc(logoUrl)`, so only Buck's proxy path for a uuid is ever loaded. `toSafeHttpUrl` still guards the website links. A `404` from the proxy swaps to the initial in the same 56 px / 40 px box (ADR-012). No API, middleware or migration changes.
+
+**Verified**: vitest 180/180, `tsc` and `eslint` clean. The dev server's `/api/oauth/app-logo` returns `401` signed out, with or without a `url=` parameter. The live project has 1 registered OAuth client and it has no `logo_uri`. Signed in on the dev server, Settings › Security › Connected apps shows that app ("Buck QA INFO-007") with its initial in a 40×40 box. The page made no logo request and contacted only `localhost:3000` and Supabase. Signed in, the proxy returns an uncached `404` for that app and for an unknown uuid, and `400` for a bad id or a `url=` parameter.
+
+Real logo, end to end:
+- I registered a throwaway test app, "Buck QA ADR-051", through dynamic registration, with a public GitHub PNG (96×96, 2,397 bytes) as `logo_uri`, and started a PKCE authorization.
+- On `/oauth/consent`, the logo is an `<img>` with `src=/api/oauth/app-logo?client_id=…`, loaded as `200` with the same 2,397 bytes, in the 56×56 box. The page made no request to GitHub and contacted only `localhost:3000`. The Buck look-alike warning also showed.
+- After Allow, Settings › Connected apps showed the same proxied `<img>` in the 40×40 box, again with no GitHub request.
+- I then disconnected the app through the three-step dialog and deleted the test client (admin API, `204`).
+- Supabase sends `/oauth/authorize` to the Site URL (`bucktbt.vercel.app/oauth/consent`). To test locally, open the same `authorization_id` on `localhost:3000`.
+
+**Not verified**: the `onError` fallback with a real proxy `404` for an app whose logo fails (for example an SVG). The initial path itself showed for the no-logo app.
+
 ### 🔗 Connected Apps / OAuth 2.1 Server Backend (2026-10-24, ADR-049)
 
 Migration [`202610240004_oauth_apps.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240004_oauth_apps.sql) applied live and recorded.
@@ -140,10 +210,44 @@ Migration [`202610240004_oauth_apps.sql`](file:///d:/VS%20Code/Buck-Budget-Track
 | **SEC-032** | 🟠 High | Supabase gives OAuth app tokens the user's full data access, including writes. | **Mitigated.** Restrictive insert/update/delete policies reject tokens with `client_id`; Buck routes (`getRequestAuth`) and Buck_AI refuse them. |
 | **SEC-033** | 🟠 High | Supabase's consent endpoint accepts aal1, so a password-only attacker could connect an app to a 2FA account. Consents are one row per user and app, so a re-approval reuses the row. | **Mitigated.** Approval via Buck's route records the active consent with `mfa_verified`; `mfa_satisfied()` requires it for app tokens of 2FA users; trigger `buck_forget_oauth_app_grant` drops the record on any change to the consent row. |
 | **SEC-034** | 🟡 Medium | Dynamic client registration (needed by MCP clients) lets anyone register an app under any name: phishing risk on the consent screen. | **Partly mitigated.** Apps are read-only; the details route returns `registration: "dynamic"` and `redirectHost` for an "unreviewed app" warning. Keep dynamic registration off unless MCP is in use. The consent page shows the amber warning for unreviewed apps and a coral "isn't made by Buck" warning when one calls itself Buck, and always shows the redirect host. |
-| **INFO-007** | — | OAuth Server is still off in the dashboard. | **Open (dashboard).** The `/oauth/consent` and Settings › Connected apps UI is built. Steps in Design.md ADR-049. |
-| **INFO-009** | — | The CSP `img-src` allows only self, `data:`, `blob:` and Supabase, so third-party app logos (`logo_uri`) are blocked on the consent page and in Settings. | **Open (security decision).** The UI falls back to the app's initial, which also avoids loading images from unreviewed apps. Allowing logos would need `https:` in `img-src` or a same-origin image proxy. |
+| **INFO-007** | — | OAuth Server is still off in the dashboard. | **Mostly verified 2026-10-26; stays open for 2FA.** The dashboard is set (asymmetric JWT keys with the legacy secret kept, Site URL `https://bucktbt.vercel.app`, OAuth Server on with `/oauth/consent`, dynamic registration on). Discovery, consent, the 7 tools, read-only writes, token refusal and disconnect were tested end to end on production (see "Connected Apps End to End on Production" below). Still open: the real 2FA approval and reconnect flow, which needs the 2FA UI (INFO-006); handed to Buck | Frontend 2026-10-26 with the test steps. That test also found SEC-041 (resolved and applied live 2026-10-26) and SEC-042 (open). |
+| **INFO-009** | — | The CSP `img-src` allows only self, `data:`, `blob:` and Supabase, so third-party app logos (`logo_uri`) are blocked on the consent page and in Settings. | **Resolved 2026-10-25 (ADR-051).** `img-src` is unchanged (adding `https:` would let any self-registered app track users by IP). Logos now come from the same-origin proxy `GET /api/oauth/app-logo?client_id=<uuid>`: URL looked up server-side by client id, https and public IPs only (checked at connect time), PNG/JPEG/WebP/GIF sniffed from bytes (no SVG), 256 KB, 5 s, `nosniff`, private 1-day cache, signed-in 2FA web session only. `logoUrl` in both APIs now points at the proxy. **UI follow-up: done 2026-10-25.** The consent page and Settings › Connected apps render the logo through `toAppLogoSrc` (only the exact proxy path), keep `toSafeHttpUrl` for website links, and show the initial on a `404` in the same box. |
 
-**Verified**: live SQL in rolled-back transactions. For a user without 2FA, an app token reads 240 expenses while insert, update and `transfer_funds_atomic` are blocked. For a 2FA user the app reads 0 without a grant, 0 with an unverified grant, 240 with a verified grant (still read-only), 0 for another app, and 0 again after the consent row is revoked and re-approved outside Buck. Normal sessions are unchanged. `record_oauth_app_grant` refuses when there is no consent and cannot be called by `authenticated`. vitest 81/81 (consent route, connected-app bearer refusal), Buck_AI unittest 49/49, `tsc` and `eslint` clean. Signed-out probes: the consent page redirects to sign-in keeping `authorization_id`, the APIs return 401, a bad id returns 400. **Not verified**: a real end-to-end OAuth flow (needs the dashboard switch and the consent UI).
+**Verified**: live SQL in rolled-back transactions. For a user without 2FA, an app token reads 240 expenses while insert, update and `transfer_funds_atomic` are blocked. For a 2FA user the app reads 0 without a grant, 0 with an unverified grant, 240 with a verified grant (still read-only), 0 for another app, and 0 again after the consent row is revoked and re-approved outside Buck. Normal sessions are unchanged. `record_oauth_app_grant` refuses when there is no consent and cannot be called by `authenticated`. vitest 81/81 (consent route, connected-app bearer refusal), Buck_AI unittest 49/49, `tsc` and `eslint` clean. Signed-out probes: the consent page redirects to sign-in keeping `authorization_id`, the APIs return 401, a bad id returns 400. **Not verified**: a real end-to-end OAuth flow (needs the dashboard switch and the consent UI). Done on production 2026-10-25/26, see below.
+
+### 🔗 Connected Apps End to End on Production (2026-10-25/26, INFO-007)
+
+Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.app`, Supabase `glnuzqmnmzuxgujmxigx`, after the dashboard steps in ADR-049. The client was a small script acting as an MCP client: discovery, dynamic registration, PKCE (S256) with `resource=https://bucktbt.vercel.app/api/mcp`, a `localhost:8765` redirect, the code exchange, then JSON-RPC calls to `/api/mcp`. It registered as "Buck QA INFO-007" (`cbb08fbb-1ce0-4997-8247-982714f54ad8`). Account: Buck Admin, 2FA off.
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-041** | 🟠 High | After **Disconnect**, the app's last access token still read data through the Supabase REST API (`GET /rest/v1/wallets` → `200` with rows) until it expired (1 hour). PostgREST only checks the JWT signature and expiry. Buck's MCP server was not affected: it asks Supabase Auth, which answered `session_not_found`, so `/api/mcp` returned `401`. Refresh also failed (`refresh_token_not_found`). | **Resolved 2026-10-26.** [`202610250001_connected_app_live_session.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610250001_connected_app_live_session.sql) adds `private.app_session_live()`: true for non-app callers, and for an app token only while `auth.sessions` still has its `session_id` for the same user and `oauth_client_id`. It is added as a RESTRICTIVE policy on the same 11 tables and on the avatar bucket as the 2FA policy. It was applied live with the owner's go-ahead and recorded as version `202610250001`. Recheck on production: a connected app read 6 wallets, 160 expenses, 2 goals and 1 profile through REST, and the MCP tools worked. After Disconnect, the same token, with 58 minutes left before it expired, read 0 rows from all four tables; `/api/mcp` returned `401` and refresh failed. Buck Admin's own web session still loads its wallets. The security advisor shows nothing new (only INFO-002). |
+| **SEC-042** | 🟠 High | Supabase Auth accepts a connected app's token on its own account endpoints: `PUT /auth/v1/user` with `{"data":{}}` returned `200`. Supabase documents that OAuth scopes only shape OIDC claims and do not limit API access, and RLS cannot reach Auth. So an app can change `user_metadata`, which the `on_auth_user_updated` trigger copies into `profiles.username`, bypassing the read-only profile policy. Admin rights are not reachable this way: they come only from `app_metadata.role` or `ADMIN_EMAIL`. | **Open (platform).** Not verified: whether an app token can also change the password or enroll a 2FA factor. A non-destructive probe for both (a 1-character password, and an unverified factor removed at once) was blocked in this session and needs the owner's go-ahead. Mitigations: (1) **Secure email change** is on, and the owner turned on **Secure password change** (reauthentication) on 2026-10-26; (2) the consent page copy says apps can't change "anything", so it should say "your Buck data" (Frontend handoff [`SEC-042_Frontend_Consent_Copy_Prompt.md`](handoffs/SEC-042_Frontend_Consent_Copy_Prompt.md), sent to Buck | Frontend 2026-10-26); (3) raise it with Supabase (no way to limit app tokens on `/auth/v1/*`). |
+| **SEC-043** | 🟡 Medium | Open redirect after 2FA: `getSafeMfaRedirect` (`utils/mfa/client.ts`) judged the raw input but returned the URL-normalised path. `/verify-2fa?redirectTo=/.//evil.example` collapsed to `//evil.example`, which `window.location.replace` treats as another host, so a crafted link could send a user to an attacker site right after they verified 2FA. | **Resolved in code (found in the dev→main review 2026-10-27).** The normalised result must start with a single `/` (not `//`, not `/\`), otherwise the default is used. Tests added for `/.//`, `/a/..//`, `/./\` and `/dashboard/..//`; `npm test` 192/192. The sign-in page's `getSafeRedirectPath` already requires a `/dashboard` or consent prefix, so it was not affected. |
+
+**Verified**:
+- **Release gate**: before the switches, production served the new routes and Buck_AI answered a forged app token with `403` and `X-Buck-Error: connected_app` (it gave `401` before #209).
+- **a. Discovery**: `/api/mcp` without a token returns `401` with `WWW-Authenticate: … resource_metadata="https://bucktbt.vercel.app/.well-known/oauth-protected-resource/api/mcp"`. That document names the resource and `…supabase.co/auth/v1`. Supabase's metadata lists a registration endpoint and S256. Dynamic registration returned `201`.
+- **b. Consent**: signed out, the authorize URL lands on `/sign-in?redirectTo=…`, then on `/oauth/consent`. That page shows the app name, the coral "isn't made by Buck" warning, the three scopes, the read-only note and "You'll be sent back to an app running on this computer". **Deny** sent `error=access_denied&error_description=User+denied+the+request` with the right `state`. **Allow** sent a `code` with the right `state`, and the exchange returned `200` (claims: `client_id`, `aal1`, `role: authenticated`, `scope: openid email profile`, with a refresh token). A link opened about an hour earlier was already expired: the page showed "Start again from the app", which is correct.
+- **c. Tools**: `initialize` and `tools/list` list 7 tools, all with `readOnlyHint: true`. All 7 (`get_overview`, `list_wallets`, `list_categories`, `list_transactions`, `spending_summary`, `list_goals`, `get_saved_advice`) returned data matching the user's own rows in SQL: 4 active wallets (2 archived left out), 2 goals, 12 October expenses totalling ₱11,216.32. None of the other 8 users' data appeared. Calling an unknown `add_expense` gave `-32602 Tool add_expense not found`. The server answers 2025-06-18 clients with SSE (INFO-008).
+- **c. Writes** with the app token:
+  - REST insert into `expenses` returned `403` (`expenses: apps read-only (insert)`), and a profile update changed 0 rows.
+  - In SQL (rolled back), deletes from `expenses`, `wallets` and `goals` and an update of `wallets` all changed 0 rows; the same user's own session updated 6.
+  - An avatar insert into `storage.objects` was refused (`Avatar files: apps read-only (insert)`).
+  - Every RPC callable by `authenticated` is `SECURITY INVOKER`, so the same policies apply.
+  - Exception: SEC-042.
+- **d. Refusal**: with the real app token, `GET /api/auth/mfa/status`, `POST /api/forecast` and `POST /api/auth/mfa/recovery-codes/redeem` returned `401`. Buck_AI `GET /advisor/insight`, `GET /advisor/history` and `POST /advisor/chat` returned `403` with `X-Buck-Error: connected_app` ("Connected apps can't use Buck AI.").
+- **e. Disconnect**: Settings › Security › Connected apps listed the app with its scopes. The three-step dialog (slide, "I understand, continue", type the name) disconnected it with a toast. Right after, `/api/mcp` returned `401` ("This token has expired or the app was disconnected"), refresh failed, and Supabase Auth reported `session_not_found`. Exception: SEC-041.
+- **f. 2FA (database only)**: on the real consent `34bfc5ac…` (recorded with `mfa_verified = false`), with a verified TOTP factor added inside a rolled-back transaction:
+  - `current_session_can_read()` for the app is true before 2FA and false after, and the app sees 0 wallets. That false result is what makes the MCP tools return the reconnect message.
+  - It is true again once the grant is marked 2FA-verified.
+  - A normal session needs aal2.
+
+**Not verified**:
+- The real 2FA flow (step f), because production has no way to turn 2FA on: Settings › Security has no 2FA section, there is no `/verify-2fa` page, and `auth.mfa_factors` is empty (INFO-006). For a 2FA user, the consent route would send them to `/verify-2fa`, which doesn't exist yet. Run step f once the 2FA UI ships.
+- MCP Inspector or a Claude custom connector, which would also show the client side of discovery.
+
+**Test data**: none left. After the SEC-041 recheck the "Buck QA INFO-007" app was disconnected (0 consents, sessions and grants remain) and the client was deleted (`auth.oauth_clients.deleted_at` set, the same as the admin API's delete). Its authorize URL now returns `400 oauth_client_not_found`. Buck Admin has no 2FA factor; the 2FA setup in Settings didn't exist to run (INFO-006).
 
 ### 🟠 High Severity
 
@@ -480,6 +584,13 @@ Migration [`202610240004_oauth_apps.sql`](file:///d:/VS%20Code/Buck-Budget-Track
 - **Location**: [`buck/src/app/auth/callback/route.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/auth/callback/route.ts), hash fallback page.
 - **Cause**: The reset e-mail uses the implicit flow, so Supabase sends the user to `/auth/callback?next=/forgot-password?type=recovery#access_token=…`. The server can't see the hash, so the route returns a small HTML page whose inline `<script>` forwards the hash. Since the CSP nonce change (`161127d`), middleware sends `script-src 'self' 'nonce-…' 'strict-dynamic'` on every response; that script had no nonce, so the browser blocked it and the reset never reached the new-password form. Production auth logs (2026-10-23 20:09 UTC) show a verified recovery that went no further. Magic links in the implicit flow were affected the same way.
 - **Resolution**: The route reads the `x-nonce` request header that middleware forwards and stamps it (HTML-escaped) on the script. Test: `app/auth/callback/route.test.ts`. Verified on localhost: the callback now forwards to `/forgot-password?type=recovery`, and a fake token shows "invalid or expired" with no CSP errors.
+
+#### BUG-038: [RESOLVED 2026-10-27] Advisor Chat Fails When a Model Accepts the Request but Never Answers
+- **Location**: [`Buck_AI/shared/gemini.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/shared/gemini.py) `stream_with_tools`, [`Buck_AI/BuckAI_Advisor/service.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/service.py) `chat_events`.
+- **Symptom**: On main and dev, chat logged `Advisor chat failed:` with nothing after the colon and the user got the offline answer.
+- **Cause**: The 8 s per-model cap only covered opening the stream. A model that opened it and then sent nothing (seen live on `gemini-3.7-flash` and `3.8-flash`) held the request until the chat's 20 s first-text limit, so the chain never reached the next model. The empty text was `TimeoutError`, whose message is blank.
+- **Resolution**: One 8 s budget now covers opening the stream and its first chunk, so a silent model is skipped. The chat's first-text limit is 30 s, enough for a tool round plus a few skips. Logs name the error type when the message is empty. Test: `test_stream_skips_a_model_that_opens_but_never_answers`. Live check: 3.8 and 3.7 timed out, 3.6 answered at about 21 s.
+- **Follow-up (same day)**: to cut the wait, chat now races the next model if the current one is silent after 4 s (at most two in flight, first answer wins), and a model that times out or loses a race is skipped for 5 minutes on that instance. Tests: `test_slow_model_is_raced_and_the_first_answer_wins`, `test_race_keeps_going_when_the_raced_model_fails`. Live, on a day when 3.8, 3.7 and 3.5 stalled: first chat 15 s, the next ones 4.5–10 s.
 
 ---
 

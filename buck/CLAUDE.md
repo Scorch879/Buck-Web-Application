@@ -1,6 +1,6 @@
 # CLAUDE.md: Next.js & Microservices Development Guide
 
-> **Claude Reference**: This file is mirrored from the repository root [`../Claude.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Claude.md). Refer to [`../Claude.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Claude.md) for the exhaustive System Overview, Multi-Tier Architecture diagrams, 10 Subsystems Decomposition, Entity Relationship Diagrams (ERD), and the ADR quick reference (full ADR-001 to ADR-050 in `docs/Design.md`).
+> **Claude Reference**: This file is mirrored from the repository root [`../Claude.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Claude.md). Refer to [`../Claude.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Claude.md) for the exhaustive System Overview, Multi-Tier Architecture diagrams, 10 Subsystems Decomposition, Entity Relationship Diagrams (ERD), and the ADR quick reference (full ADR-001 to ADR-051 in `docs/Design.md`).
 
 ---
 

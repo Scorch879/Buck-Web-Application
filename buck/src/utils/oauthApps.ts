@@ -1,6 +1,7 @@
 import type { OAuthAuthorizationDetails, SupabaseClient } from "@supabase/supabase-js";
 import { getRequestAuth, mfaRequiredResponse, type RequestAuth } from "@/utils/apiAuth";
 import { mfaJson } from "@/utils/mfa/server";
+import { appLogoPath } from "@/utils/connectedApps";
 
 /**
  * Connected apps (Supabase OAuth 2.1 server, ADR-049): server helpers for the
@@ -17,6 +18,7 @@ export type ConsentDetails = {
     id: string;
     name: string;
     website: string | null;
+    /** Buck's same-origin logo proxy (ADR-051), never the app's own URL. */
     logoUrl: string | null;
     /** "dynamic": the app registered itself, Buck has not reviewed it. */
     registration: ConnectedAppRegistration;
@@ -62,7 +64,7 @@ export function toConsentDetails(
       id: details.client.id,
       name: details.client.name?.trim() || "Unnamed app",
       website: emptyToNull(details.client.uri),
-      logoUrl: emptyToNull(details.client.logo_uri),
+      logoUrl: appLogoPath(details.client.id, details.client.logo_uri),
       registration,
     },
     redirectUri: details.redirect_uri,

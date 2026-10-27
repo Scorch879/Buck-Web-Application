@@ -5,7 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { signInUser, signInWithGoogle } from "@/component/authentication";
 import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
-import { OAUTH_CONSENT_PATH } from "@/utils/mfa/assurance";
+import { OAUTH_CONSENT_PATH, createMfaVerifyPath } from "@/utils/mfa/assurance";
+import { supabase } from "@/utils/supabase";
 import {
   getEmailValidationMessage,
   normalizeEmailAddress,
@@ -19,6 +20,7 @@ import {
 import {
   FaArrowRight,
   FaChartLine,
+  FaFingerprint,
   FaPiggyBank,
   FaWallet,
 } from "react-icons/fa";
@@ -79,6 +81,8 @@ function getAuthNotice(reason: string | null) {
   switch (reason) {
     case "session-expired":
       return "You were signed out after a period of inactivity.";
+    case "mfa-recovery-sign-in-required":
+      return "Sign in to finish removing two-factor. Then open the e-mail link again.";
     default:
       return "";
   }
@@ -108,12 +112,30 @@ const SignIn = () => {
   const [redirectTo, setRedirectTo] = useState("/dashboard/home");
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
+  const [passkeySupported, setPasskeySupported] = useState(false);
   const isDarkTheme = useAuthPageTheme();
   const signInButton = usePointerGradient<HTMLButtonElement>();
-  const isAuthBusy = isSigningIn || isGoogleLoading;
+  const isAuthBusy = isSigningIn || isGoogleLoading || isPasskeyLoading;
 
   const openAuthRedirect = (path: string) => {
     window.location.assign(path);
+  };
+
+  // ADR-048: a 2FA account signed in at aal1 goes to /verify-2fa first.
+  const openPostSignInRedirect = async (path: string) => {
+    try {
+      const { data } = (await supabase?.auth.mfa.getAuthenticatorAssuranceLevel()) ?? {};
+
+      if (data?.currentLevel === "aal1" && data.nextLevel === "aal2") {
+        openAuthRedirect(createMfaVerifyPath(path));
+        return;
+      }
+    } catch {
+      // The middleware still sends unsatisfied sessions to /verify-2fa.
+    }
+
+    openAuthRedirect(path);
   };
 
   useEffect(() => {
@@ -131,6 +153,7 @@ const SignIn = () => {
 
     setMsg(getAuthNotice(searchParams.get("reason")));
     setError(getAuthError(searchParams.get("error")));
+    setPasskeySupported(Boolean(supabase && window.PublicKeyCredential));
   }, []);
 
   useRedirectIfAuthenticated(redirectTo);
@@ -166,7 +189,7 @@ const SignIn = () => {
 
     if (result.success) {
       setMsg("Sign in successful. Opening your dashboard...");
-      openAuthRedirect(redirectTo);
+      await openPostSignInRedirect(redirectTo);
       return;
     } else {
       setError(result.message || "Sign in failed.");
@@ -199,6 +222,41 @@ const SignIn = () => {
       setError(result.message || "Google Sign-In failed.");
       setMsg("");
       setIsGoogleLoading(false);
+    }
+  };
+
+  const handlePasskeySignIn = async () => {
+    if (isAuthBusy || !supabase) {
+      return;
+    }
+
+    setError("");
+    setMsg("Waiting for your passkey...");
+    setIsPasskeyLoading(true);
+
+    try {
+      const { error: passkeyError } = await supabase.auth.signInWithPasskey();
+
+      if (passkeyError) {
+        throw passkeyError;
+      }
+
+      setMsg("Sign in successful. Opening your dashboard...");
+      await openPostSignInRedirect(redirectTo);
+    } catch (passkeyError) {
+      const name =
+        passkeyError && typeof passkeyError === "object" && "name" in passkeyError
+          ? String(passkeyError.name)
+          : "";
+      const text = passkeyError instanceof Error ? passkeyError.message : "";
+
+      setMsg("");
+      setIsPasskeyLoading(false);
+
+      // Closing the browser prompt is not an error.
+      if (name !== "NotAllowedError" && name !== "AbortError" && !/cancel|not allowed/i.test(text)) {
+        setError(text || "Passkey sign in failed. Try your password instead.");
+      }
     }
   };
 
@@ -321,6 +379,23 @@ const SignIn = () => {
               {isGoogleLoading ? "Opening Google..." : "Continue with Google"}
             </button>
 
+            {passkeySupported ? (
+              <button
+                className="SI-Google-Btn SI-Passkey-Btn"
+                type="button"
+                onClick={() => void handlePasskeySignIn()}
+                disabled={isAuthBusy}
+                aria-busy={isPasskeyLoading}
+              >
+                {isPasskeyLoading ? (
+                  <span className="auth-button-spinner" aria-hidden="true" />
+                ) : (
+                  <FaFingerprint className="SI-Google-Icon" aria-hidden="true" />
+                )}
+                {isPasskeyLoading ? "Waiting for your passkey..." : "Sign in with a passkey"}
+              </button>
+            ) : null}
+
             <div className="SI-Divider">
               <span>or sign in with email</span>
             </div>
@@ -336,7 +411,7 @@ const SignIn = () => {
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
+                autoComplete="username webauthn"
                 disabled={isAuthBusy}
               />
 

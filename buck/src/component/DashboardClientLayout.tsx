@@ -7,6 +7,7 @@ import AIChatBubble from "@/component/AIChatBubble";
 import AuthGuard from "@/component/AuthGuard";
 import DashboardHeader from "@/component/dashboardheader";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
+import MfaRequiredWatcher from "@/component/mfa/MfaRequiredWatcher";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial } from "@/context/FinancialContext";
 import FinancialProvider from "@/context/FinancialProvider";
@@ -220,19 +221,22 @@ export default function DashboardClientLayout({
   useAuthPageTheme();
 
   return (
-    <AuthGuard
-      initialUser={initialUser}
-      fallback={
-        <DashboardShell>
-          <DashboardPageSkeleton variant={skeletonVariant} />
-        </DashboardShell>
-      }
-    >
-      <FinancialProvider>
-        <DashboardShell>{children}</DashboardShell>
-        {/* Mounted once here (not per page) so the chat survives navigation. */}
-        <AIChatBubble />
-      </FinancialProvider>
-    </AuthGuard>
+    <>
+      <MfaRequiredWatcher />
+      <AuthGuard
+        initialUser={initialUser}
+        fallback={
+          <DashboardShell>
+            <DashboardPageSkeleton variant={skeletonVariant} />
+          </DashboardShell>
+        }
+      >
+        <FinancialProvider>
+          <DashboardShell>{children}</DashboardShell>
+          {/* Mounted once here (not per page) so the chat survives navigation. */}
+          <AIChatBubble />
+        </FinancialProvider>
+      </AuthGuard>
+    </>
   );
 }

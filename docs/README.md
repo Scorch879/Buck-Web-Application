@@ -11,7 +11,7 @@ READMEs about specific code stay next to that code (see the last table).
 
 | I want to... | Open |
 |---|---|
-| Understand the architecture, database schema, data flows or a design decision (ADR-001 to ADR-050) | [`Design.md`](Design.md) |
+| Understand the architecture, database schema, data flows or a design decision (ADR-001 to ADR-051) | [`Design.md`](Design.md) |
 | Find a function, API route, Buck_AI endpoint or hook, with its signature | [`Skills.md`](Skills.md) |
 | Set up the project, see environment variables or module execution logic | [`Implementation.md`](Implementation.md) |
 | Check known bugs, security findings and the test strategy | [`QA_Report.md`](QA_Report.md) |
@@ -24,7 +24,7 @@ READMEs about specific code stay next to that code (see the last table).
 ```
 docs/
 ├── README.md                 # This map
-├── Design.md                 # Architecture, ERDs, data flows, ADR-001 to ADR-050
+├── Design.md                 # Architecture, ERDs, data flows, ADR-001 to ADR-051
 ├── Skills.md                 # Function, API route, Buck_AI endpoint and hook catalog
 ├── Implementation.md         # Setup, environment variables, execution logic, constraints
 ├── QA_Report.md              # Defect backlog, security audit, test strategy
@@ -41,7 +41,8 @@ docs/
 │       └── SUPABASE_AUTH_SETUP.md               # Local only (gitignored), not in the repo
 └── handoffs/                 # Prompts written for other agents
     ├── ADR-048_Frontend_2FA_Prompt.md
-    └── ADR-049_Frontend_Connected_Apps_Prompt.md
+    ├── ADR-049_Frontend_Connected_Apps_Prompt.md
+    └── ADR-051_Frontend_App_Logo_Prompt.md
 ```
 
 ## Frontend change notes (`guides/frontend/`)
