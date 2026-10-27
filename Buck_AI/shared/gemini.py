@@ -174,19 +174,31 @@ async def stream_with_tools(
     )
     plan = attempt_plan()
     attempt = 0  # shared across rounds: once on a fallback model, stay there
+    loop = asyncio.get_running_loop()
 
     for _ in range(MAX_TOOL_ROUNDS):
         while True:
             model_parts: list[types.Part] = []
             calls: list[types.FunctionCall] = []
+            # One budget for opening the stream and receiving its first chunk: a
+            # model that accepts the request but never answers must not stall
+            # the chain. Later chunks may take as long as the caller allows.
+            limit = attempt_timeout(plan, attempt)
+            deadline = None if limit is None else loop.time() + limit
             try:
                 stream = await asyncio.wait_for(
                     client.aio.models.generate_content_stream(
                         model=plan[attempt], contents=contents, config=config_for(plan[attempt], config)
                     ),
-                    attempt_timeout(plan, attempt),
+                    limit,
                 )
-                async for chunk in stream:
+                chunks = aiter(stream)
+                while True:
+                    wait = None if deadline is None or model_parts else max(0.1, deadline - loop.time())
+                    try:
+                        chunk = await asyncio.wait_for(anext(chunks), wait)
+                    except StopAsyncIteration:
+                        break
                     candidate = (chunk.candidates or [None])[0]
                     for part in (candidate.content.parts if candidate and candidate.content else None) or []:
                         model_parts.append(part)
@@ -204,7 +216,7 @@ async def stream_with_tools(
                     attempt += 1
                     await _before_next(plan, attempt, exc)
                     continue
-                raise GeminiUnavailable(str(exc)) from exc
+                raise GeminiUnavailable(str(exc) or type(exc).__name__) from exc
 
         if not calls:
             return
@@ -265,7 +277,7 @@ async def generate_json(
                 attempt += 1
                 await _before_next(plan, attempt, exc)
                 continue
-            raise GeminiUnavailable(str(exc)) from exc
+            raise GeminiUnavailable(str(exc) or type(exc).__name__) from exc
     if not isinstance(data, dict):
         raise GeminiUnavailable("Model returned non-object JSON.")
     return data

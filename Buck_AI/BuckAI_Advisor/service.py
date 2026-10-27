@@ -35,7 +35,8 @@ ADVISORY_TYPE = "monthly_strategy"
 VALID_FOR = timedelta(days=7)
 DATA_CHANGE_COOLDOWN = timedelta(minutes=5)
 REFRESH_COOLDOWN = timedelta(seconds=60)
-FIRST_TEXT_TIMEOUT = 20.0
+# Covers a tool round plus walking past a few busy models (8 s cap each).
+FIRST_TEXT_TIMEOUT = 30.0
 IDLE_TIMEOUT = 15.0
 
 _SAVED_COLUMNS = "id,title,suggestion,advice,financial_health_score,priority,metadata,created_at,valid_until,model_name"
@@ -258,7 +259,7 @@ async def chat_events(db: UserDb, question: str, history: list[dict[str, str]]) 
                 sent_text = True
                 yield _event({"type": "delta", "text": text})
         except (gemini.GeminiUnavailable, asyncio.TimeoutError) as exc:
-            log.warning("Advisor chat failed: %s", exc)
+            log.warning("Advisor chat failed: %s", str(exc) or type(exc).__name__)
             failed = True
         finally:
             await stream.aclose()

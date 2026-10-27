@@ -166,6 +166,25 @@ class ModelChainTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(used, ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"])
         self.sleep.assert_not_awaited()  # switching models needs no pause
 
+    async def test_stream_skips_a_model_that_opens_but_never_answers(self):
+        used = []
+
+        class Models:
+            async def generate_content_stream(self, model, contents, config):
+                used.append(model)
+
+                async def gen():
+                    if model == "gemini-3.8-flash":
+                        await gemini.asyncio.Event().wait()  # accepted, then silent
+                    yield chunk(types.Part(text="ok"))
+
+                return gen()
+
+        gemini.set_client(fake_client(Models()))
+        with mock.patch.object(gemini, "ATTEMPT_TIMEOUT_SECONDS", 0.05):
+            self.assertEqual(await collect(gemini.stream_with_tools("sys", [], [])), ["ok"])
+        self.assertEqual(used, ["gemini-3.8-flash", "gemini-3.7-flash"])
+
     async def test_json_records_the_model_that_answered(self):
         used = []
 
