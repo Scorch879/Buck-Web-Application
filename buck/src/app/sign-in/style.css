@@ -269,6 +269,10 @@ html[data-buck-theme="dark"] .SI-Background {
   border: 1px solid rgba(255, 211, 154, 0.22);
 }
 
+.SI-Google-Btn.SI-Passkey-Btn {
+  margin-top: 0.6rem;
+}
+
 .SI-Google-Btn:hover {
   border-color: rgba(255, 197, 71, 0.5);
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);

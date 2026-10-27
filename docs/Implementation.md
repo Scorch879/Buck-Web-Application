@@ -495,6 +495,15 @@ Returns a composite score (0 to 5) and localized validation messages.
   - Added client-side pagination (`PAGE_SIZE = 8`, `getPaginationPages`, `PAGE_VARIANTS`) with a 3-column `.cat-pagination` footer (centered `< Prev`, page buttons, `Next >`, and right-aligned `Showing X–Y of Z`).
   - Updated [`CategoriesSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/CategoriesSkeleton.tsx) to match the consolidated toolbar, 8-row table, and pagination footer 1:1.
 
+
+### 3.31 Two-Factor Web UI: Enrol, Verify, Step-Up ([`component/mfa/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/mfa/), [`verify-2fa/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/verify-2fa/page.tsx), ADR-048)
+- **Enrol**: remove any `unverified` factors, then `mfa.enroll({ factorType: "totp", friendlyName })`. The QR is an SVG data URL; the CSP `img-src` already allows `data:`. `challengeAndVerify` on the code makes the session aal2. For the first factor only, `POST /api/auth/mfa/recovery-codes` creates the 10 codes. Closing the modal before verifying unenrols the pending factor.
+- **Sign-in routing**: after `signInUser` or `signInWithPasskey`, `getAuthenticatorAssuranceLevel()` decides between `redirectTo` and `createMfaVerifyPath(redirectTo)`. The middleware still enforces the same rule if the client check fails.
+- **Recovery**: a redeemed backup code or completed e-mail recovery removes every factor on the server. The page then calls `refreshSession()` so the next request is not seen as an old aal1 session with factors.
+- **Step-up**: `readActionResponse` in Settings keeps the `error` field. On `403 mfa_step_up_required` the delete form shows `TotpCodeInput`, verifies against the first verified TOTP factor, and resends the same request.
+- **Global 401/403**: `MfaRequiredWatcher` patches `window.fetch` once (module flag), only reads a response body for 401s, and redirects once per page load. It does nothing on `/verify-2fa`.
+- **Mobile layout**: modals use `.settings-modal--wide` (`min(880px,100%)` × `min(82dvh,760px)`). Rows stack below 560px, the QR stacks above the form below 640px, and every code input uses a 16px+ font so iOS does not zoom.
+
 ---
 
 ## 4. Hardcoded System Constraints & Edge Cases

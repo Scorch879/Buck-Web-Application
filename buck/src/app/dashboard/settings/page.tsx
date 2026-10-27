@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -33,6 +34,9 @@ import {
 } from "@/component/authentication";
 import ConnectedAppsSection from "@/component/ConnectedAppsSection";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
+import PasskeysSection from "@/component/mfa/PasskeysSection";
+import TotpCodeInput from "@/component/mfa/TotpCodeInput";
+import TwoFactorSection from "@/component/mfa/TwoFactorSection";
 import { useDashboardUser } from "@/context/DashboardUserContext";
 import {
   mergeDashboardDataCache,
@@ -52,6 +56,7 @@ import {
 } from "@/utils/supabaseData";
 import { applyDocumentTheme, useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import { useToast } from "@/component/toast";
+import { supabase } from "@/utils/supabase";
 import "./style.css";
 
 const avatarMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -68,7 +73,7 @@ const settingsTabs = [
   {
     id: "security",
     label: "Security",
-    description: "Email, password and connected apps.",
+    description: "Email, password, two-factor, passkeys and connected apps.",
     icon: FaLock,
   },
   {
@@ -136,11 +141,14 @@ async function readActionResponse(response: Response) {
   const payload = (await response.json().catch(() => ({}))) as {
     success?: boolean;
     message?: string;
+    error?: string;
   };
 
   return {
     success: Boolean(payload.success && response.ok),
     message: payload.message || "The account action could not be completed.",
+    // ADR-048: "mfa_step_up_required" asks for a fresh two-factor code.
+    error: typeof payload.error === "string" ? payload.error : "",
   };
 }
 
@@ -204,6 +212,10 @@ export default function SettingsPage() {
   const [feedbackDetails, setFeedbackDetails] = useState("");
   const [sendingFeedback, setSendingFeedback] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [autoStartTwoFactor, setAutoStartTwoFactor] = useState(false);
+  const [stepUpRequired, setStepUpRequired] = useState(false);
+  const [stepUpCode, setStepUpCode] = useState("");
+  const [stepUpError, setStepUpError] = useState("");
   const hadInitialSettingsData = useRef(hasInitialSettingsData);
 
   const providerLabel = getProviderLabel(user.authProviders);
@@ -299,6 +311,25 @@ export default function SettingsPage() {
   useEffect(() => {
     setIsDarkTheme(documentThemeIsDark);
   }, [documentThemeIsDark]);
+
+  // `?tab=security&enroll=2fa` (from /verify-2fa) opens the tab and setup.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedTab = settingsTabs.find((tab) => tab.id === params.get("tab"));
+
+    if (requestedTab) {
+      setActiveSettingsTab(requestedTab.id);
+    }
+
+    if (requestedTab?.id === "security" && params.get("enroll") === "2fa") {
+      setAutoStartTwoFactor(true);
+    }
+  }, []);
+
+  const handleTwoFactorAutoStart = useCallback(() => {
+    setAutoStartTwoFactor(false);
+    router.replace("/dashboard/settings?tab=security", { scroll: false });
+  }, [router]);
 
   const clearMessages = () => {
     setNotice("");
@@ -584,6 +615,10 @@ export default function SettingsPage() {
       return;
     }
 
+    await sendDeletionRequest();
+  };
+
+  const sendDeletionRequest = async () => {
     setRequestingDeletion(true);
 
     try {
@@ -600,11 +635,21 @@ export default function SettingsPage() {
       const result = await readActionResponse(response);
 
       if (!result.success) {
+        if (response.status === 403 && result.error === "mfa_step_up_required") {
+          setStepUpRequired(true);
+          setStepUpCode("");
+          setStepUpError("");
+          setError(result.message);
+          return;
+        }
+
         setError(result.message);
         toast(result.message, "error");
         return;
       }
 
+      setStepUpRequired(false);
+      setStepUpCode("");
       setDeletePassword("");
       setDeleteConfirmText("");
       setNotice(result.message);
@@ -619,6 +664,51 @@ export default function SettingsPage() {
     } finally {
       setRequestingDeletion(false);
     }
+  };
+
+  // Deletion step-up (ADR-048): verify a fresh code, then resend the request.
+  const verifyStepUpAndRetry = async (code: string) => {
+    if (requestingDeletion || !supabase) {
+      return;
+    }
+
+    if (code.length !== 6) {
+      setStepUpError("Enter the 6-digit code from your authenticator app.");
+      return;
+    }
+
+    setRequestingDeletion(true);
+    setStepUpError("");
+
+    try {
+      const { data, error: listError } = await supabase.auth.mfa.listFactors();
+      const factor = data?.totp.find((item) => item.status === "verified");
+
+      if (listError || !factor) {
+        setStepUpError("Could not find your authenticator app. Reload and try again.");
+        return;
+      }
+
+      const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: factor.id,
+        code,
+      });
+
+      if (verifyError) {
+        setStepUpCode("");
+        setStepUpError(
+          verifyError.status === 429
+            ? "Too many tries. Wait a minute, then enter the newest code."
+            : "That code didn't work. Enter the newest code from your app."
+        );
+        return;
+      }
+    } finally {
+      setRequestingDeletion(false);
+    }
+
+    setError("");
+    await sendDeletionRequest();
   };
 
   const handleRecoverAccount = async () => {
@@ -970,6 +1060,13 @@ export default function SettingsPage() {
                   )}
                 </section>
 
+                <TwoFactorSection
+                  autoStartEnroll={autoStartTwoFactor}
+                  onAutoStartHandled={handleTwoFactorAutoStart}
+                />
+
+                <PasskeysSection />
+
                 <ConnectedAppsSection />
               </>
             ) : null}
@@ -1099,6 +1196,46 @@ export default function SettingsPage() {
                           : "Request deletion"}
                       </button>
                     </div>
+                    {stepUpRequired ? (
+                      <div className="settings-mfa-stepup" role="group" aria-labelledby="settings-delete-stepup-label">
+                        <label
+                          id="settings-delete-stepup-label"
+                          className="settings-mfa-label"
+                          htmlFor="settings-delete-stepup"
+                        >
+                          Enter your two-factor code to continue
+                        </label>
+                        <div className="settings-mfa-stepup-row">
+                          <TotpCodeInput
+                            id="settings-delete-stepup"
+                            className="settings-mfa-code"
+                            value={stepUpCode}
+                            onChange={(next) => {
+                              setStepUpCode(next);
+                              setStepUpError("");
+                            }}
+                            onComplete={(next) => void verifyStepUpAndRetry(next)}
+                            disabled={requestingDeletion}
+                            invalid={Boolean(stepUpError)}
+                            describedBy={stepUpError ? "settings-delete-stepup-error" : undefined}
+                            autoFocus
+                          />
+                          <button
+                            className="settings-button settings-button--danger"
+                            type="button"
+                            onClick={() => void verifyStepUpAndRetry(stepUpCode)}
+                            disabled={requestingDeletion}
+                          >
+                            {requestingDeletion ? "Checking..." : "Verify and continue"}
+                          </button>
+                        </div>
+                        {stepUpError ? (
+                          <p id="settings-delete-stepup-error" className="settings-mfa-error" role="alert">
+                            {stepUpError}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </form>
                 )}
               </section>
