@@ -28,10 +28,17 @@ MAX_TOOL_ROUNDS = 4
 # that doesn't answer within ATTEMPT_TIMEOUT_SECONDS; anything else fails fast.
 TRANSIENT_CODES = frozenset({404, 429, 500, 503, 504})
 ATTEMPT_TIMEOUT_SECONDS = 8.0
+# Chat only: a model still silent after this long gets the next model raced
+# against it. Late enough that a normal first chunk (thinking + tool call)
+# rarely triggers it, since each race spends quota on two models.
+HEDGE_AFTER_SECONDS = 4.0
 # The free tier allows about 20 requests a day per model. A model that runs
 # out is skipped (per instance) until Google's retry delay passes, capped so
 # a long delay can't bench it for the rest of the day on a warm instance.
+# A slow model (timed out or lost a race) is skipped for a few minutes so
+# the next requests start on a model that is answering.
 BENCH_PER_MINUTE_SECONDS = 60.0
+BENCH_SLOW_SECONDS = 300.0
 BENCH_MAX_SECONDS = 3600.0
 _RETRY_DELAY = re.compile(r"retryDelay'?\"?:\s*'?\"?(\d+)s")
 # Pause before retrying the same model (only when a single model is configured).
@@ -75,7 +82,11 @@ def is_transient(exc: BaseException) -> bool:
 
 
 def bench(model: str, exc: BaseException) -> None:
-    """Skip a model that ran out of quota until it may answer again."""
+    """Skip a model that ran out of quota or is too slow until it may answer again."""
+    if isinstance(exc, asyncio.TimeoutError):
+        _benched[model] = time.monotonic() + BENCH_SLOW_SECONDS
+        log.info("Gemini %s benched for %.0fs (slow)", model, BENCH_SLOW_SECONDS)
+        return
     if not (isinstance(exc, errors.APIError) and exc.code in (404, 429)):
         return
     text = str(exc)
@@ -180,13 +191,8 @@ async def stream_with_tools(
             model_parts: list[types.Part] = []
             calls: list[types.FunctionCall] = []
             try:
-                stream = await asyncio.wait_for(
-                    client.aio.models.generate_content_stream(
-                        model=plan[attempt], contents=contents, config=config_for(plan[attempt], config)
-                    ),
-                    attempt_timeout(plan, attempt),
-                )
-                async for chunk in stream:
+                attempt, chunks, chunk = await _open_round(client, plan, attempt, contents, config)
+                while chunk is not None:
                     candidate = (chunk.candidates or [None])[0]
                     for part in (candidate.content.parts if candidate and candidate.content else None) or []:
                         model_parts.append(part)
@@ -194,6 +200,7 @@ async def stream_with_tools(
                             calls.append(part.function_call)
                         elif part.text and not part.thought:
                             yield part.text
+                    chunk = await anext(chunks, None)  # later chunks: the caller's idle limit applies
                 break
             except GeminiUnavailable:
                 raise
@@ -204,7 +211,7 @@ async def stream_with_tools(
                     attempt += 1
                     await _before_next(plan, attempt, exc)
                     continue
-                raise GeminiUnavailable(str(exc)) from exc
+                raise GeminiUnavailable(str(exc) or type(exc).__name__) from exc
 
         if not calls:
             return
@@ -214,6 +221,75 @@ async def stream_with_tools(
         contents.append(types.Content(role="user", parts=list(responses)))
 
     raise GeminiUnavailable("Tool round limit reached.")
+
+
+async def _open(client: Any, model: str, contents: list[types.Content], config: types.GenerateContentConfig):
+    """Opens a stream and waits for its first chunk (None for an empty stream)."""
+    stream = await client.aio.models.generate_content_stream(
+        model=model, contents=contents, config=config_for(model, config)
+    )
+    chunks = aiter(stream)
+    return chunks, await anext(chunks, None)
+
+
+async def _open_round(client: Any, plan: tuple[str, ...], attempt: int,
+                      contents: list[types.Content], config: types.GenerateContentConfig):
+    """Starts a round on plan[attempt] and returns (index, chunks, first chunk)
+    of the model that answers first.
+
+    Each model gets ATTEMPT_TIMEOUT_SECONDS to send its first chunk. If the
+    current one is still silent after HEDGE_AFTER_SECONDS, the next model is
+    started alongside it (at most two in flight) and the first to answer wins,
+    so one slow model costs seconds instead of the whole timeout. A model that
+    fails or loses the race to a later one is benched as slow.
+    """
+    loop = asyncio.get_running_loop()
+    pending: dict[asyncio.Task, int] = {}
+    next_up = attempt
+    last_launch = 0.0
+    last_exc: BaseException | None = None
+
+    def launch() -> None:
+        nonlocal next_up, last_launch
+        task = asyncio.ensure_future(asyncio.wait_for(
+            _open(client, plan[next_up], contents, config), attempt_timeout(plan, next_up)))
+        pending[task] = next_up
+        next_up += 1
+        last_launch = loop.time()
+
+    launch()
+    try:
+        while pending:
+            hedge = len(pending) == 1 and next_up < len(plan) and plan[next_up] != plan[next_up - 1]
+            # Counted from the latest launch: when one of two racers fails, the
+            # survivor may already be overdue and the next model starts at once.
+            wait = max(0.0, last_launch + HEDGE_AFTER_SECONDS - loop.time()) if hedge else None
+            done, _ = await asyncio.wait(pending, timeout=wait, return_when=asyncio.FIRST_COMPLETED)
+            if not done:
+                log.info("Gemini %s slow; racing %s", plan[next_up - 1], plan[next_up])
+                launch()
+                continue
+            for task in sorted(done, key=pending.__getitem__):
+                index = pending.pop(task)
+                exc = task.exception()
+                if exc is None:
+                    for i in pending.values():
+                        if i < index:  # started earlier and still silent
+                            bench(plan[i], asyncio.TimeoutError())
+                    return index, *task.result()
+                bench(plan[index], exc)
+                if not is_transient(exc):
+                    raise GeminiUnavailable(str(exc) or type(exc).__name__) from exc
+                last_exc = exc
+                log.info("Gemini %s busy (%s)", plan[index], getattr(exc, "code", None) or type(exc).__name__)
+            if not pending and next_up < len(plan):
+                if plan[next_up] == plan[next_up - 1]:
+                    await asyncio.sleep(RETRY_DELAY_SECONDS)  # single model: pause before its retry
+                launch()
+    finally:
+        for task in pending:
+            task.cancel()
+    raise GeminiUnavailable(str(last_exc) or type(last_exc).__name__) from last_exc
 
 
 async def _run_tool(by_name: dict[str, Tool], call: types.FunctionCall) -> types.Part:
@@ -265,7 +341,7 @@ async def generate_json(
                 attempt += 1
                 await _before_next(plan, attempt, exc)
                 continue
-            raise GeminiUnavailable(str(exc)) from exc
+            raise GeminiUnavailable(str(exc) or type(exc).__name__) from exc
     if not isinstance(data, dict):
         raise GeminiUnavailable("Model returned non-object JSON.")
     return data
