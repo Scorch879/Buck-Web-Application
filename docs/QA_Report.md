@@ -573,6 +573,7 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
 - **Symptom**: On main and dev, chat logged `Advisor chat failed:` with nothing after the colon and the user got the offline answer.
 - **Cause**: The 8 s per-model cap only covered opening the stream. A model that opened it and then sent nothing (seen live on `gemini-3.7-flash` and `3.8-flash`) held the request until the chat's 20 s first-text limit, so the chain never reached the next model. The empty text was `TimeoutError`, whose message is blank.
 - **Resolution**: One 8 s budget now covers opening the stream and its first chunk, so a silent model is skipped. The chat's first-text limit is 30 s, enough for a tool round plus a few skips. Logs name the error type when the message is empty. Test: `test_stream_skips_a_model_that_opens_but_never_answers`. Live check: 3.8 and 3.7 timed out, 3.6 answered at about 21 s.
+- **Follow-up (same day)**: to cut the wait, chat now races the next model if the current one is silent after 4 s (at most two in flight, first answer wins), and a model that times out or loses a race is skipped for 5 minutes on that instance. Tests: `test_slow_model_is_raced_and_the_first_answer_wins`, `test_race_keeps_going_when_the_raced_model_fails`. Live, on a day when 3.8, 3.7 and 3.5 stalled: first chat 15 s, the next ones 4.5–10 s.
 
 ---
 

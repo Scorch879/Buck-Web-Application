@@ -184,6 +184,54 @@ class ModelChainTests(unittest.IsolatedAsyncioTestCase):
         with mock.patch.object(gemini, "ATTEMPT_TIMEOUT_SECONDS", 0.05):
             self.assertEqual(await collect(gemini.stream_with_tools("sys", [], [])), ["ok"])
         self.assertEqual(used, ["gemini-3.8-flash", "gemini-3.7-flash"])
+        self.assertEqual(gemini.attempt_plan()[0], "gemini-3.7-flash")  # 3.8 benched as slow
+
+    async def test_slow_model_is_raced_and_the_first_answer_wins(self):
+        used = []
+        late = gemini.asyncio.Event()
+
+        class Models:
+            async def generate_content_stream(self, model, contents, config):
+                used.append(model)
+
+                async def gen():
+                    if model == "gemini-3.8-flash":
+                        await late.wait()  # slow, but not dead
+                        yield chunk(types.Part(text="slow"))
+                        return
+                    yield chunk(types.Part(text="fast "))
+                    yield chunk(types.Part(text="answer"))
+
+                return gen()
+
+        gemini.set_client(fake_client(Models()))
+        with mock.patch.object(gemini, "HEDGE_AFTER_SECONDS", 0.02):
+            out = await collect(gemini.stream_with_tools("sys", [], []))
+        self.assertEqual(out, ["fast ", "answer"])
+        self.assertEqual(used, ["gemini-3.8-flash", "gemini-3.7-flash"])  # at most two in flight
+        self.assertEqual(gemini.attempt_plan()[0], "gemini-3.7-flash")  # the loser is benched
+
+    async def test_race_keeps_going_when_the_raced_model_fails(self):
+        used = []
+
+        class Models:
+            async def generate_content_stream(self, model, contents, config):
+                used.append(model)
+                if model == "gemini-3.7-flash":
+                    raise overloaded()
+
+                async def gen():
+                    if model == "gemini-3.8-flash":
+                        await gemini.asyncio.Event().wait()
+                    yield chunk(types.Part(text=model))
+
+                return gen()
+
+        gemini.set_client(fake_client(Models()))
+        with mock.patch.object(gemini, "HEDGE_AFTER_SECONDS", 0.02):
+            out = await collect(gemini.stream_with_tools("sys", [], []))
+        self.assertEqual(out, ["gemini-3.6-flash"])
+        self.assertEqual(used, ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"])
 
     async def test_json_records_the_model_that_answered(self):
         used = []
@@ -266,7 +314,8 @@ class ModelChainTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(used, ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"])
             used.clear()
             await gemini.generate_json("sys", "p", {"type": "object"})
-        self.assertEqual(used[0], "gemini-3.7-flash")  # 3.8 is out of quota for the day: skipped
+        # 3.8 is out of quota for the day and 3.7 was too slow: both skipped.
+        self.assertEqual(used, ["gemini-3.6-flash"])
 
     def test_gemma_drops_thinking_and_last_model_gets_the_rest_of_the_budget(self):
         from google.genai import types as t
