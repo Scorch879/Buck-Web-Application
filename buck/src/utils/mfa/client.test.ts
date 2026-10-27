@@ -21,6 +21,12 @@ describe("getSafeMfaRedirect", () => {
     }
   });
 
+  it("rejects dot-segment tricks that collapse into a protocol-relative URL", () => {
+    for (const value of ["/.//evil.example", "/a/..//evil.example", "/./\\evil.example", "/dashboard/..//evil.example"]) {
+      expect(getSafeMfaRedirect(value)).toBe(DEFAULT_MFA_REDIRECT);
+    }
+  });
+
   it("never loops back to the verify page", () => {
     expect(getSafeMfaRedirect("/verify-2fa?redirectTo=/dashboard/home")).toBe(DEFAULT_MFA_REDIRECT);
   });

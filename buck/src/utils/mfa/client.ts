@@ -232,7 +232,15 @@ export function getSafeMfaRedirect(value: string | null | undefined) {
       return DEFAULT_MFA_REDIRECT;
     }
 
-    return parsed.pathname + parsed.search;
+    const safe = parsed.pathname + parsed.search;
+
+    // Dot segments can collapse "/.//evil.example" to "//evil.example", which a
+    // browser reads as another host. Judge the normalised result, not the input.
+    if (!safe.startsWith("/") || safe.startsWith("//") || safe.startsWith("/\\")) {
+      return DEFAULT_MFA_REDIRECT;
+    }
+
+    return safe;
   } catch {
     return DEFAULT_MFA_REDIRECT;
   }
