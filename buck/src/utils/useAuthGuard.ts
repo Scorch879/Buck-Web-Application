@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+import {
+  clearClientAuthStorage,
+  isClientSessionIdleExpired,
+  signOutUser,
+} from "@/component/authentication";
 import { toBuckUser, type BuckUser } from "@/utils/authUser";
 import {
   designPreviewUserId,
@@ -29,6 +34,8 @@ function isInvalidRefreshTokenError(error: unknown) {
 }
 
 async function clearBrokenLocalSession() {
+  clearClientAuthStorage();
+
   if (!supabase) {
     return;
   }
@@ -222,7 +229,16 @@ export function useRedirectIfAuthenticated(redirectTo = "/dashboard/home") {
           return;
         }
 
-        if (mounted && data.user) {
+        if (!data.user) {
+          return;
+        }
+
+        if (isClientSessionIdleExpired(data.user)) {
+          await signOutUser();
+          return;
+        }
+
+        if (mounted) {
           router.replace(redirectTo);
         }
       })
@@ -235,17 +251,8 @@ export function useRedirectIfAuthenticated(redirectTo = "/dashboard/home") {
         console.warn("Failed to read auth session:", error);
       });
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        router.replace(redirectTo);
-      }
-    });
-
     return () => {
       mounted = false;
-      subscription.unsubscribe();
     };
   }, [router, redirectTo]);
 }

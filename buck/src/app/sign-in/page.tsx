@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { signInUser, signInWithGoogle } from "@/component/authentication";
+import { clearClientAuthStorage, resetClientSessionActivity, signInUser, signInWithGoogle } from "@/component/authentication";
 import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
 import { OAUTH_CONSENT_PATH, createMfaVerifyPath } from "@/utils/mfa/assurance";
 import { supabase } from "@/utils/supabase";
@@ -142,7 +142,7 @@ const SignIn = () => {
     // A server-side idle logout redirects here without running the client
     // sign-out, so drop any cached financial data left in this tab.
     try {
-      window.sessionStorage.removeItem("buck-dashboard-cache-v1");
+      clearClientAuthStorage();
     } catch {
       // Storage may be unavailable; the cache is only a speed boost.
     }
@@ -188,6 +188,7 @@ const SignIn = () => {
     const result = await signInUser(normalizedEmail, pass);
 
     if (result.success) {
+      resetClientSessionActivity();
       setMsg("Sign in successful. Opening your dashboard...");
       await openPostSignInRedirect(redirectTo);
       return;
@@ -235,12 +236,14 @@ const SignIn = () => {
     setIsPasskeyLoading(true);
 
     try {
+      resetClientSessionActivity();
       const { error: passkeyError } = await supabase.auth.signInWithPasskey();
 
       if (passkeyError) {
         throw passkeyError;
       }
 
+      resetClientSessionActivity();
       setMsg("Sign in successful. Opening your dashboard...");
       await openPostSignInRedirect(redirectTo);
     } catch (passkeyError) {

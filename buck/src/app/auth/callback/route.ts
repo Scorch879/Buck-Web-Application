@@ -156,6 +156,16 @@ export async function GET(request: NextRequest) {
   return redirectResponse;
 }
 
+function clearStaleActivityCookie(response: NextResponse) {
+  response.cookies.set("buck-session-activity", "", {
+    path: "/",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 0,
+  });
+}
+
 /**
  * Magic links, Google and e-mail confirmation all land here at aal1. A user
  * with 2FA on is sent to the code page first (ADR-048); only the 2FA email
@@ -168,6 +178,8 @@ function gateTwoFactor(
   nextPath: string,
   session: Session | null
 ) {
+  clearStaleActivityCookie(redirectResponse);
+
   const isRecoveryLink = nextPath.startsWith(EMAIL_RECOVERY_CONFIRM_PATH);
 
   if (!session || isRecoveryLink || getMfaState(session.user, session.access_token).satisfied) {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { Session } from "@supabase/supabase-js";
 import { signOutUser } from "@/component/authentication";
 import { isSupabaseConfigured, supabase } from "@/utils/supabase";
 
@@ -151,6 +152,8 @@ export default function SessionManager() {
 
       signingOutRef.current = true;
       authenticatedRef.current = false;
+      lastActivityRef.current = 0;
+      lastWriteRef.current = 0;
       setIsAuthenticated(false);
       setShowWarning(false);
       setSecondsLeft(0);
@@ -176,7 +179,15 @@ export default function SessionManager() {
           // The UI state and stored session have already been cleared.
         }
       } finally {
-        router.replace("/sign-in?reason=session-expired");
+        const currentPathname =
+          typeof window !== "undefined" ? window.location.pathname : "";
+
+        if (
+          currentPathname !== "/sign-in" &&
+          currentPathname !== "/create-account"
+        ) {
+          router.replace("/sign-in?reason=session-expired");
+        }
       }
     },
     [clearTimers, publishSessionMessage, router]
@@ -272,10 +283,23 @@ export default function SessionManager() {
 
     let isMounted = true;
 
-    const startTracking = () => {
+    const startTracking = (
+      session?: Session | null,
+      isFreshSignIn = false
+    ) => {
       const now = Date.now();
       const storedActivity = readStoredTimestamp(LAST_ACTIVITY_KEY);
-      const activityTimestamp = storedActivity || now;
+      const lastSignInMs = session?.user?.last_sign_in_at
+        ? Date.parse(session.user.last_sign_in_at)
+        : Number.NaN;
+      const hasNewerSignIn =
+        Number.isFinite(lastSignInMs) &&
+        lastSignInMs > 0 &&
+        now - lastSignInMs < timeoutMs &&
+        lastSignInMs > storedActivity;
+      const shouldResetActivity =
+        isFreshSignIn || hasNewerSignIn || !storedActivity;
+      const activityTimestamp = shouldResetActivity ? now : storedActivity;
 
       signingOutRef.current = false;
       authenticatedRef.current = true;
@@ -283,8 +307,9 @@ export default function SessionManager() {
       lastWriteRef.current = activityTimestamp;
       setIsAuthenticated(true);
 
-      if (!storedActivity) {
+      if (shouldResetActivity) {
         writeStoredValue(LAST_ACTIVITY_KEY, String(now));
+        removeStoredValue(FORCE_SIGN_OUT_KEY);
       }
 
       if (now - activityTimestamp >= timeoutMs) {
@@ -297,6 +322,8 @@ export default function SessionManager() {
 
     const stopTracking = () => {
       authenticatedRef.current = false;
+      lastActivityRef.current = 0;
+      lastWriteRef.current = 0;
       setIsAuthenticated(false);
       setShowWarning(false);
       setSecondsLeft(0);
@@ -310,16 +337,16 @@ export default function SessionManager() {
       }
 
       if (data.session) {
-        startTracking();
+        startTracking(data.session, false);
       } else {
         stopTracking();
       }
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
         if (session) {
-          startTracking();
+          startTracking(session, event === "SIGNED_IN");
         } else {
           stopTracking();
         }
