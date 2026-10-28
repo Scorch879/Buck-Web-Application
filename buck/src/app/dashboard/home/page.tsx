@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useDashboardUser } from "@/context/DashboardUserContext";
 import {
@@ -30,8 +31,19 @@ type Expense = BuckExpense;
 
 
 type TimeframeFilter = "all" | "month" | "week";
+type AllTimeGranularity = "months" | "years";
+
+type BarTimeBucket = {
+  key: string;
+  subLabel?: string;
+  fullLabel: string;
+  start: Date;
+  end: Date;
+};
 
 const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const PAGE_MONTHS = 6;
+const PAGE_YEARS = 5;
 
 const categoryDescriptions: Record<string, string> = {
   Food: "Meals, snacks, and groceries.",
@@ -78,14 +90,6 @@ function parseExpenseDate(expense: Expense): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function isSameCalendarDate(first: Date, second: Date) {
-  return (
-    first.getDate() === second.getDate() &&
-    first.getMonth() === second.getMonth() &&
-    first.getFullYear() === second.getFullYear()
-  );
-}
-
 function getFilteredExpenses(
   expenses: Expense[],
   timeframe: TimeframeFilter
@@ -109,78 +113,188 @@ function getFilteredExpenses(
   });
 }
 
-const jsDayToWeekDaysIndex: Record<number, number> = {
-  1: 0, // Mon
-  2: 1, // Tue
-  3: 2, // Wed
-  4: 3, // Thu
-  5: 4, // Fri
-  6: 5, // Sat
-  0: 6, // Sun
-};
+function buildBarTimeBuckets(
+  allExpenses: Expense[],
+  timeframe: TimeframeFilter,
+  allTimeGranularity: AllTimeGranularity,
+  barPageOffset: number
+): {
+  buckets: BarTimeBucket[];
+  totalPages: number;
+  safePage: number;
+  windowLabel: string;
+} {
+  const today = new Date();
+  const todayYear = today.getFullYear();
+  const todayMonth = today.getMonth();
 
-function getDailyExpensesData(
-  filteredExpenses: Expense[],
-  timeframe: TimeframeFilter
-): WeeklyDatum[] {
   if (timeframe === "week") {
-    const { start } = getCurrentWeekRange();
-    return weekDays.map((day, index) => {
+    const { start, end } = getCurrentWeekRange();
+    const buckets: BarTimeBucket[] = weekDays.map((day, index) => {
       const date = new Date(start);
       date.setDate(start.getDate() + index);
-
-      const amount = filteredExpenses
-        .filter((expense) => {
-          const expenseDate = parseExpenseDate(expense);
-          return expenseDate ? isSameCalendarDate(expenseDate, date) : false;
-        })
-        .reduce((sum, expense) => sum + toNumber(expense.amount), 0);
-
-      return { day, amount };
+      const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+      const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+      const subLabel = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      return {
+        key: day,
+        subLabel,
+        fullLabel: `${fullDayNames[day] || day} (${subLabel})`,
+        start: dayStart,
+        end: dayEnd,
+      };
     });
+    const startFmt = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const endFmt = end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return {
+      buckets,
+      totalPages: 1,
+      safePage: 0,
+      windowLabel: `${startFmt} – ${endFmt}`,
+    };
   }
 
-  // For "month" and "all": aggregate expenses by day of the week (Mon to Sun)
-  const dayTotals: number[] = [0, 0, 0, 0, 0, 0, 0];
+  if (timeframe === "month") {
+    const daysInMonth = new Date(todayYear, todayMonth + 1, 0).getDate();
+    const monthShort = today.toLocaleString("en-US", { month: "short" });
+    const monthFull = today.toLocaleString("en-US", { month: "long", year: "numeric" });
+    const weekRanges: [number, number][] = [
+      [1, 7],
+      [8, 14],
+      [15, 21],
+      [22, daysInMonth],
+    ];
+    const buckets: BarTimeBucket[] = weekRanges.map(([startDay, endDay], idx) => {
+      const key = `Week ${idx + 1}`;
+      const subLabel = `${monthShort} ${startDay}–${endDay}`;
+      return {
+        key,
+        subLabel,
+        fullLabel: `${key} (${subLabel})`,
+        start: new Date(todayYear, todayMonth, startDay, 0, 0, 0, 0),
+        end: new Date(todayYear, todayMonth, endDay, 23, 59, 59, 999),
+      };
+    });
+    return {
+      buckets,
+      totalPages: 1,
+      safePage: 0,
+      windowLabel: monthFull,
+    };
+  }
 
-  for (const expense of filteredExpenses) {
-    const expenseDate = parseExpenseDate(expense);
-    if (expenseDate) {
-      const jsDay = expenseDate.getDay();
-      const idx = jsDayToWeekDaysIndex[jsDay];
-      if (idx !== undefined) {
-        dayTotals[idx] += toNumber(expense.amount);
-      }
+  // timeframe === "all": find earliest expense date
+  let minDate = new Date(todayYear, todayMonth, 1);
+  for (const exp of allExpenses) {
+    const parsed = parseExpenseDate(exp);
+    if (parsed && parsed < minDate) {
+      minDate = parsed;
     }
   }
 
-  return weekDays.map((day, idx) => ({
-    day,
-    amount: dayTotals[idx],
-  }));
-}
+  if (allTimeGranularity === "years") {
+    const minYear = minDate.getFullYear();
+    const yearsSpan = Math.max(0, todayYear - minYear) + 1;
+    const totalPages = Math.max(1, Math.ceil(yearsSpan / PAGE_YEARS));
+    const safePage = Math.min(Math.max(0, barPageOffset), totalPages - 1);
+    const endYear = todayYear - safePage * PAGE_YEARS;
+    const startYear = endYear - (PAGE_YEARS - 1);
 
-function matchesDayFilter(
-  expense: Expense,
-  selectedDay: string | null,
-  timeframe: TimeframeFilter
-): boolean {
-  if (!selectedDay) return true;
-  const expenseDate = parseExpenseDate(expense);
-  if (!expenseDate) return false;
+    const buckets: BarTimeBucket[] = Array.from({ length: PAGE_YEARS }, (_, idx) => {
+      const yr = startYear + idx;
+      const key = String(yr);
+      return {
+        key,
+        fullLabel: `Year ${yr}`,
+        start: new Date(yr, 0, 1, 0, 0, 0, 0),
+        end: new Date(yr, 11, 31, 23, 59, 59, 999),
+      };
+    });
 
-  if (timeframe === "week") {
-    const { start } = getCurrentWeekRange();
-    const dayIndex = weekDays.indexOf(selectedDay);
-    if (dayIndex === -1) return false;
-    const targetDate = new Date(start);
-    targetDate.setDate(start.getDate() + dayIndex);
-    return isSameCalendarDate(expenseDate, targetDate);
+    return {
+      buckets,
+      totalPages,
+      safePage,
+      windowLabel: `${startYear} – ${endYear}`,
+    };
   }
 
-  const jsDay = expenseDate.getDay();
-  const dayIndex = jsDayToWeekDaysIndex[jsDay];
-  return weekDays[dayIndex] === selectedDay;
+  // Default "all" granularity: Paginated 6-Month Windows
+  const monthsDiff =
+    (todayYear - minDate.getFullYear()) * 12 + (todayMonth - minDate.getMonth());
+  const totalPages = Math.max(1, Math.ceil((Math.max(0, monthsDiff) + 1) / PAGE_MONTHS));
+  const safePage = Math.min(Math.max(0, barPageOffset), totalPages - 1);
+  const endMonthOffset = safePage * PAGE_MONTHS;
+
+  const buckets: BarTimeBucket[] = Array.from({ length: PAGE_MONTHS }, (_, idx) => {
+    const offsetFromToday = endMonthOffset + (PAGE_MONTHS - 1 - idx);
+    const d = new Date(todayYear, todayMonth - offsetFromToday, 1);
+    const yr = d.getFullYear();
+    const mo = d.getMonth();
+    const monthShort = d.toLocaleString("en-US", { month: "short" });
+    const monthFull = d.toLocaleString("en-US", { month: "long", year: "numeric" });
+    return {
+      key: monthShort,
+      subLabel: String(yr),
+      fullLabel: monthFull,
+      start: new Date(yr, mo, 1, 0, 0, 0, 0),
+      end: new Date(yr, mo + 1, 0, 23, 59, 59, 999),
+    };
+  });
+
+  const firstBucket = buckets[0];
+  const lastBucket = buckets[buckets.length - 1];
+  const firstLabel = firstBucket.start.toLocaleString("en-US", {
+    month: "short",
+    year: "numeric",
+  });
+  const lastLabel = lastBucket.start.toLocaleString("en-US", {
+    month: "short",
+    year: "numeric",
+  });
+
+  return {
+    buckets,
+    totalPages,
+    safePage,
+    windowLabel: `${firstLabel} – ${lastLabel}`,
+  };
+}
+
+function getBucketExpensesData(
+  filteredExpenses: Expense[],
+  buckets: BarTimeBucket[]
+): WeeklyDatum[] {
+  return buckets.map((bucket) => {
+    const amount = filteredExpenses
+      .filter((expense) => {
+        const expenseDate = parseExpenseDate(expense);
+        return expenseDate
+          ? expenseDate >= bucket.start && expenseDate <= bucket.end
+          : false;
+      })
+      .reduce((sum, expense) => sum + toNumber(expense.amount), 0);
+
+    return {
+      day: bucket.key,
+      subLabel: bucket.subLabel,
+      fullLabel: bucket.fullLabel,
+      amount,
+    };
+  });
+}
+
+function matchesBucketFilter(
+  expense: Expense,
+  selectedBucketKey: string | null,
+  buckets: BarTimeBucket[]
+): boolean {
+  if (!selectedBucketKey) return true;
+  const expenseDate = parseExpenseDate(expense);
+  if (!expenseDate) return false;
+  const target = buckets.find((b) => b.key === selectedBucketKey);
+  if (!target) return false;
+  return expenseDate >= target.start && expenseDate <= target.end;
 }
 
 function matchesCategoryFilter(
@@ -390,8 +504,39 @@ export default function Dashboard() {
   }, [setDashboardCache, user.uid]);
 
   const [timeframe, setTimeframe] = useState<TimeframeFilter>("all");
+  const [allTimeGranularity, setAllTimeGranularity] =
+    useState<AllTimeGranularity>("months");
+  const [barPageOffset, setBarPageOffset] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+
+  const barBucketConfig = useMemo(
+    () =>
+      buildBarTimeBuckets(
+        expenses,
+        timeframe,
+        allTimeGranularity,
+        barPageOffset
+      ),
+    [expenses, timeframe, allTimeGranularity, barPageOffset]
+  );
+
+  const bucketFullNames = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = { ...fullDayNames };
+    for (const bucket of barBucketConfig.buckets) {
+      map[bucket.key] = bucket.fullLabel;
+    }
+    return map;
+  }, [barBucketConfig.buckets]);
+
+  const bucketFilterPrefix =
+    timeframe === "week" ? "Day:" : timeframe === "month" ? "Week:" : "Period:";
+  const bucketClearLabel =
+    timeframe === "week"
+      ? "✕ All Days"
+      : timeframe === "month"
+      ? "✕ All Weeks"
+      : "✕ All Periods";
 
   const pieExpenses = useMemo(
     () => getFilteredExpenses(expenses, timeframe),
@@ -400,8 +545,10 @@ export default function Dashboard() {
 
   const dayFilteredExpenses = useMemo(() => {
     if (!selectedDay) return pieExpenses;
-    return pieExpenses.filter((e) => matchesDayFilter(e, selectedDay, timeframe));
-  }, [pieExpenses, selectedDay, timeframe]);
+    return pieExpenses.filter((e) =>
+      matchesBucketFilter(e, selectedDay, barBucketConfig.buckets)
+    );
+  }, [pieExpenses, selectedDay, barBucketConfig.buckets]);
 
   const categoryPieData = useMemo(
     () => getCategoryPieData(dayFilteredExpenses),
@@ -478,17 +625,17 @@ export default function Dashboard() {
     }
   }, [categoryPieData.slices, pieExpenses, selectedCategory]);
 
-  // If timeframe changes and selected day no longer has expenses, reset it
+  // If timeframe or bucket window changes and selected bucket no longer has expenses, reset it
   useEffect(() => {
     if (selectedDay && pieExpenses.length > 0) {
       const hasDayExpenses = pieExpenses.some((e) =>
-        matchesDayFilter(e, selectedDay, timeframe)
+        matchesBucketFilter(e, selectedDay, barBucketConfig.buckets)
       );
       if (!hasDayExpenses) {
         setSelectedDay(null);
       }
     }
-  }, [pieExpenses, selectedDay, timeframe]);
+  }, [pieExpenses, selectedDay, barBucketConfig.buckets]);
 
   const barChartExpenses = useMemo(() => {
     return pieExpenses.filter((expense) =>
@@ -497,14 +644,14 @@ export default function Dashboard() {
   }, [pieExpenses, selectedCategory, top4CategoryNames]);
 
   const weeklyData = useMemo(
-    () => getDailyExpensesData(barChartExpenses, timeframe),
-    [barChartExpenses, timeframe]
+    () => getBucketExpensesData(barChartExpenses, barBucketConfig.buckets),
+    [barChartExpenses, barBucketConfig.buckets]
   );
 
   const summaryData = useMemo<SummaryTableItem[]>(() => {
     const isOthersSelection =
       selectedCategory === "Others" || selectedCategory === "Others (Combined)";
-    const activeDayName = selectedDay ? (fullDayNames[selectedDay] || selectedDay) : null;
+    const activeDayName = selectedDay ? (bucketFullNames[selectedDay] || selectedDay) : null;
 
     if (isOthersSelection) {
       const othersExpenses = dayFilteredExpenses.filter((e) => {
@@ -538,7 +685,7 @@ export default function Dashboard() {
           description:
             categoryDescriptions[catName] ||
             (activeDayName
-              ? `Grouped under Others on ${activeDayName}.`
+              ? `Grouped under Others in ${activeDayName}.`
               : "Category grouped under Others."),
         });
         colorIdx++;
@@ -552,7 +699,7 @@ export default function Dashboard() {
           percentage: 100,
           color: CHART_THEME.othersColor,
           description: activeDayName
-            ? `Combined expenses outside the top 4 categories on ${activeDayName}.`
+            ? `Combined expenses outside the top 4 categories in ${activeDayName}.`
             : "Combined expenses outside the top 4 categories.",
         });
       }
@@ -597,7 +744,7 @@ export default function Dashboard() {
           description:
             categoryDescriptions[name] ||
             (activeDayName
-              ? `Spending under ${name} on ${activeDayName}.`
+              ? `Spending under ${name} in ${activeDayName}.`
               : "Custom budget category."),
         };
       })
@@ -609,6 +756,7 @@ export default function Dashboard() {
     dayFilteredExpenses,
     selectedCategory,
     selectedDay,
+    bucketFullNames,
     top4CategoryNames,
   ]);
 
@@ -616,9 +764,27 @@ export default function Dashboard() {
     return <DashboardPageSkeleton variant="home" />;
   }
 
+  const barChartTitle =
+    timeframe === "week"
+      ? "Expenses by day"
+      : timeframe === "month"
+      ? "Expenses by week"
+      : allTimeGranularity === "years"
+      ? "Expenses by year"
+      : "Expenses by month";
+
+  const barXAxisTitle =
+    timeframe === "week"
+      ? "Day of the Week"
+      : timeframe === "month"
+      ? "Week of the Month (Weeks 1–4)"
+      : allTimeGranularity === "years"
+      ? "Year (5-Year Window)"
+      : "Month (6-Month Window)";
+
   return (
     <div className="dashboard-container">
-      {/* 1. Category Breakdown Pie Graph & Weekly Expenses by Day Bar Graph */}
+      {/* 1. Category Breakdown Pie Graph & Dynamic Expenses Bar Graph */}
       <section className="dashboard-content" aria-label="Spending overview">
         <article className="spending-card" aria-label="Category spending breakdown">
           <div className="spending-card-header">
@@ -635,9 +801,9 @@ export default function Dashboard() {
                         aria-hidden="true"
                       />
                       <span className="filter-badge-label">
-                        <span className="filter-badge-prefix">Day:</span>
+                        <span className="filter-badge-prefix">{bucketFilterPrefix}</span>
                         <strong className="filter-badge-name">
-                          {fullDayNames[selectedDay] || selectedDay}
+                          {bucketFullNames[selectedDay] || selectedDay}
                         </strong>
                       </span>
                     </div>
@@ -645,10 +811,10 @@ export default function Dashboard() {
                       type="button"
                       className="filter-clear-btn"
                       onClick={() => setSelectedDay(null)}
-                      title="Clear day filter"
-                      aria-label="Clear day filter"
+                      title="Clear period filter"
+                      aria-label="Clear period filter"
                     >
-                      ✕ All Days
+                      {bucketClearLabel}
                     </button>
                   </div>
                 )}
@@ -665,6 +831,7 @@ export default function Dashboard() {
                   className={`timeframe-btn ${timeframe === "all" ? "timeframe-btn--active" : ""}`}
                   onClick={() => {
                     setTimeframe("all");
+                    setBarPageOffset(0);
                     setSelectedDay(null);
                   }}
                 >
@@ -675,6 +842,7 @@ export default function Dashboard() {
                   className={`timeframe-btn ${timeframe === "month" ? "timeframe-btn--active" : ""}`}
                   onClick={() => {
                     setTimeframe("month");
+                    setBarPageOffset(0);
                     setSelectedDay(null);
                   }}
                 >
@@ -685,6 +853,7 @@ export default function Dashboard() {
                   className={`timeframe-btn ${timeframe === "week" ? "timeframe-btn--active" : ""}`}
                   onClick={() => {
                     setTimeframe("week");
+                    setBarPageOffset(0);
                     setSelectedDay(null);
                   }}
                 >
@@ -701,7 +870,7 @@ export default function Dashboard() {
             onSelectCategory={setSelectedCategory}
             centerLabel={
               selectedDay
-                ? `Total on ${fullDayNames[selectedDay] || selectedDay}`
+                ? `Total in ${bucketFullNames[selectedDay] || selectedDay}`
                 : timeframe === "week"
                 ? "Total this week"
                 : timeframe === "month"
@@ -710,7 +879,7 @@ export default function Dashboard() {
             }
             emptyMessage={
               selectedDay
-                ? `No expenses recorded on ${fullDayNames[selectedDay] || selectedDay}`
+                ? `No expenses recorded in ${bucketFullNames[selectedDay] || selectedDay}`
                 : timeframe === "week"
                 ? "No expenses recorded this week"
                 : timeframe === "month"
@@ -721,7 +890,7 @@ export default function Dashboard() {
         </article>
 
         <article className="graph-card">
-          <div className="card-heading-row">
+          <div className="card-heading-row graph-card-header-row">
             <div className="card-heading">
               <p className="card-eyebrow">
                 {timeframe === "week"
@@ -731,7 +900,7 @@ export default function Dashboard() {
                   : "All-Time Summary"}
               </p>
               <div className="summary-title-row">
-                <h2 className="graph-title">Expenses by day</h2>
+                <h2 className="graph-title">{barChartTitle}</h2>
                 {(selectedCategory || selectedDay) && (
                   <div className="chart-active-filter-group">
                     {selectedCategory && (
@@ -769,9 +938,9 @@ export default function Dashboard() {
                             aria-hidden="true"
                           />
                           <span className="filter-badge-label">
-                            <span className="filter-badge-prefix">Day:</span>
+                            <span className="filter-badge-prefix">{bucketFilterPrefix}</span>
                             <strong className="filter-badge-name">
-                              {fullDayNames[selectedDay] || selectedDay}
+                              {bucketFullNames[selectedDay] || selectedDay}
                             </strong>
                           </span>
                         </div>
@@ -779,8 +948,8 @@ export default function Dashboard() {
                           type="button"
                           className="filter-clear-btn"
                           onClick={() => setSelectedDay(null)}
-                          title="Clear day filter"
-                          aria-label="Clear day filter"
+                          title="Clear period filter"
+                          aria-label="Clear period filter"
                         >
                           ✕ Clear
                         </button>
@@ -790,12 +959,89 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
+
+            <div className="graph-card-controls">
+              {timeframe === "all" ? (
+                <>
+                  <div
+                    className="graph-granularity-toggle"
+                    role="group"
+                    aria-label="All-time bar chart granularity"
+                  >
+                    <button
+                      type="button"
+                      className={`graph-granularity-btn ${
+                        allTimeGranularity === "months" ? "graph-granularity-btn--active" : ""
+                      }`}
+                      onClick={() => {
+                        setAllTimeGranularity("months");
+                        setBarPageOffset(0);
+                        setSelectedDay(null);
+                      }}
+                    >
+                      By Month
+                    </button>
+                    <button
+                      type="button"
+                      className={`graph-granularity-btn ${
+                        allTimeGranularity === "years" ? "graph-granularity-btn--active" : ""
+                      }`}
+                      onClick={() => {
+                        setAllTimeGranularity("years");
+                        setBarPageOffset(0);
+                        setSelectedDay(null);
+                      }}
+                    >
+                      5 Years
+                    </button>
+                  </div>
+                  <div className="graph-pager" aria-label="Bar chart period pagination">
+                    <button
+                      type="button"
+                      className="graph-pager-btn"
+                      onClick={() => {
+                        setBarPageOffset((prev) =>
+                          Math.min(prev + 1, barBucketConfig.totalPages - 1)
+                        );
+                        setSelectedDay(null);
+                      }}
+                      disabled={barBucketConfig.safePage >= barBucketConfig.totalPages - 1}
+                      aria-label="Previous period window"
+                      title="Earlier periods"
+                    >
+                      <FaChevronLeft aria-hidden="true" />
+                    </button>
+                    <span className="graph-pager-label" aria-live="polite">
+                      {barBucketConfig.windowLabel}
+                    </span>
+                    <button
+                      type="button"
+                      className="graph-pager-btn"
+                      onClick={() => {
+                        setBarPageOffset((prev) => Math.max(0, prev - 1));
+                        setSelectedDay(null);
+                      }}
+                      disabled={barBucketConfig.safePage <= 0}
+                      aria-label="Next period window"
+                      title="More recent periods"
+                    >
+                      <FaChevronRight aria-hidden="true" />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <span className="graph-period-badge" aria-live="polite">
+                  {barBucketConfig.windowLabel}
+                </span>
+              )}
+            </div>
           </div>
           <WeeklyBarChart
             data={weeklyData}
             categoryColor={selectedCategoryColor}
             selectedDay={selectedDay}
             onSelectDay={handleSelectDay}
+            xAxisTitle={barXAxisTitle}
           />
         </article>
       </section>
@@ -816,7 +1062,7 @@ export default function Dashboard() {
           selectedCategoryColor={selectedCategoryColor}
           onSelectCategory={(cat) => setSelectedCategory(cat)}
           selectedDay={selectedDay}
-          fullDayNames={fullDayNames}
+          fullDayNames={bucketFullNames}
           onClearDay={() => setSelectedDay(null)}
           isSubCategoryOfOthers={isSubCategoryOfOthers}
         />

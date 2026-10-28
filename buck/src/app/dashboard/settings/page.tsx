@@ -1242,39 +1242,46 @@ export default function SettingsPage() {
             ) : null}
 
             {activeSettingsTab === "feedback" ? (
-              <div style={{ paddingTop: '0.5rem', gridColumn: '1 / -1' }}>
-                <p style={{ color: 'var(--buck-muted)', fontSize: '0.92rem', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+              <div style={{ paddingTop: "0.25rem", gridColumn: "1 / -1" }}>
+                <p style={{ marginBottom: "1rem" }}>
                   Spotted a bug, have a feature idea, or want to flag a question? Tell us — the team reads every note.
                 </p>
 
                 <form className="settings-form" onSubmit={handleSendFeedback}>
                   <div className="settings-field">
-                    <p id="feedback-category-label" style={{ margin: 0, fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--buck-muted)', letterSpacing: '0.05em' }}>What&apos;s this about?</p>
-                    <div className="feedback-category-grid" role="group" aria-labelledby="feedback-category-label" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.2rem' }}>
+                    <span id="feedback-category-label" className="settings-mfa-label">
+                      What&apos;s this about?
+                    </span>
+                    <div
+                      className="feedback-category-grid"
+                      role="group"
+                      aria-labelledby="feedback-category-label"
+                      style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", marginTop: "0.2rem" }}
+                    >
                       {[
-                        { id: 'feature', title: 'Feature idea', desc: "Something new you'd love to see" },
-                        { id: 'bug', title: 'Bug report', desc: "Something isn't working right" },
-                        { id: 'question', title: 'Question issue', desc: "A problem with the question bank" },
-                        { id: 'general', title: 'General feedback', desc: "Anything else on your mind" }
-                      ].map(cat => (
+                        { id: "feature", title: "Feature idea", desc: "Something new you'd love to see" },
+                        { id: "bug", title: "Bug report", desc: "Something isn't working right" },
+                        { id: "question", title: "Question issue", desc: "A problem with the question bank" },
+                        { id: "general", title: "General feedback", desc: "Anything else on your mind" },
+                      ].map((cat) => (
                         <button
                           key={cat.id}
                           type="button"
-                          className={`feedback-category-card ${feedbackCategory === cat.id ? 'active' : ''}`}
+                          className={`feedback-category-card ${feedbackCategory === cat.id ? "active" : ""}`}
                           onClick={() => setFeedbackCategory(cat.id)}
-                          style={{ flex: '1 1 calc(50% - 0.5rem)', padding: '1rem', minWidth: '200px' }}
+                          style={{ flex: "1 1 calc(50% - 0.5rem)", padding: "0.85rem 1rem", minWidth: "200px" }}
                         >
                           <strong>{cat.title}</strong>
-                          <span style={{ fontSize: '0.85rem' }}>{cat.desc}</span>
+                          <span>{cat.desc}</span>
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  <div className="settings-field" style={{ marginTop: '0.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                      <label htmlFor="feedback-title" style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--buck-muted)', letterSpacing: '0.05em' }}>Title</label>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--buck-muted)' }}>{feedbackTitle.length}/120</span>
+                  <div className="settings-field" style={{ marginTop: "0.35rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+                      <label htmlFor="feedback-title">Title</label>
+                      <span className="settings-mfa-help">{feedbackTitle.length}/120</span>
                     </div>
                     <input
                       id="feedback-title"
@@ -1285,10 +1292,10 @@ export default function SettingsPage() {
                     />
                   </div>
 
-                  <div className="settings-field" style={{ marginTop: '0.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                      <label htmlFor="feedback-details" style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--buck-muted)', letterSpacing: '0.05em' }}>Details</label>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--buck-muted)' }}>{feedbackDetails.length}/2000</span>
+                  <div className="settings-field" style={{ marginTop: "0.35rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+                      <label htmlFor="feedback-details">Details</label>
+                      <span className="settings-mfa-help">{feedbackDetails.length}/2000</span>
                     </div>
                     <textarea
                       id="feedback-details"
@@ -1300,12 +1307,12 @@ export default function SettingsPage() {
                     />
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "0.65rem" }}>
                     <button
                       className="settings-button settings-button--primary"
                       type="submit"
                       disabled={sendingFeedback || !feedbackTitle.trim() || !feedbackDetails.trim()}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+                      style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
                     >
                       <FaPaperPlane aria-hidden="true" />
                       {sendingFeedback ? "Sending..." : "Send feedback"}

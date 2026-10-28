@@ -63,26 +63,28 @@
 .settings-hero h1 {
   margin: 0.14rem 0 0.38rem;
   color: var(--buck-ink);
-  font-size: clamp(1.2rem, 2.2vw, 1.5rem);
-  font-weight: 900;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  font-size: clamp(1.15rem, 2vw, 1.35rem);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .settings-hero p,
 .settings-card p {
   margin: 0;
   color: var(--buck-muted);
-  line-height: 1.6;
+  font-size: 0.86rem;
+  font-weight: 400;
+  line-height: 1.5;
 }
 
 .settings-eyebrow {
   margin: 0;
   color: var(--buck-orange);
   font-size: 0.75rem;
-  font-weight: 650;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.04em;
 }
 
 .settings-account-card {
@@ -123,10 +125,17 @@
   display: block;
 }
 
+.settings-account-card strong {
+  color: var(--buck-ink);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
 .settings-account-card span {
-  margin-top: 0.18rem;
+  margin-top: 0.15rem;
   color: var(--buck-muted);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 400;
   word-break: break-word;
 }
 
@@ -222,8 +231,9 @@
 .settings-card-heading h2 {
   margin: 0.12rem 0 0;
   color: var(--buck-ink);
-  font-size: 1.02rem;
-  line-height: 1.2;
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1.25;
 }
 
 .settings-card-heading--wide {
@@ -308,8 +318,9 @@ html[data-buck-theme="dark"] .settings-section--danger {
 .settings-section-heading h3 {
   margin: 0.08rem 0 0;
   color: var(--buck-ink);
-  font-size: 1.02rem;
-  line-height: 1.2;
+  font-size: 0.96rem;
+  font-weight: 600;
+  line-height: 1.25;
 }
 
 .settings-avatar-panel {
@@ -342,9 +353,10 @@ html[data-buck-theme="dark"] .settings-section--danger {
 
 .settings-avatar-panel strong {
   display: block;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.2rem;
   color: var(--buck-ink);
-  font-size: 1rem;
+  font-size: 0.92rem;
+  font-weight: 600;
 }
 
 .settings-avatar-actions {
@@ -382,22 +394,22 @@ html[data-buck-theme="dark"] .settings-section--danger {
 
 .settings-form label {
   color: var(--buck-ink);
-  font-size: 0.86rem;
-  font-weight: 900;
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 
 .settings-form input,
 .settings-form-input,
 .settings-form textarea {
   width: 100%;
-  padding: 0.72rem 1rem;
+  padding: 0.62rem 0.85rem;
   color: var(--buck-ink);
   background: rgba(255, 250, 244, 0.74);
   border: 1px solid rgba(244, 117, 54, 0.28);
   border-radius: 8px;
   font-family: inherit;
-  font-size: 1rem;
-  font-weight: 500;
+  font-size: 0.9rem;
+  font-weight: 400;
   outline: none;
   transition:
     background 180ms ease,
@@ -486,10 +498,11 @@ html[data-buck-theme="dark"] .settings-card:focus-within {
   justify-content: center;
   gap: 0.45rem;
   min-height: 40px;
-  padding: 0.62rem 0.9rem;
+  padding: 0.55rem 0.9rem;
   color: #241409;
   font: inherit;
-  font-weight: 900;
+  font-size: 0.86rem;
+  font-weight: 600;
   border: 0;
   border-radius: 8px;
   cursor: pointer;
@@ -565,7 +578,8 @@ html[data-buck-theme="dark"] .settings-card:focus-within {
 
 .settings-message {
   padding: 0.68rem 0.85rem;
-  font-weight: 900;
+  font-size: 0.88rem;
+  font-weight: 500;
   animation: settings-message-pop 260ms ease;
 }
 
@@ -641,7 +655,8 @@ html[data-buck-theme="dark"] .settings-action-panel {
   display: block;
   margin-bottom: 0.16rem;
   color: var(--buck-ink);
-  font-weight: 900;
+  font-size: 0.9rem;
+  font-weight: 600;
   word-break: break-word;
 }
 
@@ -658,7 +673,8 @@ html[data-buck-theme="dark"] .settings-action-panel {
   background: rgba(255, 197, 71, 0.06);
   border: 1px dashed rgba(244, 117, 54, 0.28);
   border-radius: 8px;
-  font-weight: 750;
+  font-size: 0.86rem;
+  font-weight: 500;
   text-align: center;
 }
 
@@ -666,7 +682,7 @@ html[data-buck-theme="dark"] .settings-action-panel {
 
 .settings-action-panel p {
   font-size: 0.86rem;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 .settings-theme-control {
@@ -694,7 +710,8 @@ html[data-buck-theme="dark"] .settings-theme-control {
   border: 1px solid transparent;
   border-radius: 8px;
   font: inherit;
-  font-weight: 900;
+  font-size: 0.86rem;
+  font-weight: 500;
   cursor: pointer;
   transition:
     background 180ms ease,
@@ -711,13 +728,16 @@ html[data-buck-theme="dark"] .settings-theme-control {
   background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
   border-color: transparent;
   box-shadow: 0 12px 24px rgba(255, 122, 51, 0.14);
+  font-weight: 600;
   transform: translateY(-1px);
 }
 
 .settings-provider-note strong {
   display: block;
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.25rem;
   color: var(--buck-ink);
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .settings-recovery-panel {
@@ -733,8 +753,10 @@ html[data-buck-theme="dark"] .settings-theme-control {
 
 .settings-recovery-panel strong {
   display: block;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.22rem;
   color: var(--buck-ink);
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .settings-delete-form {
@@ -777,13 +799,14 @@ html[data-buck-theme="dark"] .settings-theme-control {
 
 .settings-status-list dt {
   color: var(--buck-muted);
-  font-size: 0.88rem;
-  font-weight: 800;
+  font-size: 0.86rem;
+  font-weight: 400;
 }
 
 .settings-status-list dd {
   color: var(--buck-ink);
-  font-weight: 900;
+  font-size: 0.86rem;
+  font-weight: 500;
   text-align: right;
 }
 
@@ -805,8 +828,12 @@ html[data-buck-theme="dark"] .settings-password-feedback {
   justify-content: space-between;
   gap: 1rem;
   color: var(--buck-ink);
-  font-size: 0.9rem;
-  font-weight: 900;
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+
+.settings-password-summary strong {
+  font-weight: 600;
 }
 
 .settings-password-meter {
@@ -852,7 +879,7 @@ html[data-buck-theme="dark"] .settings-password-feedback {
 
 .settings-confirm-hint--match {
   color: #24864a;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 html[data-buck-theme="dark"] .settings-confirm-hint--match {
@@ -909,13 +936,16 @@ html[data-buck-theme="dark"] .settings-modal {
 .settings-modal-heading h2 {
   margin: 0.12rem 0 0.22rem;
   color: var(--buck-ink);
-  font-size: clamp(1.18rem, 4vw, 1.42rem);
-  line-height: 1.1;
+  font-size: 1.12rem;
+  font-weight: 650;
+  line-height: 1.2;
 }
 
 .settings-modal-heading p:not(.settings-eyebrow) {
   margin: 0;
   color: var(--buck-muted);
+  font-size: 0.86rem;
+  font-weight: 400;
   line-height: 1.5;
 }
 
@@ -960,8 +990,8 @@ html[data-buck-theme="dark"] .settings-modal {
 .settings-modal-help-link {
   justify-self: start;
   color: var(--buck-orange);
-  font-size: 0.84rem;
-  font-weight: 900;
+  font-size: 0.82rem;
+  font-weight: 500;
   text-decoration: none;
   transition:
     color 180ms ease,
@@ -1205,8 +1235,8 @@ html[data-buck-theme="dark"] .settings-modal {
   border: 1px solid rgba(255, 56, 56, 0.28);
   border-radius: 8px;
   font: inherit;
-  font-size: 0.9rem;
-  font-weight: 900;
+  font-size: 0.88rem;
+  font-weight: 600;
   text-align: left;
   cursor: pointer;
   transition:
@@ -1247,8 +1277,8 @@ html[data-buck-theme="dark"] .settings-modal {
   border: 1px solid transparent;
   border-radius: 8px;
   font: inherit;
-  font-size: 0.9rem;
-  font-weight: 900;
+  font-size: 0.88rem;
+  font-weight: 500;
   text-align: left;
   cursor: pointer;
   transition:
@@ -1273,6 +1303,10 @@ html[data-buck-theme="dark"] .settings-modal {
   outline: none;
 }
 
+.settings-tab--active {
+  font-weight: 600;
+}
+
 html[data-buck-theme="dark"] .settings-tab:hover,
 html[data-buck-theme="dark"] .settings-tab:focus-visible,
 html[data-buck-theme="dark"] .settings-tab--active {
@@ -1286,9 +1320,9 @@ html[data-buck-theme="dark"] .settings-tab--active {
 }
 
 .settings-card--panel .settings-card-heading h2 {
-  color: var(--buck-muted);
-  font-size: 0.95rem;
-  font-weight: 800;
+  color: var(--buck-ink);
+  font-size: 1.05rem;
+  font-weight: 650;
 }
 
 .settings-tab-panel {
@@ -1402,14 +1436,15 @@ html[data-buck-theme="dark"] .feedback-category-card.active {
 
 .feedback-category-card strong {
   display: block;
-  font-size: 0.95rem;
-  font-weight: 800;
+  font-size: 0.9rem;
+  font-weight: 600;
   margin-bottom: 0.2rem;
 }
 
 .feedback-category-card span {
   display: block;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 400;
   color: var(--buck-muted);
 }
 
@@ -2569,7 +2604,8 @@ html[data-buck-theme="dark"] .settings-connected-row {
 .settings-connected-info strong {
   width: fit-content;
   color: var(--buck-ink);
-  font-weight: 700;
+  font-size: 0.9rem;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
@@ -2577,6 +2613,7 @@ html[data-buck-theme="dark"] .settings-connected-row {
   width: fit-content;
   color: var(--buck-muted);
   font-size: 0.82rem;
+  font-weight: 400;
   overflow-wrap: anywhere;
 }
 
@@ -2691,7 +2728,8 @@ html[data-buck-theme="dark"] .settings-mfa-row {
 .settings-mfa-row-info strong {
   width: fit-content;
   color: var(--buck-ink);
-  font-weight: 700;
+  font-size: 0.9rem;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
@@ -2699,6 +2737,7 @@ html[data-buck-theme="dark"] .settings-mfa-row {
   width: fit-content;
   color: var(--buck-muted);
   font-size: 0.82rem;
+  font-weight: 400;
   overflow-wrap: anywhere;
 }
 
@@ -2742,7 +2781,8 @@ html[data-buck-theme="dark"] .settings-mfa-row {
   border: 1px solid rgba(244, 117, 54, 0.28);
   border-radius: 8px;
   font: inherit;
-  font-size: 16px;
+  font-size: 0.9rem;
+  font-weight: 400;
 }
 
 html[data-buck-theme="dark"] .settings-mfa-rename input {
@@ -2762,7 +2802,8 @@ html[data-buck-theme="dark"] .settings-mfa-rename input {
 
 .settings-mfa-codes-row strong {
   color: var(--buck-ink);
-  font-weight: 700;
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .settings-mfa-codes-row p {
@@ -2773,7 +2814,7 @@ html[data-buck-theme="dark"] .settings-mfa-rename input {
 
 .settings-mfa-codes-row p.settings-mfa-warning {
   color: #b05a00;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 html[data-buck-theme="dark"] .settings-mfa-codes-row p.settings-mfa-warning {
@@ -2809,13 +2850,14 @@ html[data-buck-theme="dark"] .settings-mfa-codes-row p.settings-mfa-warning {
 }
 
 .settings-mfa-banner strong {
-  font-weight: 700;
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .settings-mfa-banner p {
   margin: 0.2rem 0 0;
-  font-size: 0.88rem;
-  line-height: 1.45;
+  font-size: 0.86rem;
+  line-height: 1.5;
 }
 
 .settings-mfa-banner .settings-button {
@@ -2838,7 +2880,7 @@ html[data-buck-theme="dark"] .settings-mfa-banner {
   margin: 0;
   color: #a81919;
   font-size: 0.86rem;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.45;
 }
 
@@ -2848,8 +2890,8 @@ html[data-buck-theme="dark"] .settings-mfa-error {
 
 .settings-mfa-label {
   color: var(--buck-ink);
-  font-size: 0.86rem;
-  font-weight: 700;
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 
 .settings-mfa-scan {

@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   FaAngleDoubleLeft,
-  FaAngleDoubleRight,
   FaBars,
   FaBullseye,
   FaChartArea,
@@ -27,6 +27,16 @@ import { signOutUser } from "./authentication";
 import "./dashboard.css";
 
 const SIDEBAR_STORAGE_KEY = "buck:sidebar-collapsed";
+const SIDEBAR_SPRING = {
+  type: "spring" as const,
+  stiffness: 300,
+  damping: 32,
+  mass: 0.8,
+};
+const LABEL_TRANSITION = {
+  duration: 0.22,
+  ease: [0.22, 1, 0.36, 1] as const,
+};
 
 const dashboardNavItems = [
   { id: "home", label: "Home", href: "/dashboard/home", icon: FaHome },
@@ -203,18 +213,19 @@ export default function DashboardHeader({
     toast(result.message || "Sign out failed.", "error");
   };
 
-  const renderNavItems = () =>
+  const renderNavItems = (isMobile = false) =>
     dashboardNavItems
       .filter((item) => !("adminOnly" in item && item.adminOnly) || user?.isAdmin)
       .map((item) => {
         const Icon = item.icon;
+        const showLabel = isMobile || !sidebarCollapsed;
 
         return (
           <button
             key={item.id}
             className={`nav-button ${activeNav === item.id ? "active" : ""}`}
             type="button"
-            title={sidebarCollapsed ? item.label : undefined}
+            title={!isMobile && sidebarCollapsed ? item.label : undefined}
             aria-label={item.label}
             onClick={() => navigateTo(item)}
             onFocus={() => {
@@ -229,16 +240,32 @@ export default function DashboardHeader({
             }}
           >
             <Icon aria-hidden="true" className="nav-button-icon" />
-            <span className="nav-button-label">{item.label}</span>
+            <AnimatePresence initial={false}>
+              {showLabel && (
+                <motion.span
+                  key="nav-label"
+                  className="nav-button-label"
+                  initial={{ opacity: 0, width: 0, x: -6 }}
+                  animate={{ opacity: 1, width: "auto", x: 0 }}
+                  exit={{ opacity: 0, width: 0, x: -6 }}
+                  transition={LABEL_TRANSITION}
+                >
+                  {item.label}
+                </motion.span>
+              )}
+            </AnimatePresence>
           </button>
         );
       });
 
   return (
-    <header
+    <motion.header
       className={`dashboard-header ${
         sidebarCollapsed ? "dashboard-header--collapsed" : ""
       }`}
+      initial={false}
+      animate={{ width: sidebarCollapsed ? 80 : 250 }}
+      transition={SIDEBAR_SPRING}
     >
       <div className="dashboard-header-inner">
         <button
@@ -248,7 +275,7 @@ export default function DashboardHeader({
           aria-label="Go to dashboard home"
           title={sidebarCollapsed ? "Buck — Go to dashboard home" : undefined}
         >
-          <span className="dashboard-mascot">
+          <motion.span layout="position" transition={SIDEBAR_SPRING} className="dashboard-mascot">
             <Image
               src="/BuckMascot.png"
               alt=""
@@ -261,24 +288,39 @@ export default function DashboardHeader({
                 playQuack();
               }}
             />
-          </span>
-          <span className="dashboard-brand-copy">
-            <span className="dashboard-title">Buck</span>
-            <span className="dashboard-tagline">Go Buck yourself</span>
-          </span>
+          </motion.span>
+          <AnimatePresence initial={false}>
+            {!sidebarCollapsed && (
+              <motion.span
+                key="brand-copy"
+                className="dashboard-brand-copy"
+                initial={{ opacity: 0, width: 0, x: -8 }}
+                animate={{ opacity: 1, width: "auto", x: 0 }}
+                exit={{ opacity: 0, width: 0, x: -8 }}
+                transition={LABEL_TRANSITION}
+              >
+                <span className="dashboard-title">Buck</span>
+                <span className="dashboard-tagline">Go Buck yourself</span>
+              </motion.span>
+            )}
+          </AnimatePresence>
         </button>
 
         <nav className="dashboard-nav" aria-label="Dashboard navigation">
-          {renderNavItems()}
+          {renderNavItems(false)}
         </nav>
 
         <div className="dashboard-header-actions">
-          <div
+          <motion.div
+            layout
+            transition={SIDEBAR_SPRING}
             className="dashboard-account-tray"
             role="group"
             aria-label="Profile and sidebar controls"
           >
-            <span
+            <motion.span
+              layout="position"
+              transition={SIDEBAR_SPRING}
               className="dashboard-account-avatar"
               aria-hidden="true"
               title={sidebarCollapsed ? `${displayName} (${accountSubtitle})` : undefined}
@@ -293,27 +335,23 @@ export default function DashboardHeader({
               ) : (
                 getInitials(displayName)
               )}
-            </span>
-            <span className="dashboard-account-copy">
-              <strong>{displayName}</strong>
-              <span>{isSigningOut ? "Signing out..." : accountSubtitle}</span>
-            </span>
+            </motion.span>
+            <AnimatePresence initial={false}>
+              {!sidebarCollapsed && (
+                <motion.span
+                  key="account-copy"
+                  className="dashboard-account-copy"
+                  initial={{ opacity: 0, width: 0, x: -8 }}
+                  animate={{ opacity: 1, width: "auto", x: 0 }}
+                  exit={{ opacity: 0, width: 0, x: -8 }}
+                  transition={LABEL_TRANSITION}
+                >
+                  <strong>{displayName}</strong>
+                  <span>{accountSubtitle}</span>
+                </motion.span>
+              )}
+            </AnimatePresence>
             <div className="dashboard-account-controls">
-              <button
-                type="button"
-                className="dashboard-tray-btn dashboard-tray-btn--signout"
-                onClick={() => void handleSignOut()}
-                disabled={isSigningOut}
-                aria-busy={isSigningOut}
-                aria-label={isSigningOut ? "Signing out" : "Sign out"}
-                title="Sign out"
-              >
-                {isSigningOut ? (
-                  <span className="dashboard-button-spinner" />
-                ) : (
-                  <FaSignOutAlt aria-hidden="true" />
-                )}
-              </button>
               <button
                 type="button"
                 className="dashboard-tray-btn dashboard-tray-btn--collapse"
@@ -322,14 +360,17 @@ export default function DashboardHeader({
                 aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                 title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
-                {sidebarCollapsed ? (
-                  <FaAngleDoubleRight aria-hidden="true" />
-                ) : (
+                <motion.span
+                  className="dashboard-collapse-icon"
+                  initial={false}
+                  animate={{ rotate: sidebarCollapsed ? 180 : 0 }}
+                  transition={SIDEBAR_SPRING}
+                >
                   <FaAngleDoubleLeft aria-hidden="true" />
-                )}
+                </motion.span>
               </button>
             </div>
-          </div>
+          </motion.div>
         </div>
 
         <button
@@ -350,7 +391,7 @@ export default function DashboardHeader({
           className="mobile-dropdown"
           aria-label="Mobile dashboard navigation"
         >
-          {renderNavItems()}
+          {renderNavItems(true)}
           <button
             className="dashboard-account-tray dashboard-account-tray--mobile"
             type="button"
@@ -397,6 +438,6 @@ export default function DashboardHeader({
           setActiveNav(currentNav);
         }}
       />
-    </header>
+    </motion.header>
   );
 }

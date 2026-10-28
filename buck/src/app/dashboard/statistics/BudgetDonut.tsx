@@ -83,7 +83,9 @@ export default function BudgetDonut({ spent, budget }: BudgetDonutProps) {
           </>
         ) : (
           <>
-            <strong className="stats-donut-value">{formatCurrency(spent)}</strong>
+            <strong className="stats-donut-value stats-donut-value--currency">
+              {formatCurrency(spent)}
+            </strong>
             <span>spent</span>
           </>
         )}

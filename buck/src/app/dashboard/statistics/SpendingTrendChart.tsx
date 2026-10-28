@@ -17,14 +17,14 @@ ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip);
 
 interface SpendingTrendChartProps {
   labels: string[];
+  tooltipTitles?: string[];
   values: number[];
   /**
-   * Budget for each bar (same length as `values`). Bars covering fewer days
-   * (e.g. the last 2-day block of a month) get a proportionally smaller budget.
+   * Budget for each bar (same length as `values`).
    * All zeros hides the budget marker.
    */
   budgets: number[];
-  /** Unit shown in the marker label, e.g. "day" or "week". */
+  /** Unit shown in the marker label, e.g. "day", "week", "month", or "year". */
   unit: string;
 }
 
@@ -36,13 +36,21 @@ const LEVEL_COLORS = {
   none: "#f47536",
 } as const;
 
+const LEVEL_HOVER_COLORS = {
+  safe: "#ff8547",
+  caution: "#fbbf24",
+  critical: "#ff5252",
+  none: "#ff8547",
+} as const;
+
 /**
- * Spending per day / 7-day block / month. The budget is drawn *behind* the
+ * Spending per day / week / month / year. The budget is drawn *behind* the
  * bars as a dashed marker with an inline label, so it reads as a reference
  * line rather than a stray line floating across the chart.
  */
 export default function SpendingTrendChart({
   labels,
+  tooltipTitles,
   values,
   budgets,
   unit,
@@ -50,8 +58,9 @@ export default function SpendingTrendChart({
   const isDarkTheme = useAuthPageTheme();
   const textColor = isDarkTheme ? "#d9c7b6" : "#756d68";
   const gridColor = isDarkTheme ? "rgba(255,211,154,0.12)" : "rgba(120,92,70,0.12)";
+  const zeroBarTrack = isDarkTheme ? "rgba(255,211,154,0.1)" : "rgba(120,92,70,0.1)";
   const markerColor = isDarkTheme ? "#ffc547" : "#b8860b";
-  const labelBg = isDarkTheme ? "rgba(38,25,18,0.92)" : "rgba(255,250,246,0.95)";
+  const labelBg = isDarkTheme ? "rgba(38,25,18,0.94)" : "rgba(255,250,246,0.96)";
 
   const hasBudget = budgets.some((b) => b > 0);
   const uniformBudget =
@@ -59,12 +68,27 @@ export default function SpendingTrendChart({
 
   const budgetMarker: Plugin<"bar"> = {
     id: "statsBudgetMarker",
-    // Before the bars, so bars sit on top of the reference line.
+    // Before the bars, so bars sit on top of the reference line and zero-value slots have a subtle base tick.
     beforeDatasetsDraw(chart) {
-      if (!hasBudget) return;
       const { ctx, chartArea, scales } = chart;
       const xScale = scales.x;
       const yScale = scales.y;
+
+      // Subtle baseline stub for ₱0 bars so empty days/weeks still anchor visually to their label
+      ctx.save();
+      ctx.fillStyle = zeroBarTrack;
+      const slotWidth = (chartArea.right - chartArea.left) / Math.max(labels.length, 1);
+      const stubWidth = Math.min(36, slotWidth * 0.52);
+      values.forEach((v, i) => {
+        if (v > 0) return;
+        const cx = xScale.getPixelForValue(i);
+        ctx.beginPath();
+        ctx.roundRect(cx - stubWidth / 2, chartArea.bottom - 3, stubWidth, 3, 2);
+        ctx.fill();
+      });
+      ctx.restore();
+
+      if (!hasBudget) return;
       ctx.save();
       ctx.strokeStyle = markerColor;
       ctx.lineWidth = 1.5;
@@ -77,7 +101,6 @@ export default function SpendingTrendChart({
         ctx.lineTo(chartArea.right, y);
         ctx.stroke();
       } else {
-        // Per-bar budgets: a dashed segment across each bar's slot.
         const slot = (chartArea.right - chartArea.left) / Math.max(labels.length, 1);
         budgets.forEach((b, i) => {
           if (b <= 0) return;
@@ -95,35 +118,24 @@ export default function SpendingTrendChart({
     afterDatasetsDraw(chart) {
       if (!hasBudget) return;
       const { ctx, chartArea, scales } = chart;
-      // Label the full-length budget (per-bar budgets only shrink for short blocks),
-      // right-aligned to the end of the last segment that carries it.
       const value = uniformBudget ?? Math.max(...budgets);
       const y = scales.y.getPixelForValue(value);
       const text = `Budget ${formatCurrency(value)}/${unit}`;
-      let rightEdge = chartArea.right;
-      if (uniformBudget === null) {
-        const slot = (chartArea.right - chartArea.left) / Math.max(labels.length, 1);
-        const lastFull = budgets.reduce(
-          (acc, b, i) => (Math.abs(b - value) < 0.005 ? i : acc),
-          budgets.length - 1
-        );
-        rightEdge = scales.x.getPixelForValue(lastFull) + slot * 0.38;
-      }
+      const rightEdge = chartArea.right - 4;
       ctx.save();
       ctx.font = "600 11px system-ui, -apple-system, Segoe UI, sans-serif";
-      const padX = 6;
+      const padX = 7;
       const w = ctx.measureText(text).width + padX * 2;
-      const h = 18;
-      const x = Math.max(chartArea.left, rightEdge - w);
-      // Sit just above the line; flip below if it would leave the chart area.
-      let top = y - h - 4;
-      if (top < chartArea.top) top = y + 4;
+      const h = 20;
+      const x = Math.max(chartArea.left + 4, rightEdge - w);
+      let top = y - h - 5;
+      if (top < chartArea.top + 2) top = y + 5;
       ctx.fillStyle = labelBg;
       ctx.strokeStyle = markerColor;
       ctx.lineWidth = 1;
       ctx.setLineDash([]);
       ctx.beginPath();
-      ctx.roundRect(x, top, w, h, 4);
+      ctx.roundRect(x, top, w, h, 999);
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = markerColor;
@@ -134,8 +146,8 @@ export default function SpendingTrendChart({
   };
 
   const peak = Math.max(...values, ...budgets, 0);
-  // Headroom so the inline budget label fits above the line.
-  const suggestedMax = Math.max(peak * 1.2, 100);
+  // Generous headroom so the inline budget pill fits cleanly above the dashed reference line.
+  const suggestedMax = Math.max(peak * 1.28, (uniformBudget ?? 0) * 1.32, 100);
 
   return (
     <div className="stats-trend-chart">
@@ -149,8 +161,14 @@ export default function SpendingTrendChart({
               backgroundColor: values.map(
                 (v, i) => LEVEL_COLORS[getBudgetLevel(v, budgets[i] ?? 0)]
               ),
-              borderRadius: 6,
+              hoverBackgroundColor: values.map(
+                (v, i) => LEVEL_HOVER_COLORS[getBudgetLevel(v, budgets[i] ?? 0)]
+              ),
+              borderRadius: { topLeft: 6, topRight: 6, bottomLeft: 2, bottomRight: 2 },
+              borderSkipped: false,
               maxBarThickness: 44,
+              categoryPercentage: 0.72,
+              barPercentage: 0.85,
             },
           ],
         }}
@@ -158,11 +176,18 @@ export default function SpendingTrendChart({
         options={{
           maintainAspectRatio: false,
           animation: { duration: 300 },
-          layout: { padding: { top: 4 } },
+          layout: { padding: { top: 10, right: 4, left: 0, bottom: 0 } },
           plugins: {
             legend: { display: false },
             tooltip: {
               callbacks: {
+                title: (items) => {
+                  const idx = items[0]?.dataIndex;
+                  if (idx !== undefined && tooltipTitles?.[idx]) {
+                    return tooltipTitles[idx];
+                  }
+                  return items[0]?.label ?? "";
+                },
                 label: (ctx) => {
                   const value = Number(ctx.raw);
                   const budget = budgets[ctx.dataIndex] ?? 0;
@@ -182,7 +207,13 @@ export default function SpendingTrendChart({
           scales: {
             x: {
               grid: { display: false },
-              ticks: { color: textColor, font: { weight: 600 } },
+              border: { color: gridColor },
+              ticks: {
+                color: textColor,
+                font: { weight: 600, size: 11.5 },
+                autoSkip: false,
+                maxRotation: 0,
+              },
             },
             y: {
               beginAtZero: true,
@@ -191,7 +222,8 @@ export default function SpendingTrendChart({
               grid: { color: gridColor },
               ticks: {
                 color: textColor,
-                maxTicksLimit: 5,
+                font: { size: 11.5 },
+                maxTicksLimit: 6,
                 callback: (v) => `₱${Number(v).toLocaleString("en-US")}`,
               },
             },

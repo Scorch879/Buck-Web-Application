@@ -2,19 +2,11 @@
   height: 100dvh;
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(220px, 250px) minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: stretch;
   color: var(--buck-ink);
   background: var(--buck-page-background);
   overflow: hidden;
-  transition: grid-template-columns 240ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-@media (min-width: 1025px) {
-  .dashboard:has(.dashboard-header--collapsed),
-  html[data-buck-sidebar="collapsed"] .dashboard {
-    grid-template-columns: 80px minmax(0, 1fr);
-  }
 }
 
 .dashboard-main {
@@ -35,7 +27,7 @@
 
 .dashboard-header {
   z-index: 100;
-  width: 100%;
+  width: 250px;
   height: 100%;
   color: var(--buck-ink);
   background: rgba(255, 250, 244, 0.9);
@@ -43,6 +35,7 @@
   border-bottom: 0;
   box-shadow: 0 12px 28px rgba(94, 59, 34, 0.08);
   backdrop-filter: blur(18px);
+  overflow: hidden;
 }
 
 html[data-buck-theme="dark"] .dashboard-header {
@@ -128,6 +121,8 @@ html[data-buck-theme="dark"] .dashboard-mascot {
   min-width: 0;
   gap: 0.08rem;
   padding-top: 0.2rem;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .dashboard-tagline {
@@ -493,6 +488,8 @@ html[data-buck-theme="dark"] .dashboard-account-tray--mobile:focus-visible:not(:
   display: grid;
   min-width: 0;
   gap: 0.1rem;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .dashboard-account-copy strong,
@@ -585,6 +582,12 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
   outline: none;
 }
 
+.dashboard-collapse-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Collapsed Left Sidebar Rail Mode (Desktop > 1024px) */
 @media (min-width: 1025px) {
   .dashboard-header--collapsed .dashboard-header-inner {
@@ -594,12 +597,9 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
 
   .dashboard-header--collapsed .dashboard-brand {
     justify-content: center;
+    gap: 0;
     padding: 0.25rem;
     width: 100%;
-  }
-
-  .dashboard-header--collapsed .dashboard-brand-copy {
-    display: none;
   }
 
   .dashboard-header--collapsed .dashboard-mascot {
@@ -619,6 +619,7 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
 
   .dashboard-header--collapsed .nav-button {
     justify-content: center;
+    gap: 0;
     width: 46px;
     min-height: 44px;
     padding: 0.5rem;
@@ -627,10 +628,6 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
 
   .dashboard-header--collapsed .nav-button-icon {
     font-size: 1.08rem;
-  }
-
-  .dashboard-header--collapsed .nav-button-label {
-    display: none;
   }
 
   .dashboard-header--collapsed .nav-button::after {
@@ -647,10 +644,6 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
     width: calc(100% + 0.9rem);
     margin: 0 -0.45rem -0.85rem;
     padding: 0.7rem 0.35rem;
-  }
-
-  .dashboard-header--collapsed .dashboard-account-copy {
-    display: none;
   }
 
   .dashboard-header--collapsed .dashboard-account-controls {
@@ -758,10 +751,12 @@ html[data-buck-theme="dark"] .mobile-dropdown {
   .dashboard-header {
     position: sticky;
     top: 0;
+    width: 100% !important;
     height: auto;
     padding: 0.62rem 0.75rem;
     border-right: 0;
     border-bottom: 1px solid var(--buck-line);
+    overflow: visible;
   }
 
   .dashboard-header-inner {
