@@ -15,9 +15,10 @@ function setNoStoreHeaders(response: NextResponse) {
   response.headers.set("Expires", "0");
 }
 
-function clearCookie(response: NextResponse, name: string) {
+function clearCookie(response: NextResponse, name: string, httpOnly = false) {
   response.cookies.set(name, "", {
     path: "/",
+    httpOnly,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     maxAge: 0,
@@ -25,7 +26,7 @@ function clearCookie(response: NextResponse, name: string) {
 }
 
 function clearAuthCookies(request: NextRequest, response: NextResponse) {
-  clearCookie(response, SESSION_ACTIVITY_COOKIE);
+  clearCookie(response, SESSION_ACTIVITY_COOKIE, true);
 
   request.cookies.getAll().forEach(({ name }) => {
     const isSupabaseAuthCookie =

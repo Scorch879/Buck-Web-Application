@@ -28,6 +28,7 @@ import {
   applyDocumentTheme,
   resolveLandingTheme,
 } from "@/hooks/useAuthPageTheme";
+import { isClientSessionIdleExpired, resetClientSessionActivity, signOutUser } from "@/component/authentication";
 import { isSupabaseConfigured, supabase } from "@/utils/supabase";
 
 const heroWords = ["Buck", "Budget", "Tracker"];
@@ -483,7 +484,11 @@ export default function Home() {
         }
 
         if (code || accessToken || currentUrl.hash) {
+          resetClientSessionActivity();
           window.history.replaceState(null, "", "/");
+        } else if (isClientSessionIdleExpired(user)) {
+          await signOutUser();
+          return;
         }
 
         router.replace("/dashboard/home");
@@ -497,7 +502,7 @@ export default function Home() {
     const {
       data: { subscription },
     } = authClient.auth.onAuthStateChange((event, session) => {
-      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session?.user) {
+      if ((event === "SIGNED_IN" || (event === "TOKEN_REFRESHED" && !isClientSessionIdleExpired(session?.user))) && session?.user) {
         router.replace("/dashboard/home");
       }
     });

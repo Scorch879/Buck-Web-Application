@@ -40,11 +40,23 @@ const CLIENT_AUTH_STORAGE_KEYS = [
   "selectedGoalId",
 ];
 
+const DEFAULT_IDLE_TIMEOUT_MINUTES = 30;
+
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong.";
 }
 
-function clearClientAuthStorage() {
+function getClientIdleTimeoutMs() {
+  const parsed = Number(process.env.NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_MINUTES);
+  const minutes =
+    Number.isFinite(parsed) && parsed >= 0
+      ? parsed
+      : DEFAULT_IDLE_TIMEOUT_MINUTES;
+
+  return minutes * 60 * 1000;
+}
+
+export function clearClientAuthStorage() {
   if (typeof window === "undefined") {
     return;
   }
@@ -62,6 +74,64 @@ function clearClientAuthStorage() {
       // Session storage cleanup is best-effort.
     }
   });
+}
+
+export function resetClientSessionActivity() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const now = String(Date.now());
+
+  try {
+    window.localStorage.setItem("buck-session-last-activity", now);
+    window.localStorage.removeItem("buck-session-force-signout");
+  } catch {
+    // Local storage write is best-effort.
+  }
+
+  try {
+    window.sessionStorage.removeItem("buck-dashboard-cache-v1");
+  } catch {
+    // Session storage cleanup is best-effort.
+  }
+}
+
+export function isClientSessionIdleExpired(
+  user: { last_sign_in_at?: string | null } | null | undefined
+) {
+  if (!user || typeof window === "undefined") {
+    return false;
+  }
+
+  const timeoutMs = getClientIdleTimeoutMs();
+
+  if (timeoutMs <= 0) {
+    return false;
+  }
+
+  let storedActivity = 0;
+
+  try {
+    const raw = window.localStorage.getItem("buck-session-last-activity");
+    const parsed = raw ? Number(raw) : 0;
+    storedActivity = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  } catch {
+    storedActivity = 0;
+  }
+
+  const lastSignInMs = user.last_sign_in_at
+    ? Date.parse(user.last_sign_in_at)
+    : Number.NaN;
+  const validLastSignInMs =
+    Number.isFinite(lastSignInMs) && lastSignInMs > 0 ? lastSignInMs : 0;
+  const effectiveLastActivity = Math.max(storedActivity, validLastSignInMs);
+
+  if (effectiveLastActivity <= 0) {
+    return true;
+  }
+
+  return Date.now() - effectiveLastActivity >= timeoutMs;
 }
 
 function getSiteUrl() {
@@ -186,6 +256,7 @@ export async function signUpUser(
     }
 
     const supabase = getSupabaseClient();
+    resetClientSessionActivity();
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
@@ -199,7 +270,14 @@ export async function signUpUser(
     });
 
     if (error) {
+      clearClientAuthStorage();
       return { success: false, message: error.message };
+    }
+
+    if (data.session) {
+      resetClientSessionActivity();
+    } else {
+      clearClientAuthStorage();
     }
 
     return {
@@ -229,17 +307,22 @@ export async function signInUser(
     }
 
     const supabase = getSupabaseClient();
+    resetClientSessionActivity();
     const { error } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
       password,
     });
 
     if (error) {
+      clearClientAuthStorage();
       return { success: false, message: error.message };
     }
 
+    resetClientSessionActivity();
+
     return { success: true };
   } catch (error) {
+    clearClientAuthStorage();
     return { success: false, message: getErrorMessage(error) };
   }
 }
@@ -261,6 +344,7 @@ export async function sendMagicLink(
     }
 
     const supabase = getSupabaseClient();
+    clearClientAuthStorage();
     const { error } = await supabase.auth.signInWithOtp({
       email: normalizedEmail,
       options: {
@@ -287,6 +371,7 @@ export async function signInWithGoogle(
 
   try {
     const supabase = getSupabaseClient();
+    resetClientSessionActivity();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -295,11 +380,13 @@ export async function signInWithGoogle(
     });
 
     if (error) {
+      clearClientAuthStorage();
       return { success: false, message: error.message };
     }
 
     return { success: true, redirecting: true };
   } catch (error) {
+    clearClientAuthStorage();
     return { success: false, message: getErrorMessage(error) };
   }
 }
