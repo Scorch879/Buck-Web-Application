@@ -335,10 +335,9 @@ d:/VS Code/Buck-Budget-Tracker/Buck-Web-Application/
 │   ├── Design.md                       # Architecture, ERDs, data flows, ADR-001 to ADR-051
 │   ├── Implementation.md               # Setup, environment variables, execution logic, constraints
 │   ├── QA_Report.md                    # Defect catalog, security audit, test strategy
-│   ├── requirements/                   # SRS.md, SRS_exact_aligned.md, Buck_SRS.docx
+│   ├── requirements/                   # SRS.md, Buck_SRS.docx
 │   ├── project/                        # Buck_Project_Schedule_Gantt_Chart.xlsx (9-week schedule)
-│   ├── guides/                         # frontend/ change notes, supabase/ e-mail templates
-│   └── handoffs/                       # Prompts written for other agents
+│   └── guides/                         # frontend/ change notes, supabase/ e-mail templates
 │
 ├── Buck_AI/                            # Python FastAPI + Gemini AI service (see Buck_AI/README.md)
 │

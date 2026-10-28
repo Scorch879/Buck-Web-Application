@@ -302,8 +302,7 @@ Buck-Web-Application/
 │   ├── QA_Report.md            # Quality audit, defects, and security tracking
 │   ├── requirements/           # SRS (Markdown and Word)
 │   ├── project/                # 9-week Gantt schedule
-│   ├── guides/                 # Frontend change notes, Supabase e-mail templates
-│   └── handoffs/               # Prompts written for other agents
+│   └── guides/                 # Frontend change notes, Supabase e-mail templates
 ├── Buck_AI/                    # Python FastAPI + Gemini AI service
 ├── buck/                       # Next.js 15 Web Application
 │   ├── public/                 # Static assets (images, SVGs, audio)

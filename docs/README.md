@@ -17,7 +17,6 @@ READMEs about specific code stay next to that code (see the last table).
 | Check known bugs, security findings and the test strategy | [`QA_Report.md`](QA_Report.md) |
 | Read the formal requirements | [`requirements/`](requirements/) |
 | See the 9-week schedule | [`project/Buck_Project_Schedule_Gantt_Chart.xlsx`](project/Buck_Project_Schedule_Gantt_Chart.xlsx) |
-| Hand a task to another agent | [`handoffs/`](handoffs/) |
 
 ## Folder layout
 
@@ -30,19 +29,14 @@ docs/
 ├── QA_Report.md              # Defect backlog, security audit, test strategy
 ├── requirements/
 │   ├── SRS.md                # Software Requirements Specification (Markdown)
-│   ├── SRS_exact_aligned.md  # Alternate SRS draft (was exact_aligned_srs.md)
 │   └── Buck_SRS.docx         # SRS, Word version
 ├── project/
 │   └── Buck_Project_Schedule_Gantt_Chart.xlsx   # 9-week Gantt schedule
-├── guides/
-│   ├── frontend/             # Older UI change notes (see below)
-│   └── supabase/
-│       ├── SUPABASE_EMAIL_TEMPLATES.txt         # Auth e-mail templates to paste into Supabase
-│       └── SUPABASE_AUTH_SETUP.md               # Local only (gitignored), not in the repo
-└── handoffs/                 # Prompts written for other agents
-    ├── ADR-048_Frontend_2FA_Prompt.md
-    ├── ADR-049_Frontend_Connected_Apps_Prompt.md
-    └── ADR-051_Frontend_App_Logo_Prompt.md
+└── guides/
+    ├── frontend/             # Older UI change notes (see below)
+    └── supabase/
+        ├── SUPABASE_EMAIL_TEMPLATES.txt         # Auth e-mail templates to paste into Supabase
+        └── SUPABASE_AUTH_SETUP.md               # Local only (gitignored), not in the repo
 ```
 
 ## Frontend change notes (`guides/frontend/`)
@@ -53,7 +47,6 @@ Short notes written when each change shipped. They describe the change at the ti
 |---|---|
 | [`ui-motion-and-scroll-effects.md`](guides/frontend/ui-motion-and-scroll-effects.md) | Header scroll indicators, modal perimeter glow, hidden scrollbars |
 | [`global-ui.md`](guides/frontend/global-ui.md) | Dropdown readability, button and form styling |
-| [`universal-button-styling.md`](guides/frontend/universal-button-styling.md) | Gradient action buttons, wallet card action rows |
 | [`wallet-layout.md`](guides/frontend/wallet-layout.md) | Wallet card layout |
 | [`wallet-search.md`](guides/frontend/wallet-search.md) | Wallet search, sort and filters |
 | [`hydration-fix.md`](guides/frontend/hydration-fix.md) | React hydration mismatch fix |
