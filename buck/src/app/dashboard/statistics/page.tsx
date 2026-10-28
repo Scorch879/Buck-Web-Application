@@ -78,7 +78,10 @@ const MODES: { value: Mode; label: string }[] = [
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const RECENT_LIMIT = 5;
-const OVERALL_TREND_MONTHS = 12;
+const OVERALL_PAGE_MONTHS = 6;
+const OVERALL_PAGE_YEARS = 5;
+
+type OverallGranularity = "months" | "years";
 
 const sumAmounts = (items: BuckExpense[]) =>
   items.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
@@ -121,6 +124,9 @@ const Statistics = () => {
   // -1 = follow the current week/month until the user steps away from it.
   const [weekIdx, setWeekIdx] = useState(-1);
   const [monthIdx, setMonthIdx] = useState(-1);
+  const [overallGranularity, setOverallGranularity] =
+    useState<OverallGranularity>("months");
+  const [overallPageOffset, setOverallPageOffset] = useState(0);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
 
   const [forecastData, setForecastData] = useState<ForecastResponse | null>(null);
@@ -349,9 +355,20 @@ const Statistics = () => {
   }, [periodExpenses]);
   const usedCategoryCount = categoryTotals.filter((c) => c.amount > 0).length;
 
-  // --- Trend buckets: days of the week, 7-day blocks of the month, or months ---
+  // --- Trend buckets: days of the week, 4 weeks of the month (Week 1–4), or paginated months/years ---
   const trend = useMemo(() => {
-    if (!range) return { labels: [], values: [], budgets: [], unit: "day" };
+    if (!range) {
+      return {
+        labels: [] as string[],
+        tooltipTitles: [] as string[],
+        values: [] as number[],
+        budgets: [] as number[],
+        unit: "day",
+        totalPages: 1,
+        safePage: 0,
+        windowLabel: "",
+      };
+    }
     if (mode === "week") {
       const start = parseDayKey(range.start);
       const keys = WEEKDAYS.map((_, i) => {
@@ -361,54 +378,150 @@ const Statistics = () => {
       });
       return {
         labels: keys.map((k, i) => `${WEEKDAYS[i]} ${parseDayKey(k).getDate()}`),
+        tooltipTitles: keys.map((k, i) => `${WEEKDAYS[i]} (${formatDayKey(k)})`),
         values: keys.map((k) =>
           sumAmounts(periodExpenses.filter((e) => storedDayKey(e.date) === k))
         ),
         budgets: keys.map(() => budget / 7),
         unit: "day",
+        totalPages: 1,
+        safePage: 0,
+        windowLabel: formatRangeLabel(range),
       };
     }
     if (mode === "month") {
       const monthDays = daysBetween(range.start, range.end);
       const start = parseDayKey(range.start);
-      const blocks: DateRange[] = [];
-      for (let day = 1; day <= monthDays; day += 7) {
-        const s = new Date(start.getFullYear(), start.getMonth(), day);
-        const e = new Date(start.getFullYear(), start.getMonth(), Math.min(day + 6, monthDays));
-        blocks.push({ start: toDayKey(s), end: toDayKey(e) });
-      }
+      const yr = start.getFullYear();
+      const mo = start.getMonth();
       const monthShort = start.toLocaleString("en-US", { month: "short" });
+      const weekBounds: [number, number][] = [
+        [1, 7],
+        [8, 14],
+        [15, 21],
+        [22, monthDays],
+      ];
+      const blocks: DateRange[] = weekBounds.map(([sDay, eDay]) => ({
+        start: toDayKey(new Date(yr, mo, sDay)),
+        end: toDayKey(new Date(yr, mo, eDay)),
+      }));
       return {
-        labels: blocks.map(
-          (b) =>
-            `${monthShort} ${parseDayKey(b.start).getDate()}–${parseDayKey(b.end).getDate()}`
+        labels: weekBounds.map((_, idx) => `Week ${idx + 1}`),
+        tooltipTitles: weekBounds.map(
+          ([sDay, eDay], idx) => `Week ${idx + 1} (${monthShort} ${sDay}–${eDay})`
         ),
         values: blocks.map((b) =>
           sumAmounts(periodExpenses.filter((e) => isInRange(storedDayKey(e.date), b)))
         ),
-        // Pro-rate by block length: the last block of a month is often 2-3 days.
-        budgets: blocks.map((b) => (budget / monthDays) * daysBetween(b.start, b.end)),
+        // Uniform weekly budget across the 4 weeks of the month (matches wallet / 4).
+        budgets: blocks.map(() => budget / 4),
         unit: "week",
+        totalPages: 1,
+        safePage: 0,
+        windowLabel: `${monthShort} 1–${monthDays}`,
       };
     }
-    const months = monthRanges.slice(-OVERALL_TREND_MONTHS);
-    const spansYears =
-      months.length > 0 &&
-      months[0].start.slice(0, 4) !== months[months.length - 1].start.slice(0, 4);
+
+    // Overall mode: supports Paginated 6-Month Windows ("months") or 5-Year Windows ("years")
+    const today = new Date();
+    const todayYear = today.getFullYear();
+    const todayMonth = today.getMonth();
+    const firstDate = parseDayKey(overallRange.start);
+
+    if (overallGranularity === "years") {
+      const minYear = firstDate.getFullYear();
+      const yearsSpan = Math.max(0, todayYear - minYear) + 1;
+      const totalPages = Math.max(1, Math.ceil(yearsSpan / OVERALL_PAGE_YEARS));
+      const safePage = Math.min(Math.max(0, overallPageOffset), totalPages - 1);
+      const endYear = todayYear - safePage * OVERALL_PAGE_YEARS;
+      const startYear = endYear - (OVERALL_PAGE_YEARS - 1);
+
+      const yearRanges = Array.from({ length: OVERALL_PAGE_YEARS }, (_, idx) => {
+        const yr = startYear + idx;
+        return {
+          yr,
+          range: {
+            start: toDayKey(new Date(yr, 0, 1)),
+            end: toDayKey(new Date(yr, 11, 31)),
+          } as DateRange,
+        };
+      });
+
+      return {
+        labels: yearRanges.map((item) => String(item.yr)),
+        tooltipTitles: yearRanges.map((item) => `Year ${item.yr}`),
+        values: yearRanges.map((item) =>
+          sumAmounts(expenses.filter((e) => isInRange(storedDayKey(e.date), item.range)))
+        ),
+        budgets: yearRanges.map(() => budget * 12),
+        unit: "year",
+        totalPages,
+        safePage,
+        windowLabel: `${startYear} – ${endYear}`,
+      };
+    }
+
+    const monthsDiff =
+      (todayYear - firstDate.getFullYear()) * 12 + (todayMonth - firstDate.getMonth());
+    const totalPages = Math.max(
+      1,
+      Math.ceil((Math.max(0, monthsDiff) + 1) / OVERALL_PAGE_MONTHS)
+    );
+    const safePage = Math.min(Math.max(0, overallPageOffset), totalPages - 1);
+    const endMonthOffset = safePage * OVERALL_PAGE_MONTHS;
+
+    const monthBuckets = Array.from({ length: OVERALL_PAGE_MONTHS }, (_, idx) => {
+      const offsetFromToday = endMonthOffset + (OVERALL_PAGE_MONTHS - 1 - idx);
+      const d = new Date(todayYear, todayMonth - offsetFromToday, 1);
+      const yr = d.getFullYear();
+      const mo = d.getMonth();
+      const startKey = toDayKey(new Date(yr, mo, 1));
+      const endKey = toDayKey(new Date(yr, mo + 1, 0));
+      const shortLabel = d.toLocaleString("en-US", {
+        month: "short",
+        year: "2-digit",
+      });
+      const fullLabel = d.toLocaleString("en-US", {
+        month: "long",
+        year: "numeric",
+      });
+      return {
+        shortLabel,
+        fullLabel,
+        range: { start: startKey, end: endKey } as DateRange,
+      };
+    });
+
+    const firstWindowLabel = parseDayKey(monthBuckets[0].range.start).toLocaleString(
+      "en-US",
+      { month: "short", year: "numeric" }
+    );
+    const lastWindowLabel = parseDayKey(
+      monthBuckets[monthBuckets.length - 1].range.start
+    ).toLocaleString("en-US", { month: "short", year: "numeric" });
+
     return {
-      labels: months.map((m) =>
-        parseDayKey(m.start).toLocaleString("en-US", {
-          month: "short",
-          ...(spansYears ? { year: "2-digit" as const } : {}),
-        })
+      labels: monthBuckets.map((m) => m.shortLabel),
+      tooltipTitles: monthBuckets.map((m) => m.fullLabel),
+      values: monthBuckets.map((m) =>
+        sumAmounts(expenses.filter((e) => isInRange(storedDayKey(e.date), m.range)))
       ),
-      values: months.map((m) =>
-        sumAmounts(expenses.filter((e) => isInRange(storedDayKey(e.date), m)))
-      ),
-      budgets: months.map(() => budget),
+      budgets: monthBuckets.map(() => budget),
       unit: "month",
+      totalPages,
+      safePage,
+      windowLabel: `${firstWindowLabel} – ${lastWindowLabel}`,
     };
-  }, [budget, expenses, mode, monthRanges, periodExpenses, range]);
+  }, [
+    budget,
+    expenses,
+    mode,
+    overallGranularity,
+    overallPageOffset,
+    overallRange.start,
+    periodExpenses,
+    range,
+  ]);
 
   const recentExpenses = useMemo(
     () =>
@@ -465,6 +578,7 @@ const Statistics = () => {
     const forecastVals = keys.map((k) => Number(perDay[k]) || 0);
     const actualVals = keys.map((k) => Number(forecastData?.actual_per_day?.[k]) || 0);
     const avg = forecastVals.reduce((a, b) => a + b, 0) / forecastVals.length;
+    const ptRadius = keys.length <= 7 ? 3.5 : 1.5;
     return {
       avg,
       data: {
@@ -477,7 +591,7 @@ const Statistics = () => {
             backgroundColor: "rgba(244,117,54,0.14)",
             fill: true,
             tension: 0.35,
-            pointRadius: 0,
+            pointRadius: ptRadius,
             pointHoverRadius: 5,
             borderWidth: 2.5,
           },
@@ -488,7 +602,7 @@ const Statistics = () => {
             backgroundColor: "rgba(255,197,71,0.12)",
             fill: true,
             tension: 0.35,
-            pointRadius: 0,
+            pointRadius: ptRadius,
             pointHoverRadius: 5,
             borderWidth: 2.5,
           },
@@ -636,43 +750,117 @@ const Statistics = () => {
 
         {/* Spending trend */}
         <section className="stats-card stats-trend">
-          <div className="stats-card-header">
+          <div className="stats-card-header stats-trend-header">
             <div>
               <p className="stats-eyebrow">Trend</p>
               <h3>
                 {trend.unit === "day"
                   ? "Daily spending"
                   : trend.unit === "week"
-                    ? "Weekly spending"
-                    : "Monthly spending"}
+                    ? "Weekly spending (Weeks 1–4)"
+                    : trend.unit === "year"
+                      ? "Yearly spending"
+                      : "Monthly spending"}
               </h3>
             </div>
-            {trendHasSpending && (
-            <ul className="stats-legend" aria-label="Chart legend">
-              <li>
-                <span className="stats-swatch stats-swatch--spent" />
-                {trendHasBudget ? "Within budget" : "Spent"}
-              </li>
-              {trendHasBudget && (
-                <>
-                  <li>
-                    <span className="stats-swatch stats-swatch--caution" /> 80%+ of budget
-                  </li>
-                  <li>
-                    <span className="stats-swatch stats-swatch--over" /> Over budget
-                  </li>
-                  <li>
-                    <span className="stats-swatch stats-swatch--limit" /> Budget
-                  </li>
-                </>
+            <div className="stats-trend-controls">
+              {mode === "overall" && (
+                <div className="stats-trend-pager-bar">
+                  <div
+                    className="stats-mini-segmented"
+                    role="group"
+                    aria-label="Overall trend granularity"
+                  >
+                    <button
+                      type="button"
+                      className={`stats-mini-segmented-btn ${
+                        overallGranularity === "months"
+                          ? "stats-mini-segmented-btn--active"
+                          : ""
+                      }`}
+                      onClick={() => {
+                        setOverallGranularity("months");
+                        setOverallPageOffset(0);
+                      }}
+                    >
+                      By Month
+                    </button>
+                    <button
+                      type="button"
+                      className={`stats-mini-segmented-btn ${
+                        overallGranularity === "years"
+                          ? "stats-mini-segmented-btn--active"
+                          : ""
+                      }`}
+                      onClick={() => {
+                        setOverallGranularity("years");
+                        setOverallPageOffset(0);
+                      }}
+                    >
+                      5 Years
+                    </button>
+                  </div>
+                  <div className="stats-mini-pager" aria-label="Trend window pagination">
+                    <button
+                      type="button"
+                      className="stats-mini-pager-btn"
+                      onClick={() =>
+                        setOverallPageOffset((prev) =>
+                          Math.min(prev + 1, trend.totalPages - 1)
+                        )
+                      }
+                      disabled={trend.safePage >= trend.totalPages - 1}
+                      aria-label="Previous period window"
+                      title="Earlier periods"
+                    >
+                      <FaChevronLeft aria-hidden="true" />
+                    </button>
+                    <span className="stats-mini-pager-label" aria-live="polite">
+                      {trend.windowLabel}
+                    </span>
+                    <button
+                      type="button"
+                      className="stats-mini-pager-btn"
+                      onClick={() =>
+                        setOverallPageOffset((prev) => Math.max(0, prev - 1))
+                      }
+                      disabled={trend.safePage <= 0}
+                      aria-label="Next period window"
+                      title="More recent periods"
+                    >
+                      <FaChevronRight aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
               )}
-            </ul>
-            )}
+              {(trendHasSpending || mode === "overall") && (
+                <ul className="stats-legend" aria-label="Chart legend">
+                  <li>
+                    <span className="stats-swatch stats-swatch--spent" />
+                    {trendHasBudget ? "Within budget" : "Spent"}
+                  </li>
+                  {trendHasBudget && (
+                    <>
+                      <li>
+                        <span className="stats-swatch stats-swatch--caution" /> 80%+ of budget
+                      </li>
+                      <li>
+                        <span className="stats-swatch stats-swatch--over" /> Over budget
+                      </li>
+                      <li>
+                        <span className="stats-swatch stats-swatch--limit" /> Budget
+                      </li>
+                    </>
+                  )}
+                </ul>
+              )}
+            </div>
           </div>
-          {trendHasSpending ? (
+          {trendHasSpending || mode === "overall" ? (
             <>
               <SpendingTrendChart
                 labels={trend.labels}
+                tooltipTitles={trend.tooltipTitles}
                 values={trend.values}
                 budgets={trend.budgets}
                 unit={trend.unit}
@@ -680,8 +868,7 @@ const Statistics = () => {
               {trendHasBudget && (
                 <p className="stats-chart-caption">
                   Dashed line: your budget per {trend.unit}, spread evenly from{" "}
-                  {budgetSource}
-                  {mode === "month" ? "; shorter blocks get a smaller share" : ""}.
+                  {budgetSource}.
                 </p>
               )}
             </>

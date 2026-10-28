@@ -73,13 +73,22 @@ export default function HomeSkeleton() {
           </div>
         </article>
 
-        {/* 2. Expenses by day */}
+        {/* 2. Expenses Bar Graph */}
         <article className="graph-card">
-          <div className="card-heading-row">
+          <div className="card-heading-row graph-card-header-row">
             <div className="card-heading">
-              <p className="card-eyebrow"><span className="skeleton-text">Weekly Summary</span></p>
+              <p className="card-eyebrow"><span className="skeleton-text">All-Time Summary</span></p>
               <div className="summary-title-row">
-                <h2 className="graph-title"><span className="skeleton-text">Expenses by day</span></h2>
+                <h2 className="graph-title"><span className="skeleton-text">Expenses by month</span></h2>
+              </div>
+            </div>
+            <div className="graph-card-controls">
+              <div className="graph-granularity-toggle">
+                <span className="graph-granularity-btn skeleton-text" style={{ borderRadius: 999 }}>By Month</span>
+                <span className="graph-granularity-btn skeleton-text" style={{ borderRadius: 999 }}>5 Years</span>
+              </div>
+              <div className="graph-pager">
+                <span className="graph-pager-label skeleton-text">May 2026 – Oct 2026</span>
               </div>
             </div>
           </div>
