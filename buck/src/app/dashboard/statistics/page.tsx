@@ -7,6 +7,7 @@ import "./style.css";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useDashboardUser } from "@/context/DashboardUserContext";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
+import { buckChartColors, buckTooltip } from "@/utils/chartTheme";
 import { useIncomes } from "@/hooks/useIncomes";
 import MonthlyCashFlowCard from "@/component/income/MonthlyCashFlowCard";
 import {
@@ -97,10 +98,7 @@ const Statistics = () => {
   );
   const hasInitialGoalsData = Boolean(userCache.goals);
   const isDarkTheme = useAuthPageTheme();
-  const chartTextColor = isDarkTheme ? "#d9c7b6" : "#756d68";
-  const chartGridColor = isDarkTheme
-    ? "rgba(255,211,154,0.12)"
-    : "rgba(120,92,70,0.12)";
+  const { text: chartTextColor, grid: chartGridColor } = buckChartColors(isDarkTheme);
 
   const [goals, setGoals] = useState<BuckGoal[]>(() => userCache.goals ?? []);
   const [loadingGoals, setLoadingGoals] = useState(() => !hasInitialGoalsData);
@@ -623,6 +621,16 @@ const Statistics = () => {
       : `your active wallet (${formatCurrency(wallet)})`;
   const trendHasBudget = trend.budgets.some((b) => b > 0);
   const trendHasSpending = trend.values.some((v) => v > 0);
+  const walletLabel = `your active wallet (${formatCurrency(wallet)})`;
+  // Plain-words source of the dashed line; must match the trend budgets above.
+  const trendBudgetCaption =
+    trend.unit === "day"
+      ? `Dashed line: your daily budget. This week's budget is ¼ of ${walletLabel}, split across 7 days.`
+      : trend.unit === "week"
+        ? `Dashed line: your weekly budget. That's ${walletLabel} split across 4 weeks.`
+        : trend.unit === "year"
+          ? `Dashed line: your yearly budget. That's ${walletLabel} × 12 months.`
+          : `Dashed line: your monthly budget. That's ${walletLabel}.`;
 
   return (
     <div className="stats-page">
@@ -866,10 +874,7 @@ const Statistics = () => {
                 unit={trend.unit}
               />
               {trendHasBudget && (
-                <p className="stats-chart-caption">
-                  Dashed line: your budget per {trend.unit}, spread evenly from{" "}
-                  {budgetSource}.
-                </p>
+                <p className="stats-chart-caption">{trendBudgetCaption}</p>
               )}
             </>
           ) : (
@@ -980,9 +985,10 @@ const Statistics = () => {
                         },
                       },
                       tooltip: {
+                        ...buckTooltip(isDarkTheme),
                         callbacks: {
                           label: (ctx) =>
-                            `${ctx.dataset.label}: ${formatCurrency(Number(ctx.raw))}`,
+                            ` ${ctx.dataset.label}: ${formatCurrency(Number(ctx.raw))}`,
                         },
                       },
                     },

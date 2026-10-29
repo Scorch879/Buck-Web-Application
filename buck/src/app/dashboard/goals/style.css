@@ -629,15 +629,15 @@ html[data-buck-theme="dark"] .goals-forecast-modal {
 }
 
 .goals-segmented-btn {
-  min-height: 34px;
-  padding: 0 0.9rem;
+  min-height: 38px;
+  padding: 0 1rem;
   color: var(--buck-muted);
   background: transparent;
   border: 0;
   border-radius: 7px;
   font: inherit;
-  font-size: 0.875rem;
-  font-weight: 700;
+  font-size: 0.9rem;
+  font-weight: 600;
   cursor: pointer;
 }
 

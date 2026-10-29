@@ -14,6 +14,7 @@ import {
   useFinancial,
 } from "@/context/FinancialContext";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
+import { buckChartColors, buckTooltip } from "@/utils/chartTheme";
 import CreateGoalModal from "./CreateGoalModal";
 import {
   deleteGoal,
@@ -82,10 +83,7 @@ const GoalsPage = () => {
   const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
   const hasInitialGoalsData = Boolean(userCache.goals);
   const isDarkTheme = useAuthPageTheme();
-  const chartTextColor = isDarkTheme ? "#fff8ed" : "#2b2523";
-  const chartGridColor = isDarkTheme
-    ? "rgba(255,211,154,0.16)"
-    : "rgba(120,92,70,0.18)";
+  const { text: chartTextColor, grid: chartGridColor } = buckChartColors(isDarkTheme);
   const primaryButtonBackground = isDarkTheme
     ? "linear-gradient(135deg, #ffc547, #f47536)"
     : "linear-gradient(135deg, #f47536, #ff3838)";
@@ -982,6 +980,7 @@ const GoalsPage = () => {
                         labels: { color: chartTextColor, boxWidth: 12, boxHeight: 12 },
                       },
                       tooltip: {
+                        ...buckTooltip(isDarkTheme),
                         callbacks: {
                           label: function (context) {
                             const value = Number(context.raw);

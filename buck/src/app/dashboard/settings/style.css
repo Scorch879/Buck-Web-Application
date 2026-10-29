@@ -82,9 +82,9 @@
   margin: 0;
   color: var(--buck-orange);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 650;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.4px;
 }
 
 .settings-account-card {

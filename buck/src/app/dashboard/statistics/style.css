@@ -110,14 +110,14 @@ html[data-buck-theme="dark"] .stats-badge {
 }
 
 .stats-segmented-btn {
-  min-height: 34px;
-  padding: 0 0.9rem;
+  min-height: 38px;
+  padding: 0 1rem;
   color: var(--buck-muted);
   background: transparent;
   border: 0;
   border-radius: 7px;
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   transition:
@@ -500,14 +500,14 @@ html[data-buck-theme="dark"] .stats-mini-segmented-btn--active {
 .stats-mini-pager-btn {
   display: inline-grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   color: var(--buck-ink);
   background: transparent;
   border: 0;
   border-radius: 50%;
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   cursor: pointer;
   transition: background 160ms ease, color 160ms ease, opacity 160ms ease;
 }

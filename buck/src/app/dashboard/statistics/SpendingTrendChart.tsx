@@ -10,6 +10,7 @@ import {
   type Plugin,
 } from "chart.js";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
+import { buckChartColors, buckTooltip } from "@/utils/chartTheme";
 import { formatCurrency } from "@/utils/formatters";
 import { getBudgetLevel } from "./BudgetDonut";
 
@@ -36,6 +37,13 @@ const LEVEL_COLORS = {
   none: "#f47536",
 } as const;
 
+const UNIT_ADJECTIVES: Record<string, string> = {
+  day: "Daily",
+  week: "Weekly",
+  month: "Monthly",
+  year: "Yearly",
+};
+
 const LEVEL_HOVER_COLORS = {
   safe: "#ff8547",
   caution: "#fbbf24",
@@ -56,8 +64,7 @@ export default function SpendingTrendChart({
   unit,
 }: SpendingTrendChartProps) {
   const isDarkTheme = useAuthPageTheme();
-  const textColor = isDarkTheme ? "#d9c7b6" : "#756d68";
-  const gridColor = isDarkTheme ? "rgba(255,211,154,0.12)" : "rgba(120,92,70,0.12)";
+  const { text: textColor, grid: gridColor } = buckChartColors(isDarkTheme);
   const zeroBarTrack = isDarkTheme ? "rgba(255,211,154,0.1)" : "rgba(120,92,70,0.1)";
   const markerColor = isDarkTheme ? "#ffc547" : "#b8860b";
   const labelBg = isDarkTheme ? "rgba(38,25,18,0.94)" : "rgba(255,250,246,0.96)";
@@ -120,16 +127,21 @@ export default function SpendingTrendChart({
       const { ctx, chartArea, scales } = chart;
       const value = uniformBudget ?? Math.max(...budgets);
       const y = scales.y.getPixelForValue(value);
-      const text = `Budget ${formatCurrency(value)}/${unit}`;
+      const adjective = UNIT_ADJECTIVES[unit];
+      const text = adjective
+        ? `${adjective} budget ${formatCurrency(value)}`
+        : `Budget ${formatCurrency(value)}/${unit}`;
       const rightEdge = chartArea.right - 4;
       ctx.save();
-      ctx.font = "600 11px system-ui, -apple-system, Segoe UI, sans-serif";
-      const padX = 7;
+      // Match the card's body text so the pill reads at a glance.
+      const narrow = chartArea.right - chartArea.left < 420;
+      ctx.font = `600 ${narrow ? 12 : 13}px system-ui, -apple-system, Segoe UI, sans-serif`;
+      const padX = narrow ? 9 : 11;
       const w = ctx.measureText(text).width + padX * 2;
-      const h = 20;
+      const h = narrow ? 24 : 26;
       const x = Math.max(chartArea.left + 4, rightEdge - w);
-      let top = y - h - 5;
-      if (top < chartArea.top + 2) top = y + 5;
+      let top = y - h - 6;
+      if (top < chartArea.top + 2) top = y + 6;
       ctx.fillStyle = labelBg;
       ctx.strokeStyle = markerColor;
       ctx.lineWidth = 1;
@@ -180,7 +192,13 @@ export default function SpendingTrendChart({
           plugins: {
             legend: { display: false },
             tooltip: {
+              ...buckTooltip(isDarkTheme),
               callbacks: {
+                labelColor: (ctx) => {
+                  const color =
+                    LEVEL_COLORS[getBudgetLevel(Number(ctx.raw), budgets[ctx.dataIndex] ?? 0)];
+                  return { borderColor: color, backgroundColor: color, borderWidth: 1, borderRadius: 2 };
+                },
                 title: (items) => {
                   const idx = items[0]?.dataIndex;
                   if (idx !== undefined && tooltipTitles?.[idx]) {
