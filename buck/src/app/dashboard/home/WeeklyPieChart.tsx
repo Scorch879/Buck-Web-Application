@@ -14,6 +14,7 @@ import {
   type TooltipItem,
   type UpdateMode,
 } from "chart.js";
+import { buckTooltip } from "@/utils/chartTheme";
 import { formatCurrency } from "@/utils/formatters";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 
@@ -563,16 +564,10 @@ export default function WeeklyPieChart({
         selectedCategoryAmount,
       },
       tooltip: {
-        backgroundColor: isDarkTheme ? "rgba(30, 6, 0, 0.96)" : "rgba(43, 37, 35, 0.96)",
-        titleColor: "#fff8ed",
-        bodyColor: "#fff8ed",
-        borderColor: "rgba(244, 117, 54, 0.45)",
-        borderWidth: 1,
-        padding: 10,
-        cornerRadius: 8,
-        displayColors: true,
-        boxPadding: 4,
+        ...buckTooltip(isDarkTheme),
         callbacks: {
+          // The label already names the slice; a title would repeat it.
+          title: () => "",
           labelColor: function (context: TooltipItem<"pie">) {
             const slice = slices[context.dataIndex];
             const sliceColor = slice?.color || "#f47536";

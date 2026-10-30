@@ -25,9 +25,10 @@
 
 .forecast-eyebrow {
   margin: 0;
-  color: var(--buck-purple, #9b51e0);
-  font-size: 0.78rem;
-  font-weight: 900;
+  color: var(--buck-orange);
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.4px;
   text-transform: uppercase;
 }
 

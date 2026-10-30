@@ -153,6 +153,24 @@ Branch `feat/2fa-ui`. No API, middleware or migration changes. New files: `compo
 - Account deletion asks for a fresh code after 10 minutes.
 - Passkey add, rename, delete and sign-in (needs Passkeys on in the Supabase dashboard with the production RP ID).
 
+### 🎨 Chart Hover & Tab Uniformity (2026-10-30)
+
+Branch `maintenance-branch`. UI only; no API, data or migration changes.
+
+**Fixed**:
+- Statistics, Goals and Home charts used different tooltips (Chart.js default grey on Statistics and Goals). New `utils/chartTheme.ts` gives every chart the same espresso tooltip with an orange edge and the same axis and grid colours.
+- Statistics budget pill kept its first-render colours (cream on the dark theme). react-chartjs-2 reads `plugins` only when the chart is created, so `SpendingTrendChart` now draws from a ref holding the latest theme and data.
+- Statistics forecast chart overflowed its card after the window narrowed (grid track `min-width: auto`). `.stats-forecast-body` now uses `grid-template-columns: minmax(0, 1fr)`.
+- Goals forecast reloaded in a loop (spinner, values jumping, tooltip never stays): every render saved `ai_recommended_budget`, which updated the goal and re-ran the effect. It now saves only a changed value.
+- Goals forecast Week/Month toggle did not change the chart; the data is now cut to the selected week or month. Y-axis shows ₱ like Statistics.
+- `formatCurrency` dropped a trailing zero (₱13,222.7). Whole pesos stay short (₱75,000); any centavos always show two digits.
+- Settings and Wallet eyebrows rendered as grey body text: `.settings-card p` (0,1,1) outranked `.settings-eyebrow` (0,1,0).
+- Uniform controls: all eyebrows 0.75rem / 650 / 0.4px orange (Forecast was purple 900, Advisor 700, Settings 600, Wallet 0.72rem); segmented buttons 38px / 0.9rem / 600 on Goals and Statistics like Categories and Wallet; Statistics mini pager 26px like Home. Donut and pie tooltips no longer repeat the slice name as a title.
+
+**Verified** (dev server, signed in): hover tooltips on Statistics trend, budget donut and forecast; Goals forecast; Home pie. Light and dark themes; 375 px with no sideways scroll. `tsc`, `eslint` (0/0), vitest 192/192 and `next build` clean.
+
+**Still open**: card heading sizes and weights still range 0.96–1.6rem and 600–900 across tabs (ADR-013 drift); left for a separate pass.
+
 ### 🤖 Buck MCP Server (2026-10-24, ADR-050)
 
 Migration [`202610240005_mcp_access_check.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240005_mcp_access_check.sql) applied live and recorded.
