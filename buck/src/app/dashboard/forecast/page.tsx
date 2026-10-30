@@ -12,7 +12,11 @@ import {
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useDashboardUser } from "@/context/DashboardUserContext";
 import { mergeDashboardDataCache, useFinancial } from "@/context/FinancialContext";
-import { fetchAIForecastInsights, type AIForecastInsights } from "@/utils/forecastApi";
+import {
+  explainAIForecast,
+  fetchAIForecastInsights,
+  type AIForecastInsights,
+} from "@/utils/forecastApi";
 import { formatCurrency } from "@/utils/formatters";
 import { useToast } from "@/component/toast";
 // advisor-grid / advisor-card / advisor-score / advisor-icon live in the advisor stylesheet
@@ -48,15 +52,24 @@ export default function ForecastPage() {
         forceRefresh,
       });
 
-      setInsights(data);
+      const show = (next: AIForecastInsights) => {
+        setInsights(next);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            forecastInsights: next,
+          })
+        );
+      };
+      show(data);
       if (forceRefresh) {
         toast("Refreshed predictive financial forecast.", "success");
       }
-      setDashboardCache((currentCache) =>
-        mergeDashboardDataCache(currentCache, user.uid, {
-          forecastInsights: data,
-        })
-      );
+      // Numbers are on screen; the Gemini explanation follows when it is ready.
+      if (data.explanationPending) {
+        explainAIForecast(data.forecast?.horizonDays)
+          .then(show)
+          .catch((err) => console.warn("Forecast explanation unavailable.", err));
+      }
     } catch (err) {
       const errMsg = "Failed to generate AI forecast.";
       setError(errMsg);

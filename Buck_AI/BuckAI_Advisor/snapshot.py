@@ -7,34 +7,14 @@ ids, emails or free-text descriptions. `refs` keeps ids for saving.
 
 import asyncio
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta
 from typing import Any
 
+from shared.money import ATTITUDES, PH_TZ, money, month_bounds, today_ph  # noqa: F401  (re-exported)
 from shared.safety import clean_text
 from shared.supabase import DbError, UserDb
 
 from .plan import build_plan
-
-# Philippine time (UTC+8, no DST) decides what "this month" and "today" mean.
-PH_TZ = timezone(timedelta(hours=8))
-ATTITUDES = ("Normal", "Moderate", "Aggressive")
-
-
-def today_ph() -> date:
-    return datetime.now(PH_TZ).date()
-
-
-def money(value: Any) -> float:
-    try:
-        return round(max(0.0, float(value)), 2)
-    except (TypeError, ValueError):
-        return 0.0
-
-
-def month_bounds(day: date) -> tuple[date, date]:
-    start = day.replace(day=1)
-    next_month = (start + timedelta(days=32)).replace(day=1)
-    return start, next_month - timedelta(days=1)
 
 
 @dataclass

@@ -106,11 +106,13 @@ def config_for(model: str, config: types.GenerateContentConfig) -> types.Generat
     return config.model_copy(update={"thinking_config": None}) if model.startswith("gemma-") else config
 
 
-def attempt_timeout(plan: tuple[str, ...], attempt: int, remaining: float | None = None) -> float | None:
+def attempt_timeout(plan: tuple[str, ...], attempt: int, remaining: float | None = None,
+                    cap: float | None = None) -> float | None:
     """The last model in the plan gets whatever time is left; earlier ones are capped."""
     if attempt + 1 >= len(plan):
         return remaining
-    return ATTEMPT_TIMEOUT_SECONDS if remaining is None else min(ATTEMPT_TIMEOUT_SECONDS, remaining)
+    cap = ATTEMPT_TIMEOUT_SECONDS if cap is None else cap
+    return cap if remaining is None else min(cap, remaining)
 
 
 def reset_bench() -> None:
@@ -308,9 +310,11 @@ async def generate_json(
     prompt: str,
     schema: dict[str, Any],
     timeout_seconds: float = 20,
+    attempt_seconds: float | None = None,
 ) -> dict[str, Any]:
     """One-shot structured output constrained to `schema`. Callers must still
-    validate the result."""
+    validate the result. Not streamed, so `attempt_seconds` (per model) must
+    cover the whole answer; raise it for long outputs."""
     client = _get_client()
     config = types.GenerateContentConfig(
         system_instruction=system_instruction,
@@ -330,7 +334,7 @@ async def generate_json(
                 client.aio.models.generate_content(
                     model=plan[attempt], contents=[user_turn(prompt)], config=config_for(plan[attempt], config)
                 ),
-                timeout=max(0.1, attempt_timeout(plan, attempt, deadline - loop.time())),
+                timeout=max(0.1, attempt_timeout(plan, attempt, deadline - loop.time(), attempt_seconds)),
             )
             data = json.loads(response.text or "")
             answered_by.set(plan[attempt])

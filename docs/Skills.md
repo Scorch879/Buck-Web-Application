@@ -111,10 +111,10 @@ This catalog documents the functions, tools, database interactions, API endpoint
 
 ## 3. Buck_AI Service (Python FastAPI + Google Gemini Flash, `Buck_AI/`)
 
-> **Two AIs**: `BuckAI_Advisor` (AI Financial Advisor, live) and `BuckAI_Forecast` (AI Forecaster, planned). `shared/` = config, auth, Supabase, Gemini, safety, rate limits. Full guide: [`Buck_AI/README.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/README.md).
+> **Two AIs**: `BuckAI_Advisor` (AI Financial Advisor, live) and `BuckAI_Forecast` (AI Forecaster, live, ADR-052). `shared/` = config, auth, Supabase, Gemini, safety, rate limits. Full guide: [`Buck_AI/README.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/README.md).
 > **Auth**: `Authorization: Bearer <Supabase access token>` from web or mobile, verified with Supabase Auth (`shared/auth.py`). No app API keys. Supabase is queried **as the user** (anon key + user token), so RLS applies; no service-role key.
 > **Env**: `GEMINI_API_KEY`, `GEMINI_MODEL` (default `gemini-3.8-flash`), `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `ALLOWED_ORIGINS`. Web reads `NEXT_PUBLIC_BUCK_AI_URL`.
-> **Limits**: per user, per instance: chat 15/min, insight 20/min, tip 20/min, categorize 30/min.
+> **Limits**: per user: chat 15/min, insight 20/min, tip 20/min, categorize 30/min, forecast 20/min (GET and explain together).
 
 | Endpoint | Method | Input | Output | Description |
 |---|---|---|---|---|
@@ -123,6 +123,9 @@ This catalog documents the functions, tools, database interactions, API endpoint
 | [`/advisor/chat`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/router.py#L63) | `POST` | `{ question ≤500, history? ≤8 {role: user\|assistant, content ≤1500} }` | `text/event-stream`: `meta` / `delta` / `error` / `done` | Grounded on the live snapshot and the saved advice; read-only tools `get_spending_summary`, `list_expenses`, `get_income`, `get_goals`, `get_wallets` (max 4 rounds). Offline summary when Gemini is unavailable or silent for 20 s. |
 | [`/advisor/categorize`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/router.py#L122) | `POST` | `{ kind: expense\|income, descriptions[1..25] }` | `{ categories: (string\|null)[] }` | Advisor auto-categorize. Loads the user's own categories under RLS (minus the fallback), constrains Gemini to that enum plus `NONE`, re-matches every answer. All-null when AI is unavailable. |
 | [`/advisor/goal-tip`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/router.py#L98) | `POST` | `{ goalId }` or `{ goalName, targetAmount, attitude, targetDate? }` | `{ tip }` | Exactly two sentences, ₱ per week/month scaled by attitude. Empty when unavailable. |
+| [`/forecast`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/router.py#L35) | `GET` | `?horizon=30\|60` (422 otherwise) | `{ id, forecast, narrative{headline, explanation, habitNotes[], watchOut}, generatedWith, explanationPending, createdAt, cached, stale }` | AI Forecaster. Fits the per-user model on 180 days of history (RLS) and returns the numbers at once: `forecast.days[]` (p10/p50/p90, cumulative, recurring), `total`, `month` (rest of month, surplus vs income or balances), `categories[]`, `wallets[]` (runs-out dates, `empty`), `target` (attitude line, `gapPerDay`), `goal`, `habits[]`, `recurring[]`, `excluded[]`, `movingAverages`, `warnings[]`, `model` (window, backtest error, coverage, confidence, `loggingGap`). Explanation: saved one if current, else rule-written with `explanationPending: true`. Never writes. |
+| [`/forecast/explain`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/router.py#L45) | `POST` | `?horizon=30\|60&refresh=true\|false` | same as `GET /forecast` | Gemini writes the explanation from the numbers only (45 s budget; rules on failure) and saves an `ai_forecasts` row (`period_type = 'custom'`, payload in `metadata`, expires next PH midnight). Cooldowns: 5 min after a data change, 60 s for refresh (`stale: true` meanwhile). |
+| [`/forecast/history`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/router.py#L55) | `GET` | `?limit=1..20` | `[forecast]` | Saved forecasts, newest first. |
 
 | Module | Key functions |
 |---|---|
@@ -131,8 +134,13 @@ This catalog documents the functions, tools, database interactions, API endpoint
 | `BuckAI_Advisor/service.py` | `get_insight`, `saved_history`, `goal_tip`, `chat_events` |
 | `BuckAI_Advisor/categorize.py` | `categorize`, `user_categories` |
 | `BuckAI_Advisor/rules.py` | `rule_insight`, `priority_for`, `offline_chat_answer` |
-| `shared/gemini.py` | `stream_with_tools`, `generate_json`, `GeminiUnavailable` |
-| Web client | `utils/buckAi.ts` (`buckAiFetch`), `utils/advisorApi.ts` (`fetchAIAdvisorInsights`), `utils/aiApi.ts` (`categorizeItems`, `suggestCategory`, `streamAdvisorChat`, `getGoalTip`), `utils/goalForecast.ts` (`computeGoalForecast`, no AI) |
+| `BuckAI_Forecast/model.py` | `fit`, `simulate`, `backtest`, `find_outliers`, `find_recurring`, `usual_paydays` (pure, numpy) |
+| `BuckAI_Forecast/forecast.py` | `build_forecast(history, horizon)`, `ai_view` (what Gemini sees) |
+| `BuckAI_Forecast/history.py` | `load_history` (parallel RLS reads, 180 days, Philippine time) |
+| `BuckAI_Forecast/service.py` | `get_forecast`, `explain`, `saved_history`, `rule_narrative` |
+| `shared/money.py` | `today_ph`, `money`, `peso`, `month_bounds`, `SPEND_MULTIPLIER`, `SAVE_MULTIPLIER` (shared by both AIs) |
+| `shared/gemini.py` | `stream_with_tools`, `generate_json` (`attempt_seconds` per model for long answers), `GeminiUnavailable` |
+| Web client | `utils/buckAi.ts` (`buckAiFetch`), `utils/advisorApi.ts` (`fetchAIAdvisorInsights`), `utils/forecastApi.ts` (`fetchAIForecastInsights`, `explainAIForecast`; falls back to `/api/forecast`), `utils/aiApi.ts` (`categorizeItems`, `suggestCategory`, `streamAdvisorChat`, `getGoalTip`), `utils/goalForecast.ts` (`computeGoalForecast`, no AI) |
 
 ---
 

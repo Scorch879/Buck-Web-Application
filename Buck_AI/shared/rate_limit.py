@@ -26,6 +26,7 @@ LIMITS = {
     "insight": (20, 60),
     "tip": (20, 60),
     "categorize": (30, 60),  # one request carries up to 25 items
+    "forecast": (20, 60),
 }
 _MAX_KEYS = 10_000
 _windows: dict[str, deque[float]] = {}

@@ -31,7 +31,7 @@ Buck provides an intelligent, accessible, cross-platform personal finance ecosys
 | **AI Expense Classification** | Web & Mobile | `Buck_AI/BuckAI_Advisor` auto-categorize (`POST /advisor/categorize`, Gemini) | Part of the AI Financial Advisor module; enum-constrained to the user's own categories, 25 per request |
 | **Multi-Wallet Ledger** | Web & Mobile | PostgreSQL `transfer_funds_atomic` stored procedure | Atomic debit/credit, soft deletion (`deleted_at`) |
 | **Budget Tracking & Alerts** | Web & Mobile | Category & Wallet budget progress evaluators | 80% Caution Alert (Amber), 100% Critical Alert (Crimson) |
-| **AI Forecaster** | Web & Mobile | `Buck_AI/BuckAI_Forecast` (Python, Gemini), *planned* | Until then: rule-engine month projection and plain-math goal trajectory (`utils/goalForecast.ts`) |
+| **AI Forecaster** | Web & Mobile | `Buck_AI/BuckAI_Forecast` (Python, numpy + Gemini) | Per-user model fitted per request: day-by-day P10/P50/P90 up to 60 days, per category and wallet; Gemini explains; rule engine is the fallback |
 | **AI Financial Advisor** | Web & Mobile | `Buck_AI/BuckAI_Advisor` (Python FastAPI, Gemini Flash) | Advice saved in `ai_advisories`, regenerated only when the data materially changes; chat and goal tips; sourced PHP figures with named periods, attitude multipliers |
 | **Financial Goals** | Web & Mobile | Goal tracking & wallet fund allocation triggers | Completion pacing, days remaining, celebratory feedback |
 | **Analytics & Reports** | Web & Mobile | Chart.js & Framer Motion data visualizers | Category donut (Top-4 + Others cap), daily bars, velocity |
@@ -63,7 +63,7 @@ flowchart TD
     subgraph ApplicationServiceTier ["2. Application & Service Tier (Cloud Hosted)"]
         direction LR
         NextServer["⚡ Next.js Server Layer (Node/Edge)\n- Middleware SSR Auth Guard\n- HMAC Session Activity Cookie\n- Route Handlers (/api/auth, /api/account)\n- Admin Telemetry Gateways"]:::service
-        BuckAI["🧠 Buck_AI (Python FastAPI on Vercel)\n- BuckAI_Advisor: saved, self-updating advice + chat\n- BuckAI_Forecast: planned"]:::service
+        BuckAI["🧠 Buck_AI (Python FastAPI on Vercel)\n- BuckAI_Advisor: saved, self-updating advice + chat\n- BuckAI_Forecast: per-user forecast + explanation"]:::service
         SupabaseGateway["🛡️ Supabase Managed Gateway\n- GoTrue Auth Engine (JWT / Cookies)\n- PostgREST Data Engine (REST APIs)\n- Realtime Replication Engine (WSS)"]:::gateway
     end
 
@@ -112,7 +112,7 @@ flowchart TD
    - **Auth & Account Lifecycle Routes**: Manages rate-limited password reset requests (`/api/auth/password-reset`), 10-day deletion requests and confirmation tokens (`/api/account/deletion/*`), and cron-based purge execution.
    - **Admin Telemetry Gateways**: Proxies authenticated system telemetry from the Supabase Management API (`/api/admin/supabase`) and Vercel Deployment API (`/api/admin/vercel`).
 3. **Buck_AI: Python FastAPI service on Google Gemini Flash (`Buck_AI/`, its own Vercel project)** (ADR-043):
-   - Two AIs, one per job: **`BuckAI_Advisor`** (AI Financial Advisor, live) and **`BuckAI_Forecast`** (AI Forecaster, planned). `shared/` holds config, auth, Supabase, the Gemini client and safety.
+   - Two AIs, one per job: **`BuckAI_Advisor`** (AI Financial Advisor, live) and **`BuckAI_Forecast`** (AI Forecaster, live, ADR-052). `shared/` holds config, auth, Supabase, the Gemini client and safety.
    - Web and mobile call the same API with the user's **Supabase access token**, not an API key. The service verifies it with Supabase Auth and queries Supabase *as the user*, so RLS applies and no service-role key is needed. `GEMINI_API_KEY` exists only in the Buck_AI environment.
    - Advice is saved in `ai_advisories` with a data fingerprint. It is served from the database while the data is unchanged and regenerated when it moves materially. See [`Buck_AI/README.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/README.md).
 
@@ -158,7 +158,7 @@ The system is decomposed into 10 cohesive, traceable subsystems aligned with the
 5. **Budget Management & Alert Subsystem (MOD-05)**:
    - Monthly category and wallet budgets, dynamic progress gauges, and threshold triggers: **80% Caution Alert (Amber)** and **100% Critical Limit Alert (Crimson)**.
 6. **Spending Forecasting & Trend Analysis Subsystem (MOD-06)**:
-   - The **AI Forecaster** (`Buck_AI/BuckAI_Forecast`, planned): a separate AI from the Advisor. Until it ships, the Forecast tab uses the rule engine and goal charts use plain math (`utils/goalForecast.ts`).
+   - The **AI Forecaster** (`Buck_AI/BuckAI_Forecast`, ADR-052): a separate AI from the Advisor. A per-user model fitted on each request projects day-by-day spending ranges (30 or 60 days) per category and wallet; Gemini explains the numbers. The web rule engine (`/api/forecast`) is the fallback; goal charts still use plain math (`utils/goalForecast.ts`).
 7. **AI Financial Advisor & Recommendation Subsystem (MOD-07)**:
    - The **AI Financial Advisor** (`Buck_AI/BuckAI_Advisor`, Gemini): saved advice that updates itself with the data, streaming chat with read-only data tools, goal tips, and AI auto-categorize. Lengths: suggestion 1 sentence (this week's step), detailed analysis 3–5 sentences, wallet advice 1–2 sentences, goal tips 2 sentences; every ₱ figure names its period and comes from the deterministic plan. Amounts are scaled by saving attitude (Normal 1.0x, Moderate 0.80x/1.15x, Aggressive 0.60x/1.30x).
 8. **Financial Goals & Target Savings Subsystem (MOD-08)**:
@@ -332,7 +332,7 @@ d:/VS Code/Buck-Budget-Tracker/Buck-Web-Application/
 ├── docs/                               # All project documentation (map: docs/README.md)
 │   ├── README.md                       # Documentation map: which doc answers what
 │   ├── Skills.md                       # Function catalog: Supabase data layer, API routes, Buck_AI endpoints, hooks
-│   ├── Design.md                       # Architecture, ERDs, data flows, ADR-001 to ADR-051
+│   ├── Design.md                       # Architecture, ERDs, data flows, ADR-001 to ADR-052
 │   ├── Implementation.md               # Setup, environment variables, execution logic, constraints
 │   ├── QA_Report.md                    # Defect catalog, security audit, test strategy
 │   ├── requirements/                   # SRS.md, Buck_SRS.docx
@@ -508,11 +508,12 @@ flowchart TD
 | **ADR-002** | In-Memory Client Cache (`FinancialContext`) | Timestamped in-memory caching for dashboard data with Supabase Realtime invalidation. |
 | **ADR-003** | Soft-Deletion for Multi-Wallet Management | Added `wallets.deleted_at` to preserve historical transaction referential integrity. |
 | **ADR-004** | Decoupled Python FastAPI Microservice | *Superseded by ADR-043* (service removed). |
-| **ADR-043** | Buck_AI: Python + Gemini, Two AIs | `Buck_AI/` FastAPI on Vercel with `BuckAI_Advisor` (saved, fingerprint-refreshed advice) and `BuckAI_Forecast` (planned); Supabase-JWT auth for web and mobile; queries run under RLS. |
+| **ADR-043** | Buck_AI: Python + Gemini, Two AIs | `Buck_AI/` FastAPI on Vercel with `BuckAI_Advisor` (saved, fingerprint-refreshed advice) and `BuckAI_Forecast` (ADR-052); Supabase-JWT auth for web and mobile; queries run under RLS. |
 | **ADR-048** | Optional 2FA (TOTP), Passkeys & Recovery | `private.mfa_satisfied()` in RESTRICTIVE RLS + middleware/`apiAuth` + Buck_AI gate; backup codes and 24 h e-mail recovery under `/api/auth/mfa/*`; UI is a handoff. |
 | **ADR-049** | Connected Apps (OAuth 2.1 Server) | App tokens (`client_id` claim) are read-only via RESTRICTIVE RLS and refused by `/api/*` and Buck_AI; approval via `/api/oauth/authorizations/[id]/consent` records a 2FA-verified grant that `mfa_satisfied()` requires for 2FA users. |
 | **ADR-050** | Buck MCP Server | `/api/mcp` (Next.js, `@modelcontextprotocol/server`, stateless): 7 read-only tools for connected AI agents; RFC 9728 metadata points to Supabase Auth; queries run under RLS with the app's token; no Gemini. |
 | **ADR-051** | Connected-App Logo Proxy | Logos load only from `GET /api/oauth/app-logo?client_id=<uuid>` (2FA web session): `logo_uri` looked up server-side, https + public IPs only (checked at connect), PNG/JPEG/WebP/GIF sniffed, 256 KB, 5 s, `nosniff`, private 1-day cache. CSP `img-src` stays closed to third-party hosts. |
+| **ADR-052** | AI Forecaster | No trained model: per-user intermittent-demand model (weekday, payday, recurring) fitted per request, 1,000 Monte Carlo paths → P10/P50/P90, window picked by a 14-day backtest that also sets confidence. `GET /forecast` = numbers now; `POST /forecast/explain` = Gemini text, saved in `ai_forecasts`. |
 | **ADR-005** | Zero-Knowledge Password Reset Rate Limiting | Rate limiting tracked via SHA-256 HMAC hashes in `auth_security_events` (zero plaintext PII). |
 | **ADR-006** | Database Policy Consolidation & Hardening | Applied `(select auth.uid())` initplan caching and revoked trigger execution from public roles. |
 | **ADR-007** | Weekly Spending Donut with 5-Slice Cap | Donut chart capped at Top-4 categories + 5th "Others" slice, paired with contextual interpretation card. |
@@ -547,8 +548,9 @@ Each account also gets 7 default income categories: `Salary`, `Allowance`, `Free
 
 ### 6.4 AI Forecaster
 - A separate Gemini Flash specialist from the Advisor: it projects, it does not coach.
-- Numbers are deterministic (rule-engine projections, 14/30/60-day moving averages, goal pacing x attitude savings multiplier); Gemini explains them and answers questions, stating the window used and a range when windows disagree.
-- Emergency exclusion: the schema has no `is_emergency` column yet (QA BUG-031), so no transactions are excluded today.
+- Numbers are deterministic (`BuckAI_Forecast/model.py`): a per-user model fitted on each request (window chosen from 14/30/60 days by backtest), 1,000 simulated futures for P10/P50/P90 ranges, attitude target line (`SPEND_MULTIPLIER`) and goal timing. Gemini only explains them, stating the window used and a range.
+- `GET /forecast` returns numbers at once; `POST /forecast/explain` writes and saves the explanation. Never make the numbers wait for Gemini.
+- Emergency exclusion: `expenses.metadata.is_emergency` and per-category outliers are left out of the baseline and listed. A real `is_emergency` column with a UI toggle is still open (QA BUG-031).
 
 ### 6.5 AI Financial Advisor & Attitude Multipliers
 - Card lengths: **suggestion 1 sentence** (this week's step), **Detailed Analysis 3–5 sentences**, **wallet advice 1–2 sentences**, **goal tips 2 sentences**.

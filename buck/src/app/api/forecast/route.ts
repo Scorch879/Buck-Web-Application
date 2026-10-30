@@ -103,6 +103,7 @@ export async function POST(req: NextRequest) {
         summary: forecast.summary,
         warnings: forecast.warnings,
         confidence_score: forecast.confidenceScore,
+        model_name: "rules",
         generated_by: "on_demand",
         metadata: forecast.metadata,
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),

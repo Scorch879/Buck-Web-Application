@@ -642,7 +642,7 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
 - **Items**:
   - **Deploy**: create the Buck_AI Vercel project (root `Buck_AI`) and set `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `ALLOWED_ORIGINS`. Set `NEXT_PUBLIC_BUCK_AI_URL` on the web project. Until then the web Advisor cannot reach the service in production.
   - **Mobile**: no AI screens yet (by request). When added, call Buck_AI `/advisor/*` with the Supabase access token; no CORS is needed.
-  - **Paused features**: AI forecast wording and the Forecaster chat return with BuckAI_Forecast. Auto-categorize stays live as part of the AI Financial Advisor.
+  - **Paused features**: the AI Forecaster is live (ADR-052, BUG-035); its chat comes in phase 2. Auto-categorize stays live as part of the AI Financial Advisor.
   - **Cost**: Zero cost: Gemini API free tier with no billing account (over-quota calls get 429 and the Advisor serves rule-based advice), Vercel Hobby for both projects, Supabase Free. On the free tier Google may use prompts to improve its products; Buck_AI sends only PII-scrubbed numbers.
   - **Rate limits** are in-memory per serverless instance.
   - **Old data**: `ai_advisories` rows written by the previous stack (`weekly_review` from the cron, older `monthly_strategy` rows without a fingerprint) are treated as changed data and replaced on the next read after the cooldown.
@@ -650,7 +650,7 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
 
 #### BUG-031: [OPEN] `is_emergency` Exclusion Documented but Not in Schema
 - **Location**: `Claude.md` §6.4, `public.expenses` ([`202606010001_initial_buck_schema.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202606010001_initial_buck_schema.sql))
-- **Impact**: Forecasts cannot exclude emergency spending because `expenses` has no `is_emergency` column and nothing sets one.
+- **Impact**: There is no `is_emergency` column and no UI to set one. The AI Forecaster (ADR-052) already honours `expenses.metadata.is_emergency` (set by seed data) and also drops per-category outliers, but users can't mark an expense themselves.
 - **Remediation**: Add `is_emergency boolean not null default false` with a UI toggle, then filter it in `data.ts#getDailySpending` and the rule engine.
 
 
@@ -689,6 +689,19 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
 - **Impact**: The Gemini free tier allows about 20 requests a day per model, and one chat question can use 2–3 (tool rounds). By 2026-10-23, `gemini-3.8-flash` and `gemini-3.7-flash` were out of quota for the day, and `gemini-3.6-flash` was intermittently overloaded (503). Every request still tried the exhausted models first, a model that hung used up the whole time budget without moving on, and once 3.6 failed nothing was left, so users got the offline fallback instead of AI answers.
 - **Fix**: The default chain grows to 11 models: 9 Gemini Flash models that answered live with the Advisor config (3.8, 3.7, 3.6, 3.5-flash, 3-flash-preview, 3.5-flash-lite, 3.1-flash-lite, 3.1-flash-lite-preview, flash-lite-latest), then Gemma 4 26B and 31B as a last resort (sent without thinking settings, which Gemma rejects). `gemini-flash-latest` is an alias that shares 3.8's quota, and the Pro and Omni models have no free quota, so they are left out. A model that hits its daily quota (429) or is retired (404) is benched per instance until Google's retry delay passes (capped at 1 hour); if every model is benched, all are tried anyway. A model that doesn't answer within 8 s counts as busy and the next one is tried.
 - **Verification (2026-10-23)**: `python -m unittest` passes 37/37 (new tests for benching, slow models and Gemma config). Gemma alone returned 500 on most real Advisor prompts, so it stays last. Live run with the real key and fake Supabase: the insight was answered by 3.6 after 3.8 and 3.7 returned 429; the chat then skipped the benched models and streamed an AI answer in 7 s.
+
+#### BUG-035: [RESOLVED] Forecast Tab Was a Flat Average with a Fixed Confidence (ADR-052)
+- **Location**: [`buck/src/utils/aiInsightsGenerator.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/aiInsightsGenerator.ts) (`generateForecastInsights`), [`forecast/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/forecast/page.tsx)
+- **Impact**:
+  - Month-to-date spending ÷ days passed was copied onto every day of the month, so the forecast never varied by day, weekday, category, payday or wallet.
+  - `confidence_score` was hard-coded to 0.88 whatever the data.
+  - Dates used server time, not Philippine time, so the month could roll over 8 hours late.
+- **Fix**: The AI Forecaster ([`Buck_AI/BuckAI_Forecast/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/)) replaces it on the Forecast tab: per-user model, P10/P50/P90 ranges, backtested confidence, Philippine time throughout. The rule engine stays only as the fallback when Buck_AI is unreachable, and its rows now say `model_name = 'rules'` instead of the stale Llama default.
+- **Found while verifying (2026-10-30)**:
+  - `ai_usage_events.bucket` only allowed the Advisor buckets, so every Forecaster call logged "Shared rate limit unavailable" and fell back to the per-instance window. Fixed by [`202610300001_ai_forecaster_support.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610300001_ai_forecaster_support.sql) (**apply it** with the PR).
+  - `generate_json` capped every model but the last at 8 s, which suits a streamed first chunk but not a full unstreamed JSON card (~10–15 s), so the explanation timed out and the slow models were benched for chat too. `generate_json` now takes `attempt_seconds`; the Forecaster passes 20 s (45 s total), the Advisor keeps 8 s.
+  - Seed users who stopped logging (nothing since 2026-10-11) got a confident-sounding forecast. The model now flags a logging gap first in `warnings` and tells Gemini to say so; Gemini also gets `target.gapPerDay` so it can't call a Moderate target "aligned".
+- **Verification (2026-10-30)**: `python -m unittest` 73/73 (synthetic weekend, payday, monthly-bill, one-off, new-user, logging-gap and empty-wallet users; deterministic output; under 1.5 s). On a real seeded history held out from 2026-09-29, 13 of 14 days fell inside the band with a 14% two-week error; `build_forecast` takes ~60 ms. Gemini wrote the card in 13.5 s quoting only payload figures. Web: `tsc`, `eslint` and vitest 192/192 clean; in the browser (signed in, local Buck_AI) the numbers rendered from `GET /forecast`, the Gemini text replaced the rule text after `POST /forecast/explain`, and with Buck_AI stopped `/api/forecast` answered instead.
 
 ---
 

@@ -3,7 +3,8 @@
 Two AIs for two jobs:
 - BuckAI_Advisor   AI Financial Advisor (live): saved, self-updating advice,
                    chat and goal tips.
-- BuckAI_Forecast  AI Forecaster (planned): projections and goal timing.
+- BuckAI_Forecast  AI Forecaster (live): per-user daily spending forecast
+                   with ranges, explained by Gemini.
 
 Deployed as its own Vercel project (root directory `Buck_AI`). Vercel finds
 the FastAPI `app` in this file. Local run: `uvicorn main:app --reload --port 8000`.
@@ -16,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from BuckAI_Advisor.router import router as advisor_router
+from BuckAI_Forecast.router import router as forecast_router
 from shared.config import get_settings
 
 logging.basicConfig(level=logging.INFO)
@@ -50,3 +52,4 @@ async def health():
 
 
 app.include_router(advisor_router)
+app.include_router(forecast_router)
