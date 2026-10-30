@@ -78,7 +78,10 @@
   line-height: 1.5;
 }
 
-.settings-eyebrow {
+/* Card-scoped selectors outrank ".settings-card p" so eyebrows keep their style. */
+.settings-eyebrow,
+.settings-hero .settings-eyebrow,
+.settings-card .settings-eyebrow {
   margin: 0;
   color: var(--buck-orange);
   font-size: 0.75rem;
@@ -1555,10 +1558,10 @@ html[data-buck-theme="dark"] .feedback-category-card.active {
 .wallet-card-title-wrap .settings-eyebrow {
   margin: 0;
   color: var(--buck-orange);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 650;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
   line-height: 1.15;
 }
 

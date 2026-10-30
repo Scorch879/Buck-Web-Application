@@ -688,6 +688,8 @@ html[data-buck-theme="dark"] .stats-swatch--limit {
 
 .stats-forecast-body {
   display: grid;
+  /* minmax(0, 1fr) lets the chart shrink when the window narrows. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.75rem;
 }
 

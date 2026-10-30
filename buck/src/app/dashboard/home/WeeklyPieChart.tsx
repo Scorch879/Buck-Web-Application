@@ -566,6 +566,8 @@ export default function WeeklyPieChart({
       tooltip: {
         ...buckTooltip(isDarkTheme),
         callbacks: {
+          // The label already names the slice; a title would repeat it.
+          title: () => "",
           labelColor: function (context: TooltipItem<"pie">) {
             const slice = slices[context.dataIndex];
             const sliceColor = slice?.color || "#f47536";

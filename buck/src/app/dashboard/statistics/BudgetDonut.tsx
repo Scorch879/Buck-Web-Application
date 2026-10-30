@@ -68,6 +68,8 @@ export default function BudgetDonut({ spent, budget }: BudgetDonutProps) {
               ...buckTooltip(isDarkTheme),
               enabled: hasBudget && spent > 0,
               callbacks: {
+                // The label already names the slice; a title would repeat it.
+                title: () => "",
                 label: (ctx) =>
                   ctx.dataIndex === 0
                     ? `Spent: ${formatCurrency(spent)}`

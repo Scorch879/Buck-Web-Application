@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useRef } from "react";
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -73,10 +73,22 @@ export default function SpendingTrendChart({
   const uniformBudget =
     hasBudget && budgets.every((b) => Math.abs(b - budgets[0]) < 0.005) ? budgets[0] : null;
 
-  const budgetMarker: Plugin<"bar"> = {
+  // react-chartjs-2 reads `plugins` only when the chart is created, so the
+  // plugin draws from a ref that always holds this render's values (theme,
+  // data, budgets). Otherwise the pill keeps the first render's colours.
+  const latest = {
+    labels, values, budgets, unit, hasBudget, uniformBudget,
+    zeroBarTrack, markerColor, labelBg,
+  };
+  const latestRef = useRef(latest);
+  latestRef.current = latest;
+
+  const budgetMarker = useRef<Plugin<"bar">>({
     id: "statsBudgetMarker",
     // Before the bars, so bars sit on top of the reference line and zero-value slots have a subtle base tick.
     beforeDatasetsDraw(chart) {
+      const { labels, values, budgets, hasBudget, uniformBudget, zeroBarTrack, markerColor } =
+        latestRef.current;
       const { ctx, chartArea, scales } = chart;
       const xScale = scales.x;
       const yScale = scales.y;
@@ -123,6 +135,7 @@ export default function SpendingTrendChart({
     },
     // Label drawn last so bars never cover it.
     afterDatasetsDraw(chart) {
+      const { budgets, unit, hasBudget, uniformBudget, markerColor, labelBg } = latestRef.current;
       if (!hasBudget) return;
       const { ctx, chartArea, scales } = chart;
       const value = uniformBudget ?? Math.max(...budgets);
@@ -155,7 +168,7 @@ export default function SpendingTrendChart({
       ctx.fillText(text, x + padX, top + h / 2);
       ctx.restore();
     },
-  };
+  }).current;
 
   const peak = Math.max(...values, ...budgets, 0);
   // Generous headroom so the inline budget pill fits cleanly above the dashed reference line.

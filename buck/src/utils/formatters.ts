@@ -1,11 +1,18 @@
-const currencyFormatter = new Intl.NumberFormat("en-PH", {
-  minimumFractionDigits: 0,
+const wholeCurrencyFormatter = new Intl.NumberFormat("en-PH", {
+  maximumFractionDigits: 0,
+});
+const centsCurrencyFormatter = new Intl.NumberFormat("en-PH", {
+  minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
 
+// Whole pesos stay short (\u20B175,000); any centavos always show two digits
+// (\u20B113,222.70, never \u20B113,222.7).
 export function formatCurrency(value: number | string | null | undefined) {
   const numericValue = Number(value || 0);
-  return `\u20B1${currencyFormatter.format(numericValue)}`;
+  const cents = Math.round(numericValue * 100);
+  const formatter = cents % 100 === 0 ? wholeCurrencyFormatter : centsCurrencyFormatter;
+  return `\u20B1${formatter.format(cents / 100)}`;
 }
 
 export function formatDateRange(start: string, end: string) {
