@@ -785,10 +785,128 @@ html[data-buck-theme="dark"] .interpretation-narrative-box {
   margin: 0;
 }
 
+.graph-card-header-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  width: 100%;
+}
+
+.graph-card-header-row .card-heading {
+  margin-bottom: 0;
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.graph-card-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.graph-granularity-toggle {
+  display: inline-flex;
+  padding: 2px;
+  background: rgba(244, 117, 54, 0.08);
+  border: 1px solid var(--buck-line);
+  border-radius: 999px;
+}
+
+.graph-granularity-btn {
+  min-height: 28px;
+  padding: 0 0.65rem;
+  color: var(--buck-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.graph-granularity-btn:hover {
+  color: var(--buck-ink);
+}
+
+.graph-granularity-btn--active {
+  color: #ffffff;
+  background: var(--buck-orange);
+  box-shadow: 0 2px 8px rgba(244, 117, 54, 0.25);
+}
+
+html[data-buck-theme="dark"] .graph-granularity-btn--active {
+  color: #241409;
+}
+
+.graph-pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 2px 4px;
+  background: rgba(255, 197, 71, 0.06);
+  border: 1px solid var(--buck-line);
+  border-radius: 999px;
+}
+
+.graph-pager-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--buck-ink);
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, opacity 160ms ease;
+}
+
+.graph-pager-btn:hover:not(:disabled) {
+  color: var(--buck-orange);
+  background: rgba(244, 117, 54, 0.14);
+}
+
+.graph-pager-btn:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.graph-pager-label {
+  padding: 0 0.35rem;
+  color: var(--buck-ink);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.graph-period-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0.2rem 0.68rem;
+  color: var(--buck-muted);
+  background: rgba(255, 197, 71, 0.06);
+  border: 1px solid var(--buck-line);
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 /* The plot grows to fill the card (it shares a grid row with the taller pie card)
    instead of leaving dead space above a fixed 250px chart. */
 .graph-container {
-  --graph-footer-height: calc(1.75rem + 1rem);
+  --graph-footer-height: calc(2.25rem + 1rem);
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   flex: 1 1 auto;
@@ -896,7 +1014,7 @@ html[data-buck-theme="dark"] .graph-grid-line {
   justify-content: center;
   align-items: center;
   height: 1rem;
-  margin-top: 1.75rem;
+  margin-top: 2.25rem;
 }
 
 .graph-axis-title--x {
@@ -1033,13 +1151,17 @@ html[data-buck-theme="dark"] .graph-col--selected .graph-bar {
   bottom: calc(100% + 9px);
   left: 50%;
   transform: translateX(-50%) translateY(4px);
-  padding: 0.38rem 0.72rem;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.35rem 0.68rem;
   background: var(--buck-ink, #20343b);
   color: #ffffff;
   border: 1px solid rgba(244, 117, 54, 0.45);
   border-radius: 8px;
-  font-size: 0.92rem;
-  font-weight: 850;
+  font-size: 0.88rem;
+  font-weight: 700;
   letter-spacing: -0.01em;
   white-space: nowrap;
   pointer-events: none;
@@ -1049,11 +1171,20 @@ html[data-buck-theme="dark"] .graph-col--selected .graph-bar {
   z-index: 10;
 }
 
+.graph-bar-tooltip-sublabel {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.72);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .graph-bar-tooltip-amount {
-  font-size: 0.92rem;
-  font-weight: 850;
+  font-size: 0.88rem;
+  font-weight: 700;
   letter-spacing: -0.01em;
   color: #ffffff;
+  font-variant-numeric: tabular-nums;
 }
 
 html[data-buck-theme="dark"] .graph-bar-tooltip {
@@ -1077,13 +1208,29 @@ html[data-buck-theme="dark"] .graph-bar-tooltip {
   top: 100%;
   left: 0;
   right: 0;
-  padding-top: 0.45rem;
-  height: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.08rem;
+  padding-top: 0.4rem;
+  height: 2.25rem;
   box-sizing: border-box;
   color: var(--buck-muted);
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1.1;
   text-align: center;
+}
+
+.graph-bar-label-main {
+  white-space: nowrap;
+}
+
+.graph-bar-label-sub {
+  font-size: 0.65rem;
+  font-weight: 500;
+  opacity: 0.75;
+  white-space: nowrap;
 }
 
 .graph-col:hover .graph-bar-label,

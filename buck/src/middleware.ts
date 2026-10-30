@@ -276,14 +276,56 @@ async function readActivityCookie(request: NextRequest, userId: string) {
     const decoded = new TextDecoder().decode(base64UrlDecode(payload));
     const activity = JSON.parse(decoded) as SessionActivity;
 
-    if (activity.sub !== userId || !Number.isFinite(activity.ts)) {
+    if (typeof activity.sub !== "string" || !Number.isFinite(activity.ts)) {
       return "invalid" as const;
+    }
+
+    if (activity.sub !== userId) {
+      return "wrong-user" as const;
     }
 
     return activity;
   } catch {
     return "invalid" as const;
   }
+}
+
+async function isSessionIdleExpired(
+  request: NextRequest,
+  user: { id: string; last_sign_in_at?: string | null }
+) {
+  const activity = await readActivityCookie(request, user.id);
+
+  if (activity === "invalid") {
+    return true;
+  }
+
+  const timeoutMs = getIdleTimeoutMs();
+
+  if (timeoutMs <= 0) {
+    return false;
+  }
+
+  const now = Date.now();
+  // A missing cookie (cleared, or dropped on browser restart) or a cookie left
+  // over from a previous user/session is trusted while the current sign-in
+  // itself is still inside the idle window; otherwise an old refresh token
+  // could silently mint a fresh activity window.
+  const lastSignInMs = user.last_sign_in_at
+    ? Date.parse(user.last_sign_in_at)
+    : Number.NaN;
+  const hasRecentSignIn =
+    Number.isFinite(lastSignInMs) && now - lastSignInMs <= timeoutMs;
+
+  if (activity === null || activity === "wrong-user") {
+    return !hasRecentSignIn;
+  }
+
+  const effectiveLastActivityMs = Number.isFinite(lastSignInMs)
+    ? Math.max(activity.ts, lastSignInMs)
+    : activity.ts;
+
+  return now - effectiveLastActivityMs > timeoutMs;
 }
 
 async function refreshActivityCookie(response: NextResponse, userId: string) {
@@ -441,6 +483,7 @@ async function handleRequest(request: NextRequest, requestHeaders: Headers) {
       createProtectedRedirect(request)
     );
     copyResponseCookies(response, redirectResponse);
+    clearActivityCookie(redirectResponse);
     setNoStoreHeaders(redirectResponse);
 
     return redirectResponse;
@@ -457,26 +500,20 @@ async function handleRequest(request: NextRequest, requestHeaders: Headers) {
     return redirectResponse;
   }
 
-  if ((isProtectedRoute || isSessionApiRoute) && user && shouldEnforceServerIdle) {
-    const activity = await readActivityCookie(request, user.id);
-    const timeoutMs = getIdleTimeoutMs();
-    // A missing cookie (cleared, or dropped on browser restart) is only trusted
-    // while the sign-in itself is still inside the idle window; otherwise an
-    // old refresh token could silently mint a fresh activity window.
-    const lastSignInMs = user.last_sign_in_at
-      ? Date.parse(user.last_sign_in_at)
-      : Number.NaN;
-    const isExpired =
-      activity === "invalid" ||
-      (activity === null &&
-        timeoutMs > 0 &&
-        !(Date.now() - lastSignInMs <= timeoutMs)) ||
-      (activity !== null && timeoutMs > 0 && Date.now() - activity.ts > timeoutMs);
+  if (
+    (isProtectedRoute || isMfaRoute || isSessionApiRoute) &&
+    user &&
+    shouldEnforceServerIdle
+  ) {
+    const isExpired = await isSessionIdleExpired(request, user);
 
     if (isExpired) {
-      response = isProtectedRoute
-        ? NextResponse.redirect(createProtectedRedirect(request, "session-expired"))
-        : NextResponse.json({ error: "session-expired" }, { status: 401 });
+      response =
+        isProtectedRoute || isMfaRoute
+          ? NextResponse.redirect(
+              createProtectedRedirect(request, "session-expired")
+            )
+          : NextResponse.json({ error: "session-expired" }, { status: 401 });
       try {
         await supabase.auth.signOut();
       } catch {
@@ -490,7 +527,7 @@ async function handleRequest(request: NextRequest, requestHeaders: Headers) {
 
     // Only page navigations count as user activity; API calls (including
     // background polling) validate the window but never extend it.
-    if (isProtectedRoute) {
+    if (isProtectedRoute || isMfaRoute) {
       await refreshActivityCookie(response, user.id);
     }
   }
@@ -544,12 +581,32 @@ async function handleRequest(request: NextRequest, requestHeaders: Headers) {
     }
   }
 
-  if (isAuthRoute && user) {
+  if (isAuthRoute) {
+    if (!user || error) {
+      if (request.cookies.get(SESSION_ACTIVITY_COOKIE)) {
+        clearActivityCookie(response);
+      }
+
+      return response;
+    }
+
     const isRecoveryMode =
       pathname === "/forgot-password" &&
       request.nextUrl.searchParams.get("type") === "recovery";
 
     if (!isRecoveryMode) {
+      if (shouldEnforceServerIdle && (await isSessionIdleExpired(request, user))) {
+        try {
+          await supabase.auth.signOut();
+        } catch {
+          // The response still clears Buck's server-side activity cookie.
+        }
+        clearSupabaseAuthCookies(request, response);
+        setNoStoreHeaders(response);
+
+        return response;
+      }
+
       const redirectResponse = NextResponse.redirect(
         createDashboardRedirect(request)
       );

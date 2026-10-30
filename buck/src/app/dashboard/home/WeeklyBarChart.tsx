@@ -6,6 +6,8 @@ import { formatCurrency } from "@/utils/formatters";
 
 export type WeeklyDatum = {
   day: string;
+  subLabel?: string;
+  fullLabel?: string;
   amount: number;
 };
 
@@ -80,11 +82,13 @@ export default function WeeklyBarChart({
   categoryColor,
   selectedDay,
   onSelectDay,
+  xAxisTitle = "Day of the Week",
 }: {
   data: WeeklyDatum[];
   categoryColor?: string;
   selectedDay?: string | null;
   onSelectDay?: (day: string) => void;
+  xAxisTitle?: string;
 }) {
   const rawMax = Math.max(0, ...data.map((item) => item.amount));
   const hasData = data.some((item) => item.amount > 0);
@@ -126,6 +130,7 @@ export default function WeeklyBarChart({
                 : Math.min(100, Math.round((item.amount / yAxis.yMax) * 1000) / 10);
             const isSelected = selectedDay === item.day;
             const isEmpty = !hasData || item.amount === 0;
+            const displayLabel = item.fullLabel || fullDayNames[item.day] || item.day;
             const barStyle = {
               "--bar-height": `${height}%`,
               ...(categoryColor
@@ -149,15 +154,13 @@ export default function WeeklyBarChart({
                 // filtered frame that the page immediately reverted (visible jitter).
                 disabled={isEmpty && !isSelected}
                 aria-pressed={isSelected}
-                aria-label={`${fullDayNames[item.day] || item.day}: ${formatCurrency(item.amount)}${
+                aria-label={`${displayLabel}: ${formatCurrency(item.amount)}${
                   isSelected ? " (Selected)" : ""
                 }`}
                 title={
                   isEmpty
-                    ? `${fullDayNames[item.day] || item.day}: no expenses recorded`
-                    : `${item.day}: ${formatCurrency(item.amount)} (Click to view breakdown for ${
-                        fullDayNames[item.day] || item.day
-                      })`
+                    ? `${displayLabel}: no expenses recorded`
+                    : `${displayLabel}: ${formatCurrency(item.amount)} (Click to view breakdown for ${displayLabel})`
                 }
               >
                 <span
@@ -166,13 +169,21 @@ export default function WeeklyBarChart({
                 >
                   {!isEmpty && (
                     <span className="graph-bar-tooltip" aria-hidden="true">
+                      {item.subLabel && (
+                        <span className="graph-bar-tooltip-sublabel">{item.subLabel}</span>
+                      )}
                       <span className="graph-bar-tooltip-amount">
                         {formatCurrency(item.amount)}
                       </span>
                     </span>
                   )}
                 </span>
-                <span className="graph-bar-label">{item.day}</span>
+                <span className="graph-bar-label">
+                  <span className="graph-bar-label-main">{item.day}</span>
+                  {item.subLabel && (
+                    <span className="graph-bar-label-sub">{item.subLabel}</span>
+                  )}
+                </span>
               </button>
             );
           })}
@@ -184,7 +195,7 @@ export default function WeeklyBarChart({
         </div>
         <div className="graph-x-axis-footer" aria-hidden="true">
           <span className="graph-axis-title graph-axis-title--x">
-            Day of the Week
+            {xAxisTitle}
           </span>
         </div>
       </div>

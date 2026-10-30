@@ -302,8 +302,7 @@ Buck-Web-Application/
 │   ├── QA_Report.md            # Quality audit, defects, and security tracking
 │   ├── requirements/           # SRS (Markdown and Word)
 │   ├── project/                # 9-week Gantt schedule
-│   ├── guides/                 # Frontend change notes, Supabase e-mail templates
-│   └── handoffs/               # Prompts written for other agents
+│   └── guides/                 # Frontend change notes, Supabase e-mail templates
 ├── Buck_AI/                    # Python FastAPI + Gemini AI service
 ├── buck/                       # Next.js 15 Web Application
 │   ├── public/                 # Static assets (images, SVGs, audio)
@@ -1344,29 +1343,30 @@ Buck-Web-Application/
 
 ---
 
-### ADR-047: Collapsible Desktop Sidebar, Profile Tray Controls (Red-Tinted Sign Out + Collapse Toggle) & Responsive Table Proportions
+### ADR-047: Collapsible Desktop Sidebar (Framer Motion Sliding Animation), Profile Tray Toggle & Responsive Table Proportions
 
-- **Status**: Implemented 2026-10-20.
+- **Status**: Implemented 2026-10-20; updated 2026-10-28.
 - **Context**:
-  - Users needed the ability to collapse the desktop sidebar (`buck/src/component/dashboardheader.tsx`, `buck/src/component/dashboard.css`) to the left to reclaim horizontal screen real estate for data tables and charts.
-  - The toggle button needed to live in the bottom Profile tray (`.dashboard-account-tray`) alongside a dedicated, red-tinted Sign Out button (in addition to the standalone Sign Out card in Settings).
-  - Additionally, Category renaming and Wallet editing needed visual loading spinners/progress bars, compact color-coded Save/Cancel buttons, comma-accepting budget inputs, and equalized row/card heights across `Manage your wallets` and `Wallet history`.
+  - Users needed the ability to collapse the desktop sidebar (`buck/src/component/dashboardheader.tsx`, `buck/src/component/dashboard.css`) to the left to reclaim horizontal screen real estate for data tables and charts, with a smooth Framer Motion sliding animation between minimized (`80px`) and non-minimized (`250px`) states.
+  - The toggle button needed to live in the bottom Profile tray (`.dashboard-account-tray`) without a duplicate Sign Out button beside it (Sign Out lives in the standalone coral-tinted card in Settings below Feedback, and on mobile dropdown).
+  - Additionally, Category renaming and Wallet editing needed visual loading spinners/progress bars, compact color-coded Save/Cancel buttons, comma-accepting budget inputs, and sleek single-line `[Name | Amount]` rows across `Manage your wallets` and `Wallet history`.
 - **Decision**:
-  1. **Collapsible / Expandable Desktop Sidebar (`buck/src/component/dashboardheader.tsx`, `buck/src/component/dashboard.css`)**:
+  1. **Framer Motion Collapsible / Expandable Desktop Sidebar (`buck/src/component/dashboardheader.tsx`, `buck/src/component/dashboard.css`)**:
      - Added `sidebarCollapsed` state persisted in `localStorage` (`"buck:sidebar-collapsed"`) and reflected via `.dashboard-header--collapsed` and `html[data-buck-sidebar="collapsed"]`.
-     - On desktop (`> 1024px`), `.dashboard` smoothly transitions between `grid-template-columns: minmax(220px, 250px) minmax(0, 1fr)` (expanded) and `80px minmax(0, 1fr)` (collapsed icon-rail mode).
-     - In collapsed mode, `.dashboard-brand-copy`, `.nav-button-label`, and `.dashboard-account-copy` are hidden while centering the mascot, nav icons (with native `title` tooltips), user avatar, and profile tray buttons.
-  2. **Profile Tray Sign Out & Sidebar Toggle Buttons (`.dashboard-account-tray`)**:
-     - Refactored `.dashboard-account-tray` into a `role="group"` container housing `.dashboard-account-controls` on the right:
-       - **Sign Out Button (`.dashboard-tray-btn--signout`)**: Dedicated `<button>` with `<FaSignOutAlt />` (or loading spinner) and a distinct coral-red tint (`color: var(--buck-coral); background: rgba(255, 56, 56, 0.12); border: 1px solid rgba(255, 56, 56, 0.38)`).
-       - **Collapse / Expand Sidebar Button (`.dashboard-tray-btn--collapse`)**: Dedicated `<button>` with `<FaAngleDoubleLeft />` / `<FaAngleDoubleRight />` that toggles the sidebar state.
+     - Used Framer Motion `<motion.header animate={{ width: sidebarCollapsed ? 80 : 250 }} transition={SIDEBAR_SPRING}>` (with `.dashboard { grid-template-columns: auto minmax(0, 1fr); }`) so the sidebar smoothly slides between `250px` (expanded) and `80px` (minimized rail) at 60fps.
+     - Used `<AnimatePresence initial={false}>` and `<motion.span>` on `.dashboard-brand-copy`, `.nav-button-label`, and `.dashboard-account-copy` so text labels smoothly slide and fade (`width: 0 <-> auto`, `opacity: 0 <-> 1`, `x: -6 <-> 0`) while `<motion.span layout="position">` glides the mascot and avatar into place.
+  2. **Profile Tray Sidebar Toggle Button (`.dashboard-account-tray`)**:
+     - Refactored `.dashboard-account-tray` into a `role="group"` container housing `.dashboard-account-controls` on the right with only the **Collapse / Expand Sidebar Button (`.dashboard-tray-btn--collapse`)**, which rotates `<FaAngleDoubleLeft />` 180° via Framer Motion (`animate={{ rotate: sidebarCollapsed ? 180 : 0 }}`).
   3. **Responsive Table & Grid Adjustments Across Pages**:
      - Adjusted `.cat-table` column proportions in [`categories/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/categories/style.css) (`23% / 18% / 13% / 26% / 20%` when collapsed) and two-column grid ratios in [`expenses/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/expenses/style.css) and [`goals/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/goals/style.css) so tables expand fluidly when the sidebar collapses.
   4. **Categories Rename & Wallet Edit UX Enhancements**:
      - Added `renamingId` spinner (`FaSpinner`) and indeterminate bottom progress bar (`.cat-rename-progress`) + `toast.loading()` in `/dashboard/categories`.
-     - Replaced the oversized Wallet edit form with a compact single-row `.wallet-edit-row` (`min-height: 92px`), emerald Save button (`.wallet-action-btn--save`) with spinner/progress bar (`.wallet-edit-progress`), red-tinted Cancel button (`.wallet-action-btn--danger`), comma-accepting budget inputs (`sanitizeBudgetInput` / `parseBudgetInput`), and equalized `min-height: 92px` rows and stretched card heights across desktop, tablet, and mobile.
+     - Placed wallet amount inline on the same line as the wallet name with a `|` separator (`min-height: 62px`), compact single-row `.wallet-edit-row`, emerald Save button (`.wallet-action-btn--save`) with spinner/progress bar (`.wallet-edit-progress`), red-tinted Cancel button (`.wallet-action-btn--danger`), and comma-accepting budget inputs (`sanitizeBudgetInput` / `parseBudgetInput`).
+   5. **Unified Typography & Dynamic/Paginated Bar Graphs (`settings/`, `home/`, `statistics/`)**:
+      - Unified font sizes and weights across [`settings/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/settings/style.css) and [`statistics/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/statistics/style.css) (`800`–`900` reduced to `500`–`700` hierarchy).
+      - Updated the Home Bar Graph ([`home/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/home/page.tsx), [`WeeklyBarChart.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/home/WeeklyBarChart.tsx)) and Statistics Trend Bar Graph ([`statistics/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/statistics/page.tsx), [`SpendingTrendChart.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/statistics/page.tsx)) to render `Mon`–`Sun` in Weekly view, 4 clean weekly buckets (`Week 1` [1–7], `Week 2` [8–14], `Week 3` [15–21], `Week 4` [22–end]) in Monthly view, and paginated `By Month` (6-month window) / `5 Years` (5-year window) bars in All-Time / Overall view.
 - **Consequences**:
-  - Users can collapse the sidebar to an 80px rail at any time from the Profile section while retaining one-click access to Sign Out (both in the Profile tray with a red tint and in Settings below Feedback).
+  - Users can smoothly slide the sidebar between `250px` and `80px` from the bottom Profile tray, Sign Out lives cleanly in Settings below Feedback, and both Home and Statistics bar graphs adapt accurately to Weekly, Monthly (`Week 1`–`Week 4`), and Paginated All-Time views.
 
 ---
 

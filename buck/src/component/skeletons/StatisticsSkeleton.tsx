@@ -82,7 +82,10 @@ export default function StatisticsSkeleton() {
             {CATEGORY_ROWS.map((row) => (
               <li key={row.name} className="stats-category-row">
                 <div className="stats-category-meta">
-                  <span className="stats-category-name"><span className="skeleton-text">{row.name}</span></span>
+                  <span className="stats-category-name">
+                    <span className="stats-category-dot skeleton-avatar" />
+                    <span className="skeleton-text">{row.name}</span>
+                  </span>
                   <span className="stats-category-amount"><span className="skeleton-text">₱0,000.00 00%</span></span>
                 </div>
                 <div className="stats-category-track">

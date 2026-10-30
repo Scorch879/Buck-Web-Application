@@ -144,7 +144,7 @@ const CreateAccount = () => {
       }
 
       setMessage("Account created! Redirecting to your dashboard...");
-      router.push("/dashboard/home");
+      window.location.assign("/dashboard/home");
     } else {
       setError(result.message || "Account creation failed.");
       setMessage("");
@@ -165,7 +165,7 @@ const CreateAccount = () => {
 
     if (result.success) {
       if (!result.redirecting) {
-        router.push("/dashboard/home");
+        window.location.assign("/dashboard/home");
       }
     } else if (result.cancelled) {
       setMessage("");
