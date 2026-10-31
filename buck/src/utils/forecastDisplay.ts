@@ -5,16 +5,6 @@
 import type { BuckForecast, ForecastCategory, ForecastDateRange } from "@/utils/forecastApi";
 import { formatCurrency } from "@/utils/formatters";
 
-/**
- * Fields Buck_AI sends that `BuckForecast` does not declare yet
- * (`Buck_AI/BuckAI_Forecast/forecast.py`). Optional so older payloads still type-check.
- */
-export type ForecastModelExtras = BuckForecast["model"] & {
-  loggingGap?: boolean;
-  quietDays?: number | null;
-  lastExpense?: string | null;
-};
-
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -63,6 +53,17 @@ export function formatDateSpan(range: ForecastDateRange | null | undefined): str
   return null;
 }
 
+/** Milliseconds until `cooldownUntil` (0 when it is null, invalid or past). */
+export function cooldownRemainingMs(cooldownUntil: string | null | undefined, now: number): number {
+  const until = cooldownUntil ? Date.parse(cooldownUntil) : NaN;
+  return Number.isFinite(until) ? Math.max(0, until - now) : 0;
+}
+
+/** "2:14 PM" in the viewer's locale. */
+export function formatClockTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
 /** Shows the "Rough estimate" chip: too little history or a weak backtest. */
 export function isRoughEstimate(model: BuckForecast["model"]): boolean {
   return model.lowData || model.confidence < 0.3;
@@ -84,9 +85,8 @@ export function topCategories(categories: ForecastCategory[], limit = 5): Foreca
  * page shows it apart from the rest.
  */
 export function splitForecastWarnings(forecast: BuckForecast): { notice: string | null; risks: string[] } {
-  const model = forecast.model as ForecastModelExtras;
   const [first, ...rest] = forecast.warnings;
-  if (model.loggingGap && first) return { notice: first, risks: rest };
+  if (forecast.model.loggingGap && first) return { notice: first, risks: rest };
   return { notice: null, risks: [...forecast.warnings] };
 }
 

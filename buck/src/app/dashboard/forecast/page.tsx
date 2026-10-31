@@ -26,6 +26,8 @@ import {
 import {
   TREND_LABELS,
   confidencePercent,
+  cooldownRemainingMs,
+  formatClockTime,
   formatDateSpan,
   formatMoneyBetween,
   formatShortDate,
@@ -85,8 +87,11 @@ export default function ForecastPage() {
         const data = await fetchAIForecastInsights({ userId: user.uid, forceRefresh, horizon: h });
         store(h, data);
         if (forceRefresh) {
-          if (data.stale) {
-            toast("Explanation was refreshed moments ago. A new one comes in a few minutes.", "info");
+          if (data.cooldownUntil && cooldownRemainingMs(data.cooldownUntil, Date.now()) > 0) {
+            toast(
+              `Numbers are up to date. A new explanation is held back until ${formatClockTime(data.cooldownUntil)}.`,
+              "info"
+            );
           } else {
             toast("Forecast refreshed.", "success");
           }
@@ -114,6 +119,19 @@ export default function ForecastPage() {
   useEffect(() => {
     void actionsRef.current.loadForecast(horizon);
   }, [horizon, user.uid]);
+
+  // Refresh waits out Buck_AI's explanation cooldown; the timer re-enables it.
+  const cooldownUntil = insights?.cooldownUntil ?? null;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!cooldownUntil) return;
+    const timer = window.setTimeout(
+      () => setNow(Date.now()),
+      cooldownRemainingMs(cooldownUntil, Date.now()) + 250
+    );
+    return () => window.clearTimeout(timer);
+  }, [cooldownUntil]);
+  const coolingDown = cooldownRemainingMs(cooldownUntil, now) > 0;
 
   if (!insights && !error) {
     return <DashboardPageSkeleton variant="forecast" />;
@@ -162,10 +180,19 @@ export default function ForecastPage() {
             type="button"
             className="forecast-refresh-btn"
             onClick={() => void loadForecast(horizon, true)}
-            disabled={refreshing}
+            disabled={refreshing || coolingDown}
+            title={
+              coolingDown && cooldownUntil
+                ? `A new explanation is held back. You can refresh again at ${formatClockTime(cooldownUntil)}.`
+                : undefined
+            }
           >
             <FaSyncAlt aria-hidden="true" className={refreshing ? "forecast-spin" : undefined} />
-            {refreshing ? "Refreshing…" : "Refresh"}
+            {refreshing
+              ? "Refreshing…"
+              : coolingDown && cooldownUntil
+                ? `Refresh at ${formatClockTime(cooldownUntil)}`
+                : "Refresh"}
           </button>
         </div>
       </section>

@@ -23,12 +23,14 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, 
 type ChartMode = "daily" | "cumulative";
 
 const ORANGE = "#f47536";
-// Dataset order: 0 = P90 (fills down to 1), 1 = P10, 2 = P50, 3 = attitude target.
+// Dataset order: 0 = P90 (fills down to 1), 1 = P10, 2 = centre line, 3 = attitude target.
 const P10_INDEX = 1;
 
 /**
- * Daily (or cumulative) forecast: the P10–P90 band shaded, the likely P50
- * line, a dashed saving-attitude target, and a marker on days with recurring
+ * Daily (or cumulative) forecast: the P10–P90 band shaded, a centre line
+ * (daily: the expected mean, which matches the band and the mean-based target,
+ * since P50 is ₱0 on most days for someone who spends on some days only;
+ * cumulative: the likely P50), a dashed saving-attitude target, and a marker on days with recurring
  * items. Everything is a dataset, so theme changes apply through `options`.
  */
 export default function ForecastChart({ forecast }: { forecast: BuckForecast }) {
@@ -44,6 +46,8 @@ export default function ForecastChart({ forecast }: { forecast: BuckForecast }) 
   const showTarget = target.multiplier !== 1;
   const pick = (key: "p10" | "p50" | "p90") =>
     days.map((d) => (cumulative ? d.cumulative[key] : d[key]));
+  const centreLabel = cumulative ? "Likely" : "Expected";
+  const centreValues = cumulative ? pick("p50") : days.map((d) => d.expected);
   const targetValues = days.map((_, i) => (cumulative ? target.dailyTarget * (i + 1) : target.dailyTarget));
   const hasRecurring = days.map((d) => d.recurring.length > 0);
 
@@ -68,8 +72,8 @@ export default function ForecastChart({ forecast }: { forecast: BuckForecast }) 
       tension: 0.3,
     },
     {
-      label: "Likely",
-      data: pick("p50"),
+      label: centreLabel,
+      data: centreValues,
       borderColor: ORANGE,
       borderWidth: 2.5,
       backgroundColor: ORANGE,
@@ -104,7 +108,7 @@ export default function ForecastChart({ forecast }: { forecast: BuckForecast }) 
     if (ctx.datasetIndex === 0) {
       return `80% range: ${formatCurrency(band.p10)} – ${formatCurrency(band.p90)}`;
     }
-    if (ctx.datasetIndex === 2) return `Likely: ${formatCurrency(band.p50)}`;
+    if (ctx.datasetIndex === 2) return `${centreLabel}: ${formatCurrency(centreValues[ctx.dataIndex])}`;
     return `${target.attitude} target: ${formatCurrency(Number(ctx.raw))}`;
   };
 
@@ -112,7 +116,7 @@ export default function ForecastChart({ forecast }: { forecast: BuckForecast }) 
     <div className="forecast-chart-block">
       <div className="forecast-chart-toolbar">
         <div className="forecast-legend" aria-hidden="true">
-          <span><i className="forecast-legend-swatch forecast-legend-swatch--line" />Likely</span>
+          <span><i className="forecast-legend-swatch forecast-legend-swatch--line" />{centreLabel}</span>
           <span><i className="forecast-legend-swatch forecast-legend-swatch--band" />80% range</span>
           {showTarget && (
             <span><i className="forecast-legend-swatch forecast-legend-swatch--target" />{target.attitude} target</span>

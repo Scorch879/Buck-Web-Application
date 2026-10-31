@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BuckForecast, ForecastCategory } from "./forecastApi";
 import {
   confidencePercent,
+  cooldownRemainingMs,
   formatDateSpan,
   formatLongDate,
   formatMoneyBetween,
@@ -11,7 +12,7 @@ import {
   topCategories,
 } from "./forecastDisplay";
 
-const model = (over: Partial<BuckForecast["model"]> & Record<string, unknown> = {}) =>
+const model = (over: Partial<BuckForecast["model"]> = {}) =>
   ({
     method: "m",
     windowDays: 30,
@@ -22,8 +23,11 @@ const model = (over: Partial<BuckForecast["model"]> & Record<string, unknown> = 
     bandCoverage: 0.9,
     confidence: 0.7,
     lowData: false,
+    lastExpense: "2026-10-30",
+    quietDays: 1,
+    loggingGap: false,
     ...over,
-  }) as BuckForecast["model"];
+  }) satisfies BuckForecast["model"];
 
 describe("forecastDisplay", () => {
   it("formats calendar days without shifting by time zone", () => {
@@ -54,6 +58,14 @@ describe("forecastDisplay", () => {
     expect(isRoughEstimate(model({ lowData: true }))).toBe(true);
     expect(confidencePercent(0.734)).toBe(73);
     expect(confidencePercent(1.4)).toBe(100);
+  });
+
+  it("counts down to cooldownUntil and ignores past or missing times", () => {
+    const now = Date.parse("2026-10-31T06:00:00Z");
+    expect(cooldownRemainingMs("2026-10-31T06:00:45Z", now)).toBe(45_000);
+    expect(cooldownRemainingMs("2026-10-31T05:59:00Z", now)).toBe(0);
+    expect(cooldownRemainingMs(null, now)).toBe(0);
+    expect(cooldownRemainingMs("nope", now)).toBe(0);
   });
 
   it("keeps the five largest categories", () => {
