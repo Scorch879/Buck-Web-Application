@@ -27,7 +27,7 @@ const ORANGE = "#f47536";
 const P10_INDEX = 1;
 
 /**
- * Daily (or cumulative) forecast: the P10–P90 band shaded, a centre line
+ * Running-total (default) or day-by-day forecast: the low–high band shaded, a "Likely" line
  * (daily: the expected mean, which matches the band and the mean-based target,
  * since P50 is ₱0 on most days for someone who spends on some days only;
  * cumulative: the likely P50), a dashed saving-attitude target, and a marker on days with recurring
@@ -35,7 +35,7 @@ const P10_INDEX = 1;
  */
 export default function ForecastChart({ forecast }: { forecast: BuckForecast }) {
   const isDarkTheme = useAuthPageTheme();
-  const [mode, setMode] = useState<ChartMode>("daily");
+  const [mode, setMode] = useState<ChartMode>("cumulative");
   const { text: textColor, grid: gridColor } = buckChartColors(isDarkTheme);
   const targetColor = isDarkTheme ? "#ffc547" : "#b8860b";
   const markerColor = isDarkTheme ? "#ffc547" : "#c98a00";
@@ -46,7 +46,7 @@ export default function ForecastChart({ forecast }: { forecast: BuckForecast }) 
   const showTarget = target.multiplier !== 1;
   const pick = (key: "p10" | "p50" | "p90") =>
     days.map((d) => (cumulative ? d.cumulative[key] : d[key]));
-  const centreLabel = cumulative ? "Likely" : "Expected";
+  const centreLabel = "Likely";
   const centreValues = cumulative ? pick("p50") : days.map((d) => d.expected);
   const targetValues = days.map((_, i) => (cumulative ? target.dailyTarget * (i + 1) : target.dailyTarget));
   const hasRecurring = days.map((d) => d.recurring.length > 0);
@@ -106,7 +106,7 @@ export default function ForecastChart({ forecast }: { forecast: BuckForecast }) 
     const day = days[ctx.dataIndex];
     const band = cumulative ? day.cumulative : day;
     if (ctx.datasetIndex === 0) {
-      return `80% range: ${formatCurrency(band.p10)} – ${formatCurrency(band.p90)}`;
+      return `Low ${formatCurrency(band.p10)}, high ${formatCurrency(band.p90)}`;
     }
     if (ctx.datasetIndex === 2) return `${centreLabel}: ${formatCurrency(centreValues[ctx.dataIndex])}`;
     return `${target.attitude} target: ${formatCurrency(Number(ctx.raw))}`;
@@ -115,18 +115,9 @@ export default function ForecastChart({ forecast }: { forecast: BuckForecast }) 
   return (
     <div className="forecast-chart-block">
       <div className="forecast-chart-toolbar">
-        <div className="forecast-legend" aria-hidden="true">
-          <span><i className="forecast-legend-swatch forecast-legend-swatch--line" />{centreLabel}</span>
-          <span><i className="forecast-legend-swatch forecast-legend-swatch--band" />80% range</span>
-          {showTarget && (
-            <span><i className="forecast-legend-swatch forecast-legend-swatch--target" />{target.attitude} target</span>
-          )}
-          {hasRecurring.some(Boolean) && (
-            <span><i className="forecast-legend-swatch forecast-legend-swatch--marker" />Recurring</span>
-          )}
-        </div>
+        <h3 className="forecast-panel-title">{cumulative ? "How your spending adds up" : "Spending day by day"}</h3>
         <div className="forecast-segmented" role="group" aria-label="Chart view">
-          {(["daily", "cumulative"] as const).map((m) => (
+          {(["cumulative", "daily"] as const).map((m) => (
             <button
               key={m}
               type="button"
@@ -134,15 +125,25 @@ export default function ForecastChart({ forecast }: { forecast: BuckForecast }) 
               aria-pressed={mode === m}
               onClick={() => setMode(m)}
             >
-              {m === "daily" ? "Daily" : "Cumulative"}
+              {m === "daily" ? "Day by day" : "Running total"}
             </button>
           ))}
         </div>
       </div>
+      <div className="forecast-legend" aria-hidden="true">
+          <span><i className="forecast-legend-swatch forecast-legend-swatch--line" />{centreLabel}</span>
+          <span><i className="forecast-legend-swatch forecast-legend-swatch--band" />Low to high</span>
+          {showTarget && (
+            <span><i className="forecast-legend-swatch forecast-legend-swatch--target" />{target.attitude} target</span>
+          )}
+          {hasRecurring.some(Boolean) && (
+            <span><i className="forecast-legend-swatch forecast-legend-swatch--marker" />Recurring</span>
+          )}
+      </div>
 
       <div className="forecast-chart">
         <Line
-          aria-label={`${cumulative ? "Cumulative" : "Daily"} spending forecast for the next ${days.length} days`}
+          aria-label={`${cumulative ? "Running total" : "Day-by-day"} spending forecast for the next ${days.length} days`}
           role="img"
           data={{ labels: days.map((d) => formatShortDate(d.date)), datasets }}
           options={{
