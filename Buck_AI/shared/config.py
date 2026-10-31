@@ -25,6 +25,9 @@ class Settings:
     # overload (503) or exhausted free quota (429). Each model has its own
     # capacity and per-model quota.
     gemini_models: tuple[str, ...]
+    # The AI Forecaster writes its explanation on Groq (free, no billing account).
+    groq_api_key: str
+    groq_models: tuple[str, ...]
     supabase_url: str
     supabase_anon_key: str
     allowed_origins: tuple[str, ...]
@@ -36,6 +39,10 @@ class Settings:
     @property
     def gemini_model(self) -> str:
         return self.gemini_models[0]
+
+    @property
+    def groq_configured(self) -> bool:
+        return bool(self.groq_api_key)
 
 
 # Best first. Each model has its own free daily quota (about 20 requests),
@@ -57,6 +64,20 @@ DEFAULT_GEMINI_MODELS = (
 )
 
 
+# Forecaster on Groq, best first. gpt-oss answers in strict JSON-schema mode;
+# Llama gets JSON mode. Each model has its own free rate limit.
+DEFAULT_GROQ_MODELS = (
+    "openai/gpt-oss-120b",
+    "llama-3.3-70b-versatile",
+    "openai/gpt-oss-20b",
+)
+
+
+def _groq_models() -> tuple[str, ...]:
+    explicit = [m.strip() for m in os.getenv("GROQ_MODELS", "").split(",") if m.strip()]
+    return tuple(dict.fromkeys(explicit or DEFAULT_GROQ_MODELS))
+
+
 def _gemini_models() -> tuple[str, ...]:
     """GEMINI_MODELS (comma-separated) wins. Otherwise GEMINI_MODEL, if set, goes
     first and the defaults follow. Duplicates and blanks are dropped."""
@@ -73,6 +94,8 @@ def get_settings() -> Settings:
     return Settings(
         gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
         gemini_models=_gemini_models(),
+        groq_api_key=os.getenv("GROQ_API_KEY", "").strip(),
+        groq_models=_groq_models(),
         supabase_url=os.getenv("SUPABASE_URL", "").strip().rstrip("/"),
         # The public anon key: every database call runs as the signed-in user
         # under Row-Level Security, so no service-role key is needed here.

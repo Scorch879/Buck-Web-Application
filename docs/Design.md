@@ -1223,7 +1223,7 @@ Buck-Web-Application/
 
 ### ADR-043: Buck_AI, a Python Gemini Service with Two AIs (Advisor Live, Forecaster Planned)
 
-- **Status**: AI Financial Advisor implemented in `Buck_AI/BuckAI_Advisor`. AI Forecaster planned in `Buck_AI/BuckAI_Forecast`. Supersedes ADR-004 and the short-lived TypeScript Gemini draft. No database migration.
+- **Status**: AI Financial Advisor implemented in `Buck_AI/BuckAI_Advisor`. AI Forecaster implemented 2026-10-30 in `Buck_AI/BuckAI_Forecast` (ADR-052). Supersedes ADR-004 and the short-lived TypeScript Gemini draft. No database migration.
 - **Context**:
   - Product decisions (2026-10-14):
     - AI is written in Python on Google Gemini (the newest and cheapest option).
@@ -1463,3 +1463,49 @@ Buck-Web-Application/
   - Any signed-in user can make Buck fetch the logo of any app whose id they know. The URL is fixed by that app's registration, limited to public https and 256 KB, and returned only as a raster image, so the proxy is not an open fetcher.
   - ICO and SVG logos fall back to the initial.
   - There is no server-side cache: each user's first view per day costs one outbound fetch.
+---
+
+### ADR-052: AI Forecaster: a Per-User Spending Model with Monte Carlo Ranges, Explained by Gemini
+
+- **Status**: Implemented 2026-10-30 in [`Buck_AI/BuckAI_Forecast/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/). Completes the Forecaster half of ADR-043. Migration [`202610300001_ai_forecaster_support.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610300001_ai_forecaster_support.sql) (adds the `forecast` rate-limit bucket; `model_name` defaults to `'rules'`). The page redesign (chart, wallet and category cards) is handed to Buck | Frontend.
+- **Context**:
+  - The Forecast tab ran on the web rule engine (`generateForecastInsights`): month-to-date spending ÷ days passed, copied onto every day, `confidence_score` hard-coded to 0.88, server time instead of Philippine time, no category, wallet, weekday or payday awareness.
+  - The product asks for a separate AI from the Advisor that reads past and present spending, projects it day by day up to 60 days, varies by day and category (people don't spend the same every day), and adapts to each user's wallets, weekly or monthly rhythm and saving attitude. The SRS (§3.1.6) asks for an additive model, an 80% range, the month-end surplus or shortfall, emergencies left out of the baseline, and answers within 3 s.
+- **Options**:
+  - **(a) Train one regression model on all users and deploy it.** Rejected: there is no training set, each user has tens to hundreds of expenses, new users would get nothing, and a shared model would flatten personal habits.
+  - **(b) Prophet or statsmodels.** Rejected: Prophet needs CmdStan, and both are heavy for a Vercel Python function. Neither handles "spends on some days, nothing on others" well.
+  - **(c) Let Gemini forecast.** Rejected: language models are poor at arithmetic and the numbers would change with every call.
+  - **(d) Fit a small model per user on every request.** Chosen. Fitting *is* the training, it takes about 60 ms, and the only new dependency is numpy.
+- **Decision**:
+  1. **Model** ([`model.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/model.py), no I/O). An additive intermittent-demand model per category: chance of spending on a day = recency-weighted base rate × that category's weekday effect × its payday effect (days after usual income dates); amount = a bootstrap draw from the category's own recent daily totals. Effects are shrunk toward 1 so thin data can't produce wild multipliers. Recurring items (same label, steady amount, about weekly or monthly) are placed on their due dates.
+  2. **Ranges**: 1,000 simulated futures give P10/P50/P90 per day and cumulatively (the 80% band). The seed comes from the data, so the same data always gives the same forecast.
+  3. **Adaptive window**: the last 14 days are held out, the model is refitted on the earlier data with a 14, 30 and 60-day window, and the window that predicted the held-out days best wins. `confidence = (1 − backtest error) × min(1, days observed / 60)`, replacing the hard-coded 0.88.
+  4. **Exclusions**: `expenses.metadata.is_emergency` and per-category outliers (above Q3 + 3×IQR and over twice Q3, once a category has 8 samples) are left out of the baseline and listed in `excluded`.
+  5. **Output** ([`forecast.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/forecast.py)): per day, total, rest of this month with surplus or shortfall against income (or wallet balances when there is none), per category with trend, per wallet with the projected spend and the date it likely runs out (or `empty` when it is already at ₱0 but still spent from), the attitude target line (expected × `SPEND_MULTIPLIER`, with `gapPerDay`), goal timing, habits, 14/30/60-day moving averages, warnings, and the model's own accuracy. A logging gap (nothing logged for 7+ days and over 3× the usual gap) is flagged first, because the forecast then runs low.
+  6. **Gemini explains, never computes** ([`prompts.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/prompts.py)): "you project; you do not coach". It sees `ai_view(f)` (numbers and category names only, no descriptions or ids) inside `<financial_data>`, must quote only those figures, name the window and give ranges. Output is a JSON schema (headline 1 sentence, explanation 3–4, up to 3 habit notes, watch-out), cleaned with `clean_text`; bare ₱ figures get thousands separators.
+  7. **Two calls, so numbers never wait for Gemini** ([`service.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/service.py)): `GET /forecast?horizon=30|60` loads history as the user (RLS), fits and returns the numbers in well under a second. The explanation comes from the latest saved `ai_forecasts` row when its fingerprint matches and it hasn't expired (next PH midnight); otherwise a rule-written one with `explanationPending: true`. GET never writes. `POST /forecast/explain` calls Gemini (45 s budget, 12 s per model, since the answer is not streamed and a hung model must not use up the budget) or falls back to rules, and saves a row (`period_type = 'custom'`, the whole payload in `metadata`). Cooldowns are the Advisor's: 5 min after a data change, 60 s for refresh; during one, responses carry `cooldownUntil`.
+  8. **Web** ([`forecastApi.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/forecastApi.ts)): calls GET, then `explainAIForecast` in the background when `explanationPending` (concurrent calls share one request). If Buck_AI is unreachable, the rule engine at `/api/forecast` answers as before (`source: "rules"`).
+- **Consequences**:
+  - Forecasts vary by day, category, weekday, payday and wallet, show an honest range and an honest confidence, and stay identical for identical data.
+  - No model to train, version or host; ₱0 extra (numpy in the existing Buck_AI function).
+  - Gemini's free-tier latency only delays the explanation, not the numbers. When every model is busy, a rule-written explanation is saved and Gemini is retried after the cooldown.
+  - The Forecaster's rate limit is shared across instances only once the migration's `forecast` bucket is applied; until then each instance keeps a local window.
+  - Not yet: forecast chat and the mobile screen (phase 2), an `is_emergency` column with a UI toggle (QA BUG-031; today only `metadata.is_emergency` is honoured).
+
+### ADR-053: Forecaster Explanation on Groq, in a Warmer Voice
+
+- **Status**: Implemented 2026-11-01 in [`Buck_AI/shared/groq.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/shared/groq.py) and [`BuckAI_Forecast/service.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/service.py). Amends ADR-052 item 6; the numbers are unchanged. No migration.
+- **Context**: Gemini's free tier kept the explanation waiting (503 overloads, about 20 requests a day per model, hung calls, cut-off JSON), so the card often stayed rule-written. The text also read cold: "P50", "window", warnings phrased as alarms.
+- **Options**:
+  - **(a) Stay on Gemini.** Rejected: the reliability problems above.
+  - **(b) A paid model (Claude Haiku, GPT).** Rejected for now: the project runs at ₱0 with no billing account.
+  - **(c) Open models on Groq.** Chosen: free tier with no card, rate-limited per model (about 1,000 requests a day), answers in about a second, strict JSON-schema decoding on gpt-oss.
+- **Decision**:
+  1. `shared/groq.py`: OpenAI-compatible chat completions over the shared httpx client. Chain `openai/gpt-oss-120b` → `llama-3.3-70b-versatile` → `openai/gpt-oss-20b` (`GROQ_MODELS` overrides). gpt-oss gets `json_schema` with `strict: true`, low reasoning effort and reasoning left out of the reply; Llama gets JSON mode with the schema in the system message. 404/429/498/5xx, timeouts and invalid JSON move to the next model; a 429 benches the model for its `retry-after`. Error bodies are not logged.
+  2. Voice ([`prompts.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/prompts.py)): warm and plain, "you", no jargon ("likely", "between", never P50 or "model"), no blame, risks as a gentle heads-up, notice what is going well. Still forecasts only, never coaches; same grounding rules and `<financial_data>` fence.
+  3. Saved rows: `generated_with = "groq"`, `model_name` = the Groq model that answered. Older Gemini rows still serve until they expire.
+  4. The Advisor stays on Gemini (`shared/gemini.py`).
+- **Consequences**:
+  - The explanation usually lands about a second after the numbers. Every failure still ends in the rule-written text.
+  - New secret `GROQ_API_KEY`, set only in the Buck_AI Vercel project and its local `.env`. Never in the web app.
+  - Two AI vendors to watch. Groq's free limits change, so `GROQ_MODELS` can swap models without a code change.
