@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import type { IconType } from "react-icons";
 import {
   FaBullseye,
-  FaCalendarAlt,
-  FaChartArea,
-  FaExclamationTriangle,
-  FaInfoCircle,
-  FaMagic,
-  FaPiggyBank,
+  FaCalendarWeek,
+  FaChartLine,
+  FaMoneyBillWave,
+  FaRedoAlt,
+  FaRegBell,
+  FaRegClock,
   FaSyncAlt,
   FaWallet,
 } from "react-icons/fa";
@@ -25,24 +26,35 @@ import {
 } from "@/utils/forecastApi";
 import {
   TREND_LABELS,
-  confidencePercent,
+  activeWalletRunway,
+  categoriesWithOthers,
+  confidenceWords,
   cooldownRemainingMs,
   formatClockTime,
-  formatDateSpan,
   formatMoneyBetween,
   formatShortDate,
-  isRoughEstimate,
-  splitForecastWarnings,
-  topCategories,
+  habitChips,
+  headsUpItems,
+  rangePosition,
+  surplusTone,
+  type HabitIcon,
 } from "@/utils/forecastDisplay";
 import { formatCurrency } from "@/utils/formatters";
 import { useToast } from "@/component/toast";
 import ForecastChart from "./ForecastChart";
-// advisor-grid / advisor-card / advisor-icon live in the advisor stylesheet
-import "../financial-advisor/style.css";
 import "./style.css";
 
 const HORIZONS: ForecastHorizon[] = [30, 60];
+
+const AI_NOTE = "Written by AI from your Buck data. It can be wrong.";
+
+const HABIT_ICONS: Record<HabitIcon, IconType> = {
+  weekday: FaCalendarWeek,
+  payday: FaMoneyBillWave,
+  recurring: FaRedoAlt,
+  trend: FaChartLine,
+  rhythm: FaRegClock,
+};
 
 export default function ForecastPage() {
   const { user } = useDashboardUser();
@@ -96,7 +108,7 @@ export default function ForecastPage() {
             toast("Forecast refreshed.", "success");
           }
         }
-        // Numbers are on screen; the Gemini explanation follows when it is ready.
+        // Numbers are on screen; the written explanation follows when it is ready.
         followUpExplanation(h, data);
       } catch (err) {
         const errMsg = "Failed to load the forecast.";
@@ -114,8 +126,8 @@ export default function ForecastPage() {
   const actionsRef = useRef({ loadForecast, followUpExplanation });
   actionsRef.current = { loadForecast, followUpExplanation };
 
-  // A cached forecast shows at once; the fresh one (no Gemini call, fast)
-  // replaces it, and a pending explanation is asked for again (requests are shared).
+  // A cached forecast shows at once; the fresh numbers (fast, no AI call)
+  // replace it, and a pending explanation is asked for again (requests are shared).
   useEffect(() => {
     void actionsRef.current.loadForecast(horizon);
   }, [horizon, user.uid]);
@@ -140,62 +152,47 @@ export default function ForecastPage() {
   const forecast = insights?.source === "buck_ai" ? insights.forecast : undefined;
   const isFallback = Boolean(insights) && !forecast;
 
+  const controls = (
+    <div className="forecast-story-controls">
+      <div className="forecast-segmented" role="group" aria-label="Forecast length">
+        {HORIZONS.map((h) => (
+          <button
+            key={h}
+            type="button"
+            className="forecast-segmented-btn"
+            aria-pressed={horizon === h}
+            disabled={isFallback && horizon !== h}
+            title={isFallback && horizon !== h ? "Available when the full forecast is reachable" : undefined}
+            onClick={() => setHorizon(h)}
+          >
+            {h} days
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        className="forecast-refresh-btn"
+        onClick={() => void loadForecast(horizon, true)}
+        disabled={refreshing || coolingDown}
+        title={
+          coolingDown && cooldownUntil
+            ? `A new explanation is held back. You can refresh again at ${formatClockTime(cooldownUntil)}.`
+            : undefined
+        }
+      >
+        <FaSyncAlt aria-hidden="true" className={refreshing ? "forecast-spin" : undefined} />
+        {refreshing
+          ? "Refreshing…"
+          : coolingDown && cooldownUntil
+            ? `Refresh at ${formatClockTime(cooldownUntil)}`
+            : "Refresh"}
+      </button>
+    </div>
+  );
+
   return (
     <div className="forecast-page">
       {error && <div className="settings-message settings-message--error">{error}</div>}
-
-      <section className="forecast-hero">
-        <div className="forecast-hero-copy">
-          <div className="forecast-hero-meta">
-            <p className="forecast-eyebrow">Financial Forecast</p>
-            {insights?.createdAt && (
-              <span className="forecast-chip">
-                {insights.cached ? "Saved" : "Updated"} {new Date(insights.createdAt).toLocaleDateString()}
-              </span>
-            )}
-          </div>
-          <h2>Where your spending is likely heading.</h2>
-          <p>
-            Buck studies your own spending history and gives likely ranges for the days ahead, not exact promises.
-          </p>
-        </div>
-
-        <div className="forecast-hero-actions">
-          <div className="forecast-segmented" role="group" aria-label="Forecast horizon">
-            {HORIZONS.map((h) => (
-              <button
-                key={h}
-                type="button"
-                className="forecast-segmented-btn"
-                aria-pressed={horizon === h}
-                disabled={isFallback && horizon !== h}
-                title={isFallback && horizon !== h ? "Available when the AI Forecaster is reachable" : undefined}
-                onClick={() => setHorizon(h)}
-              >
-                {h} days
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            className="forecast-refresh-btn"
-            onClick={() => void loadForecast(horizon, true)}
-            disabled={refreshing || coolingDown}
-            title={
-              coolingDown && cooldownUntil
-                ? `A new explanation is held back. You can refresh again at ${formatClockTime(cooldownUntil)}.`
-                : undefined
-            }
-          >
-            <FaSyncAlt aria-hidden="true" className={refreshing ? "forecast-spin" : undefined} />
-            {refreshing
-              ? "Refreshing…"
-              : coolingDown && cooldownUntil
-                ? `Refresh at ${formatClockTime(cooldownUntil)}`
-                : "Refresh"}
-          </button>
-        </div>
-      </section>
 
       {forecast && insights?.narrative ? (
         <RichForecast
@@ -203,16 +200,25 @@ export default function ForecastPage() {
           narrative={insights.narrative}
           pending={Boolean(insights.explanationPending)}
           stale={Boolean(insights.stale)}
+          aiWritten={insights.generatedWith !== "rules"}
+          controls={controls}
         />
+      ) : insights ? (
+        <FallbackForecast insights={insights} controls={controls} />
       ) : (
-        insights && <FallbackForecast insights={insights} />
+        <section className="forecast-story">
+          <div className="forecast-story-top">
+            <h2 className="forecast-greeting">Your next {horizon} days</h2>
+            {controls}
+          </div>
+        </section>
       )}
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* AI Forecaster layout                                                */
+/* AI Forecaster layout: the story first, details on demand            */
 /* ------------------------------------------------------------------ */
 
 function RichForecast({
@@ -220,309 +226,276 @@ function RichForecast({
   narrative,
   pending,
   stale,
+  aiWritten,
+  controls,
 }: {
   forecast: BuckForecast;
   narrative: ForecastNarrative;
   pending: boolean;
   stale: boolean;
+  aiWritten: boolean;
+  controls: ReactNode;
 }) {
-  const { month, model, goal } = forecast;
+  const { month, model, goal, total } = forecast;
   const horizon = forecast.days.length;
-  const shortfall = month.surplus.likely < 0;
-  const categories = topCategories(forecast.categories);
-  const { notice, risks } = splitForecastWarnings(forecast);
-  const rough = isRoughEstimate(model);
+  const tone = surplusTone(month);
+  const runway = activeWalletRunway(forecast);
+  const activeWallet = forecast.wallets.find((w) => w.active) ?? forecast.wallets[0];
+  const headsUp = headsUpItems(forecast);
+  const habits = habitChips(forecast, pending ? undefined : narrative.habitNotes);
+  const categories = categoriesWithOthers(forecast.categories);
+  const marker = rangePosition(total.p10, total.p50, total.p90);
 
   return (
     <>
-      <section className="forecast-panel">
-        <header className="forecast-panel-head">
-          <p className="forecast-eyebrow">Daily forecast</p>
-          <h3>Likely spending, next {horizon} days</h3>
-          <p>
-            Likely total {formatCurrency(forecast.total.p50)}, {formatMoneyBetween(forecast.total.p10, forecast.total.p90)} in 8
-            of 10 outcomes.
-          </p>
-        </header>
-        <ForecastChart forecast={forecast} />
-      </section>
+      <section className="forecast-story" aria-labelledby="forecast-greeting">
+        <div className="forecast-story-top">
+          <h2 id="forecast-greeting" className="forecast-greeting">
+            Your next {horizon} days
+          </h2>
+          {controls}
+        </div>
 
-      <section className="forecast-panel">
-        <header className="forecast-panel-head">
-          <p className="forecast-eyebrow">This month</p>
-          <h3>
-            {month.daysLeft === 0
-              ? "Last day of the month"
-              : month.daysLeft === 1
-                ? "1 day left"
-                : `${month.daysLeft} days left`}
-          </h3>
-        </header>
-        <div className="forecast-month-grid">
-          <div className="forecast-stat">
-            <span className="forecast-stat-label">Spent so far</span>
-            <strong>{formatCurrency(month.spentSoFar)}</strong>
-            <span className="forecast-stat-note">Logged since {formatShortDate(month.start)}</span>
+        <div className="forecast-story-text" aria-busy={pending}>
+          {pending ? (
+            <div className="forecast-shimmer" role="status" aria-label="Writing your forecast">
+              <span className="forecast-shimmer-line forecast-shimmer-line--headline" />
+              <span className="forecast-shimmer-line" />
+              <span className="forecast-shimmer-line" />
+              <span className="forecast-shimmer-line forecast-shimmer-line--short" />
+            </div>
+          ) : (
+            <>
+              <p className="forecast-headline">{narrative.headline}</p>
+              <p className="forecast-explanation">{narrative.explanation}</p>
+            </>
+          )}
+        </div>
+
+        <div className="forecast-figure">
+          <p className="forecast-figure-line">
+            <span className="forecast-figure-likely">Likely {formatCurrency(total.p50)}</span>
+            <span className="forecast-figure-range">somewhere {formatMoneyBetween(total.p10, total.p90)}</span>
+          </p>
+          <div className="forecast-ribbon" aria-hidden="true">
+            <span className="forecast-ribbon-track" />
+            <span className="forecast-ribbon-marker" style={{ left: `${marker}%` }} />
           </div>
-          <div className="forecast-stat">
-            <span className="forecast-stat-label">Likely month total</span>
-            <strong>{formatCurrency(month.projectedTotal.p50)}</strong>
-            <span className="forecast-stat-note">
-              Likely {formatMoneyBetween(month.projectedTotal.p10, month.projectedTotal.p90)}
-            </span>
+          <div className="forecast-ribbon-labels" aria-hidden="true">
+            <span>Low {formatCurrency(total.p10)}</span>
+            <span>High {formatCurrency(total.p90)}</span>
           </div>
-          <div className={`forecast-stat${shortfall ? " forecast-stat--danger" : " forecast-stat--good"}`}>
-            <span className="forecast-stat-label">{shortfall ? "Likely shortfall" : "Likely left over"}</span>
-            <strong>{formatCurrency(Math.abs(month.surplus.likely))}</strong>
-            <span className="forecast-stat-note">
-              Likely {formatMoneyBetween(month.surplus.low, month.surplus.high)} against your{" "}
-              {month.surplusBasis} ({formatCurrency(month.surplusAgainst)})
-            </span>
-          </div>
+        </div>
+
+        <div className="forecast-story-foot">
+          <span className="forecast-chip">{confidenceWords(model.confidence)}</span>
+          {stale && !pending && <span className="forecast-chip forecast-chip--quiet">Update coming shortly</span>}
+          {model.lowData && <span className="forecast-foot-note">Log a few more days and this gets sharper.</span>}
+          {aiWritten && <span className="forecast-foot-note forecast-foot-note--ai">{AI_NOTE}</span>}
         </div>
       </section>
 
-      <section className="forecast-section">
-        <header className="forecast-section-head">
-          <p className="forecast-eyebrow">Top categories</p>
-          <h3>Where the next {horizon} days likely go</h3>
-        </header>
-        {categories.length > 0 ? (
-          <div className="forecast-category-grid">
-            {categories.map((c) => (
-              <article key={c.name} className="forecast-mini-card">
-                <div className="forecast-mini-head">
-                  <h4>{c.name}</h4>
-                  <span className={`forecast-trend forecast-trend--${c.trend}`}>{TREND_LABELS[c.trend]}</span>
-                </div>
-                <strong className="forecast-mini-amount">{formatCurrency(c.expected)}</strong>
-                <div
-                  className="forecast-share-track"
-                  role="progressbar"
-                  aria-label={`${c.name} share of forecast spending`}
-                  aria-valuenow={Math.round(c.share)}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                >
-                  <span style={{ width: `${Math.min(100, Math.max(0, c.share))}%` }} />
-                </div>
-                <p>
-                  {c.share.toFixed(0)}% of spending
-                  {month.daysLeft > 0 ? ` · ${formatCurrency(c.restOfMonth)} for the rest of this month` : ""}
-                  {c.recurring ? " · recurring" : ""}
-                </p>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <p className="forecast-empty">No category spending to forecast yet.</p>
-        )}
+      <section className="forecast-tiles" aria-label="This month at a glance">
+        <article className="forecast-tile">
+          <h3 className="forecast-tile-label">This month&apos;s likely total</h3>
+          <strong className="forecast-tile-value">{formatCurrency(month.projectedTotal.p50)}</strong>
+          <p className="forecast-tile-note">
+            {formatCurrency(month.spentSoFar)} spent so far,{" "}
+            {month.daysLeft === 0 ? "last day of the month" : `${month.daysLeft} ${month.daysLeft === 1 ? "day" : "days"} left`}.
+          </p>
+        </article>
+
+        <article className={`forecast-tile forecast-tile--${tone}`}>
+          <h3 className="forecast-tile-label">{month.surplus.likely >= 0 ? "Likely left over" : "Likely short"}</h3>
+          <strong className="forecast-tile-value">{formatCurrency(Math.abs(month.surplus.likely))}</strong>
+          <p className="forecast-tile-note">
+            Against your {month.surplusBasis} of {formatCurrency(month.surplusAgainst)}.
+          </p>
+        </article>
+
+        <article className={`forecast-tile${runway?.empty ? " forecast-tile--tight" : ""}`}>
+          <h3 className="forecast-tile-label">{runway ? `${runway.name} lasts until` : "Active wallet lasts until"}</h3>
+          <strong className="forecast-tile-value">{runway ? runway.text : "No wallet yet"}</strong>
+          <p className="forecast-tile-note">
+            {activeWallet ? `Balance ${formatCurrency(activeWallet.balance)}.` : "Add a wallet to see how long it lasts."}
+          </p>
+        </article>
       </section>
 
-      <section className="forecast-section">
-        <header className="forecast-section-head">
-          <p className="forecast-eyebrow">Wallet runway</p>
-          <h3>How long each wallet likely lasts</h3>
-        </header>
-        {forecast.wallets.length > 0 ? (
-          <div className="forecast-wallet-grid">
-            {forecast.wallets.map((w) => {
-              const span = formatDateSpan(w.runsOut);
-              const noSpend = !w.empty && w.projectedSpend.p90 <= 0;
-              return (
-                <article key={w.name} className="forecast-mini-card">
-                  <div className="forecast-mini-head">
-                    <h4>
-                      <FaWallet aria-hidden="true" /> {w.name}
-                    </h4>
-                    <span className="forecast-badges">
-                      {w.active && <span className="forecast-badge forecast-badge--active">Active</span>}
-                      {w.empty && <span className="forecast-badge forecast-badge--empty">Empty</span>}
-                    </span>
-                  </div>
-                  <strong className="forecast-mini-amount">{formatCurrency(w.balance)}</strong>
-                  <p>
-                    {noSpend
-                      ? `No spending expected from this wallet over ${horizon} days.`
-                      : `Likely spend ${formatCurrency(w.projectedSpend.p50)} over ${horizon} days (${formatMoneyBetween(w.projectedSpend.p10, w.projectedSpend.p90)}).`}
-                  </p>
-                  <p className="forecast-runway">
-                    {noSpend
-                      ? "Nothing to run out of."
-                      : w.empty
-                      ? "Balance is ₱0, but spending usually comes out of this wallet."
-                      : w.runsOut?.likely
-                        ? `Likely runs out around ${formatShortDate(w.runsOut.likely)}${span ? ` (${span})` : ""}.`
-                        : "Likely lasts beyond this period."}
-                  </p>
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="forecast-empty">No wallets to forecast yet.</p>
-        )}
+      <section className="forecast-panel forecast-chart-panel">
+        <ForecastChart forecast={forecast} />
       </section>
 
       <div className="forecast-two-col">
-        <section className="forecast-panel">
-          <header className="forecast-panel-head forecast-panel-head--icon">
-            <span className="forecast-icon">
-              <FaBullseye aria-hidden="true" />
-            </span>
-            <div>
-              <p className="forecast-eyebrow">Goal</p>
-              <h3>{goal ? goal.name : "No active goal"}</h3>
-            </div>
-            {goal && goal.onTrack !== null && (
-              <span className={`forecast-chip ${goal.onTrack ? "forecast-chip--good" : "forecast-chip--warn"}`}>
-                {goal.onTrack ? "On track" : "Behind pace"}
-              </span>
-            )}
-          </header>
-          {goal ? (
-            <dl className="forecast-goal-list">
-              <div>
-                <dt>Remaining</dt>
-                <dd>{formatCurrency(goal.remaining)}</dd>
-              </div>
-              <div>
-                <dt>Needed per day</dt>
-                <dd>
-                  {goal.requiredPerDay !== null
-                    ? `${formatCurrency(goal.requiredPerDay)}${goal.targetDate ? ` to finish by ${formatShortDate(goal.targetDate)}` : ""}`
-                    : "No target date set"}
-                </dd>
-              </div>
-              <div>
-                <dt>Likely reached</dt>
-                <dd>
-                  {goal.reachBy?.likely
-                    ? `Around ${formatShortDate(goal.reachBy.likely)}${formatDateSpan(goal.reachBy) ? ` (${formatDateSpan(goal.reachBy)})` : ""}`
-                    : `Likely beyond the next ${horizon} days`}
-                </dd>
-              </div>
-            </dl>
+        <section className="forecast-panel forecast-headsup" aria-labelledby="forecast-headsup-title">
+          <h3 id="forecast-headsup-title" className="forecast-panel-title">
+            <FaRegBell aria-hidden="true" /> Heads-up
+          </h3>
+          {headsUp.length > 0 ? (
+            <ul className="forecast-headsup-list">
+              {headsUp.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
           ) : (
-            <p className="forecast-empty">Set an active goal on the Goals tab to see when you would likely reach it.</p>
+            <p className="forecast-empty">Nothing to flag right now.</p>
           )}
         </section>
 
-        <section className="forecast-panel">
-          <header className="forecast-panel-head forecast-panel-head--icon">
-            <span className="forecast-icon">
-              <FaCalendarAlt aria-hidden="true" />
-            </span>
-            <div>
-              <p className="forecast-eyebrow">Habits</p>
-              <h3>Patterns in your spending</h3>
-            </div>
-          </header>
-          {forecast.habits.length > 0 ? (
+        <section className="forecast-panel" aria-labelledby="forecast-habits-title">
+          <h3 id="forecast-habits-title" className="forecast-panel-title">
+            Your habits
+          </h3>
+          {habits.length > 0 ? (
             <ul className="forecast-habits">
-              {forecast.habits.map((h, i) => (
-                <li key={`${h.kind}-${i}`} className="forecast-habit-chip">
-                  {h.text}
-                </li>
-              ))}
+              {habits.map((h, i) => {
+                const Icon = HABIT_ICONS[h.icon];
+                return (
+                  <li key={i} className="forecast-habit-chip">
+                    <Icon aria-hidden="true" />
+                    <span>{h.text}</span>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="forecast-empty">No clear patterns yet.</p>
           )}
-          <details className="forecast-excluded">
-            <summary>Left out of the baseline ({forecast.excluded.length})</summary>
-            {forecast.excluded.length > 0 ? (
-              <ul>
-                {forecast.excluded.map((e, i) => (
-                  <li key={`${e.date}-${i}`}>
-                    <span>
-                      {formatShortDate(e.date)} · {e.category}
-                      {e.label ? ` · ${e.label}` : ""}
-                    </span>
-                    <span>
-                      {formatCurrency(e.amount)} <em>{e.reason === "emergency" ? "Emergency" : "One-off"}</em>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="forecast-empty">Nothing was left out.</p>
-            )}
-          </details>
         </section>
       </div>
 
-      <div className="forecast-ai-grid">
-        <section className="forecast-card forecast-card--wide forecast-explanation" aria-busy={pending}>
-          <span className="forecast-icon">
-            <FaMagic aria-hidden="true" />
-          </span>
-          <div className="forecast-explanation-body">
-            <div className="forecast-explanation-meta">
-              <p className="forecast-eyebrow">AI Forecast explanation</p>
-              {rough && <span className="forecast-chip forecast-chip--warn">Rough estimate</span>}
-              {pending ? (
-                <span className="forecast-chip forecast-chip--quiet" role="status">
-                  <span className="forecast-pulse" aria-hidden="true" />
-                  Writing explanation…
-                </span>
-              ) : (
-                stale && <span className="forecast-chip forecast-chip--quiet">Update coming shortly</span>
-              )}
-            </div>
-            <h3 className="forecast-explanation-headline">{narrative.headline}</h3>
-            <p className="forecast-explanation-text">{narrative.explanation}</p>
-            {narrative.habitNotes.length > 0 && (
-              <ul className="forecast-notes">
-                {narrative.habitNotes.map((note, i) => (
-                  <li key={i}>{note}</li>
-                ))}
-              </ul>
-            )}
-            {narrative.watchOut && (
-              <p className="forecast-callout">
-                <FaExclamationTriangle aria-hidden="true" />
-                <span>{narrative.watchOut}</span>
-              </p>
-            )}
-            <p className="forecast-footnote">
-              Based on your last {model.windowDays} days · confidence {confidencePercent(model.confidence)}%
-            </p>
-          </div>
+      <div className="forecast-two-col">
+        <section className="forecast-panel" aria-labelledby="forecast-categories-title">
+          <h3 id="forecast-categories-title" className="forecast-panel-title">
+            Where it likely goes
+          </h3>
+          {categories.length > 0 ? (
+            <ul className="forecast-rows">
+              {categories.map((c) => (
+                <li key={c.name} className="forecast-row">
+                  <div className="forecast-row-main">
+                    <span className="forecast-row-name">{c.name}</span>
+                    {c.trend && c.trend !== "steady" && (
+                      <span className={`forecast-trend forecast-trend--${c.trend}`}>{TREND_LABELS[c.trend]}</span>
+                    )}
+                    <span className="forecast-row-amount">{formatCurrency(c.expected)}</span>
+                  </div>
+                  <div
+                    className="forecast-share-track"
+                    role="progressbar"
+                    aria-label={`${c.name} share of likely spending`}
+                    aria-valuenow={Math.round(c.share)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                  >
+                    <span style={{ width: `${Math.min(100, Math.max(0, c.share))}%` }} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="forecast-empty">No category spending to forecast yet.</p>
+          )}
         </section>
 
-        <WarningsCard notice={notice} risks={risks} />
+        <section className="forecast-panel" aria-labelledby="forecast-wallets-title">
+          <h3 id="forecast-wallets-title" className="forecast-panel-title">
+            Your wallets
+          </h3>
+          {forecast.wallets.length > 0 ? (
+            <ul className="forecast-rows">
+              {forecast.wallets.map((w) => (
+                <li key={w.name} className="forecast-row forecast-wallet-row">
+                  <div className="forecast-row-main">
+                    <span className="forecast-row-name">
+                      <FaWallet aria-hidden="true" /> {w.name}
+                    </span>
+                    {w.active && <span className="forecast-badge forecast-badge--active">Active</span>}
+                    <span className="forecast-row-amount">{formatCurrency(w.balance)}</span>
+                  </div>
+                  <p className="forecast-row-note">
+                    {w.empty
+                      ? "Empty, but spending usually comes out of this wallet."
+                      : w.projectedSpend.p90 <= 0
+                        ? "No spending expected here."
+                        : w.runsOut?.likely
+                          ? `Likely runs out around ${formatShortDate(w.runsOut.likely)}.`
+                          : `Likely lasts past the next ${horizon} days.`}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="forecast-empty">No wallets to forecast yet.</p>
+          )}
+        </section>
       </div>
-    </>
-  );
-}
 
-function WarningsCard({ notice, risks }: { notice: string | null; risks: string[] }) {
-  return (
-    <section className="forecast-card forecast-card--wide">
-      <span className="forecast-icon forecast-icon--danger">
-        <FaExclamationTriangle aria-hidden="true" />
-      </span>
-      <div>
-        <p className="forecast-eyebrow">AI Warnings</p>
-        <h3>Potential risks</h3>
-        {notice && (
-          <p className="forecast-notice" role="note">
-            <FaInfoCircle aria-hidden="true" />
-            <span>{notice}</span>
+      <section className="forecast-goal" aria-label="Goal">
+        <span className="forecast-goal-icon">
+          <FaBullseye aria-hidden="true" />
+        </span>
+        {goal ? (
+          <p className="forecast-goal-text">
+            <strong>{goal.name}</strong>: {formatCurrency(goal.remaining)} to go.{" "}
+            {goal.reachBy?.likely
+              ? `Likely reached around ${formatShortDate(goal.reachBy.likely)}.`
+              : `Likely past the next ${horizon} days.`}
+            {goal.requiredPerDay !== null && goal.targetDate
+              ? ` Save ${formatCurrency(goal.requiredPerDay)} a day to finish by ${formatShortDate(goal.targetDate)}.`
+              : ""}
           </p>
-        )}
-        {risks.length > 0 ? (
-          <ul className="forecast-warnings">
-            {risks.map((warning, index) => (
-              <li key={index}>{warning}</li>
-            ))}
-          </ul>
         ) : (
-          <p>No risks detected in your likely path.</p>
+          <p className="forecast-goal-text">No active goal yet. Set one on the Goals tab to see when you would likely reach it.</p>
         )}
-      </div>
-    </section>
+        {goal && goal.onTrack !== null && (
+          <span className={`forecast-chip ${goal.onTrack ? "forecast-chip--good" : "forecast-chip--warn"}`}>
+            {goal.onTrack ? "On track" : "Behind pace"}
+          </span>
+        )}
+      </section>
+
+      <details className="forecast-how">
+        <summary>How this forecast works</summary>
+        <div className="forecast-how-body">
+          <p>
+            Buck looked at your last {model.windowDays} days of spending ({model.observedDays} days of history in
+            all) and played out many possible months to find a low, likely and high amount. Your weekday rhythm,
+            paydays and repeating bills are part of it.
+          </p>
+          <p>
+            Average daily spending: {formatCurrency(forecast.movingAverages.d14)} over 14 days,{" "}
+            {formatCurrency(forecast.movingAverages.d30)} over 30 days and {formatCurrency(forecast.movingAverages.d60)}{" "}
+            over 60 days.
+          </p>
+          {forecast.target.multiplier !== 1 && (
+            <p>
+              Your {forecast.target.attitude} saving attitude sets a target of{" "}
+              {formatCurrency(forecast.target.dailyTarget)} a day.
+            </p>
+          )}
+          <h4>Left out as one-offs ({forecast.excluded.length})</h4>
+          {forecast.excluded.length > 0 ? (
+            <ul className="forecast-excluded">
+              {forecast.excluded.map((e, i) => (
+                <li key={`${e.date}-${i}`}>
+                  <span>
+                    {formatShortDate(e.date)}, {e.category}
+                    {e.label ? `: ${e.label}` : ""}
+                  </span>
+                  <span>
+                    {formatCurrency(e.amount)} <em>{e.reason === "emergency" ? "Emergency" : "One-off"}</em>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="forecast-empty">Nothing was left out.</p>
+          )}
+          {aiWritten && <p className="forecast-foot-note forecast-foot-note--ai">{AI_NOTE} The numbers come from Buck.</p>}
+        </div>
+      </details>
+    </>
   );
 }
 
@@ -530,52 +503,50 @@ function WarningsCard({ notice, risks }: { notice: string | null; risks: string[
 /* Rule-engine fallback (Buck_AI unreachable)                          */
 /* ------------------------------------------------------------------ */
 
-function FallbackForecast({ insights }: { insights: AIForecastInsights }) {
+function FallbackForecast({ insights, controls }: { insights: AIForecastInsights; controls: ReactNode }) {
+  const warnings = (insights.warnings ?? []).slice(0, 2);
+  const savings = insights.projectedSavings ?? 0;
   return (
     <>
-      <section className="advisor-grid">
-        <article className="advisor-card">
-          <span className="advisor-icon forecast-tint--orange">
-            <FaWallet aria-hidden="true" />
+      <section className="forecast-story" aria-labelledby="forecast-greeting">
+        <div className="forecast-story-top">
+          <h2 id="forecast-greeting" className="forecast-greeting">
+            This month
+          </h2>
+          {controls}
+        </div>
+        <div className="forecast-story-text">
+          <p className="forecast-explanation">{insights.summary}</p>
+        </div>
+        <div className="forecast-figure">
+          <p className="forecast-figure-line">
+            <span className="forecast-figure-likely">Likely {formatCurrency(insights.projectedSpending ?? 0)}</span>
+            <span className="forecast-figure-range">
+              by month end, with {formatCurrency(Math.abs(savings))} {savings >= 0 ? "likely left over" : "likely short"}
+            </span>
+          </p>
+        </div>
+        <div className="forecast-story-foot">
+          <span className="forecast-foot-note">
+            The detailed forecast is unavailable right now, so this is a quick estimate from your recent pace.
           </span>
-          <p className="advisor-eyebrow">Projected Spending</p>
-          <h3>{formatCurrency(insights.projectedSpending ?? 0)}</h3>
-          <p>Likely total spending by the end of this month.</p>
-        </article>
-
-        <article className="advisor-card">
-          <span className="advisor-icon forecast-tint--green">
-            <FaPiggyBank aria-hidden="true" />
-          </span>
-          <p className="advisor-eyebrow">Projected Savings</p>
-          <h3 className="forecast-text--green">{formatCurrency(insights.projectedSavings ?? 0)}</h3>
-          <p>Likely left over if your pace continues.</p>
-        </article>
-
-        <article className="advisor-card">
-          <span className="advisor-icon forecast-tint--gold">
-            <FaChartArea aria-hidden="true" />
-          </span>
-          <p className="advisor-eyebrow">Recommended Budget</p>
-          <h3>{formatCurrency(insights.aiRecommendedBudget ?? insights.projectedSpending ?? 0)}</h3>
-          <p>Target spend from the rule-based model.</p>
-        </article>
+        </div>
       </section>
 
-      <div className="forecast-ai-grid">
-        <section className="forecast-card forecast-card--wide">
-          <span className="forecast-icon">
-            <FaMagic aria-hidden="true" />
-          </span>
-          <div>
-            <p className="forecast-eyebrow">Forecast Summary</p>
-            <h3>What to expect this month</h3>
-            <p className="forecast-explanation-text">{insights.summary}</p>
-          </div>
-        </section>
-
-        <WarningsCard notice={null} risks={insights.warnings ?? []} />
-      </div>
+      <section className="forecast-panel forecast-headsup" aria-labelledby="forecast-headsup-title">
+        <h3 id="forecast-headsup-title" className="forecast-panel-title">
+          <FaRegBell aria-hidden="true" /> Heads-up
+        </h3>
+        {warnings.length > 0 ? (
+          <ul className="forecast-headsup-list">
+            {warnings.map((item, i) => (
+              <li key={i}>{item}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="forecast-empty">Nothing to flag right now.</p>
+        )}
+      </section>
     </>
   );
 }

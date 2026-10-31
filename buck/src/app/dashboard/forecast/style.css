@@ -10,10 +10,11 @@
   min-width: 0;
 }
 
-.forecast-hero,
-.forecast-card,
+.forecast-story,
+.forecast-tile,
 .forecast-panel,
-.forecast-mini-card {
+.forecast-goal,
+.forecast-how {
   color: var(--buck-ink);
   background: var(--buck-surface);
   border: 1px solid var(--buck-line);
@@ -21,152 +22,201 @@
   box-shadow: var(--buck-shadow);
 }
 
-.forecast-hero {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: clamp(1rem, 2.4vw, 1.3rem);
-}
-
-.forecast-eyebrow {
-  margin: 0;
-  color: var(--buck-orange);
-  font-size: 0.75rem;
-  font-weight: 650;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-}
-
-.forecast-hero h2,
-.forecast-card h3 {
-  margin: 0.16rem 0 0.4rem;
-  color: var(--buck-ink);
-  line-height: 1.15;
-  letter-spacing: 0;
-}
-
-.forecast-hero h2 {
-  font-size: clamp(1.45rem, 3.2vw, 2rem);
-}
-
-.forecast-hero p:not(.forecast-eyebrow),
-.forecast-card p:not(.forecast-eyebrow) {
+.forecast-empty {
   margin: 0;
   color: var(--buck-muted);
-  line-height: 1.58;
+  font-size: 0.92rem;
 }
 
-.forecast-card {
-  position: relative;
-  display: grid;
-  align-content: start;
-  gap: 0.55rem;
-  min-height: 180px;
-  padding: clamp(1rem, 2vw, 1.2rem);
-  overflow: hidden;
-  transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms ease;
-}
+/* ---------- Story card (ADR-052): the one bold element ---------- */
 
-.forecast-card::before {
-  position: absolute;
-  top: 0;
-  left: 1rem;
-  right: 1rem;
-  height: 3px;
-  content: "";
-  background: linear-gradient(90deg, var(--buck-orange, #f47536), var(--buck-gold, #ffc547));
-  border-radius: 0 0 8px 8px;
-  opacity: 0;
-  transform: scaleX(0.72);
-  transition:
-    opacity 180ms ease,
-    transform 180ms ease;
-}
-
-.forecast-card:hover,
-.forecast-card:focus-within {
-  border-color: rgba(244, 117, 54, 0.44);
-  box-shadow: 0 22px 48px rgba(244, 117, 54, 0.12);
-  transform: translateY(-3px);
-}
-
-html[data-buck-theme="dark"] .forecast-card:hover,
-html[data-buck-theme="dark"] .forecast-card:focus-within {
-  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.32);
-}
-
-.forecast-card:hover::before,
-.forecast-card:focus-within::before {
-  opacity: 1;
-  transform: scaleX(1);
-}
-
-.forecast-icon {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  color: var(--buck-orange, #f47536);
-  background: rgba(244, 117, 54, 0.12);
-  border: 1px solid rgba(244, 117, 54, 0.24);
-  border-radius: 8px;
-}
-
-.forecast-icon--danger {
-  color: #ff3838;
-  background: rgba(255, 56, 56, 0.12);
-  border-color: rgba(255, 56, 56, 0.24);
-}
-
-.forecast-card h3 {
-  font-size: clamp(1.15rem, 2.4vw, 1.5rem);
-  word-break: break-word;
-}
-
-.forecast-card--wide {
-  grid-template-columns: auto minmax(0, 1fr);
-  min-height: auto;
-}
-
-.forecast-ai-grid {
+.forecast-story {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: clamp(0.75rem, 1.5vw, 1rem);
+  gap: 1.1rem;
+  padding: clamp(1.1rem, 2.8vw, 1.75rem);
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(255, 197, 71, 0.22), transparent 55%),
+    linear-gradient(180deg, #fff1d8, var(--buck-surface) 85%);
+  border-color: rgba(244, 117, 54, 0.22);
 }
 
-@media (min-width: 768px) {
-  .forecast-ai-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+html[data-buck-theme="dark"] .forecast-story {
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(255, 197, 71, 0.1), transparent 55%),
+    linear-gradient(180deg, rgba(244, 117, 54, 0.1), var(--buck-surface) 85%);
 }
 
-/* ---------- Hero toolbar (ADR-052) ---------- */
-
-.forecast-hero-copy {
-  flex: 1;
-  min-width: 0;
+.forecast-story-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
 }
 
-.forecast-hero-meta {
+.forecast-greeting {
+  margin: 0;
+  color: var(--buck-orange);
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+
+.forecast-story-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
-  min-height: 1.6rem;
 }
 
-.forecast-hero-actions {
+/* Reserves room so the written text replacing the shimmer does not shift the page. */
+.forecast-story-text {
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
+  min-height: 8.5rem;
+  max-width: 62ch;
+}
+
+.forecast-headline {
+  margin: 0;
+  color: var(--buck-ink);
+  font-size: clamp(1.45rem, 3.4vw, 2.1rem);
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -0.2px;
+  text-wrap: balance;
+}
+
+.forecast-explanation {
+  margin: 0;
+  color: var(--buck-muted);
+  font-size: 1rem;
+  line-height: 1.62;
+}
+
+.forecast-shimmer {
+  display: grid;
+  gap: 0.6rem;
+  padding-top: 0.2rem;
+}
+
+.forecast-shimmer-line {
+  display: block;
+  height: 0.95rem;
+  background: linear-gradient(
+    90deg,
+    rgba(244, 117, 54, 0.08) 0%,
+    rgba(244, 117, 54, 0.18) 45%,
+    rgba(244, 117, 54, 0.08) 90%
+  );
+  background-size: 220% 100%;
+  border-radius: 6px;
+  animation: forecast-shimmer 1.6s ease-in-out infinite;
+}
+
+.forecast-shimmer-line--headline {
+  width: 78%;
+  height: 1.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.forecast-shimmer-line--short {
+  width: 55%;
+}
+
+@keyframes forecast-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+/* Hero figure and the low–likely–high ribbon */
+
+.forecast-figure {
+  display: grid;
+  gap: 0.55rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(244, 117, 54, 0.18);
+}
+
+.forecast-figure-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+}
+
+.forecast-figure-likely {
+  color: var(--buck-ink);
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.forecast-figure-range {
+  color: var(--buck-muted);
+  font-size: 0.95rem;
+}
+
+.forecast-ribbon {
+  position: relative;
+  height: 14px;
+  max-width: 520px;
+}
+
+.forecast-ribbon-track {
+  position: absolute;
+  inset: 4px 0;
+  background: linear-gradient(90deg, rgba(255, 197, 71, 0.55), rgba(244, 117, 54, 0.55));
+  border-radius: 999px;
+}
+
+.forecast-ribbon-marker {
+  position: absolute;
+  top: 0;
+  width: 14px;
+  height: 14px;
+  background: var(--buck-orange);
+  border: 3px solid var(--buck-surface);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(244, 117, 54, 0.5);
+  transform: translateX(-50%);
+}
+
+.forecast-ribbon-labels {
+  display: flex;
+  justify-content: space-between;
+  max-width: 520px;
+  color: var(--buck-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.forecast-story-foot {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem 0.9rem;
 }
+
+.forecast-foot-note {
+  color: var(--buck-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.forecast-foot-note--ai {
+  font-style: italic;
+}
+
+/* ---------- Segmented toggle and refresh ---------- */
 
 .forecast-segmented {
   display: inline-flex;
@@ -235,6 +285,13 @@ html[data-buck-theme="dark"] .forecast-segmented-btn[aria-pressed="true"] {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .forecast-spin,
+  .forecast-shimmer-line {
+    animation: none;
+  }
+}
+
 /* ---------- Chips and badges ---------- */
 
 .forecast-chip,
@@ -252,6 +309,11 @@ html[data-buck-theme="dark"] .forecast-segmented-btn[aria-pressed="true"] {
   font-weight: 600;
   line-height: 1.4;
   white-space: nowrap;
+}
+
+.forecast-story-foot .forecast-chip {
+  color: var(--buck-orange);
+  border-color: rgba(244, 117, 54, 0.3);
 }
 
 .forecast-chip--good,
@@ -285,90 +347,119 @@ html[data-buck-theme="dark"] .forecast-trend--rising {
   border-color: rgba(244, 117, 54, 0.35);
 }
 
-.forecast-badge--empty {
-  color: #ff3838;
-  background: rgba(255, 56, 56, 0.1);
-  border-color: rgba(255, 56, 56, 0.3);
-}
-
 .forecast-chip--quiet {
   font-weight: 500;
 }
 
-.forecast-pulse {
-  width: 7px;
-  height: 7px;
-  background: var(--buck-orange);
-  border-radius: 50%;
-  animation: forecast-pulse 1.4s ease-in-out infinite;
+/* ---------- Three tiles ---------- */
+
+.forecast-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(0.75rem, 1.5vw, 1rem);
 }
 
-@keyframes forecast-pulse {
-  50% {
-    opacity: 0.25;
-  }
+.forecast-tile {
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 1rem 1.1rem;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .forecast-pulse,
-  .forecast-spin {
-    animation: none;
-  }
+.forecast-tile-label {
+  margin: 0;
+  color: var(--buck-muted);
+  font-size: 0.86rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
-/* ---------- Panels and sections ---------- */
+.forecast-tile-value {
+  color: var(--buck-ink);
+  font-size: clamp(1.3rem, 2.6vw, 1.6rem);
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.forecast-tile-note {
+  margin: 0;
+  color: var(--buck-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.forecast-tile--good {
+  background: rgba(46, 204, 113, 0.07);
+  border-color: rgba(46, 204, 113, 0.3);
+}
+
+.forecast-tile--good .forecast-tile-value {
+  color: #1f9d55;
+}
+
+html[data-buck-theme="dark"] .forecast-tile--good .forecast-tile-value {
+  color: #2ecc71;
+}
+
+.forecast-tile--tight {
+  background: rgba(255, 197, 71, 0.12);
+  border-color: rgba(255, 197, 71, 0.45);
+}
+
+.forecast-tile--tight .forecast-tile-value {
+  color: #a15f00;
+}
+
+html[data-buck-theme="dark"] .forecast-tile--tight .forecast-tile-value {
+  color: #ffc547;
+}
+
+/* Buck Coral is for a real shortfall only. */
+.forecast-tile--short {
+  background: rgba(255, 56, 56, 0.06);
+  border-color: rgba(255, 56, 56, 0.3);
+}
+
+.forecast-tile--short .forecast-tile-value,
+.forecast-tile--short .forecast-tile-label {
+  color: #ff3838;
+}
+
+/* ---------- Panels ---------- */
 
 .forecast-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-content: start;
-  gap: 0.9rem;
+  gap: 0.85rem;
   min-width: 0;
   padding: clamp(1rem, 2vw, 1.2rem);
 }
 
-.forecast-panel-head h3,
-.forecast-section-head h3 {
-  margin: 0.16rem 0 0.25rem;
-  color: var(--buck-ink);
-  font-size: clamp(1.05rem, 2.2vw, 1.25rem);
-  font-weight: 650;
-  line-height: 1.2;
-}
-
-.forecast-panel p:not(.forecast-eyebrow),
-.forecast-section p:not(.forecast-eyebrow) {
-  margin: 0;
-  color: var(--buck-muted);
-  line-height: 1.5;
-}
-
-.forecast-panel-head--icon {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+.forecast-panel-title {
+  display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  margin: 0;
+  color: var(--buck-ink);
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1.3;
 }
 
-.forecast-panel-head--icon h3 {
-  word-break: break-word;
-}
-
-.forecast-section {
+.forecast-two-col {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 0.75rem;
-  min-width: 0;
+  gap: clamp(0.75rem, 1.5vw, 1rem);
 }
 
-.forecast-section-head {
-  padding: 0 0.15rem;
-}
-
-.forecast-empty {
-  margin: 0;
-  color: var(--buck-muted);
-  font-size: 0.92rem;
+@media (min-width: 768px) {
+  .forecast-two-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* ---------- Chart ---------- */
@@ -442,128 +533,123 @@ html[data-buck-theme="dark"] .forecast-legend-swatch--marker {
   height: clamp(220px, 34vw, 300px);
 }
 
-/* ---------- Month card ---------- */
+/* ---------- Heads-up (soft amber) and habits ---------- */
 
-.forecast-month-grid {
+.forecast-headsup {
+  background: rgba(255, 197, 71, 0.1);
+  border-color: rgba(255, 197, 71, 0.45);
+}
+
+.forecast-headsup .forecast-panel-title svg {
+  color: #c98a00;
+}
+
+html[data-buck-theme="dark"] .forecast-headsup .forecast-panel-title svg {
+  color: #ffc547;
+}
+
+.forecast-headsup-list {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.forecast-stat {
-  display: grid;
-  align-content: start;
-  gap: 0.25rem;
-  min-width: 0;
-  padding: 0.85rem 0.95rem;
-  background: rgba(244, 117, 54, 0.05);
-  border: 1px solid var(--buck-line);
-  border-radius: 8px;
-}
-
-.forecast-stat-label {
-  color: var(--buck-muted);
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-.forecast-stat strong {
+  gap: 0.55rem;
+  margin: 0;
+  padding-left: 1.15rem;
   color: var(--buck-ink);
-  font-size: clamp(1.2rem, 2.6vw, 1.5rem);
-  font-weight: 700;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
+  font-size: 0.93rem;
+  line-height: 1.55;
 }
 
-.forecast-stat-note {
-  color: var(--buck-muted);
-  font-size: 0.82rem;
-  line-height: 1.45;
-}
-
-.forecast-stat--good strong {
-  color: #1f9d55;
-}
-
-html[data-buck-theme="dark"] .forecast-stat--good strong {
-  color: #2ecc71;
-}
-
-.forecast-stat--danger {
-  background: rgba(255, 56, 56, 0.06);
-  border-color: rgba(255, 56, 56, 0.3);
-}
-
-.forecast-stat--danger strong,
-.forecast-stat--danger .forecast-stat-label {
-  color: #ff3838;
-}
-
-/* ---------- Category and wallet cards ---------- */
-
-.forecast-category-grid,
-.forecast-wallet-grid {
-  display: grid;
-  gap: clamp(0.75rem, 1.5vw, 1rem);
-}
-
-.forecast-category-grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
-}
-
-.forecast-wallet-grid {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
-}
-
-.forecast-mini-card {
-  display: grid;
-  align-content: start;
-  gap: 0.5rem;
-  min-width: 0;
-  padding: 1rem;
-}
-
-.forecast-mini-card p {
-  font-size: 0.86rem;
-}
-
-.forecast-mini-head {
+.forecast-habits {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.forecast-habit-chip {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  max-width: 100%;
+  padding: 0.4rem 0.8rem;
+  color: var(--buck-ink);
+  background: rgba(255, 197, 71, 0.14);
+  border: 1px solid rgba(255, 197, 71, 0.4);
+  border-radius: 999px;
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.forecast-habit-chip svg {
+  flex: none;
+  margin-top: 0.18rem;
+  color: var(--buck-orange);
+}
+
+/* ---------- Category and wallet rows ---------- */
+
+.forecast-rows {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.forecast-row {
+  display: grid;
+  gap: 0.4rem;
   min-width: 0;
 }
 
-.forecast-mini-head h4 {
+.forecast-wallet-row {
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--buck-line);
+}
+
+.forecast-wallet-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.forecast-row-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  min-width: 0;
+}
+
+.forecast-row-name {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
   min-width: 0;
-  margin: 0;
   color: var(--buck-ink);
-  font-size: 0.98rem;
-  font-weight: 650;
+  font-size: 0.95rem;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
-.forecast-mini-head h4 svg {
+.forecast-row-name svg {
   flex: none;
   color: var(--buck-orange);
 }
 
-.forecast-badges {
-  display: inline-flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.35rem;
+.forecast-row-amount {
+  margin-left: auto;
+  color: var(--buck-ink);
+  font-size: 0.95rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
 }
 
-.forecast-mini-amount {
-  color: var(--buck-ink);
-  font-size: 1.25rem;
-  font-weight: 700;
-  line-height: 1.2;
+.forecast-row-note {
+  margin: 0;
+  color: var(--buck-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
 }
 
 .forecast-share-track {
@@ -580,97 +666,88 @@ html[data-buck-theme="dark"] .forecast-stat--good strong {
   border-radius: inherit;
 }
 
-.forecast-section p.forecast-runway {
-  color: var(--buck-ink);
-  font-weight: 600;
-}
+/* ---------- Goal strip ---------- */
 
-/* ---------- Goal, habits, exclusions ---------- */
-
-.forecast-two-col {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: clamp(0.75rem, 1.5vw, 1rem);
-}
-
-@media (min-width: 768px) {
-  .forecast-two-col {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.forecast-goal-list {
-  display: grid;
-  gap: 0.6rem;
-  margin: 0;
-}
-
-.forecast-goal-list div {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.25rem 1rem;
-  padding-bottom: 0.55rem;
-  border-bottom: 1px solid var(--buck-line);
-}
-
-.forecast-goal-list div:last-child {
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-.forecast-goal-list dt {
-  color: var(--buck-muted);
-  font-size: 0.88rem;
-  font-weight: 600;
-}
-
-.forecast-goal-list dd {
-  margin: 0;
-  color: var(--buck-ink);
-  font-size: 0.92rem;
-  font-weight: 600;
-  text-align: right;
-}
-
-.forecast-habits {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.forecast-habit-chip {
-  padding: 0.35rem 0.75rem;
-  color: var(--buck-ink);
-  background: rgba(255, 197, 71, 0.14);
-  border: 1px solid rgba(255, 197, 71, 0.4);
-  border-radius: 999px;
-  font-size: 0.85rem;
-  line-height: 1.4;
-}
-
-.forecast-excluded {
-  padding-top: 0.6rem;
-  border-top: 1px solid var(--buck-line);
-}
-
-.forecast-excluded summary {
+.forecast-goal {
   display: flex;
   align-items: center;
-  min-height: 36px;
+  gap: 0.85rem;
+  padding: 0.9rem 1.1rem;
+}
+
+.forecast-goal-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  color: var(--buck-orange);
+  background: rgba(244, 117, 54, 0.12);
+  border-radius: 50%;
+}
+
+.forecast-goal-text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--buck-muted);
+  font-size: 0.93rem;
+  line-height: 1.5;
+}
+
+.forecast-goal-text strong {
   color: var(--buck-ink);
-  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+/* ---------- How this forecast works ---------- */
+
+.forecast-how {
+  padding: 0 1.1rem;
+}
+
+.forecast-how summary {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  color: var(--buck-ink);
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
 }
 
-.forecast-excluded ul {
+.forecast-how summary:focus-visible {
+  outline: 2px solid var(--buck-orange);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.forecast-how-body {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0 0 1.1rem;
+  color: var(--buck-muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.forecast-how-body p,
+.forecast-how-body h4 {
+  margin: 0;
+}
+
+.forecast-how-body h4 {
+  margin-top: 0.3rem;
+  color: var(--buck-ink);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.forecast-excluded {
   display: grid;
   gap: 0.4rem;
-  margin: 0.4rem 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -680,7 +757,6 @@ html[data-buck-theme="dark"] .forecast-stat--good strong {
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.25rem 0.75rem;
-  color: var(--buck-muted);
   font-size: 0.85rem;
 }
 
@@ -691,116 +767,10 @@ html[data-buck-theme="dark"] .forecast-stat--good strong {
   font-weight: 600;
 }
 
-/* ---------- Explanation and warnings ---------- */
-
-.forecast-explanation-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 1.75rem;
-}
-
-.forecast-card h3.forecast-explanation-headline {
-  font-size: clamp(1.05rem, 2vw, 1.2rem);
-  font-weight: 650;
-  line-height: 1.3;
-}
-
-.forecast-explanation-body {
-  display: grid;
-  gap: 0.35rem;
-  min-width: 0;
-}
-
-/* Reserves room so the Gemini text replacing the rule text does not shift the page. */
-.forecast-card p.forecast-explanation-text {
-  min-height: 6.4em;
-}
-
-.forecast-notes,
-.forecast-warnings {
-  margin: 0.25rem 0 0;
-  padding-left: 1.2rem;
-  color: var(--buck-muted);
-  line-height: 1.6;
-}
-
-.forecast-card p.forecast-callout,
-.forecast-card p.forecast-notice {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
-  margin: 0.5rem 0 0;
-  padding: 0.65rem 0.8rem;
-  color: var(--buck-ink);
-  border-radius: 8px;
-  font-size: 0.9rem;
-}
-
-.forecast-callout svg,
-.forecast-notice svg {
-  flex: none;
-  margin-top: 0.2rem;
-}
-
-.forecast-card p.forecast-callout {
-  background: rgba(255, 197, 71, 0.14);
-  border: 1px solid rgba(255, 197, 71, 0.4);
-}
-
-.forecast-callout svg {
-  color: #c98a00;
-}
-
-/* Logging gap: information, not danger. */
-.forecast-card p.forecast-notice {
-  margin: 0.25rem 0 0.35rem;
-  background: rgba(45, 156, 219, 0.1);
-  border: 1px solid rgba(45, 156, 219, 0.3);
-}
-
-.forecast-notice svg {
-  color: #2d9cdb;
-}
-
-.forecast-card p.forecast-footnote {
-  margin-top: 0.5rem;
-  font-size: 0.8rem;
-}
-
-/* ---------- Rule-engine fallback tints ---------- */
-
-.forecast-tint--orange {
-  color: var(--buck-orange);
-  background: rgba(244, 117, 54, 0.15);
-}
-
-.forecast-tint--green {
-  color: #2ecc71;
-  background: rgba(46, 204, 113, 0.15);
-}
-
-.forecast-tint--gold {
-  color: #c98a00;
-  background: rgba(255, 197, 71, 0.2);
-}
-
-.forecast-text--green {
-  color: #2ecc71;
-}
-
-@media (max-width: 920px) {
-  .forecast-hero,
-  .forecast-card--wide {
-    align-items: flex-start;
-    grid-template-columns: 1fr;
-    flex-direction: column;
-  }
-}
+/* ---------- Narrow screens ---------- */
 
 @media (max-width: 720px) {
-  .forecast-month-grid {
+  .forecast-tiles {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -809,15 +779,8 @@ html[data-buck-theme="dark"] .forecast-stat--good strong {
   .forecast-page {
     padding: 0.75rem;
   }
-}
 
-@media (max-width: 420px) {
-  .forecast-panel-head--icon {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .forecast-panel-head--icon > .forecast-chip {
-    grid-column: 1 / -1;
-    justify-self: start;
+  .forecast-story-text {
+    min-height: 11rem;
   }
 }
