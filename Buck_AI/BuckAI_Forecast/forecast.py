@@ -133,7 +133,8 @@ def build_forecast(h: History, horizon: int = 30) -> dict[str, Any]:
               "restOfMonthTarget": _m(expected_daily * multiplier * left)}
 
     goal = _goal(h, observed, sim, horizon)
-    habits = _habits(model, recurring, usual, today, observed)
+    gap = _logging_gap(past, usual, today, observed)
+    habits = _habits(model, recurring, usual, today, observed, gap["gap"])
     excluded = [{"date": past[i].day.isoformat(), "category": past[i].category, "amount": _m(past[i].amount),
                  "label": past[i].label, "reason": "emergency" if past[i].emergency else "one-off"}
                 for i in sorted(outliers, key=lambda i: past[i].day, reverse=True)][:10]
@@ -145,7 +146,6 @@ def build_forecast(h: History, horizon: int = 30) -> dict[str, Any]:
         confidence = 0.15 if low_data else 0.3
     else:
         confidence = max(0.05, min(0.95, 1 - test.error) * min(1.0, observed / 60))
-    gap = _logging_gap(past, usual, today, observed)
     warnings = _warnings(month, wallets, categories, month_end, gap)
 
     return {
@@ -253,7 +253,8 @@ def _goal(h: History, observed: int, sim, horizon: int) -> dict[str, Any] | None
     return out
 
 
-def _habits(model, recurring, past: list[Expense], today: date, observed: int) -> list[dict[str, str]]:
+def _habits(model, recurring, past: list[Expense], today: date, observed: int,
+            logging_gap: bool = False) -> list[dict[str, str]]:
     habits = []
     if observed >= 28:
         ranked = sorted(range(7), key=lambda d: model.weekday[d], reverse=True)
@@ -269,7 +270,8 @@ def _habits(model, recurring, past: list[Expense], today: date, observed: int) -
             habits.append({"kind": "payday", "text": f"Spends {model.payday:.1f}x more in the 3 days after income lands."})
         now = _avg(past, today - timedelta(days=13), today)
         before = _avg(past, today - timedelta(days=43), today - timedelta(days=14))
-        if before > 0 and abs(now / before - 1) >= 0.2:
+        # During a logging gap the drop is missing entries, not a habit; the gap warning covers it.
+        if before > 0 and abs(now / before - 1) >= 0.2 and not logging_gap:
             change = round((now / before - 1) * 100)
             habits.append({"kind": "trend", "text": f"Daily spending is {'up' if change > 0 else 'down'} "
                                                      f"{abs(change)}% vs. the 30 days before."})

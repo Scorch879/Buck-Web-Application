@@ -146,6 +146,8 @@ class ForecastModelTests(unittest.TestCase):
         self.assertTrue(f["model"]["loggingGap"])
         self.assertEqual(f["model"]["quietDays"], 19)
         self.assertTrue(f["warnings"][0].startswith("Nothing logged for 19 days"))
+        # The quiet stretch is a gap, not a "spending is down" habit.
+        self.assertNotIn("trend", [x["kind"] for x in f["habits"]])
 
     def test_target_gap(self):
         f = build_forecast(history(*user(), attitude="Moderate"), 30)
