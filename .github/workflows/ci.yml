@@ -8,7 +8,7 @@
 # Its "Vercel – ..." checks appear next to these on every PR.
 #
 # No secrets are needed: the build uses placeholder public Supabase values,
-# and the Buck_AI tests never call Gemini or Supabase.
+# and the Buck_AI tests never call Gemini, Groq or Supabase.
 
 name: CI
 
@@ -21,10 +21,12 @@ on:
 permissions:
   contents: read
 
-# A newer push to the same branch or PR cancels the older run.
+# A newer push to the same feature branch or PR cancels the older run. On dev
+# and main every merge commit gets its own full run, so back-to-back merges
+# don't leave a cancelled (red) run on the earlier one.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.ref != 'refs/heads/dev' && github.ref != 'refs/heads/main') }}
 
 jobs:
   web:
@@ -87,7 +89,8 @@ jobs:
 
   ci:
     name: CI
-    if: always()
+    # Skipped (not failed) when the run is cancelled by a newer push.
+    if: ${{ !cancelled() }}
     needs: [web, buck-ai]
     runs-on: ubuntu-latest
     steps:
