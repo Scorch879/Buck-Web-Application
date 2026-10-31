@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  FaBullseye,
+  FaCalendarAlt,
   FaChartArea,
   FaExclamationTriangle,
+  FaInfoCircle,
   FaMagic,
-  FaSyncAlt,
   FaPiggyBank,
+  FaSyncAlt,
   FaWallet,
 } from "react-icons/fa";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
@@ -16,223 +19,536 @@ import {
   explainAIForecast,
   fetchAIForecastInsights,
   type AIForecastInsights,
+  type BuckForecast,
+  type ForecastHorizon,
+  type ForecastNarrative,
 } from "@/utils/forecastApi";
+import {
+  TREND_LABELS,
+  confidencePercent,
+  formatDateSpan,
+  formatMoneyBetween,
+  formatShortDate,
+  isRoughEstimate,
+  splitForecastWarnings,
+  topCategories,
+} from "@/utils/forecastDisplay";
 import { formatCurrency } from "@/utils/formatters";
 import { useToast } from "@/component/toast";
-// advisor-grid / advisor-card / advisor-score / advisor-icon live in the advisor stylesheet
+import ForecastChart from "./ForecastChart";
+// advisor-grid / advisor-card / advisor-icon live in the advisor stylesheet
 import "../financial-advisor/style.css";
 import "./style.css";
+
+const HORIZONS: ForecastHorizon[] = [30, 60];
 
 export default function ForecastPage() {
   const { user } = useDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
   const { toast } = useToast();
-  const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
-  const hasInitialForecastData = Boolean(userCache.forecastInsights);
-
-  const [insights, setInsights] = useState<AIForecastInsights | null>(
-    () => userCache.forecastInsights ?? null
-  );
-  const [loading, setLoading] = useState(() => !hasInitialForecastData);
+  const [horizon, setHorizon] = useState<ForecastHorizon>(30);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-  const hadInitialForecastData = useRef(hasInitialForecastData);
 
-  const loadForecast = async (forceRefresh = false) => {
-    if (forceRefresh) {
-      setRefreshing(true);
-    } else if (!hadInitialForecastData.current) {
-      setLoading(true);
-    }
+  const byHorizon = dashboardCache.userId === user.uid ? dashboardCache.forecastByHorizon : undefined;
+  const insights = byHorizon?.[horizon] ?? null;
 
-    try {
-      setError("");
-      const data = await fetchAIForecastInsights({
-        userId: user.uid,
-        forceRefresh,
-      });
+  const store = useCallback(
+    (h: ForecastHorizon, next: AIForecastInsights) => {
+      setDashboardCache((current) =>
+        mergeDashboardDataCache(current, user.uid, {
+          forecastByHorizon: {
+            ...(current.userId === user.uid ? current.forecastByHorizon : undefined),
+            [h]: next,
+          },
+        })
+      );
+    },
+    [setDashboardCache, user.uid]
+  );
 
-      const show = (next: AIForecastInsights) => {
-        setInsights(next);
-        setDashboardCache((currentCache) =>
-          mergeDashboardDataCache(currentCache, user.uid, {
-            forecastInsights: next,
-          })
-        );
-      };
-      show(data);
-      if (forceRefresh) {
-        toast("Refreshed predictive financial forecast.", "success");
+  const followUpExplanation = useCallback(
+    (h: ForecastHorizon, data: AIForecastInsights) => {
+      if (data.source !== "buck_ai" || !data.explanationPending) return;
+      explainAIForecast(h)
+        .then((next) => store(h, next))
+        .catch((err) => console.warn("Forecast explanation unavailable.", err));
+    },
+    [store]
+  );
+
+  const loadForecast = useCallback(
+    async (h: ForecastHorizon, forceRefresh = false) => {
+      if (forceRefresh) setRefreshing(true);
+      try {
+        setError("");
+        const data = await fetchAIForecastInsights({ userId: user.uid, forceRefresh, horizon: h });
+        store(h, data);
+        if (forceRefresh) {
+          if (data.stale) {
+            toast("Explanation was refreshed moments ago. A new one comes in a few minutes.", "info");
+          } else {
+            toast("Forecast refreshed.", "success");
+          }
+        }
+        // Numbers are on screen; the Gemini explanation follows when it is ready.
+        followUpExplanation(h, data);
+      } catch (err) {
+        const errMsg = "Failed to load the forecast.";
+        setError(errMsg);
+        if (forceRefresh) toast(errMsg, "error");
+        console.error(err);
+      } finally {
+        setRefreshing(false);
       }
-      // Numbers are on screen; the Gemini explanation follows when it is ready.
-      if (data.explanationPending) {
-        explainAIForecast(data.forecast?.horizonDays)
-          .then(show)
-          .catch((err) => console.warn("Forecast explanation unavailable.", err));
-      }
-    } catch (err) {
-      const errMsg = "Failed to generate AI forecast.";
-      setError(errMsg);
-      if (forceRefresh) {
-        toast(errMsg, "error");
-      }
-      console.error(err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+    },
+    [followUpExplanation, store, toast, user.uid]
+  );
 
+  // Run once per user and horizon, not whenever the callbacks change identity.
+  const actionsRef = useRef({ loadForecast, followUpExplanation });
+  actionsRef.current = { loadForecast, followUpExplanation };
+
+  // A cached forecast shows at once; the fresh one (no Gemini call, fast)
+  // replaces it, and a pending explanation is asked for again (requests are shared).
   useEffect(() => {
-    void loadForecast(false);
-    // Load once per user; loadForecast is recreated every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setDashboardCache, user.uid]);
+    void actionsRef.current.loadForecast(horizon);
+  }, [horizon, user.uid]);
 
-  if (loading) {
+  if (!insights && !error) {
     return <DashboardPageSkeleton variant="forecast" />;
   }
+
+  const forecast = insights?.source === "buck_ai" ? insights.forecast : undefined;
+  const isFallback = Boolean(insights) && !forecast;
 
   return (
     <div className="forecast-page">
       {error && <div className="settings-message settings-message--error">{error}</div>}
 
       <section className="forecast-hero">
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-            <p className="forecast-eyebrow" style={{ margin: 0 }}>Financial Forecast</p>
+        <div className="forecast-hero-copy">
+          <div className="forecast-hero-meta">
+            <p className="forecast-eyebrow">Financial Forecast</p>
             {insights?.createdAt && (
-              <span
-                style={{
-                  fontSize: "0.8rem",
-                  color: "var(--buck-muted)",
-                  background: "var(--buck-surface-soft, rgba(255,255,255,0.06))",
-                  padding: "0.2rem 0.6rem",
-                  borderRadius: "12px",
-                }}
-              >
-                {insights.cached ? "Cached" : "Updated"}: {new Date(insights.createdAt).toLocaleDateString()}
+              <span className="forecast-chip">
+                {insights.cached ? "Saved" : "Updated"} {new Date(insights.createdAt).toLocaleDateString()}
               </span>
             )}
           </div>
-          <h2>Predict your future spending.</h2>
+          <h2>Where your spending is likely heading.</h2>
           <p>
-            Buck uses AI to study your past expenses and budgeting habits to give you a clear picture of where your money is heading this cycle.
+            Buck studies your own spending history and gives likely ranges for the days ahead, not exact promises.
           </p>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        <div className="forecast-hero-actions">
+          <div className="forecast-segmented" role="group" aria-label="Forecast horizon">
+            {HORIZONS.map((h) => (
+              <button
+                key={h}
+                type="button"
+                className="forecast-segmented-btn"
+                aria-pressed={horizon === h}
+                disabled={isFallback && horizon !== h}
+                title={isFallback && horizon !== h ? "Available when the AI Forecaster is reachable" : undefined}
+                onClick={() => setHorizon(h)}
+              >
+                {h} days
+              </button>
+            ))}
+          </div>
           <button
             type="button"
-            onClick={() => void loadForecast(true)}
+            className="forecast-refresh-btn"
+            onClick={() => void loadForecast(horizon, true)}
             disabled={refreshing}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              background: "var(--buck-surface-card, rgba(255, 197, 71, 0.12))",
-              color: "var(--buck-orange, #f47536)",
-              border: "1px solid rgba(244, 117, 54, 0.3)",
-              padding: "0.6rem 1rem",
-              borderRadius: "10px",
-              cursor: refreshing ? "not-allowed" : "pointer",
-              fontWeight: 600,
-              fontSize: "0.9rem",
-              transition: "all 0.2s ease",
-            }}
           >
-            <FaSyncAlt style={{ animation: refreshing ? "spin 1s linear infinite" : "none" }} />
-            {refreshing ? "Updating..." : "Refresh Forecast"}
+            <FaSyncAlt aria-hidden="true" className={refreshing ? "forecast-spin" : undefined} />
+            {refreshing ? "Refreshing…" : "Refresh"}
           </button>
+        </div>
+      </section>
 
-          <div
-            className="advisor-score"
-            style={{
-              background:
-                "conic-gradient(var(--buck-purple, #9b51e0), var(--buck-blue, #2d9cdb), var(--buck-purple, #9b51e0))",
-            }}
-          >
-            <span style={{ color: "var(--buck-ink)" }}>Projected</span>
-            <strong style={{ color: "var(--buck-ink)" }}>AI</strong>
+      {forecast && insights?.narrative ? (
+        <RichForecast
+          forecast={forecast}
+          narrative={insights.narrative}
+          pending={Boolean(insights.explanationPending)}
+          stale={Boolean(insights.stale)}
+        />
+      ) : (
+        insights && <FallbackForecast insights={insights} />
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* AI Forecaster layout                                                */
+/* ------------------------------------------------------------------ */
+
+function RichForecast({
+  forecast,
+  narrative,
+  pending,
+  stale,
+}: {
+  forecast: BuckForecast;
+  narrative: ForecastNarrative;
+  pending: boolean;
+  stale: boolean;
+}) {
+  const { month, model, goal } = forecast;
+  const horizon = forecast.days.length;
+  const shortfall = month.surplus.likely < 0;
+  const categories = topCategories(forecast.categories);
+  const { notice, risks } = splitForecastWarnings(forecast);
+  const rough = isRoughEstimate(model);
+
+  return (
+    <>
+      <section className="forecast-panel">
+        <header className="forecast-panel-head">
+          <p className="forecast-eyebrow">Daily forecast</p>
+          <h3>Likely spending, next {horizon} days</h3>
+          <p>
+            Likely total {formatCurrency(forecast.total.p50)}, {formatMoneyBetween(forecast.total.p10, forecast.total.p90)} in 8
+            of 10 outcomes.
+          </p>
+        </header>
+        <ForecastChart forecast={forecast} />
+      </section>
+
+      <section className="forecast-panel">
+        <header className="forecast-panel-head">
+          <p className="forecast-eyebrow">This month</p>
+          <h3>
+            {month.daysLeft === 0
+              ? "Last day of the month"
+              : month.daysLeft === 1
+                ? "1 day left"
+                : `${month.daysLeft} days left`}
+          </h3>
+        </header>
+        <div className="forecast-month-grid">
+          <div className="forecast-stat">
+            <span className="forecast-stat-label">Spent so far</span>
+            <strong>{formatCurrency(month.spentSoFar)}</strong>
+            <span className="forecast-stat-note">Logged since {formatShortDate(month.start)}</span>
+          </div>
+          <div className="forecast-stat">
+            <span className="forecast-stat-label">Likely month total</span>
+            <strong>{formatCurrency(month.projectedTotal.p50)}</strong>
+            <span className="forecast-stat-note">
+              Likely {formatMoneyBetween(month.projectedTotal.p10, month.projectedTotal.p90)}
+            </span>
+          </div>
+          <div className={`forecast-stat${shortfall ? " forecast-stat--danger" : " forecast-stat--good"}`}>
+            <span className="forecast-stat-label">{shortfall ? "Likely shortfall" : "Likely left over"}</span>
+            <strong>{formatCurrency(Math.abs(month.surplus.likely))}</strong>
+            <span className="forecast-stat-note">
+              Likely {formatMoneyBetween(month.surplus.low, month.surplus.high)} against your{" "}
+              {month.surplusBasis} ({formatCurrency(month.surplusAgainst)})
+            </span>
           </div>
         </div>
       </section>
 
-      {/* Projections Row */}
-      {insights && (
-        <section className="advisor-grid" style={{ marginBottom: "1.5rem" }}>
-          <article className="advisor-card">
-            <span className="advisor-icon" style={{ background: "rgba(244,117,54,0.15)", color: "var(--buck-orange)" }}>
-              <FaWallet aria-hidden="true" />
-            </span>
-            <p className="advisor-eyebrow">Projected Spending</p>
-            <h3>{formatCurrency(insights.projectedSpending ?? 0)}</h3>
-            <p>Estimated total expenditure by end of cycle.</p>
-          </article>
+      <section className="forecast-section">
+        <header className="forecast-section-head">
+          <p className="forecast-eyebrow">Top categories</p>
+          <h3>Where the next {horizon} days likely go</h3>
+        </header>
+        {categories.length > 0 ? (
+          <div className="forecast-category-grid">
+            {categories.map((c) => (
+              <article key={c.name} className="forecast-mini-card">
+                <div className="forecast-mini-head">
+                  <h4>{c.name}</h4>
+                  <span className={`forecast-trend forecast-trend--${c.trend}`}>{TREND_LABELS[c.trend]}</span>
+                </div>
+                <strong className="forecast-mini-amount">{formatCurrency(c.expected)}</strong>
+                <div
+                  className="forecast-share-track"
+                  role="progressbar"
+                  aria-label={`${c.name} share of forecast spending`}
+                  aria-valuenow={Math.round(c.share)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                >
+                  <span style={{ width: `${Math.min(100, Math.max(0, c.share))}%` }} />
+                </div>
+                <p>
+                  {c.share.toFixed(0)}% of spending
+                  {month.daysLeft > 0 ? ` · ${formatCurrency(c.restOfMonth)} for the rest of this month` : ""}
+                  {c.recurring ? " · recurring" : ""}
+                </p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="forecast-empty">No category spending to forecast yet.</p>
+        )}
+      </section>
 
-          <article className="advisor-card">
-            <span className="advisor-icon" style={{ background: "rgba(46, 204, 113, 0.15)", color: "#2ecc71" }}>
-              <FaPiggyBank aria-hidden="true" />
-            </span>
-            <p className="advisor-eyebrow">Projected Savings</p>
-            <h3 style={{ color: "#2ecc71" }}>{formatCurrency(insights.projectedSavings ?? 0)}</h3>
-            <p>Net wallet headroom preserved if pace continues.</p>
-          </article>
+      <section className="forecast-section">
+        <header className="forecast-section-head">
+          <p className="forecast-eyebrow">Wallet runway</p>
+          <h3>How long each wallet likely lasts</h3>
+        </header>
+        {forecast.wallets.length > 0 ? (
+          <div className="forecast-wallet-grid">
+            {forecast.wallets.map((w) => {
+              const span = formatDateSpan(w.runsOut);
+              const noSpend = !w.empty && w.projectedSpend.p90 <= 0;
+              return (
+                <article key={w.name} className="forecast-mini-card">
+                  <div className="forecast-mini-head">
+                    <h4>
+                      <FaWallet aria-hidden="true" /> {w.name}
+                    </h4>
+                    <span className="forecast-badges">
+                      {w.active && <span className="forecast-badge forecast-badge--active">Active</span>}
+                      {w.empty && <span className="forecast-badge forecast-badge--empty">Empty</span>}
+                    </span>
+                  </div>
+                  <strong className="forecast-mini-amount">{formatCurrency(w.balance)}</strong>
+                  <p>
+                    {noSpend
+                      ? `No spending expected from this wallet over ${horizon} days.`
+                      : `Likely spend ${formatCurrency(w.projectedSpend.p50)} over ${horizon} days (${formatMoneyBetween(w.projectedSpend.p10, w.projectedSpend.p90)}).`}
+                  </p>
+                  <p className="forecast-runway">
+                    {noSpend
+                      ? "Nothing to run out of."
+                      : w.empty
+                      ? "Balance is ₱0, but spending usually comes out of this wallet."
+                      : w.runsOut?.likely
+                        ? `Likely runs out around ${formatShortDate(w.runsOut.likely)}${span ? ` (${span})` : ""}.`
+                        : "Likely lasts beyond this period."}
+                  </p>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="forecast-empty">No wallets to forecast yet.</p>
+        )}
+      </section>
 
-          <article className="advisor-card">
-            <span className="advisor-icon" style={{ background: "rgba(155, 81, 224, 0.15)", color: "#9b51e0" }}>
-              <FaChartArea aria-hidden="true" />
+      <div className="forecast-two-col">
+        <section className="forecast-panel">
+          <header className="forecast-panel-head forecast-panel-head--icon">
+            <span className="forecast-icon">
+              <FaBullseye aria-hidden="true" />
             </span>
-            <p className="advisor-eyebrow">Recommended Budget</p>
-            <h3>{formatCurrency(insights.aiRecommendedBudget ?? insights.projectedSpending ?? 0)}</h3>
-            <p>Optimal target spend suggested by model.</p>
-          </article>
+            <div>
+              <p className="forecast-eyebrow">Goal</p>
+              <h3>{goal ? goal.name : "No active goal"}</h3>
+            </div>
+            {goal && goal.onTrack !== null && (
+              <span className={`forecast-chip ${goal.onTrack ? "forecast-chip--good" : "forecast-chip--warn"}`}>
+                {goal.onTrack ? "On track" : "Behind pace"}
+              </span>
+            )}
+          </header>
+          {goal ? (
+            <dl className="forecast-goal-list">
+              <div>
+                <dt>Remaining</dt>
+                <dd>{formatCurrency(goal.remaining)}</dd>
+              </div>
+              <div>
+                <dt>Needed per day</dt>
+                <dd>
+                  {goal.requiredPerDay !== null
+                    ? `${formatCurrency(goal.requiredPerDay)}${goal.targetDate ? ` to finish by ${formatShortDate(goal.targetDate)}` : ""}`
+                    : "No target date set"}
+                </dd>
+              </div>
+              <div>
+                <dt>Likely reached</dt>
+                <dd>
+                  {goal.reachBy?.likely
+                    ? `Around ${formatShortDate(goal.reachBy.likely)}${formatDateSpan(goal.reachBy) ? ` (${formatDateSpan(goal.reachBy)})` : ""}`
+                    : `Likely beyond the next ${horizon} days`}
+                </dd>
+              </div>
+            </dl>
+          ) : (
+            <p className="forecast-empty">Set an active goal on the Goals tab to see when you would likely reach it.</p>
+          )}
         </section>
-      )}
+
+        <section className="forecast-panel">
+          <header className="forecast-panel-head forecast-panel-head--icon">
+            <span className="forecast-icon">
+              <FaCalendarAlt aria-hidden="true" />
+            </span>
+            <div>
+              <p className="forecast-eyebrow">Habits</p>
+              <h3>Patterns in your spending</h3>
+            </div>
+          </header>
+          {forecast.habits.length > 0 ? (
+            <ul className="forecast-habits">
+              {forecast.habits.map((h, i) => (
+                <li key={`${h.kind}-${i}`} className="forecast-habit-chip">
+                  {h.text}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="forecast-empty">No clear patterns yet.</p>
+          )}
+          <details className="forecast-excluded">
+            <summary>Left out of the baseline ({forecast.excluded.length})</summary>
+            {forecast.excluded.length > 0 ? (
+              <ul>
+                {forecast.excluded.map((e, i) => (
+                  <li key={`${e.date}-${i}`}>
+                    <span>
+                      {formatShortDate(e.date)} · {e.category}
+                      {e.label ? ` · ${e.label}` : ""}
+                    </span>
+                    <span>
+                      {formatCurrency(e.amount)} <em>{e.reason === "emergency" ? "Emergency" : "One-off"}</em>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="forecast-empty">Nothing was left out.</p>
+            )}
+          </details>
+        </section>
+      </div>
 
       <div className="forecast-ai-grid">
-        <section className="forecast-card forecast-card--wide" style={{ display: "flex", flexDirection: "column" }}>
+        <section className="forecast-card forecast-card--wide forecast-explanation" aria-busy={pending}>
           <span className="forecast-icon">
             <FaMagic aria-hidden="true" />
           </span>
-          <div>
-            <p className="forecast-eyebrow">AI Forecast Summary</p>
-            <h3>What to expect next month</h3>
-            <p style={{ minHeight: "80px", marginTop: "1rem" }}>
-              {insights?.summary}
+          <div className="forecast-explanation-body">
+            <div className="forecast-explanation-meta">
+              <p className="forecast-eyebrow">AI Forecast explanation</p>
+              {rough && <span className="forecast-chip forecast-chip--warn">Rough estimate</span>}
+              {pending ? (
+                <span className="forecast-chip forecast-chip--quiet" role="status">
+                  <span className="forecast-pulse" aria-hidden="true" />
+                  Writing explanation…
+                </span>
+              ) : (
+                stale && <span className="forecast-chip forecast-chip--quiet">Update coming shortly</span>
+              )}
+            </div>
+            <h3 className="forecast-explanation-headline">{narrative.headline}</h3>
+            <p className="forecast-explanation-text">{narrative.explanation}</p>
+            {narrative.habitNotes.length > 0 && (
+              <ul className="forecast-notes">
+                {narrative.habitNotes.map((note, i) => (
+                  <li key={i}>{note}</li>
+                ))}
+              </ul>
+            )}
+            {narrative.watchOut && (
+              <p className="forecast-callout">
+                <FaExclamationTriangle aria-hidden="true" />
+                <span>{narrative.watchOut}</span>
+              </p>
+            )}
+            <p className="forecast-footnote">
+              Based on your last {model.windowDays} days · confidence {confidencePercent(model.confidence)}%
             </p>
           </div>
         </section>
 
-        <section className="forecast-card forecast-card--wide" style={{ display: "flex", flexDirection: "column" }}>
-          <span
-            className="forecast-icon"
-            style={{
-              background: "rgba(255, 56, 56, 0.14)",
-              color: "#ff3838",
-              borderColor: "rgba(255, 56, 56, 0.24)",
-            }}
-          >
-            <FaExclamationTriangle aria-hidden="true" />
+        <WarningsCard notice={notice} risks={risks} />
+      </div>
+    </>
+  );
+}
+
+function WarningsCard({ notice, risks }: { notice: string | null; risks: string[] }) {
+  return (
+    <section className="forecast-card forecast-card--wide">
+      <span className="forecast-icon forecast-icon--danger">
+        <FaExclamationTriangle aria-hidden="true" />
+      </span>
+      <div>
+        <p className="forecast-eyebrow">AI Warnings</p>
+        <h3>Potential risks</h3>
+        {notice && (
+          <p className="forecast-notice" role="note">
+            <FaInfoCircle aria-hidden="true" />
+            <span>{notice}</span>
+          </p>
+        )}
+        {risks.length > 0 ? (
+          <ul className="forecast-warnings">
+            {risks.map((warning, index) => (
+              <li key={index}>{warning}</li>
+            ))}
+          </ul>
+        ) : (
+          <p>No risks detected in your likely path.</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Rule-engine fallback (Buck_AI unreachable)                          */
+/* ------------------------------------------------------------------ */
+
+function FallbackForecast({ insights }: { insights: AIForecastInsights }) {
+  return (
+    <>
+      <section className="advisor-grid">
+        <article className="advisor-card">
+          <span className="advisor-icon forecast-tint--orange">
+            <FaWallet aria-hidden="true" />
+          </span>
+          <p className="advisor-eyebrow">Projected Spending</p>
+          <h3>{formatCurrency(insights.projectedSpending ?? 0)}</h3>
+          <p>Likely total spending by the end of this month.</p>
+        </article>
+
+        <article className="advisor-card">
+          <span className="advisor-icon forecast-tint--green">
+            <FaPiggyBank aria-hidden="true" />
+          </span>
+          <p className="advisor-eyebrow">Projected Savings</p>
+          <h3 className="forecast-text--green">{formatCurrency(insights.projectedSavings ?? 0)}</h3>
+          <p>Likely left over if your pace continues.</p>
+        </article>
+
+        <article className="advisor-card">
+          <span className="advisor-icon forecast-tint--gold">
+            <FaChartArea aria-hidden="true" />
+          </span>
+          <p className="advisor-eyebrow">Recommended Budget</p>
+          <h3>{formatCurrency(insights.aiRecommendedBudget ?? insights.projectedSpending ?? 0)}</h3>
+          <p>Target spend from the rule-based model.</p>
+        </article>
+      </section>
+
+      <div className="forecast-ai-grid">
+        <section className="forecast-card forecast-card--wide">
+          <span className="forecast-icon">
+            <FaMagic aria-hidden="true" />
           </span>
           <div>
-            <p className="forecast-eyebrow" style={{ color: "#ff3838" }}>AI Warnings</p>
-            <h3>Potential Risks</h3>
-            <div style={{ minHeight: "80px", marginTop: "1rem" }}>
-              {insights?.warnings && insights.warnings.length > 0 ? (
-                <ul style={{ paddingLeft: "1.2rem", color: "var(--buck-muted)", lineHeight: 1.6 }}>
-                  {insights.warnings.map((warning, index) => (
-                    <li key={index}>{warning}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p>No risks detected in your current trajectory.</p>
-              )}
-            </div>
+            <p className="forecast-eyebrow">Forecast Summary</p>
+            <h3>What to expect this month</h3>
+            <p className="forecast-explanation-text">{insights.summary}</p>
           </div>
         </section>
-      </div>
 
-    </div>
+        <WarningsCard notice={null} risks={insights.warnings ?? []} />
+      </div>
+    </>
   );
 }
