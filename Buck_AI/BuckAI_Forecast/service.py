@@ -39,6 +39,8 @@ REFRESH_COOLDOWN = timedelta(seconds=60)
 # call and then hangs is dropped after 12 s, so ~4 models fit in 45 s.
 NARRATIVE_TIMEOUT = 45.0
 NARRATIVE_ATTEMPT = 12.0
+# The card is ~300 tokens, but thinking tokens share the cap; 1024 cut one off.
+NARRATIVE_TOKENS = 4096
 _COLUMNS = "id,summary,warnings,metadata,created_at,expires_at,model_name"
 
 
@@ -108,7 +110,7 @@ def _commas(text: str) -> str:
 async def _gemini_narrative(f: dict[str, Any]) -> dict[str, Any]:
     out = await gemini.generate_json(prompts.system_prompt(), prompts.narrative_prompt(ai_view(f)),
                                      prompts.SCHEMA, timeout_seconds=NARRATIVE_TIMEOUT,
-                                     attempt_seconds=NARRATIVE_ATTEMPT)
+                                     attempt_seconds=NARRATIVE_ATTEMPT, max_output_tokens=NARRATIVE_TOKENS)
     notes = out.get("habit_notes") if isinstance(out.get("habit_notes"), list) else []
     text = {
         "headline": limit_sentences(clean_text(out.get("headline"), 300), 1),
