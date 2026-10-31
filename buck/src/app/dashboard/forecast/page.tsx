@@ -375,7 +375,8 @@ function RichForecast({
                 <li key={c.name} className="forecast-row">
                   <div className="forecast-row-main">
                     <span className="forecast-row-name">{c.name}</span>
-                    {c.trend && c.trend !== "steady" && (
+                    {/* During a logging gap "falling" only means nothing was logged. */}
+                    {c.trend && c.trend !== "steady" && !(c.trend === "falling" && model.loggingGap) && (
                       <span className={`forecast-trend forecast-trend--${c.trend}`}>{TREND_LABELS[c.trend]}</span>
                     )}
                     <span className="forecast-row-amount">{formatCurrency(c.expected)}</span>
