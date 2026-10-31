@@ -1491,3 +1491,21 @@ Buck-Web-Application/
   - Gemini's free-tier latency only delays the explanation, not the numbers. When every model is busy, a rule-written explanation is saved and Gemini is retried after the cooldown.
   - The Forecaster's rate limit is shared across instances only once the migration's `forecast` bucket is applied; until then each instance keeps a local window.
   - Not yet: forecast chat and the mobile screen (phase 2), an `is_emergency` column with a UI toggle (QA BUG-031; today only `metadata.is_emergency` is honoured).
+
+### ADR-053: Forecaster Explanation on Groq, in a Warmer Voice
+
+- **Status**: Implemented 2026-11-01 in [`Buck_AI/shared/groq.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/shared/groq.py) and [`BuckAI_Forecast/service.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/service.py). Amends ADR-052 item 6; the numbers are unchanged. No migration.
+- **Context**: Gemini's free tier kept the explanation waiting (503 overloads, about 20 requests a day per model, hung calls, cut-off JSON), so the card often stayed rule-written. The text also read cold: "P50", "window", warnings phrased as alarms.
+- **Options**:
+  - **(a) Stay on Gemini.** Rejected: the reliability problems above.
+  - **(b) A paid model (Claude Haiku, GPT).** Rejected for now: the project runs at ₱0 with no billing account.
+  - **(c) Open models on Groq.** Chosen: free tier with no card, rate-limited per model (about 1,000 requests a day), answers in about a second, strict JSON-schema decoding on gpt-oss.
+- **Decision**:
+  1. `shared/groq.py`: OpenAI-compatible chat completions over the shared httpx client. Chain `openai/gpt-oss-120b` → `llama-3.3-70b-versatile` → `openai/gpt-oss-20b` (`GROQ_MODELS` overrides). gpt-oss gets `json_schema` with `strict: true`, low reasoning effort and reasoning left out of the reply; Llama gets JSON mode with the schema in the system message. 404/429/498/5xx, timeouts and invalid JSON move to the next model; a 429 benches the model for its `retry-after`. Error bodies are not logged.
+  2. Voice ([`prompts.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/prompts.py)): warm and plain, "you", no jargon ("likely", "between", never P50 or "model"), no blame, risks as a gentle heads-up, notice what is going well. Still forecasts only, never coaches; same grounding rules and `<financial_data>` fence.
+  3. Saved rows: `generated_with = "groq"`, `model_name` = the Groq model that answered. Older Gemini rows still serve until they expire.
+  4. The Advisor stays on Gemini (`shared/gemini.py`).
+- **Consequences**:
+  - The explanation usually lands about a second after the numbers. Every failure still ends in the rule-written text.
+  - New secret `GROQ_API_KEY`, set only in the Buck_AI Vercel project and its local `.env`. Never in the web app.
+  - Two AI vendors to watch. Groq's free limits change, so `GROQ_MODELS` can swap models without a code change.
