@@ -70,7 +70,7 @@ export default function ForecastSkeleton() {
         <div className="forecast-chart-block">
           <div className="forecast-chart-toolbar">
             <h3 className="forecast-panel-title"><span className="skeleton-text">How your spending adds up</span></h3>
-            <span className="skeleton-button" style={{ width: 236, height: 46, borderRadius: 10 }} />
+            <span className="skeleton-button" style={{ width: 234, height: 46, borderRadius: 10 }} />
           </div>
           <div className="forecast-legend">
             <Line width={56} />

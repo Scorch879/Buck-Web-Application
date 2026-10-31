@@ -515,7 +515,7 @@ function FallbackForecast({ insights, controls }: { insights: AIForecastInsights
           </h2>
           {controls}
         </div>
-        <div className="forecast-story-text">
+        <div className="forecast-story-text forecast-story-text--plain">
           <p className="forecast-explanation">{insights.summary}</p>
         </div>
         <div className="forecast-figure">

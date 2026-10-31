@@ -79,6 +79,11 @@ html[data-buck-theme="dark"] .forecast-story {
   max-width: 62ch;
 }
 
+/* The fallback summary is never replaced, so it needs no reserved room. */
+.forecast-story-text.forecast-story-text--plain {
+  min-height: 0;
+}
+
 .forecast-headline {
   margin: 0;
   color: var(--buck-ink);
