@@ -1,0 +1,101 @@
+# Buck CI: runs on every push to any branch and on every pull request.
+#
+#   web     - buck/      typecheck, lint (0 warnings), unit tests, production build
+#   buck-ai - Buck_AI/   offline unit tests
+#   ci      - one summary check; require this one in branch protection
+#
+# CD stays with Vercel's GitHub app (preview per PR, production on merge).
+# Its "Vercel – ..." checks appear next to these on every PR.
+#
+# No secrets are needed: the build uses placeholder public Supabase values,
+# and the Buck_AI tests never call Gemini, Groq or Supabase.
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same feature branch or PR cancels the older run. On dev
+# and main every merge commit gets its own full run, so back-to-back merges
+# don't leave a cancelled (red) run on the earlier one.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.ref != 'refs/heads/dev' && github.ref != 'refs/heads/main') }}
+
+jobs:
+  web:
+    name: Web (Next.js)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: buck
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: buck/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint -- --max-warnings=0
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+
+  buck-ai:
+    name: Buck_AI (Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: Buck_AI
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: Buck_AI/requirements*.txt
+
+      - name: Install
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Unit tests
+        run: python -m unittest -v
+
+  ci:
+    name: CI
+    # Skipped (not failed) when the run is cancelled by a newer push.
+    if: ${{ !cancelled() }}
+    needs: [web, buck-ai]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All jobs passed
+        run: |
+          echo "web: ${{ needs.web.result }}, buck-ai: ${{ needs.buck-ai.result }}"
+          test "${{ needs.web.result }}" = "success"
+          test "${{ needs.buck-ai.result }}" = "success"

@@ -90,6 +90,20 @@ Execute SQL migrations located in [`buck/supabase/migrations/`](file:///d:/VS%20
 7. `202606140001_security_and_policy_hardening.sql` (Hardens function search paths, revokes direct execute on trigger/definer functions, consolidates duplicate RLS policies, fixes `auth_security_events` policy, optimizes initplans, and adds covering indexes).
 8. `202610100001_ai_forecast_and_advisory_tables.sql` (Creates `ai_forecasts` and `ai_advisories` tables with relational ownership triggers, updated_at triggers, covering indexes, and user-isolated RLS policies).
 
+### 2.4 CI/CD on GitHub
+
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on every push to any branch and on every pull request. It needs no secrets.
+
+| Job | Directory | Steps |
+|---|---|---|
+| `Web (Next.js)` | `buck/` | `npm ci`, `typecheck`, `lint --max-warnings=0`, `test`, `build` (placeholder public Supabase values) |
+| `Buck_AI (Python)` | `Buck_AI/` | `pip install -r requirements-dev.txt`, `python -m unittest` (offline; no Gemini or Supabase calls) |
+| `CI` | – | Passes only when both jobs pass. Make this the required check in branch protection. |
+
+CD is Vercel's GitHub app: a preview deploy per PR for both projects (`buck-web-application`, `buck-web-application-vhne` for Buck_AI) and a production deploy on merge. Other PR checks: CodeQL (GitHub default setup) and Supabase Preview (runs only when migrations change).
+
+A workflow runs only on branches that contain the file, so it reaches `main` with the next release PR and older branches once they merge `dev`.
+
 ---
 
 ## 3. Complex Module Execution Logic

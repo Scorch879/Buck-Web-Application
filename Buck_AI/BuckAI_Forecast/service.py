@@ -115,8 +115,45 @@ def _commas(text: str) -> str:
     return _BARE_PESO.sub(lambda m: peso(float(m.group(1))), text)
 
 
+# A whole-peso amount (no centavos) the model may have rounded: ₱2,423 but not ₱2,423.43.
+_WHOLE_PESO = re.compile(r"₱(\d{1,3}(?:,\d{3})+|\d+)(?![.,]?\d)")
+
+
+def _figures(value: Any) -> set[float]:
+    """Every amount with centavos in the data the model saw."""
+    if isinstance(value, dict):
+        return set().union(*(_figures(v) for v in value.values())) if value else set()
+    if isinstance(value, list):
+        return set().union(*(_figures(v) for v in value)) if value else set()
+    if isinstance(value, float) and value >= 1 and round(value) != value:
+        return {value}
+    return set()
+
+
+def _exact(text: str, figures: set[float]) -> str:
+    """₱2,423 -> ₱2,423.43 when exactly one figure in the data rounds or truncates to it.
+    The prompt asks for exact amounts; the model sometimes rounds anyway."""
+    def fix(m: re.Match[str]) -> str:
+        whole = int(m.group(1).replace(",", ""))
+        hits = {x for x in figures if round(x) == whole or int(x) == whole}
+        return peso(hits.pop()) if len(hits) == 1 else m.group(0)
+    return _WHOLE_PESO.sub(fix, text)
+
+
+def _gap_first(explanation: str, model: dict[str, Any]) -> str:
+    """A logging gap leads the explanation (the prompt asks; this makes sure)."""
+    if not model.get("loggingGap"):
+        return explanation
+    first = limit_sentences(explanation, 1).lower()
+    if "logged" in first or "logging" in first:
+        return explanation
+    return (f"Nothing has been logged for {model['quietDays']} days, so this forecast may be on the low side. "
+            + explanation)
+
+
 async def _ai_narrative(f: dict[str, Any]) -> dict[str, Any]:
-    out = await groq.generate_json(prompts.system_prompt(), prompts.narrative_prompt(ai_view(f)),
+    view = ai_view(f)
+    out = await groq.generate_json(prompts.system_prompt(), prompts.narrative_prompt(view),
                                      prompts.SCHEMA, timeout_seconds=NARRATIVE_TIMEOUT,
                                      attempt_seconds=NARRATIVE_ATTEMPT, max_output_tokens=NARRATIVE_TOKENS)
     notes = out.get("habit_notes") if isinstance(out.get("habit_notes"), list) else []
@@ -128,7 +165,10 @@ async def _ai_narrative(f: dict[str, Any]) -> dict[str, Any]:
     }
     if not (text["headline"] and text["explanation"]):
         raise groq.GroqUnavailable("Incomplete forecast explanation.")
-    text = {k: [_commas(n) for n in v] if isinstance(v, list) else _commas(v) for k, v in text.items()}
+    figures = _figures(view)
+    tidy = lambda t: _commas(_exact(t, figures))  # noqa: E731
+    text = {k: [tidy(n) for n in v] if isinstance(v, list) else tidy(v) for k, v in text.items()}
+    text["explanation"] = _gap_first(text["explanation"], f["model"])
     return text
 
 
