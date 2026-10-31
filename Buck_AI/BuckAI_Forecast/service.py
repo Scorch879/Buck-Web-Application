@@ -1,13 +1,14 @@
-"""AI Forecaster: per-user forecast plus a Gemini explanation, saved in ai_forecasts.
+"""AI Forecaster: per-user forecast plus an AI explanation, saved in ai_forecasts.
 
-Two steps, so the numbers never wait for Gemini:
+The explanation is written on Groq (shared/groq.py), not Gemini: free with no
+billing account and fast. Two steps, so the numbers never wait for it:
 1. `get_forecast` (GET /forecast) loads 180 days of history as the user, fits
    the model and returns the numbers in well under a second. It reuses the
    saved explanation when the latest row for this horizon has the same
    fingerprint and has not expired (PH midnight); otherwise it returns a
    rule-written one with `explanationPending: true`. It never writes.
-2. `explain` (POST /forecast/explain) writes the explanation with Gemini
-   (rule-written when Gemini is unavailable) and saves a row. Cooldowns stop
+2. `explain` (POST /forecast/explain) writes the explanation with Groq
+   (rule-written when Groq is unavailable) and saves a row. Cooldowns stop
    rapid edits or refresh taps from burning the free quota; during one, the
    saved explanation is returned marked `stale`.
 """
@@ -19,7 +20,7 @@ import re
 from datetime import datetime, time, timedelta, timezone
 from typing import Any
 
-from shared import gemini
+from shared import groq
 from shared.config import get_settings
 from shared.money import PH_TZ, peso
 from shared.safety import clean_text, limit_sentences
@@ -34,11 +35,12 @@ log = logging.getLogger("buck_ai.forecast")
 PERIOD_TYPE = "custom"
 DATA_CHANGE_COOLDOWN = timedelta(minutes=5)
 REFRESH_COOLDOWN = timedelta(seconds=60)
-# POST /explain runs while the numbers are already on screen, so it can wait.
-# A healthy model writes the card in 2-6 s unstreamed. A model that accepts the
-# call and then hangs is dropped after 12 s, so ~4 models fit in 45 s.
-NARRATIVE_TIMEOUT = 45.0
-NARRATIVE_ATTEMPT = 12.0
+# POST /explain runs while the numbers are already on screen. Groq writes the
+# card in about a second; a model that hangs is dropped after 8 s.
+NARRATIVE_TIMEOUT = 25.0
+NARRATIVE_ATTEMPT = 8.0
+# The card is ~300 tokens; gpt-oss reasoning shares the cap.
+NARRATIVE_TOKENS = 2048
 _COLUMNS = "id,summary,warnings,metadata,created_at,expires_at,model_name"
 
 
@@ -71,7 +73,15 @@ async def saved_history(db: UserDb, limit: int) -> list[dict[str, Any]]:
     return [{"id": r.get("id"), "headline": r.get("summary"), "projectedSpending": r.get("projected_spending"),
              "confidence": r.get("confidence_score"), "periodStart": r.get("period_start"),
              "periodEnd": r.get("period_end"), "createdAt": r.get("created_at"),
-             "generatedWith": "rules" if r.get("model_name") == "rules" else "gemini"} for r in rows]
+             "generatedWith": _source(r.get("model_name"))} for r in rows]
+
+
+def _source(model_name: Any) -> str:
+    """Which writer a saved row came from (rows before the Groq switch say Gemini)."""
+    name = str(model_name or "rules")
+    if name == "rules":
+        return "rules"
+    return "gemini" if name.startswith(("gemini", "gemma")) else "groq"
 
 
 def rule_narrative(f: dict[str, Any]) -> dict[str, Any]:
@@ -105,10 +115,10 @@ def _commas(text: str) -> str:
     return _BARE_PESO.sub(lambda m: peso(float(m.group(1))), text)
 
 
-async def _gemini_narrative(f: dict[str, Any]) -> dict[str, Any]:
-    out = await gemini.generate_json(prompts.system_prompt(), prompts.narrative_prompt(ai_view(f)),
+async def _ai_narrative(f: dict[str, Any]) -> dict[str, Any]:
+    out = await groq.generate_json(prompts.system_prompt(), prompts.narrative_prompt(ai_view(f)),
                                      prompts.SCHEMA, timeout_seconds=NARRATIVE_TIMEOUT,
-                                     attempt_seconds=NARRATIVE_ATTEMPT)
+                                     attempt_seconds=NARRATIVE_ATTEMPT, max_output_tokens=NARRATIVE_TOKENS)
     notes = out.get("habit_notes") if isinstance(out.get("habit_notes"), list) else []
     text = {
         "headline": limit_sentences(clean_text(out.get("headline"), 300), 1),
@@ -117,7 +127,7 @@ async def _gemini_narrative(f: dict[str, Any]) -> dict[str, Any]:
         "watchOut": limit_sentences(clean_text(out.get("watch_out"), 300), 1),
     }
     if not (text["headline"] and text["explanation"]):
-        raise gemini.GeminiUnavailable("Incomplete forecast explanation.")
+        raise groq.GroqUnavailable("Incomplete forecast explanation.")
     text = {k: [_commas(n) for n in v] if isinstance(v, list) else _commas(v) for k, v in text.items()}
     return text
 
@@ -158,7 +168,7 @@ def _state(latest: dict[str, Any] | None, fp: str, now: datetime) -> tuple[bool,
     meta = latest.get("metadata") or {}
     same = meta.get("fingerprint") == fp
     current = (same and _parse_ts(latest.get("expires_at")) > now
-               and (meta.get("generated_with") == "gemini" or not get_settings().gemini_configured))
+               and (meta.get("generated_with", "rules") != "rules" or not get_settings().groq_configured))
     return current, same, now - _parse_ts(latest.get("created_at"))
 
 
@@ -191,11 +201,9 @@ async def explain(db: UserDb, horizon: int = 30, refresh: bool = False) -> dict[
 
     generated_with, model_name = "rules", "rules"
     try:
-        if not get_settings().gemini_configured:
-            raise gemini.GeminiUnavailable("GEMINI_API_KEY is not configured.")
-        narrative = await _gemini_narrative(f)
-        generated_with, model_name = "gemini", gemini.answered_by.get() or get_settings().gemini_model
-    except gemini.GeminiUnavailable as exc:
+        narrative = await _ai_narrative(f)
+        generated_with, model_name = "groq", groq.answered_by.get() or get_settings().groq_models[0]
+    except groq.GroqUnavailable as exc:
         log.warning("Forecast explanation fell back to rules: %s", exc)
         narrative = rule_narrative(f)
 

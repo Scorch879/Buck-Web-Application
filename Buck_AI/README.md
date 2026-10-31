@@ -22,14 +22,14 @@ Buck has two AIs, one per job:
 
 ## How the Forecaster works
 
-The Forecaster projects; it does not coach. No model is trained ahead of time: each request fits a small model to that user's own history (about 60 ms with numpy), and Gemini only explains the result.
+The Forecaster projects; it does not coach. No model is trained ahead of time: each request fits a small model to that user's own history (about 60 ms with numpy), and an open model on Groq only explains the result, in a warm, plain voice (ADR-053). The Advisor stays on Gemini.
 
 1. **History.** 180 days of expenses, income, wallets and the active goal, read as the user.
 2. **Baseline.** Emergencies (`metadata.is_emergency`) and one-off outliers per category are left out and listed.
 3. **Model per category.** Chance of spending on a day (recent rate, weekday effect, payday effect) and the amount (drawn from that category's own recent days). Weekly and monthly recurring items land on their due dates.
 4. **Ranges.** 1,000 simulated futures give a low / likely / high (P10 / P50 / P90) for every day, the month, each category and each wallet. Same data, same forecast.
 5. **Fits each user.** The last 14 days are held out; whichever history window (14, 30 or 60 days) predicted them best is used, and its error sets the confidence.
-6. **Two calls.** `GET /forecast` returns the numbers at once with the saved explanation, or a rule-written one and `explanationPending: true`. The app then calls `POST /forecast/explain`, which asks Gemini and saves the forecast in `ai_forecasts` until the next midnight (PH).
+6. **Two calls.** `GET /forecast` returns the numbers at once with the saved explanation, or a rule-written one and `explanationPending: true`. The app then calls `POST /forecast/explain`, which asks Groq and saves the forecast in `ai_forecasts` until the next midnight (PH).
 
 ## API
 
@@ -44,7 +44,7 @@ Every call needs `Authorization: Bearer <Supabase access token>`, the token of t
 | `POST /advisor/categorize` | `{ kind: "expense" \| "income", descriptions: [1..25] }` | `{ categories: (name \| null)[] }`: only the user's own category names (Gemini is limited to an enum of them); `null` keeps the item in the fallback |
 | `POST /advisor/goal-tip` | `{ goalId }` or `{ goalName, targetAmount, attitude, targetDate? }` | `{ tip }` (two sentences; empty when unavailable) |
 | `GET /forecast` | `?horizon=30` or `60` | `{ id, forecast, narrative, generatedWith, explanationPending, createdAt, cached, stale, cooldownUntil }`: numbers right away; never writes |
-| `POST /forecast/explain` | `?horizon=30\|60&refresh=true\|false` | Same shape, with the Gemini explanation (rules if unavailable), saved |
+| `POST /forecast/explain` | `?horizon=30\|60&refresh=true\|false` | Same shape, with the Groq explanation (rules if unavailable), saved |
 | `GET /forecast/history` | `?limit=1..20` | Saved forecasts, newest first |
 
 Rate limits are counted per user and per server instance: chat 15/min, insight 20/min, tips 20/min, categorize 30/min (up to 25 items per request), forecast 20/min.

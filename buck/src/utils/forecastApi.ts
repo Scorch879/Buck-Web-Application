@@ -137,7 +137,8 @@ interface BuckForecastResponse {
   id: string | null;
   forecast: BuckForecast;
   narrative: ForecastNarrative;
-  generatedWith: "gemini" | "rules";
+  /** Who wrote the narrative: Groq (current), Gemini (older saved rows) or the rules. */
+  generatedWith: "groq" | "gemini" | "rules";
   explanationPending: boolean;
   createdAt: string | null;
   cached: boolean;
@@ -168,8 +169,8 @@ export interface AIForecastInsights {
   source?: "buck_ai" | "rules";
   forecast?: BuckForecast;
   narrative?: ForecastNarrative;
-  generatedWith?: "gemini" | "rules";
-  /** The narrative is rule-written for now; call `explainAIForecast` for the Gemini one. */
+  generatedWith?: "groq" | "gemini" | "rules";
+  /** The narrative is rule-written for now; call `explainAIForecast` for the AI one. */
   explanationPending?: boolean;
   /** The data changed but re-explaining is cooling down; a fresh one comes shortly. */
   stale?: boolean;
@@ -248,7 +249,7 @@ export async function fetchAIForecastInsights(context: {
 const explaining = new Map<ForecastHorizon, Promise<AIForecastInsights>>();
 
 /**
- * Writes and saves the Gemini explanation (rule-written if Gemini is
+ * Writes and saves the AI explanation (Groq; rule-written if it is
  * unavailable). Concurrent calls for the same horizon share one request.
  */
 export function explainAIForecast(horizon: ForecastHorizon = 30): Promise<AIForecastInsights> {

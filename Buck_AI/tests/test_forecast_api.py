@@ -1,4 +1,4 @@
-"""AI Forecaster API tests: Supabase faked at the HTTP layer, Gemini patched."""
+"""AI Forecaster API tests: Supabase faked at the HTTP layer, Groq patched."""
 
 import json
 import os
@@ -10,12 +10,13 @@ os.environ.update({
     "SUPABASE_URL": "https://proj.supabase.co",
     "SUPABASE_ANON_KEY": "anon-key",
     "GEMINI_API_KEY": "test-key",
+    "GROQ_API_KEY": "test-key",
     "ALLOWED_ORIGINS": "http://localhost:3000",
 })
 
 import httpx  # noqa: E402
 
-from shared import auth, gemini, rate_limit  # noqa: E402
+from shared import auth, groq, rate_limit  # noqa: E402
 from shared.config import get_settings  # noqa: E402
 from shared.http import set_http  # noqa: E402
 from shared.money import today_ph  # noqa: E402
@@ -77,7 +78,7 @@ class ForecastApiTests(unittest.IsolatedAsyncioTestCase):
         set_http(httpx.AsyncClient(transport=httpx.MockTransport(self.supa.handler)))
         self.client = httpx.AsyncClient(transport=httpx.ASGITransport(app=main.app), base_url="http://buck-ai")
         self.gen = mock.AsyncMock(return_value=dict(NARRATIVE))
-        patcher = mock.patch.object(gemini, "generate_json", self.gen)
+        patcher = mock.patch.object(groq, "generate_json", self.gen)
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -88,7 +89,7 @@ class ForecastApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.get("/forecast")).status_code, 401)
         self.assertEqual((await self.client.get("/forecast?horizon=45", headers=GOOD)).status_code, 422)
 
-    async def test_get_returns_numbers_without_waiting_for_gemini(self):
+    async def test_get_returns_numbers_without_waiting_for_the_ai(self):
         r = await self.client.get("/forecast?horizon=60", headers=GOOD)
         self.assertEqual(r.status_code, 200)
         body = r.json()
@@ -96,7 +97,7 @@ class ForecastApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(body["generatedWith"], "rules")
         self.assertEqual(len(body["forecast"]["days"]), 60)
         self.assertIn("next 60 days", body["narrative"]["headline"])
-        # Nothing saved and Gemini never called.
+        # Nothing saved and the AI never called.
         self.assertEqual(self.supa.forecasts, [])
         self.assertEqual(self.gen.await_count, 0)
 
@@ -106,7 +107,7 @@ class ForecastApiTests(unittest.IsolatedAsyncioTestCase):
         body = r.json()
         self.assertFalse(body["cached"])
         self.assertFalse(body["explanationPending"])
-        self.assertEqual(body["generatedWith"], "gemini")
+        self.assertEqual(body["generatedWith"], "groq")
         self.assertEqual(len(body["forecast"]["days"]), 60)
         # Explanation is cleaned: no angle brackets or phone numbers, max 3 notes.
         narrative = body["narrative"]
@@ -124,7 +125,7 @@ class ForecastApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(saved["daily_forecast"]), 60)
         self.assertEqual(saved["generated_by"], "on_demand")
         self.assertNotEqual(saved["model_name"], "rules")
-        # Gemini saw no descriptions.
+        # The AI saw no descriptions.
         self.assertNotIn("lunch", self.gen.call_args.args[1])
 
         again = (await self.client.get("/forecast?horizon=60", headers=GOOD)).json()
@@ -141,8 +142,8 @@ class ForecastApiTests(unittest.IsolatedAsyncioTestCase):
         body = (await self.client.get("/forecast?horizon=30", headers=GOOD)).json()
         self.assertTrue(body["explanationPending"])
 
-    async def test_gemini_failure_saves_a_rule_explanation(self):
-        self.gen.side_effect = gemini.GeminiUnavailable("quota")
+    async def test_ai_failure_saves_a_rule_explanation(self):
+        self.gen.side_effect = groq.GroqUnavailable("quota")
         body = (await self.client.post("/forecast/explain", headers=GOOD)).json()
         self.assertEqual(body["generatedWith"], "rules")
         self.assertIn("next 30 days", body["narrative"]["headline"])
@@ -163,7 +164,7 @@ class ForecastApiTests(unittest.IsolatedAsyncioTestCase):
         await self.client.post("/forecast/explain", headers=GOOD)
         rows = (await self.client.get("/forecast/history", headers=GOOD)).json()
         self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]["generatedWith"], "gemini")
+        self.assertEqual(rows[0]["generatedWith"], "groq")
 
 
 if __name__ == "__main__":
