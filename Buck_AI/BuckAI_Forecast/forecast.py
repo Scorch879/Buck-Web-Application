@@ -317,14 +317,20 @@ def _warnings(month, wallets, categories, month_end: date, gap: dict[str, Any]) 
     return out[:5]
 
 
+def _target_status(target: dict[str, Any]) -> str:
+    """Where the expected pace sits against the attitude target, so the AI never has to judge "close"."""
+    gap = target["gapPerDay"]
+    return "above target" if gap > 0 else "below target" if gap < 0 else "on target"
+
+
 def ai_view(f: dict[str, Any]) -> dict[str, Any]:
-    """What Gemini sees: numbers and category names, no descriptions or ids."""
+    """What the AI sees: numbers and category names, no descriptions or ids."""
     days = f["days"]
     checkpoints = {f"day{n}": days[n - 1]["cumulative"] for n in (7, 14, 30, 60) if n <= len(days)}
     return {
         "today": f["today"], "horizonDays": f["horizonDays"],
         "cumulativeSpending": checkpoints,
-        "month": f["month"], "target": f["target"], "goal": f["goal"],
+        "month": f["month"], "target": {**f["target"], "status": _target_status(f["target"])}, "goal": f["goal"],
         "categories": [{k: c[k] for k in ("name", "expected", "share", "trend", "recurring")}
                        for c in f["categories"][:8]],
         "wallets": [{k: w[k] for k in ("name", "balance", "projectedSpend", "runsOut", "empty")}
