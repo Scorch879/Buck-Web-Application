@@ -153,6 +153,24 @@ Branch `feat/2fa-ui`. No API, middleware or migration changes. New files: `compo
 - Account deletion asks for a fresh code after 10 minutes.
 - Passkey add, rename, delete and sign-in (needs Passkeys on in the Supabase dashboard with the production RP ID).
 
+### 🎨 Chart Hover & Tab Uniformity (2026-10-30)
+
+Branch `maintenance-branch`. UI only; no API, data or migration changes.
+
+**Fixed**:
+- Statistics, Goals and Home charts used different tooltips (Chart.js default grey on Statistics and Goals). New `utils/chartTheme.ts` gives every chart the same espresso tooltip with an orange edge and the same axis and grid colours.
+- Statistics budget pill kept its first-render colours (cream on the dark theme). react-chartjs-2 reads `plugins` only when the chart is created, so `SpendingTrendChart` now draws from a ref holding the latest theme and data.
+- Statistics forecast chart overflowed its card after the window narrowed (grid track `min-width: auto`). `.stats-forecast-body` now uses `grid-template-columns: minmax(0, 1fr)`.
+- Goals forecast reloaded in a loop (spinner, values jumping, tooltip never stays): every render saved `ai_recommended_budget`, which updated the goal and re-ran the effect. It now saves only a changed value.
+- Goals forecast Week/Month toggle did not change the chart; the data is now cut to the selected week or month. Y-axis shows ₱ like Statistics.
+- `formatCurrency` dropped a trailing zero (₱13,222.7). Whole pesos stay short (₱75,000); any centavos always show two digits.
+- Settings and Wallet eyebrows rendered as grey body text: `.settings-card p` (0,1,1) outranked `.settings-eyebrow` (0,1,0).
+- Uniform controls: all eyebrows 0.75rem / 650 / 0.4px orange (Forecast was purple 900, Advisor 700, Settings 600, Wallet 0.72rem); segmented buttons 38px / 0.9rem / 600 on Goals and Statistics like Categories and Wallet; Statistics mini pager 26px like Home. Donut and pie tooltips no longer repeat the slice name as a title.
+
+**Verified** (dev server, signed in): hover tooltips on Statistics trend, budget donut and forecast; Goals forecast; Home pie. Light and dark themes; 375 px with no sideways scroll. `tsc`, `eslint` (0/0), vitest 192/192 and `next build` clean.
+
+**Still open**: card heading sizes and weights still range 0.96–1.6rem and 600–900 across tabs (ADR-013 drift); left for a separate pass.
+
 ### 🤖 Buck MCP Server (2026-10-24, ADR-050)
 
 Migration [`202610240005_mcp_access_check.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610240005_mcp_access_check.sql) applied live and recorded.
@@ -624,7 +642,7 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
 - **Items**:
   - **Deploy**: create the Buck_AI Vercel project (root `Buck_AI`) and set `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `ALLOWED_ORIGINS`. Set `NEXT_PUBLIC_BUCK_AI_URL` on the web project. Until then the web Advisor cannot reach the service in production.
   - **Mobile**: no AI screens yet (by request). When added, call Buck_AI `/advisor/*` with the Supabase access token; no CORS is needed.
-  - **Paused features**: AI forecast wording and the Forecaster chat return with BuckAI_Forecast. Auto-categorize stays live as part of the AI Financial Advisor.
+  - **Paused features**: the AI Forecaster is live (ADR-052, BUG-035); its chat comes in phase 2. Auto-categorize stays live as part of the AI Financial Advisor.
   - **Cost**: Zero cost: Gemini API free tier with no billing account (over-quota calls get 429 and the Advisor serves rule-based advice), Vercel Hobby for both projects, Supabase Free. On the free tier Google may use prompts to improve its products; Buck_AI sends only PII-scrubbed numbers.
   - **Rate limits** are in-memory per serverless instance.
   - **Old data**: `ai_advisories` rows written by the previous stack (`weekly_review` from the cron, older `monthly_strategy` rows without a fingerprint) are treated as changed data and replaced on the next read after the cooldown.
@@ -632,7 +650,7 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
 
 #### BUG-031: [OPEN] `is_emergency` Exclusion Documented but Not in Schema
 - **Location**: `Claude.md` §6.4, `public.expenses` ([`202606010001_initial_buck_schema.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202606010001_initial_buck_schema.sql))
-- **Impact**: Forecasts cannot exclude emergency spending because `expenses` has no `is_emergency` column and nothing sets one.
+- **Impact**: There is no `is_emergency` column and no UI to set one. The AI Forecaster (ADR-052) already honours `expenses.metadata.is_emergency` (set by seed data) and also drops per-category outliers, but users can't mark an expense themselves.
 - **Remediation**: Add `is_emergency boolean not null default false` with a UI toggle, then filter it in `data.ts#getDailySpending` and the rule engine.
 
 
@@ -671,6 +689,33 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
 - **Impact**: The Gemini free tier allows about 20 requests a day per model, and one chat question can use 2–3 (tool rounds). By 2026-10-23, `gemini-3.8-flash` and `gemini-3.7-flash` were out of quota for the day, and `gemini-3.6-flash` was intermittently overloaded (503). Every request still tried the exhausted models first, a model that hung used up the whole time budget without moving on, and once 3.6 failed nothing was left, so users got the offline fallback instead of AI answers.
 - **Fix**: The default chain grows to 11 models: 9 Gemini Flash models that answered live with the Advisor config (3.8, 3.7, 3.6, 3.5-flash, 3-flash-preview, 3.5-flash-lite, 3.1-flash-lite, 3.1-flash-lite-preview, flash-lite-latest), then Gemma 4 26B and 31B as a last resort (sent without thinking settings, which Gemma rejects). `gemini-flash-latest` is an alias that shares 3.8's quota, and the Pro and Omni models have no free quota, so they are left out. A model that hits its daily quota (429) or is retired (404) is benched per instance until Google's retry delay passes (capped at 1 hour); if every model is benched, all are tried anyway. A model that doesn't answer within 8 s counts as busy and the next one is tried.
 - **Verification (2026-10-23)**: `python -m unittest` passes 37/37 (new tests for benching, slow models and Gemma config). Gemma alone returned 500 on most real Advisor prompts, so it stays last. Live run with the real key and fake Supabase: the insight was answered by 3.6 after 3.8 and 3.7 returned 429; the chat then skipped the benched models and streamed an AI answer in 7 s.
+
+#### BUG-040: [RESOLVED] Forecast Tab Was a Flat Average with a Fixed Confidence (ADR-052)
+- **Location**: [`buck/src/utils/aiInsightsGenerator.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/aiInsightsGenerator.ts) (`generateForecastInsights`), [`forecast/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/forecast/page.tsx)
+- **Impact**:
+  - Month-to-date spending ÷ days passed was copied onto every day of the month, so the forecast never varied by day, weekday, category, payday or wallet.
+  - `confidence_score` was hard-coded to 0.88 whatever the data.
+  - Dates used server time, not Philippine time, so the month could roll over 8 hours late.
+- **Fix**: The AI Forecaster ([`Buck_AI/BuckAI_Forecast/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/)) replaces it on the Forecast tab: per-user model, P10/P50/P90 ranges, backtested confidence, Philippine time throughout. The rule engine stays only as the fallback when Buck_AI is unreachable, and its rows now say `model_name = 'rules'` instead of the stale Llama default.
+- **Found while verifying (2026-10-30)**:
+  - `ai_usage_events.bucket` only allowed the Advisor buckets, so every Forecaster call logged "Shared rate limit unavailable" and fell back to the per-instance window. Fixed by [`202610300001_ai_forecaster_support.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610300001_ai_forecaster_support.sql) (**apply it** with the PR).
+  - `generate_json` capped every model but the last at 8 s, which suits a streamed first chunk but not a full unstreamed JSON card (~10–15 s), so the explanation timed out and the slow models were benched for chat too. `generate_json` now takes `attempt_seconds`; the Forecaster passes 12 s (45 s total, about 4 models), the Advisor keeps 8 s. Timing on 2026-10-31: a healthy model writes the card in 2–6 s (3.6-flash 3.4 s, 3.5-flash-lite 1.6 s); the earlier timeouts were models that accepted the call and then hung, which at 20 s each used up the budget before a healthy model got a turn.
+  - From the Forecast page work (PR #226): the web `BuckForecast` type lacked `target.gapPerDay` and `model.loggingGap/quietDays/lastExpense`, which are now typed. Responses carry `cooldownUntil` so the page can say a refresh is cooling down (`stale` stays false when the data is unchanged). The daily chart line uses `days[].expected`: P50 is ₱0 on most days for people who spend on some days only.
+  - From the PR #226 recheck: 3.6-flash answered but the card was cut off ("Unterminated string"), because thinking tokens share `max_output_tokens` (1024). `generate_json` now treats a cut-off or invalid JSON answer as transient (`IncompleteAnswer`, next model, no bench) and takes `max_output_tokens`; the Forecaster passes 4096. Live on 2026-10-31: 3.8 and 3.7 out of daily quota (429), 3.6 wrote the full card in 4.3 s.
+  - Seed users who stopped logging (nothing since 2026-10-11) got a confident-sounding forecast. The model now flags a logging gap first in `warnings` and tells Gemini to say so; Gemini also gets `target.gapPerDay` so it can't call a Moderate target "aligned".
+- **Verification (2026-10-30)**: `python -m unittest` 73/73 (synthetic weekend, payday, monthly-bill, one-off, new-user, logging-gap and empty-wallet users; deterministic output; under 1.5 s). On a real seeded history held out from 2026-09-29, 13 of 14 days fell inside the band with a 14% two-week error; `build_forecast` takes ~60 ms. Gemini wrote the card in 13.5 s quoting only payload figures. Web: `tsc`, `eslint` and vitest 192/192 clean; in the browser (signed in, local Buck_AI) the numbers rendered from `GET /forecast`, the Gemini text replaced the rule text after `POST /forecast/explain`, and with Buck_AI stopped `/api/forecast` answered instead.
+
+#### BUG-039: [RESOLVED 2026-10-31] Forecast Page Showed Only Flat Totals from the AI Forecaster (ADR-052)
+- **Location**: [`forecast/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/forecast/page.tsx), [`ForecastChart.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/forecast/ForecastChart.tsx), [`ForecastSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/ForecastSkeleton.tsx), [`utils/forecastDisplay.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/forecastDisplay.ts)
+- **Impact**: Buck_AI returned per-day ranges, month surplus, categories, wallet runway, goal timing, habits and model confidence, but the page rendered only the three flat totals and the summary. The horizon was fixed at 30 days, and the cache held one forecast.
+- **Fix**: New page with a 30/60-day toggle (one cached forecast per horizon in `FinancialContext.forecastByHorizon`, refreshed in the background on each visit), a Chart.js chart (80% band, likely line, dashed attitude target hidden at 1.0x, recurring-day markers, Daily/Cumulative), month, category, wallet runway, goal, habits/exclusions, explanation (quiet "Writing explanation…" state, "Rough estimate" chip, window and confidence footer) and warnings cards. The logging-gap warning is shown as information, not danger. The rule-engine fallback keeps the old cards. The skeleton matches the new layout. Accents moved from purple to Buck Orange/Gold.
+- **Found while verifying** (all fixed on `feat/ai-forecaster` in 4d01c6a, then adopted here):
+  - `BuckForecast` did not declare `model.loggingGap`, `quietDays`, `lastExpense` or `target.gapPerDay`, which Buck_AI sends. The type now has them; the page uses them directly.
+  - For people who spend on some days only, the daily P50 is ₱0 on most days, so a "Likely" line sat on the axis below the band and the mean-based attitude target. The daily line now uses `days[].expected` labelled "Expected"; cumulative keeps `cumulative.p50` ("Likely").
+  - A Refresh inside the cooldown gave the page no signal. Responses now carry `cooldownUntil`; Refresh is disabled and reads "Refresh at {time}" until then, and a refresh that hits the cooldown says when a new explanation can come.
+  - All three Gemini models timed out on the explanation (they accepted the call and hung for 20 s each); Buck_AI now gives each model 12 s. The card kept the rule-written text, and the pending → done swap did not move the layout.
+  - QA IDs: BUG-035 was used twice; the Forecast-tab entry is now BUG-040.
+- **Verification (2026-10-31)**: `npm run lint` 0 problems, `npm run typecheck` clean, `npm test` 199/199 (7 new `forecastDisplay` tests), `npm run build` passes. Browser (signed in, local Buck_AI): 30 and 60 days render; Daily/Cumulative and tooltips (date, likely, 80% range, target in ₱); the explanation card switched from "Writing explanation…" to done without moving content above it; Refresh works and a second tap returns from the cooldown; with Buck_AI stopped the fallback cards render and 60 days is disabled; light and dark themes; 375 px wide with no sideways scroll. After merging 4d01c6a: the daily legend reads "Expected"; a second Refresh showed "Refresh at 2:17 PM" with an info toast and re-enabled itself at that time. That run, gemini-3.8 and 3.7 timed out at 12 s and gemini-3.6 returned truncated JSON ("Unterminated string"), so the explanation stayed rule-written.
 
 ---
 

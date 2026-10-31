@@ -13,13 +13,7 @@ at once.
 
 from typing import Any
 
-# CLAUDE.md §6.5: spending target and savings target per attitude.
-SPEND_MULTIPLIER = {"Normal": 1.0, "Moderate": 0.80, "Aggressive": 0.60}
-SAVE_MULTIPLIER = {"Normal": 1.0, "Moderate": 1.15, "Aggressive": 1.30}
-
-
-def peso(amount: float) -> str:
-    return f"₱{amount:,.2f}"
+from shared.money import SAVE_MULTIPLIER, SPEND_MULTIPLIER, peso  # noqa: F401  (re-exported)
 
 
 def _round(n: float) -> float:

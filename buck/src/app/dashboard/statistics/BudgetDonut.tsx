@@ -3,6 +3,7 @@ import React from "react";
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip } from "chart.js";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
+import { buckTooltip } from "@/utils/chartTheme";
 import { formatCurrency } from "@/utils/formatters";
 
 ChartJS.register(ArcElement, Tooltip);
@@ -59,11 +60,16 @@ export default function BudgetDonut({ spent, budget }: BudgetDonutProps) {
         options={{
           cutout: "74%",
           maintainAspectRatio: false,
+          // Room for the hover offset so the lifted arc is never clipped.
+          layout: { padding: 6 },
           plugins: {
             legend: { display: false },
             tooltip: {
+              ...buckTooltip(isDarkTheme),
               enabled: hasBudget && spent > 0,
               callbacks: {
+                // The label already names the slice; a title would repeat it.
+                title: () => "",
                 label: (ctx) =>
                   ctx.dataIndex === 0
                     ? `Spent: ${formatCurrency(spent)}`

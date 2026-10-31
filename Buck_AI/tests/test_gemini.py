@@ -248,6 +248,24 @@ class ModelChainTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(used, ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"])
         self.assertEqual(gemini.answered_by.get(), "gemini-3.6-flash")
 
+    async def test_json_cut_off_moves_to_the_next_model(self):
+        used, caps = [], []
+
+        class Models:
+            async def generate_content(self, model, contents, config):
+                used.append(model)
+                caps.append(config.max_output_tokens)
+                if model == "gemini-3.8-flash":
+                    return json_response('{"headline":"You are likely to sp')  # hit the token cap
+                return json_response('{"headline":"ok"}')
+
+        gemini.set_client(fake_client(Models()))
+        out = await gemini.generate_json("sys", "p", {"type": "object"}, max_output_tokens=4096)
+        self.assertEqual(out, {"headline": "ok"})
+        self.assertEqual(used, ["gemini-3.8-flash", "gemini-3.7-flash"])
+        self.assertEqual(caps, [4096, 4096])
+        self.assertEqual(gemini.attempt_plan()[0], "gemini-3.8-flash")  # a bad answer is not benched
+
     async def test_all_models_down_and_non_transient_errors(self):
         from google.genai import errors
 

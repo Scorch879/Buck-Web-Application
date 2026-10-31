@@ -38,7 +38,10 @@ export type DashboardDataCache = {
   activeWalletId?: string | null;
   activeWalletBudget?: number | null;
   aiInsights?: import("@/utils/advisorApi").AIAdvisorInsights;
-  forecastInsights?: import("@/utils/forecastApi").AIForecastInsights;
+  /** One forecast per horizon, so switching 30 ↔ 60 days is instant. */
+  forecastByHorizon?: Partial<
+    Record<import("@/utils/forecastApi").ForecastHorizon, import("@/utils/forecastApi").AIForecastInsights>
+  >;
   adminFeedback?: import("@/utils/supabaseData").BuckFeedback[];
   adminVercelDeployments?: AdminVercelDeployment[];
   adminSupabaseLogs?: AdminSupabaseLog[];

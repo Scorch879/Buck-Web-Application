@@ -115,7 +115,7 @@ export default function StatisticsSkeleton() {
               <span key={i} className="skeleton-line" style={{ flex: 1, height: `${h}%`, borderRadius: 6 }} />
             ))}
           </div>
-          <p className="stats-chart-caption"><span className="skeleton-text">Dashed line: your budget per day, spread evenly from ¼ of your active wallet.</span></p>
+          <p className="stats-chart-caption"><span className="skeleton-text">Dashed line: your daily budget. This week&apos;s budget is ¼ of your active wallet (₱00,000.00), split across 7 days.</span></p>
         </section>
 
         <section className="stats-card stats-recent">

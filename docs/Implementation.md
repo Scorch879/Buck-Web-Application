@@ -90,6 +90,20 @@ Execute SQL migrations located in [`buck/supabase/migrations/`](file:///d:/VS%20
 7. `202606140001_security_and_policy_hardening.sql` (Hardens function search paths, revokes direct execute on trigger/definer functions, consolidates duplicate RLS policies, fixes `auth_security_events` policy, optimizes initplans, and adds covering indexes).
 8. `202610100001_ai_forecast_and_advisory_tables.sql` (Creates `ai_forecasts` and `ai_advisories` tables with relational ownership triggers, updated_at triggers, covering indexes, and user-isolated RLS policies).
 
+### 2.4 CI/CD on GitHub
+
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on every push to any branch and on every pull request. It needs no secrets.
+
+| Job | Directory | Steps |
+|---|---|---|
+| `Web (Next.js)` | `buck/` | `npm ci`, `typecheck`, `lint --max-warnings=0`, `test`, `build` (placeholder public Supabase values) |
+| `Buck_AI (Python)` | `Buck_AI/` | `pip install -r requirements-dev.txt`, `python -m unittest` (offline; no Gemini or Supabase calls) |
+| `CI` | – | Passes only when both jobs pass. Make this the required check in branch protection. |
+
+CD is Vercel's GitHub app: a preview deploy per PR for both projects (`buck-web-application`, `buck-web-application-vhne` for Buck_AI) and a production deploy on merge. Other PR checks: CodeQL (GitHub default setup) and Supabase Preview (runs only when migrations change).
+
+A workflow runs only on branches that contain the file, so it reaches `main` with the next release PR and older branches once they merge `dev`.
+
 ---
 
 ## 3. Complex Module Execution Logic
@@ -165,7 +179,7 @@ Returns a composite score (0 to 5) and localized validation messages.
 - **1:1 Geometry Parity Across Skeletons**:
   - `HomeSkeleton`: Implemented `.graph-container` grid with `.graph-y-axis-wrap` (displaying "Amount (₱)" and 7 numeric tick line placeholders) and `.graph-x-axis-footer` ("Day of the Week"), matching `WeeklyBarChart` layout and eliminating shift upon hydration.
   - `FinancialAdvisorSkeleton`: Added circular `.advisor-score` badge ($128\text{px} \times 128\text{px}$) in `.advisor-hero`, 3 cards in `.advisor-grid`, and 2 wide cards in `.advisor-ai-grid`.
-  - `ForecastSkeleton`: Synchronized with `.forecast-hero` score badge, 3 prediction metric cards in `.advisor-grid`, and 2 wide cards in `.forecast-ai-grid` (replacing the legacy inaccurate bar chart).
+  - `ForecastSkeleton` (ADR-052 page): `.forecast-hero` with the 30/60-day toggle and Refresh, the chart panel (legend, Daily/Cumulative toggle, chart box), the month panel (3 stats), 5 category cards, 3 wallet cards, the goal and habits panels, and the explanation and warnings cards in `.forecast-ai-grid`. The rule-engine fallback (Buck_AI unreachable) still renders the 3 `.advisor-grid` cards and 2 wide cards.
   - `AdminSkeleton`: Built 3-tab vertical navigation (`settings-tabs`), toolbar, and card list items matching `admin/page.tsx`.
 
 ### 3.11 Home Pie Legend Left-Alignment & Callout Anti-Clipping Typography Engine ([`WeeklyPieChart.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/home/WeeklyPieChart.tsx), [`home/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/home/style.css), [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx))

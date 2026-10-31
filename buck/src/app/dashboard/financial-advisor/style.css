@@ -37,8 +37,8 @@
   margin: 0;
   color: var(--buck-orange);
   font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-weight: 650;
+  letter-spacing: 0.4px;
   line-height: 1.3;
   text-transform: uppercase;
 }

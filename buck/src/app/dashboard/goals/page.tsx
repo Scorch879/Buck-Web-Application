@@ -14,6 +14,7 @@ import {
   useFinancial,
 } from "@/context/FinancialContext";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
+import { buckChartColors, buckTooltip } from "@/utils/chartTheme";
 import CreateGoalModal from "./CreateGoalModal";
 import {
   deleteGoal,
@@ -82,10 +83,7 @@ const GoalsPage = () => {
   const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
   const hasInitialGoalsData = Boolean(userCache.goals);
   const isDarkTheme = useAuthPageTheme();
-  const chartTextColor = isDarkTheme ? "#fff8ed" : "#2b2523";
-  const chartGridColor = isDarkTheme
-    ? "rgba(255,211,154,0.16)"
-    : "rgba(120,92,70,0.18)";
+  const { text: chartTextColor, grid: chartGridColor } = buckChartColors(isDarkTheme);
   const primaryButtonBackground = isDarkTheme
     ? "linear-gradient(135deg, #ffc547, #f47536)"
     : "linear-gradient(135deg, #f47536, #ff3838)";
@@ -431,14 +429,17 @@ const GoalsPage = () => {
   useEffect(() => {
     if (!forecastModalOpen || !selectedGoal || !user) return;
     const fetchForecast = async () => {
-      setForecastLoading(true);
       setForecastError(null);
       try {
         // Plain-math trajectory over the whole horizon (BuckAI_Forecast will
         // add AI on top later); the chart slices it to the selected week/month.
         const data = computeGoalForecast(selectedGoal);
         setForecastData(data);
-        if (data.ai_recommended_budget && selectedGoal && user) {
+        // Save only a changed value: the save updates the goal, which re-runs
+        // this effect, so an unconditional write reloads the chart forever.
+        const savedCents = Math.round(Number(selectedGoal.aiRecommendedBudget ?? 0) * 100);
+        const nextCents = Math.round(Number(data.ai_recommended_budget ?? 0) * 100);
+        if (data.ai_recommended_budget && savedCents !== nextCents && user) {
           await updateGoalAiRecommendedBudget(
             user.uid,
             selectedGoal.id,
@@ -514,7 +515,16 @@ const GoalsPage = () => {
   // Prepare data for Chart.js (Spending Report style)
   let chartData = null;
   if (forecastData && forecastData.forecast_per_day) {
-    const labels = Object.keys(forecastData.forecast_per_day);
+    // Day keys are YYYY-MM-DD, so string comparison keeps the selected range.
+    const activeRange =
+      selectedMode === "week"
+        ? weekDateRanges[selectedWeek]
+        : selectedMode === "month"
+          ? monthDateRanges[selectedMonth]
+          : undefined;
+    const labels = Object.keys(forecastData.forecast_per_day).filter(
+      (d) => !activeRange || (d >= activeRange.start && d <= activeRange.end)
+    );
     const forecastVals = labels.map((d) => forecastData.forecast_per_day[d]);
     const actualVals = labels.map(
       (d) =>
@@ -982,6 +992,7 @@ const GoalsPage = () => {
                         labels: { color: chartTextColor, boxWidth: 12, boxHeight: 12 },
                       },
                       tooltip: {
+                        ...buckTooltip(isDarkTheme),
                         callbacks: {
                           label: function (context) {
                             const value = Number(context.raw);
@@ -998,7 +1009,11 @@ const GoalsPage = () => {
                       y: {
                         grid: { color: chartGridColor },
                         beginAtZero: true,
-                        ticks: { color: chartTextColor, maxTicksLimit: 5 },
+                        ticks: {
+                          color: chartTextColor,
+                          maxTicksLimit: 5,
+                          callback: (v) => `₱${Number(v).toLocaleString("en-US")}`,
+                        },
                       },
                     },
                   }}
