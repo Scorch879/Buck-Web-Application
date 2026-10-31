@@ -16,7 +16,12 @@ export interface ForecastDateRange {
 
 export interface ForecastDay extends ForecastBand {
   date: string;
-  /** Mean of the simulations; above p50 on days a big but unlikely spend can land. */
+  /**
+   * Mean of the simulations. Use it for the daily "expected" line: for someone
+   * who spends on some days only, p50 is ₱0 on most days. It matches the band
+   * and the attitude target, which is built from the mean. Cumulative lines use
+   * `cumulative.p50`.
+   */
   expected: number;
   cumulative: ForecastBand;
   /** Recurring items (bills, subscriptions) due that day. */
@@ -82,6 +87,8 @@ export interface BuckForecast {
     multiplier: number;
     expectedDaily: number;
     dailyTarget: number;
+    /** expectedDaily - dailyTarget: what the attitude asks for, 0 when Normal. */
+    gapPerDay: number;
     restOfMonthTarget: number;
   };
   goal: {
@@ -109,6 +116,12 @@ export interface BuckForecast {
     bandCoverage: number | null;
     confidence: number;
     lowData: boolean;
+    /** Date of the latest expense (ISO), or null with no history. */
+    lastExpense: string | null;
+    /** Days since `lastExpense`. */
+    quietDays: number | null;
+    /** Nothing logged for far longer than usual: the forecast probably runs low. */
+    loggingGap: boolean;
   };
 }
 
@@ -129,6 +142,7 @@ interface BuckForecastResponse {
   createdAt: string | null;
   cached: boolean;
   stale: boolean;
+  cooldownUntil: string | null;
 }
 
 export type ForecastHorizon = 30 | 60;
@@ -159,6 +173,8 @@ export interface AIForecastInsights {
   explanationPending?: boolean;
   /** The data changed but re-explaining is cooling down; a fresh one comes shortly. */
   stale?: boolean;
+  /** A new explanation is held back until this ISO time (refresh or data-change cooldown). */
+  cooldownUntil?: string | null;
 }
 
 function fromBuckAi(r: BuckForecastResponse): AIForecastInsights {
@@ -184,6 +200,7 @@ function fromBuckAi(r: BuckForecastResponse): AIForecastInsights {
     generatedWith: r.generatedWith,
     explanationPending: r.explanationPending,
     stale: r.stale,
+    cooldownUntil: r.cooldownUntil,
   };
 }
 

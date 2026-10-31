@@ -152,7 +152,12 @@ class ForecastApiTests(unittest.IsolatedAsyncioTestCase):
         await self.client.post("/forecast/explain", headers=GOOD)
         body = (await self.client.post("/forecast/explain?refresh=true", headers=GOOD)).json()
         self.assertTrue(body["cached"])
+        self.assertFalse(body["stale"])  # same data, so not stale, but still cooling down
+        until = datetime.fromisoformat(body["cooldownUntil"])
+        self.assertLess(until - datetime.now(timezone.utc), timedelta(seconds=61))
         self.assertEqual(self.gen.await_count, 1)
+        # A plain (non-refresh) read of a current explanation is not cooling down.
+        self.assertIsNone((await self.client.get("/forecast", headers=GOOD)).json()["cooldownUntil"])
 
     async def test_history(self):
         await self.client.post("/forecast/explain", headers=GOOD)

@@ -35,9 +35,10 @@ PERIOD_TYPE = "custom"
 DATA_CHANGE_COOLDOWN = timedelta(minutes=5)
 REFRESH_COOLDOWN = timedelta(seconds=60)
 # POST /explain runs while the numbers are already on screen, so it can wait.
-# A full card takes ~10-15 s unstreamed: give each model 20 s, 45 s in total.
+# A healthy model writes the card in 2-6 s unstreamed. A model that accepts the
+# call and then hangs is dropped after 12 s, so ~4 models fit in 45 s.
 NARRATIVE_TIMEOUT = 45.0
-NARRATIVE_ATTEMPT = 20.0
+NARRATIVE_ATTEMPT = 12.0
 _COLUMNS = "id,summary,warnings,metadata,created_at,expires_at,model_name"
 
 
@@ -122,7 +123,8 @@ async def _gemini_narrative(f: dict[str, Any]) -> dict[str, Any]:
 
 
 def _response(f: dict[str, Any], row: dict[str, Any] | None, *, narrative: dict[str, Any] | None = None,
-              cached: bool, stale: bool = False, pending: bool = False) -> dict[str, Any]:
+              cached: bool, stale: bool = False, pending: bool = False,
+              cooldown_until: datetime | None = None) -> dict[str, Any]:
     meta = (row or {}).get("metadata") or {}
     return {
         "id": (row or {}).get("id"),
@@ -133,6 +135,8 @@ def _response(f: dict[str, Any], row: dict[str, Any] | None, *, narrative: dict[
         "createdAt": (row or {}).get("created_at"),
         "cached": cached,
         "stale": stale,
+        # Set while a new explanation is held back by a cooldown; ISO time it ends.
+        "cooldownUntil": cooldown_until.isoformat() if cooldown_until else None,
     }
 
 
@@ -158,8 +162,11 @@ def _state(latest: dict[str, Any] | None, fp: str, now: datetime) -> tuple[bool,
     return current, same, now - _parse_ts(latest.get("created_at"))
 
 
-def _cooling(latest: dict[str, Any] | None, age: timedelta | None, limit: timedelta) -> bool:
-    return bool(latest and age is not None and age < limit and (latest.get("metadata") or {}).get("narrative"))
+def _cooling(latest: dict[str, Any] | None, age: timedelta | None, limit: timedelta) -> datetime | None:
+    """When the cooldown on the saved row ends, or None if it is not cooling down."""
+    if latest and age is not None and age < limit and (latest.get("metadata") or {}).get("narrative"):
+        return _parse_ts(latest.get("created_at")) + limit
+    return None
 
 
 async def get_forecast(db: UserDb, horizon: int = 30) -> dict[str, Any]:
@@ -167,8 +174,9 @@ async def get_forecast(db: UserDb, horizon: int = 30) -> dict[str, Any]:
     current, same, age = _state(latest, fp, datetime.now(timezone.utc))
     if current:
         return _response(f, latest, cached=True)
-    if _cooling(latest, age, DATA_CHANGE_COOLDOWN):
-        return _response(f, latest, cached=True, stale=not same)  # explain would only hit the cooldown
+    if until := _cooling(latest, age, DATA_CHANGE_COOLDOWN):
+        # explain would only hit the cooldown
+        return _response(f, latest, cached=True, stale=not same, cooldown_until=until)
     return _response(f, None, narrative=rule_narrative(f), cached=False, pending=True)
 
 
@@ -178,8 +186,8 @@ async def explain(db: UserDb, horizon: int = 30, refresh: bool = False) -> dict[
     current, same, age = _state(latest, fp, now)
     if current and not refresh:
         return _response(f, latest, cached=True)
-    if _cooling(latest, age, REFRESH_COOLDOWN if refresh else DATA_CHANGE_COOLDOWN):
-        return _response(f, latest, cached=True, stale=not same)
+    if until := _cooling(latest, age, REFRESH_COOLDOWN if refresh else DATA_CHANGE_COOLDOWN):
+        return _response(f, latest, cached=True, stale=not same, cooldown_until=until)
 
     generated_with, model_name = "rules", "rules"
     try:
