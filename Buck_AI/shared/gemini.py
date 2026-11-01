@@ -37,10 +37,11 @@ JSON_HEDGE_AFTER_SECONDS = 5.0
 # The free tier allows about 20 requests a day per model. A model that runs
 # out is skipped (per instance) until Google's retry delay passes, capped so
 # a long delay can't bench it for the rest of the day on a warm instance.
-# A slow model (timed out or lost a race) is skipped for a few minutes so
-# the next requests start on a model that is answering.
+# A slow model (timed out or lost a race) is skipped for 15 minutes so the
+# next requests start on a model that is answering: a hung model tends to
+# stay hung, and each instance would otherwise pay the race delay again.
 BENCH_PER_MINUTE_SECONDS = 60.0
-BENCH_SLOW_SECONDS = 300.0
+BENCH_SLOW_SECONDS = 900.0
 BENCH_MAX_SECONDS = 3600.0
 _RETRY_DELAY = re.compile(r"retryDelay'?\"?:\s*'?\"?(\d+)s")
 # Pause before retrying the same model (only when a single model is configured).
@@ -265,28 +266,29 @@ async def _open_round(client: Any, plan: tuple[str, ...], attempt: int,
     loop = asyncio.get_running_loop()
     hedge_after = HEDGE_AFTER_SECONDS if hedge_after is None else hedge_after
     pending: dict[asyncio.Task, int] = {}
+    started: dict[asyncio.Task, float] = {}
     next_up = attempt
-    last_launch = 0.0
     last_exc: BaseException | None = None
 
     def launch() -> None:
-        nonlocal next_up, last_launch
+        nonlocal next_up
         task = asyncio.ensure_future(asyncio.wait_for(
             opener(client, plan[next_up], contents, config), attempt_timeout(plan, next_up, None, cap)))
         pending[task] = next_up
+        started[task] = loop.time()
         next_up += 1
-        last_launch = loop.time()
 
     launch()
     try:
         while pending:
             hedge = len(pending) == 1 and next_up < len(plan) and plan[next_up] != plan[next_up - 1]
-            # Counted from the latest launch: when one of two racers fails, the
-            # survivor may already be overdue and the next model starts at once.
-            wait = max(0.0, last_launch + hedge_after - loop.time()) if hedge else None
+            # Counted from when the model still running started: when one of two
+            # racers fails fast, the survivor may already be overdue and the
+            # next model starts at once.
+            wait = max(0.0, max(started[t] for t in pending) + hedge_after - loop.time()) if hedge else None
             done, _ = await asyncio.wait(pending, timeout=wait, return_when=asyncio.FIRST_COMPLETED)
             if not done:
-                log.info("Gemini %s slow; racing %s", plan[next_up - 1], plan[next_up])
+                log.info("Gemini %s slow; racing %s", plan[next(iter(pending.values()))], plan[next_up])
                 launch()
                 continue
             for task in sorted(done, key=pending.__getitem__):
