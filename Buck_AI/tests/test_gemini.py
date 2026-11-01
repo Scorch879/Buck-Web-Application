@@ -267,6 +267,29 @@ class ModelChainTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(gemini.answered_by.get(), "gemini-3.7-flash")
         self.assertEqual(gemini.attempt_plan()[0], "gemini-3.7-flash")  # the hung model is benched
 
+    async def test_a_racer_that_fails_fast_starts_the_next_model_at_once(self):
+        # Production, 2026-11-02: 3.8 hung, 3.7 (raced in) failed in 0.3 s with
+        # 429, and 3.6 then waited a whole second hedge period before starting.
+        started = {}
+        loop = gemini.asyncio.get_running_loop()
+
+        class Models:
+            async def generate_content(self, model, contents, config):
+                started[model] = loop.time()
+                if model == "gemini-3.8-flash":
+                    await gemini.asyncio.Event().wait()  # never answers
+                if model == "gemini-3.7-flash":
+                    raise overloaded()
+                return json_response('{"tip":"x"}')
+
+        gemini.set_client(fake_client(Models()))
+        t0 = loop.time()
+        out = await gemini.generate_json("sys", "p", {"type": "object"}, timeout_seconds=5,
+                                         attempt_seconds=4, hedge_seconds=0.3)
+        self.assertEqual(out, {"tip": "x"})
+        self.assertEqual(gemini.answered_by.get(), "gemini-3.6-flash")
+        self.assertLess(started["gemini-3.6-flash"] - t0, 0.5)  # not 0.3 + another 0.3
+
     async def test_json_cut_off_moves_to_the_next_model(self):
         used, caps = [], []
 
