@@ -16,7 +16,8 @@ export interface AIAdvisorInsights {
   period?: { monthStart: string; asOf: string } | null;
   /** Material facts that changed since the previous saved advice. */
   changed?: string[];
-  generatedWith?: "gemini" | "rules";
+  /** "groq" when Gemini was busy and Groq wrote the card instead. */
+  generatedWith?: "gemini" | "groq" | "rules";
   createdAt?: string;
   /** Served from the database because the data has not materially changed. */
   cached?: boolean;

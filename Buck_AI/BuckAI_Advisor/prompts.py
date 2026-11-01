@@ -99,6 +99,8 @@ INSIGHT_SCHEMA = {
     },
     "required": ["title", "suggestion", "advice", "wallet_advice", "focus"],
 }
+# Groq's strict JSON mode needs every object closed.
+INSIGHT_SCHEMA_STRICT = {**INSIGHT_SCHEMA, "additionalProperties": False}
 
 GOAL_TIP_SCHEMA = {"type": "object", "properties": {"tip": {"type": "string"}}, "required": ["tip"]}
 
