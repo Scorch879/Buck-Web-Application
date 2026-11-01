@@ -116,6 +116,17 @@ def _commas(text: str) -> str:
     return _BARE_PESO.sub(lambda m: peso(float(m.group(1))), text)
 
 
+# "with a confidence of 0.05, " (a raw score means nothing to the user) and
+# "40% of the budget" (shares are of spending, not of a budget).
+_RAW_CONFIDENCE = re.compile(r"\b(?:with|at) (?:a |an )?confidence(?: score| level)? of \d*\.?\d+%?,?\s*", re.I)
+_SHARE_OF_BUDGET = re.compile(r"(\d+(?:\.\d+)?%\)?\s*)of (?:the|your) budget\b", re.I)
+
+
+def _plain(text: str) -> str:
+    """Wording the prompt forbids but the model sometimes writes anyway."""
+    return _SHARE_OF_BUDGET.sub(r"\1of your spending", _RAW_CONFIDENCE.sub("", text))
+
+
 # A whole-peso amount (no centavos) the model may have rounded: ₱2,423 but not ₱2,423.43.
 _WHOLE_PESO = re.compile(r"₱(\d{1,3}(?:,\d{3})+|\d+)(?![.,]?\d)")
 
@@ -189,7 +200,7 @@ async def _ai_narrative(f: dict[str, Any]) -> dict[str, Any]:
     if not (text["headline"] and text["explanation"]):
         raise groq.GroqUnavailable("Incomplete forecast explanation.")
     figures = _figures(view)
-    tidy = lambda t: _commas(_exact(t, figures))  # noqa: E731
+    tidy = lambda t: _plain(_commas(_exact(t, figures)))  # noqa: E731
     text = {k: [tidy(n) for n in v] if isinstance(v, list) else tidy(v) for k, v in text.items()}
     text["explanation"] = _gap_first(_honest_target(text["explanation"], f["target"]), f["model"])
     return text

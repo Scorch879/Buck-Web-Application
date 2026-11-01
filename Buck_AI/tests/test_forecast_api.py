@@ -152,6 +152,15 @@ class ForecastApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(body["forecast"]["model"]["loggingGap"])
         self.assertTrue(body["narrative"]["explanation"].startswith("Nothing has been logged for 25 days"))
 
+    def test_raw_confidence_and_budget_shares_are_reworded(self):
+        # Both sentences are from a production explanation (2026-11-02).
+        text = ("Your spending is driven mainly by Shopping (about 40% of the budget) followed by Insurance. "
+                "The range is wide; with a confidence of 0.05, think of this as a loose guess.")
+        self.assertEqual(service._plain(text),
+                         "Your spending is driven mainly by Shopping (about 40% of your spending) followed by "
+                         "Insurance. The range is wide; think of this as a loose guess.")
+        self.assertEqual(service._plain("Shopping takes 41% of your spending."), "Shopping takes 41% of your spending.")
+
     def test_a_soft_target_sentence_is_replaced(self):
         target = {"attitude": "Moderate", "expectedDaily": 105.64, "dailyTarget": 84.52, "gapPerDay": 21.12}
         text = "Shopping leads. This pace is close to your moderate target of ₱84. Your goal is on track."
