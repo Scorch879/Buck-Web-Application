@@ -126,12 +126,15 @@ def reset_bench() -> None:
     _benched.clear()
 
 
-def attempt_plan() -> tuple[str, ...]:
+def attempt_plan(prefer: str | None = None) -> tuple[str, ...]:
     """Models to try, in order: each configured model once (primary first),
-    leaving out models still benched for quota. A single model gets one retry."""
+    leaving out models still benched for quota. A single model gets one retry.
+    `prefer` (a model that answered recently) goes first when it is ready."""
     models = get_settings().gemini_models
     now = time.monotonic()
     ready = tuple(m for m in models if _benched.get(m, 0.0) <= now) or models  # all benched: try anyway
+    if prefer in ready:
+        ready = (prefer, *(m for m in ready if m != prefer))
     return ready if len(ready) > 1 else ready * 2
 
 
@@ -333,13 +336,16 @@ async def generate_json(
     attempt_seconds: float | None = None,
     max_output_tokens: int = 1024,
     hedge_seconds: float = JSON_HEDGE_AFTER_SECONDS,
+    prefer: str | None = None,
 ) -> dict[str, Any]:
     """One-shot structured output constrained to `schema`. Callers must still
     validate the result. Not streamed, so `attempt_seconds` (per model) must
     cover the whole answer; raise it for long outputs. A model still silent
     after `hedge_seconds` gets the next one raced against it, as in chat.
     Thinking tokens count against `max_output_tokens`. An answer cut off at
-    that limit, or one that is not valid JSON, moves on to the next model."""
+    that limit, or one that is not valid JSON, moves on to the next model.
+    `prefer` starts with a model that answered recently (see attempt_plan):
+    a new server instance doesn't know which models are hung right now."""
     client = _get_client()
     config = types.GenerateContentConfig(
         system_instruction=system_instruction,
@@ -349,7 +355,7 @@ async def generate_json(
         max_output_tokens=max_output_tokens,
         automatic_function_calling=_NO_AFC,
     )
-    plan = attempt_plan()
+    plan = attempt_plan(prefer)
     try:
         # One budget across all attempts.
         index, data = await asyncio.wait_for(
