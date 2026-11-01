@@ -74,7 +74,7 @@ python -m unittest -v
 
 ## Deploy (free)
 
-1. In Vercel, create a **new project** from this repo with **Root Directory = `Buck_AI`**. Vercel finds the FastAPI `app` in `main.py`. The Hobby plan is free.
+1. In Vercel, create a **new project** from this repo with **Root Directory = `Buck_AI`**. Vercel finds the FastAPI `app` in `main.py`. The Hobby plan is free. `vercel.json` pins the functions to `sin1` (Singapore), next to the Supabase database (`ap-southeast-1`): every request makes a few database round trips, and from the default `iad1` each one crosses the Pacific.
 2. Set these environment variables: `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `ALLOWED_ORIGINS` (your web app's URL).
 3. In the **web** project, set `NEXT_PUBLIC_BUCK_AI_URL` to the Buck_AI URL.
 

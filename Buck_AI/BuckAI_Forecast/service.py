@@ -13,6 +13,7 @@ billing account and fast. Two steps, so the numbers never wait for it:
    saved explanation is returned marked `stale`.
 """
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -196,9 +197,10 @@ def _next_ph_midnight(now: datetime) -> datetime:
 
 
 async def _compute(db: UserDb, horizon: int):
-    history, refs = await load_history(db)
+    # One database round trip, not two: Supabase is a long way from most callers.
+    (history, refs), latest = await asyncio.gather(load_history(db), latest_saved(db, horizon))
     f = build_forecast(history, horizon)
-    return f, refs, fingerprint(ai_view(f)), await latest_saved(db, f["horizonDays"])
+    return f, refs, fingerprint(ai_view(f)), latest
 
 
 def _state(latest: dict[str, Any] | None, fp: str, now: datetime) -> tuple[bool, bool, timedelta | None]:
