@@ -18,7 +18,7 @@ from collections.abc import AsyncIterator
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from shared import gemini
+from shared import gemini, groq
 from shared.config import get_settings
 from shared.safety import clean_text, limit_sentences
 from shared.supabase import DbError, UserDb
@@ -38,6 +38,14 @@ REFRESH_COOLDOWN = timedelta(seconds=60)
 # Covers a tool round plus walking past a few busy models (8 s cap each).
 FIRST_TEXT_TIMEOUT = 30.0
 IDLE_TIMEOUT = 15.0
+
+# The advice card is long and not streamed: one Gemini model needs more than
+# the 8 s default to write it, and its thinking counts against the tokens.
+INSIGHT_TIMEOUT = 20
+INSIGHT_ATTEMPT = 10
+INSIGHT_TOKENS = 4096
+# Groq stands in when Gemini is busy, before the rule-written card.
+INSIGHT_GROQ_TIMEOUT = 10
 
 _SAVED_COLUMNS = "id,title,suggestion,advice,financial_health_score,priority,metadata,created_at,valid_until,model_name"
 
@@ -97,13 +105,7 @@ def _public(row: dict[str, Any] | None) -> dict[str, Any] | None:
             "saved_on": str(row.get("created_at"))[:10]}
 
 
-async def _write_with_gemini(snapshot: Snapshot, previous: dict[str, Any] | None,
-                             changed: list[str], priority: str) -> dict[str, str]:
-    out = await gemini.generate_json(
-        prompts.insight_system_prompt(),
-        prompts.insight_prompt(snapshot.data, _public(previous), changed, priority),
-        prompts.INSIGHT_SCHEMA,
-    )
+def _tidy_insight(out: dict[str, Any]) -> dict[str, Any] | None:
     text = {
         "title": clean_text(out.get("title"), 80),
         "suggestion": limit_sentences(clean_text(out.get("suggestion"), 300), 1),
@@ -111,9 +113,36 @@ async def _write_with_gemini(snapshot: Snapshot, previous: dict[str, Any] | None
         "wallet_advice": limit_sentences(clean_text(out.get("wallet_advice"), 400), 2),
         "focus": out.get("focus") if out.get("focus") in ("spending", "category", "goal", "income", "buffer") else None,
     }
-    if not (text["title"] and text["suggestion"] and text["advice"]):
-        raise gemini.GeminiUnavailable("Incomplete advisory.")
-    return text
+    return text if text["title"] and text["suggestion"] and text["advice"] else None
+
+
+async def _write_with_ai(snapshot: Snapshot, previous: dict[str, Any] | None,
+                         changed: list[str], priority: str) -> tuple[dict[str, Any], str, str]:
+    """(text, generated_with, model_name): Gemini first, then Groq.
+    Raises GeminiUnavailable when neither wrote a usable card."""
+    system = prompts.insight_system_prompt()
+    prompt = prompts.insight_prompt(snapshot.data, _public(previous), changed, priority)
+    try:
+        out = await gemini.generate_json(system, prompt, prompts.INSIGHT_SCHEMA, timeout_seconds=INSIGHT_TIMEOUT,
+                                         attempt_seconds=INSIGHT_ATTEMPT, max_output_tokens=INSIGHT_TOKENS)
+        text = _tidy_insight(out)
+        if text:
+            return text, "gemini", gemini.answered_by.get() or get_settings().gemini_model
+        reason = "Incomplete advisory."
+    except gemini.GeminiUnavailable as exc:
+        reason = str(exc)
+    if not get_settings().groq_configured:
+        raise gemini.GeminiUnavailable(reason)
+    log.info("Advisor insight trying Groq after Gemini: %s", reason)
+    try:
+        out = await groq.generate_json(system, prompt, prompts.INSIGHT_SCHEMA_STRICT,
+                                       timeout_seconds=INSIGHT_GROQ_TIMEOUT)
+    except groq.GroqUnavailable as exc:
+        raise gemini.GeminiUnavailable(f"{reason}; Groq: {exc}") from exc
+    text = _tidy_insight(out)
+    if not text:
+        raise gemini.GeminiUnavailable(f"{reason}; Groq: incomplete advisory.")
+    return text, "groq", groq.answered_by.get() or get_settings().groq_models[0]
 
 
 async def get_insight(db: UserDb, refresh: bool = False) -> dict[str, Any]:
@@ -121,15 +150,15 @@ async def get_insight(db: UserDb, refresh: bool = False) -> dict[str, Any]:
     parts, fp = fingerprint_parts(snapshot), fingerprint(snapshot)
     latest = await latest_saved(db)
     now = datetime.now(timezone.utc)
-    gemini_on = get_settings().gemini_configured
+    ai_on = get_settings().gemini_configured or get_settings().groq_configured
 
     if latest:
         meta = latest.get("metadata") or {}
         same_data = meta.get("fingerprint") == fp
         still_valid = _parse_ts(latest.get("valid_until")) > now
         age = now - _parse_ts(latest.get("created_at"))
-        # Rule-based advice is upgraded to Gemini advice once Gemini is available.
-        good_enough = meta.get("generated_with") == "gemini" or not gemini_on
+        # Rule-based advice is upgraded to AI advice once an AI is available.
+        good_enough = meta.get("generated_with") in ("gemini", "groq") or not ai_on
         if not refresh and same_data and still_valid and (good_enough or age < DATA_CHANGE_COOLDOWN):
             return to_response(latest, cached=True)
         if age < (REFRESH_COOLDOWN if refresh else DATA_CHANGE_COOLDOWN):
@@ -141,9 +170,8 @@ async def get_insight(db: UserDb, refresh: bool = False) -> dict[str, Any]:
     priority = priority_for(snapshot)
     generated_with, model_name = "rules", "rules"
     try:
-        text = await _write_with_gemini(snapshot, latest, changed, priority)
-        # The model that actually answered (a fallback when the primary is busy).
-        generated_with, model_name = "gemini", gemini.answered_by.get() or get_settings().gemini_model
+        # model_name is the model that actually answered (a fallback when the primary is busy).
+        text, generated_with, model_name = await _write_with_ai(snapshot, latest, changed, priority)
     except gemini.GeminiUnavailable as exc:
         log.warning("Advisor insight fell back to rules: %s", exc)
         if latest and same_data:

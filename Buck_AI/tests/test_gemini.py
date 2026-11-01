@@ -248,6 +248,25 @@ class ModelChainTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(used, ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"])
         self.assertEqual(gemini.answered_by.get(), "gemini-3.6-flash")
 
+    async def test_json_races_the_next_model_when_one_hangs(self):
+        used = []
+
+        class Models:
+            async def generate_content(self, model, contents, config):
+                used.append(model)
+                if model == "gemini-3.8-flash":
+                    await gemini.asyncio.Event().wait()  # never answers
+                return json_response('{"tip":"x"}')
+
+        gemini.set_client(fake_client(Models()))
+        # The per-model cap is long, but the race starts after hedge_seconds.
+        out = await gemini.generate_json("sys", "p", {"type": "object"}, timeout_seconds=5,
+                                         attempt_seconds=4, hedge_seconds=0.02)
+        self.assertEqual(out, {"tip": "x"})
+        self.assertEqual(used, ["gemini-3.8-flash", "gemini-3.7-flash"])
+        self.assertEqual(gemini.answered_by.get(), "gemini-3.7-flash")
+        self.assertEqual(gemini.attempt_plan()[0], "gemini-3.7-flash")  # the hung model is benched
+
     async def test_json_cut_off_moves_to_the_next_model(self):
         used, caps = [], []
 
