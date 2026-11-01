@@ -32,6 +32,8 @@ ATTEMPT_TIMEOUT_SECONDS = 8.0
 # against it. Late enough that a normal first chunk (thinking + tool call)
 # rarely triggers it, since each race spends quota on two models.
 HEDGE_AFTER_SECONDS = 4.0
+# Structured (non-streamed) answers arrive whole, so wait a little longer.
+JSON_HEDGE_AFTER_SECONDS = 5.0
 # The free tier allows about 20 requests a day per model. A model that runs
 # out is skipped (per instance) until Google's retry delay passes, capped so
 # a long delay can't bench it for the rest of the day on a warm instance.
@@ -238,18 +240,30 @@ async def _open(client: Any, model: str, contents: list[types.Content], config: 
     return chunks, await anext(chunks, None)
 
 
-async def _open_round(client: Any, plan: tuple[str, ...], attempt: int,
-                      contents: list[types.Content], config: types.GenerateContentConfig):
-    """Starts a round on plan[attempt] and returns (index, chunks, first chunk)
-    of the model that answers first.
+async def _answer_json(client: Any, model: str, contents: list[types.Content], config: types.GenerateContentConfig):
+    """A whole structured answer, as a 1-tuple for `_open_round`."""
+    response = await client.aio.models.generate_content(model=model, contents=contents, config=config_for(model, config))
+    try:
+        return (json.loads(response.text or ""),)
+    except ValueError as bad:
+        finish = getattr((response.candidates or [None])[0], "finish_reason", None)
+        raise IncompleteAnswer(f"{bad} (finish_reason={finish})") from bad
 
-    Each model gets ATTEMPT_TIMEOUT_SECONDS to send its first chunk. If the
-    current one is still silent after HEDGE_AFTER_SECONDS, the next model is
-    started alongside it (at most two in flight) and the first to answer wins,
-    so one slow model costs seconds instead of the whole timeout. A model that
-    fails or loses the race to a later one is benched as slow.
+
+async def _open_round(client: Any, plan: tuple[str, ...], attempt: int,
+                      contents: list[types.Content], config: types.GenerateContentConfig,
+                      opener=_open, cap: float | None = None, hedge_after: float | None = None):
+    """Starts a round on plan[attempt] and returns (index, *opener result)
+    of the model that answers first: (index, chunks, first chunk) by default.
+
+    Each model gets `cap` (ATTEMPT_TIMEOUT_SECONDS) to answer. If the current
+    one is still silent after `hedge_after` (HEDGE_AFTER_SECONDS), the next
+    model is started alongside it (at most two in flight) and the first to
+    answer wins, so one slow model costs seconds instead of the whole timeout.
+    A model that fails or loses the race to a later one is benched as slow.
     """
     loop = asyncio.get_running_loop()
+    hedge_after = HEDGE_AFTER_SECONDS if hedge_after is None else hedge_after
     pending: dict[asyncio.Task, int] = {}
     next_up = attempt
     last_launch = 0.0
@@ -258,7 +272,7 @@ async def _open_round(client: Any, plan: tuple[str, ...], attempt: int,
     def launch() -> None:
         nonlocal next_up, last_launch
         task = asyncio.ensure_future(asyncio.wait_for(
-            _open(client, plan[next_up], contents, config), attempt_timeout(plan, next_up)))
+            opener(client, plan[next_up], contents, config), attempt_timeout(plan, next_up, None, cap)))
         pending[task] = next_up
         next_up += 1
         last_launch = loop.time()
@@ -269,7 +283,7 @@ async def _open_round(client: Any, plan: tuple[str, ...], attempt: int,
             hedge = len(pending) == 1 and next_up < len(plan) and plan[next_up] != plan[next_up - 1]
             # Counted from the latest launch: when one of two racers fails, the
             # survivor may already be overdue and the next model starts at once.
-            wait = max(0.0, last_launch + HEDGE_AFTER_SECONDS - loop.time()) if hedge else None
+            wait = max(0.0, last_launch + hedge_after - loop.time()) if hedge else None
             done, _ = await asyncio.wait(pending, timeout=wait, return_when=asyncio.FIRST_COMPLETED)
             if not done:
                 log.info("Gemini %s slow; racing %s", plan[next_up - 1], plan[next_up])
@@ -316,12 +330,14 @@ async def generate_json(
     timeout_seconds: float = 20,
     attempt_seconds: float | None = None,
     max_output_tokens: int = 1024,
+    hedge_seconds: float = JSON_HEDGE_AFTER_SECONDS,
 ) -> dict[str, Any]:
     """One-shot structured output constrained to `schema`. Callers must still
     validate the result. Not streamed, so `attempt_seconds` (per model) must
-    cover the whole answer; raise it for long outputs. Thinking tokens count
-    against `max_output_tokens`. An answer cut off at that limit, or one that
-    is not valid JSON, moves on to the next model."""
+    cover the whole answer; raise it for long outputs. A model still silent
+    after `hedge_seconds` gets the next one raced against it, as in chat.
+    Thinking tokens count against `max_output_tokens`. An answer cut off at
+    that limit, or one that is not valid JSON, moves on to the next model."""
     client = _get_client()
     config = types.GenerateContentConfig(
         system_instruction=system_instruction,
@@ -331,32 +347,17 @@ async def generate_json(
         max_output_tokens=max_output_tokens,
         automatic_function_calling=_NO_AFC,
     )
-    loop = asyncio.get_running_loop()
-    deadline = loop.time() + timeout_seconds  # one budget across all attempts
     plan = attempt_plan()
-    attempt = 0
-    while True:
-        try:
-            response = await asyncio.wait_for(
-                client.aio.models.generate_content(
-                    model=plan[attempt], contents=[user_turn(prompt)], config=config_for(plan[attempt], config)
-                ),
-                timeout=max(0.1, attempt_timeout(plan, attempt, deadline - loop.time(), attempt_seconds)),
-            )
-            try:
-                data = json.loads(response.text or "")
-            except ValueError as bad:
-                finish = getattr((response.candidates or [None])[0], "finish_reason", None)
-                raise IncompleteAnswer(f"{bad} (finish_reason={finish})") from bad
-            answered_by.set(plan[attempt])
-            break
-        except Exception as exc:
-            bench(plan[attempt], exc)
-            if is_transient(exc) and attempt + 1 < len(plan) and deadline - loop.time() > 2 * RETRY_DELAY_SECONDS:
-                attempt += 1
-                await _before_next(plan, attempt, exc)
-                continue
-            raise GeminiUnavailable(str(exc) or type(exc).__name__) from exc
+    try:
+        # One budget across all attempts.
+        index, data = await asyncio.wait_for(
+            _open_round(client, plan, 0, [user_turn(prompt)], config, opener=_answer_json,
+                        cap=attempt_seconds, hedge_after=hedge_seconds),
+            timeout_seconds,
+        )
+    except asyncio.TimeoutError as exc:
+        raise GeminiUnavailable("TimeoutError") from exc
+    answered_by.set(plan[index])
     if not isinstance(data, dict):
         raise GeminiUnavailable("Model returned non-object JSON.")
     return data

@@ -13,6 +13,7 @@ billing account and fast. Two steps, so the numbers never wait for it:
    saved explanation is returned marked `stale`.
 """
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -115,6 +116,17 @@ def _commas(text: str) -> str:
     return _BARE_PESO.sub(lambda m: peso(float(m.group(1))), text)
 
 
+# "with a confidence of 0.05, " (a raw score means nothing to the user) and
+# "40% of the budget" (shares are of spending, not of a budget).
+_RAW_CONFIDENCE = re.compile(r"\b(?:with|at) (?:a |an )?confidence(?: score| level)? of \d*\.?\d+%?,?\s*", re.I)
+_SHARE_OF_BUDGET = re.compile(r"(\d+(?:\.\d+)?%\)?\s*)of (?:the|your) budget\b", re.I)
+
+
+def _plain(text: str) -> str:
+    """Wording the prompt forbids but the model sometimes writes anyway."""
+    return _SHARE_OF_BUDGET.sub(r"\1of your spending", _RAW_CONFIDENCE.sub("", text))
+
+
 # A whole-peso amount (no centavos) the model may have rounded: ₱2,423 but not ₱2,423.43.
 _WHOLE_PESO = re.compile(r"₱(\d{1,3}(?:,\d{3})+|\d+)(?![.,]?\d)")
 
@@ -151,6 +163,28 @@ def _gap_first(explanation: str, model: dict[str, Any]) -> str:
             + explanation)
 
 
+_SOFT_TARGET = re.compile(r"\b(close to|near|nearly|aligned|in line with|on track with|matches|roughly at)\b", re.I)
+
+
+def _honest_target(explanation: str, target: dict[str, Any]) -> str:
+    """A sentence calling the pace "close to" the target when it is not is
+    replaced with the real comparison (the prompt forbids it; this makes sure)."""
+    gap = target["gapPerDay"]
+    if gap == 0:
+        return explanation
+    side = "above" if gap > 0 else "below"
+    fact = (f"Your expected pace of {peso(target['expectedDaily'])} a day is {peso(abs(gap))} {side} "
+            f"your {target['attitude']} target of {peso(target['dailyTarget'])}.")
+    out = []
+    for sentence in _SENTENCE.split(explanation.strip()):
+        soft = "target" in sentence.lower() and _SOFT_TARGET.search(sentence)
+        out.append(fact if soft else sentence)
+    return " ".join(out)
+
+
+_SENTENCE = re.compile(r"(?<=[.!?])\s+")
+
+
 async def _ai_narrative(f: dict[str, Any]) -> dict[str, Any]:
     view = ai_view(f)
     out = await groq.generate_json(prompts.system_prompt(), prompts.narrative_prompt(view),
@@ -166,9 +200,9 @@ async def _ai_narrative(f: dict[str, Any]) -> dict[str, Any]:
     if not (text["headline"] and text["explanation"]):
         raise groq.GroqUnavailable("Incomplete forecast explanation.")
     figures = _figures(view)
-    tidy = lambda t: _commas(_exact(t, figures))  # noqa: E731
+    tidy = lambda t: _plain(_commas(_exact(t, figures)))  # noqa: E731
     text = {k: [tidy(n) for n in v] if isinstance(v, list) else tidy(v) for k, v in text.items()}
-    text["explanation"] = _gap_first(text["explanation"], f["model"])
+    text["explanation"] = _gap_first(_honest_target(text["explanation"], f["target"]), f["model"])
     return text
 
 
@@ -196,9 +230,10 @@ def _next_ph_midnight(now: datetime) -> datetime:
 
 
 async def _compute(db: UserDb, horizon: int):
-    history, refs = await load_history(db)
+    # One database round trip, not two: Supabase is a long way from most callers.
+    (history, refs), latest = await asyncio.gather(load_history(db), latest_saved(db, horizon))
     f = build_forecast(history, horizon)
-    return f, refs, fingerprint(ai_view(f)), await latest_saved(db, f["horizonDays"])
+    return f, refs, fingerprint(ai_view(f)), latest
 
 
 def _state(latest: dict[str, Any] | None, fp: str, now: datetime) -> tuple[bool, bool, timedelta | None]:

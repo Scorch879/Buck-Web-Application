@@ -1,7 +1,7 @@
 """Buck_AI Advisor tests. Run from Buck_AI/: python -m unittest -v
 
-Supabase is faked at the HTTP layer (httpx.MockTransport) and Gemini by
-patching shared.gemini, so these run offline with no keys.
+Supabase is faked at the HTTP layer (httpx.MockTransport) and Gemini and Groq
+by patching shared.gemini and shared.groq, so these run offline with no keys.
 """
 
 import json
@@ -19,7 +19,7 @@ os.environ.update({
 
 import httpx  # noqa: E402
 
-from shared import auth, gemini, rate_limit  # noqa: E402
+from shared import auth, gemini, groq, rate_limit  # noqa: E402
 from shared.config import get_settings  # noqa: E402
 from shared.http import set_http  # noqa: E402
 from shared.safety import clean_text, limit_sentences  # noqa: E402
@@ -93,6 +93,11 @@ class AdvisorApiTests(unittest.IsolatedAsyncioTestCase):
         patcher = mock.patch.object(gemini, "generate_json", self.gen)
         patcher.start()
         self.addCleanup(patcher.stop)
+        # Groq is the Advisor card's backup; off unless a test turns it on.
+        self.groq = mock.AsyncMock(side_effect=groq.GroqUnavailable("off"))
+        patcher = mock.patch.object(groq, "generate_json", self.groq)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     async def asyncTearDown(self):
         await self.client.aclose()
@@ -153,6 +158,26 @@ class AdvisorApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(r["generatedWith"], "rules")
         self.assertIn("₱", r["advice"])
         self.assertEqual(self.supa.advisories[0]["model_name"], "rules")
+
+    async def test_card_gets_room_to_finish(self):
+        await self.client.get("/advisor/insight", headers=GOOD)
+        kwargs = self.gen.await_args.kwargs
+        self.assertGreater(kwargs["attempt_seconds"], 8)
+        self.assertGreaterEqual(kwargs["max_output_tokens"], 4096)
+
+    async def test_groq_writes_the_card_when_gemini_is_busy(self):
+        self.gen.side_effect = gemini.GeminiUnavailable("timeout")
+        self.groq.side_effect = None
+        self.groq.return_value = dict(ADVICE)
+        with mock.patch.dict(os.environ, {"GROQ_API_KEY": "test-groq"}):
+            get_settings.cache_clear()
+            r = (await self.client.get("/advisor/insight", headers=GOOD)).json()
+        get_settings.cache_clear()
+        self.assertEqual(r["generatedWith"], "groq")
+        self.assertEqual(r["title"], "Trim Food Spending")
+        self.assertNotEqual(self.supa.advisories[0]["model_name"], "rules")
+        schema = self.groq.await_args.args[2]
+        self.assertFalse(schema["additionalProperties"])  # strict-mode ready
 
     async def test_refresh_respects_cooldown(self):
         await self.client.get("/advisor/insight", headers=GOOD)
