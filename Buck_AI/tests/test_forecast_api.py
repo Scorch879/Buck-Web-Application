@@ -152,6 +152,17 @@ class ForecastApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(body["forecast"]["model"]["loggingGap"])
         self.assertTrue(body["narrative"]["explanation"].startswith("Nothing has been logged for 25 days"))
 
+    def test_a_soft_target_sentence_is_replaced(self):
+        target = {"attitude": "Moderate", "expectedDaily": 105.64, "dailyTarget": 84.52, "gapPerDay": 21.12}
+        text = "Shopping leads. This pace is close to your moderate target of ₱84. Your goal is on track."
+        self.assertEqual(service._honest_target(text, target),
+                         "Shopping leads. Your expected pace of ₱105.64 a day is ₱21.12 above your Moderate "
+                         "target of ₱84.52. Your goal is on track.")
+        # Honest sentences and the Normal attitude (no gap) are left alone.
+        honest = "You spend about ₱21.12 a day more than your target."
+        self.assertEqual(service._honest_target(honest, target), honest)
+        self.assertEqual(service._honest_target(text, {**target, "gapPerDay": 0}), text)
+
     def test_rounded_amounts_are_restored(self):
         figures = service._figures({"total": {"p50": 2423.43, "p90": 7156.62}, "wallet": [62.74, 150.0], "days": 30})
         self.assertEqual(figures, {2423.43, 7156.62, 62.74})

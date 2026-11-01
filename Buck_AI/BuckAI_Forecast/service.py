@@ -152,6 +152,28 @@ def _gap_first(explanation: str, model: dict[str, Any]) -> str:
             + explanation)
 
 
+_SOFT_TARGET = re.compile(r"\b(close to|near|nearly|aligned|in line with|on track with|matches|roughly at)\b", re.I)
+
+
+def _honest_target(explanation: str, target: dict[str, Any]) -> str:
+    """A sentence calling the pace "close to" the target when it is not is
+    replaced with the real comparison (the prompt forbids it; this makes sure)."""
+    gap = target["gapPerDay"]
+    if gap == 0:
+        return explanation
+    side = "above" if gap > 0 else "below"
+    fact = (f"Your expected pace of {peso(target['expectedDaily'])} a day is {peso(abs(gap))} {side} "
+            f"your {target['attitude']} target of {peso(target['dailyTarget'])}.")
+    out = []
+    for sentence in _SENTENCE.split(explanation.strip()):
+        soft = "target" in sentence.lower() and _SOFT_TARGET.search(sentence)
+        out.append(fact if soft else sentence)
+    return " ".join(out)
+
+
+_SENTENCE = re.compile(r"(?<=[.!?])\s+")
+
+
 async def _ai_narrative(f: dict[str, Any]) -> dict[str, Any]:
     view = ai_view(f)
     out = await groq.generate_json(prompts.system_prompt(), prompts.narrative_prompt(view),
@@ -169,7 +191,7 @@ async def _ai_narrative(f: dict[str, Any]) -> dict[str, Any]:
     figures = _figures(view)
     tidy = lambda t: _commas(_exact(t, figures))  # noqa: E731
     text = {k: [tidy(n) for n in v] if isinstance(v, list) else tidy(v) for k, v in text.items()}
-    text["explanation"] = _gap_first(text["explanation"], f["model"])
+    text["explanation"] = _gap_first(_honest_target(text["explanation"], f["target"]), f["model"])
     return text
 
 
