@@ -21,6 +21,7 @@ from shared.config import get_settings  # noqa: E402
 from shared.http import set_http  # noqa: E402
 from shared.money import today_ph  # noqa: E402
 import main  # noqa: E402
+from BuckAI_Forecast import service  # noqa: E402
 
 TODAY = today_ph()
 GOOD = {"Authorization": "Bearer good"}
@@ -136,6 +137,28 @@ class ForecastApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(explained_again["cached"])
         self.assertEqual(self.gen.await_count, 1)
         self.assertEqual(len(self.supa.forecasts), 1)
+
+    async def test_a_logging_gap_leads_the_explanation(self):
+        self.gen.return_value = {**NARRATIVE, "explanation": "Food leads. It looks steady."}
+        body = (await self.client.post("/forecast/explain", headers=GOOD)).json()
+        self.assertFalse(body["forecast"]["model"]["loggingGap"])
+        self.assertEqual(body["narrative"]["explanation"], "Food leads. It looks steady.")
+
+        # Nothing logged for the last 25 days: the gap sentence goes first.
+        cutoff = (TODAY - timedelta(days=25)).isoformat()
+        self.supa.expenses = [e for e in self.supa.expenses if e["spent_on"] <= cutoff]
+        self.supa.forecasts.clear()
+        body = (await self.client.post("/forecast/explain", headers=GOOD)).json()
+        self.assertTrue(body["forecast"]["model"]["loggingGap"])
+        self.assertTrue(body["narrative"]["explanation"].startswith("Nothing has been logged for 25 days"))
+
+    def test_rounded_amounts_are_restored(self):
+        figures = service._figures({"total": {"p50": 2423.43, "p90": 7156.62}, "wallet": [62.74, 150.0], "days": 30})
+        self.assertEqual(figures, {2423.43, 7156.62, 62.74})
+        self.assertEqual(service._commas(service._exact("about ₱2,423, up to ₱7157. Low ₱63; ₱2423 in all.", figures)),
+                         "about ₱2,423.43, up to ₱7,156.62. Low ₱62.74; ₱2,423.43 in all.")
+        # Exact amounts, amounts with no match and ambiguous ones stay as written.
+        self.assertEqual(service._exact("₱2,423.43, ₱500, ₱63", figures | {63.2}), "₱2,423.43, ₱500, ₱63")
 
     async def test_horizons_are_saved_separately(self):
         await self.client.post("/forecast/explain?horizon=60", headers=GOOD)

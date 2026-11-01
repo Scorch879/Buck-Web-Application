@@ -5,7 +5,7 @@ import time
 import unittest
 from datetime import date, timedelta
 
-from BuckAI_Forecast.forecast import History, build_forecast
+from BuckAI_Forecast.forecast import History, ai_view, build_forecast
 from BuckAI_Forecast.model import Expense, Income
 
 TODAY = date(2026, 10, 30)
@@ -146,12 +146,17 @@ class ForecastModelTests(unittest.TestCase):
         self.assertTrue(f["model"]["loggingGap"])
         self.assertEqual(f["model"]["quietDays"], 19)
         self.assertTrue(f["warnings"][0].startswith("Nothing logged for 19 days"))
+        # The quiet stretch is a gap, not a "spending is down" habit.
+        self.assertNotIn("trend", [x["kind"] for x in f["habits"]])
 
     def test_target_gap(self):
         f = build_forecast(history(*user(), attitude="Moderate"), 30)
         t = f["target"]
         self.assertAlmostEqual(t["gapPerDay"], t["expectedDaily"] - t["dailyTarget"], delta=0.02)
         self.assertEqual(build_forecast(history(*user()), 30)["target"]["gapPerDay"], 0)
+        # The AI is told where the pace sits, so it never has to judge "close".
+        self.assertEqual(ai_view(f)["target"]["status"], "above target")
+        self.assertEqual(ai_view(build_forecast(history(*user()), 30))["target"]["status"], "on target")
 
     def test_fast_enough(self):
         r = random.Random(3)

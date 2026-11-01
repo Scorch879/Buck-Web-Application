@@ -2,7 +2,7 @@
  * Pure display helpers for the Forecast page (ADR-052). They only format and
  * pick from the AI Forecaster payload; the numbers come from Buck_AI.
  */
-import type { BuckForecast, ForecastCategory, ForecastDateRange } from "@/utils/forecastApi";
+import type { BuckForecast, ForecastCategory, ForecastDateRange, ForecastHabit } from "@/utils/forecastApi";
 import { formatCurrency } from "@/utils/formatters";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -64,35 +64,103 @@ export function formatClockTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
-/** Shows the "Rough estimate" chip: too little history or a weak backtest. */
-export function isRoughEstimate(model: BuckForecast["model"]): boolean {
-  return model.lowData || model.confidence < 0.3;
-}
-
-/** 0.734 → 73 */
-export function confidencePercent(confidence: number): number {
-  return Math.round(Math.min(1, Math.max(0, confidence)) * 100);
-}
-
-/** The five largest categories by expected spend over the horizon. */
-export function topCategories(categories: ForecastCategory[], limit = 5): ForecastCategory[] {
-  return [...categories].sort((a, b) => b.expected - a.expected).slice(0, limit);
+/** How sure the forecast is, in words instead of a percentage. */
+export function confidenceWords(confidence: number): "Pretty sure" | "Fair guess" | "Rough guess" {
+  if (confidence >= 0.6) return "Pretty sure";
+  if (confidence >= 0.3) return "Fair guess";
+  return "Rough guess";
 }
 
 /**
- * Buck_AI puts the logging-gap note first in `warnings` when `model.loggingGap`
- * is set. It is information (the forecast may run low), not a risk, so the
- * page shows it apart from the rest.
+ * Colour of the month's left-over figure: "good" when money is likely left,
+ * "tight" when a little short (or the high end still breaks even), "short"
+ * only for a real shortfall (Buck Coral).
  */
-export function splitForecastWarnings(forecast: BuckForecast): { notice: string | null; risks: string[] } {
-  const [first, ...rest] = forecast.warnings;
-  if (forecast.model.loggingGap && first) return { notice: first, risks: rest };
-  return { notice: null, risks: [...forecast.warnings] };
+export function surplusTone(month: BuckForecast["month"]): "good" | "tight" | "short" {
+  const { likely, high } = month.surplus;
+  if (likely >= 0) return "good";
+  const smallGap = Math.abs(likely) <= Math.max(month.surplusAgainst, 0) * 0.1;
+  return high >= 0 || smallGap ? "tight" : "short";
+}
+
+/** Where the likely value sits between low and high, as 0–100 (50 when the range is flat). */
+export function rangePosition(low: number, likely: number, high: number): number {
+  if (high - low < 0.005) return 50;
+  return Math.min(100, Math.max(0, ((likely - low) / (high - low)) * 100));
+}
+
+export interface CategorySlice {
+  name: string;
+  expected: number;
+  share: number;
+  trend: ForecastCategory["trend"] | null;
+}
+
+/** The four largest categories by expected spend, plus one "Others" row for the rest. */
+export function categoriesWithOthers(categories: ForecastCategory[], limit = 4): CategorySlice[] {
+  const sorted = [...categories].sort((a, b) => b.expected - a.expected);
+  const top: CategorySlice[] = sorted
+    .slice(0, limit)
+    .map(({ name, expected, share, trend }) => ({ name, expected, share, trend }));
+  const rest = sorted.slice(limit);
+  if (rest.length === 0) return top;
+  const sum = (key: "expected" | "share") => Math.round(rest.reduce((t, c) => t + c[key], 0) * 100) / 100;
+  return [...top, { name: "Others", expected: sum("expected"), share: sum("share"), trend: null }];
+}
+
+export type HabitIcon = "weekday" | "payday" | "recurring" | "trend" | "rhythm";
+
+const WEEKDAY_WORDS = /\b(mon|tues|wednes|thurs|fri|satur|sun)days?\b|\bweekends?\b|\bweekdays?\b/i;
+
+/** Picks an icon for a habit: from its kind, or from the words of an AI note. */
+export function habitIcon(text: string, kind?: ForecastHabit["kind"]): HabitIcon {
+  if (kind) return kind;
+  if (/pay ?day|salary|allowance|get paid/i.test(text)) return "payday";
+  if (WEEKDAY_WORDS.test(text)) return "weekday";
+  if (/\bevery\b|monthly|weekly|bill|subscription|recurring/i.test(text)) return "recurring";
+  if (/\bup\b|\bdown\b|rising|falling|more than|less than|%/i.test(text)) return "trend";
+  return "rhythm";
+}
+
+/** The habit chips: the AI's notes when it wrote some, otherwise the model's habits. */
+export function habitChips(
+  forecast: BuckForecast,
+  habitNotes: string[] | undefined
+): { text: string; icon: HabitIcon }[] {
+  if (habitNotes && habitNotes.length > 0) {
+    return habitNotes.map((text) => ({ text, icon: habitIcon(text) }));
+  }
+  return forecast.habits.map((h) => ({ text: h.text, icon: habitIcon(h.text, h.kind) }));
+}
+
+/** "Around Nov 12", "Empty" or "Past this period" for the active wallet; null without wallets. */
+export function activeWalletRunway(forecast: BuckForecast): { name: string; text: string; empty: boolean } | null {
+  const wallet = forecast.wallets.find((w) => w.active) ?? forecast.wallets[0];
+  if (!wallet) return null;
+  if (wallet.empty) return { name: wallet.name, text: "Empty", empty: true };
+  const likely = wallet.runsOut?.likely;
+  return { name: wallet.name, text: likely ? `Around ${formatShortDate(likely)}` : "Past this period", empty: false };
+}
+
+/**
+ * At most two heads-up items. A logging gap comes first, as a friendly nudge
+ * (Buck_AI puts its own logging-gap warning first; it is replaced here).
+ */
+export function headsUpItems(forecast: BuckForecast, limit = 2): string[] {
+  const { model } = forecast;
+  const items: string[] = [];
+  let warnings = forecast.warnings;
+  if (model.loggingGap) {
+    const since = model.lastExpense ? ` since ${formatShortDate(model.lastExpense)}` : "";
+    items.push(`Nothing logged${since}. If you've spent since then, add it and this forecast gets more accurate.`);
+    warnings = warnings.slice(1);
+  }
+  return [...items, ...warnings].slice(0, limit);
 }
 
 export const TREND_LABELS: Record<ForecastCategory["trend"], string> = {
-  rising: "Rising",
-  falling: "Falling",
+  rising: "Going up",
+  falling: "Going down",
   steady: "Steady",
   new: "New",
 };

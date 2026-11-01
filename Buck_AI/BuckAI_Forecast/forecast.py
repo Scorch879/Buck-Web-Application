@@ -133,7 +133,8 @@ def build_forecast(h: History, horizon: int = 30) -> dict[str, Any]:
               "restOfMonthTarget": _m(expected_daily * multiplier * left)}
 
     goal = _goal(h, observed, sim, horizon)
-    habits = _habits(model, recurring, usual, today, observed)
+    gap = _logging_gap(past, usual, today, observed)
+    habits = _habits(model, recurring, usual, today, observed, gap["gap"])
     excluded = [{"date": past[i].day.isoformat(), "category": past[i].category, "amount": _m(past[i].amount),
                  "label": past[i].label, "reason": "emergency" if past[i].emergency else "one-off"}
                 for i in sorted(outliers, key=lambda i: past[i].day, reverse=True)][:10]
@@ -145,7 +146,6 @@ def build_forecast(h: History, horizon: int = 30) -> dict[str, Any]:
         confidence = 0.15 if low_data else 0.3
     else:
         confidence = max(0.05, min(0.95, 1 - test.error) * min(1.0, observed / 60))
-    gap = _logging_gap(past, usual, today, observed)
     warnings = _warnings(month, wallets, categories, month_end, gap)
 
     return {
@@ -253,7 +253,8 @@ def _goal(h: History, observed: int, sim, horizon: int) -> dict[str, Any] | None
     return out
 
 
-def _habits(model, recurring, past: list[Expense], today: date, observed: int) -> list[dict[str, str]]:
+def _habits(model, recurring, past: list[Expense], today: date, observed: int,
+            logging_gap: bool = False) -> list[dict[str, str]]:
     habits = []
     if observed >= 28:
         ranked = sorted(range(7), key=lambda d: model.weekday[d], reverse=True)
@@ -269,7 +270,8 @@ def _habits(model, recurring, past: list[Expense], today: date, observed: int) -
             habits.append({"kind": "payday", "text": f"Spends {model.payday:.1f}x more in the 3 days after income lands."})
         now = _avg(past, today - timedelta(days=13), today)
         before = _avg(past, today - timedelta(days=43), today - timedelta(days=14))
-        if before > 0 and abs(now / before - 1) >= 0.2:
+        # During a logging gap the drop is missing entries, not a habit; the gap warning covers it.
+        if before > 0 and abs(now / before - 1) >= 0.2 and not logging_gap:
             change = round((now / before - 1) * 100)
             habits.append({"kind": "trend", "text": f"Daily spending is {'up' if change > 0 else 'down'} "
                                                      f"{abs(change)}% vs. the 30 days before."})
@@ -317,14 +319,20 @@ def _warnings(month, wallets, categories, month_end: date, gap: dict[str, Any]) 
     return out[:5]
 
 
+def _target_status(target: dict[str, Any]) -> str:
+    """Where the expected pace sits against the attitude target, so the AI never has to judge "close"."""
+    gap = target["gapPerDay"]
+    return "above target" if gap > 0 else "below target" if gap < 0 else "on target"
+
+
 def ai_view(f: dict[str, Any]) -> dict[str, Any]:
-    """What Gemini sees: numbers and category names, no descriptions or ids."""
+    """What the AI sees: numbers and category names, no descriptions or ids."""
     days = f["days"]
     checkpoints = {f"day{n}": days[n - 1]["cumulative"] for n in (7, 14, 30, 60) if n <= len(days)}
     return {
         "today": f["today"], "horizonDays": f["horizonDays"],
         "cumulativeSpending": checkpoints,
-        "month": f["month"], "target": f["target"], "goal": f["goal"],
+        "month": f["month"], "target": {**f["target"], "status": _target_status(f["target"])}, "goal": f["goal"],
         "categories": [{k: c[k] for k in ("name", "expected", "share", "trend", "recurring")}
                        for c in f["categories"][:8]],
         "wallets": [{k: w[k] for k in ("name", "balance", "projectedSpend", "runsOut", "empty")}
