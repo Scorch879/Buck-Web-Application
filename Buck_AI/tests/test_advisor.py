@@ -143,6 +143,9 @@ class AdvisorApiTests(unittest.IsolatedAsyncioTestCase):
         prompt = self.gen.await_args.args[1]
         self.assertIn("saved_advice", prompt)
         self.assertIn("Trim Food Spending", prompt)
+        # The model that wrote the last card goes first (a new instance can't know which are hung).
+        self.assertIsNone(self.gen.await_args_list[0].kwargs["prefer"])
+        self.assertEqual(self.gen.await_args.kwargs["prefer"], self.supa.advisories[0]["model_name"])
 
     async def test_small_change_keeps_saved_advice(self):
         await self.client.get("/advisor/insight", headers=GOOD)

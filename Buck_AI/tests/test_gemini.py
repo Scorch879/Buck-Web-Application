@@ -393,6 +393,16 @@ class ModelChainTests(unittest.IsolatedAsyncioTestCase):
             gemini._benched[m] = float("inf")
         self.assertEqual(gemini.attempt_plan(), get_settings().gemini_models)
 
+    def test_a_recently_answering_model_goes_first(self):
+        models = get_settings().gemini_models
+        plan = gemini.attempt_plan("gemini-3.6-flash")
+        self.assertEqual(plan[0], "gemini-3.6-flash")
+        self.assertEqual(sorted(plan), sorted(models))  # nothing lost or doubled
+        # Unknown names ("rules", a Groq model) and benched models change nothing.
+        self.assertEqual(gemini.attempt_plan("rules"), models)
+        gemini._benched["gemini-3.6-flash"] = float("inf")
+        self.assertNotIn("gemini-3.6-flash", gemini.attempt_plan("gemini-3.6-flash"))
+
 
 class ModelConfigTests(unittest.TestCase):
     def tearDown(self):
