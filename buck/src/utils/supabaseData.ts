@@ -108,7 +108,8 @@ export type AccountDeletionStatus = {
 
 export type BuckFeedback = {
   id: string;
-  user_email: string;
+  /** Anonymized SHA-256 hex digest in the database; omitted in admin UI reads. */
+  user_email?: string;
   category: string;
   title: string;
   details: string;
@@ -2021,6 +2022,27 @@ export async function deleteIncome(userId: string, incomeId: string) {
   }
 }
 
+/**
+ * Computes the 64-character lowercase SHA-256 hex digest of a normalized email
+ * address so plaintext sender identities are never transmitted or stored in
+ * `public.feedback` (matching `private.sha256_email` in Postgres).
+ */
+export async function hashFeedbackIdentity(email: string): Promise<string> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return "";
+  if (/^[0-9a-f]{64}$/.test(normalized)) return normalized;
+
+  if (typeof globalThis.crypto?.subtle?.digest === "function") {
+    const bytes = new TextEncoder().encode(normalized);
+    const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
+  }
+
+  return normalized;
+}
+
 export async function submitFeedback(
   userEmail: string,
   category: string,
@@ -2032,8 +2054,9 @@ export async function submitFeedback(
   }
 
   const supabase = getSupabaseClient();
+  const hashedIdentity = await hashFeedbackIdentity(userEmail);
   const { error } = await supabase.from("feedback").insert({
-    user_email: userEmail,
+    user_email: hashedIdentity,
     category,
     title,
     details,
@@ -2053,7 +2076,7 @@ export async function getAdminFeedback(): Promise<BuckFeedback[]> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("feedback")
-    .select("*")
+    .select("id, category, title, details, created_at")
     .order("created_at", { ascending: false })
     .limit(500);
 
@@ -2062,7 +2085,7 @@ export async function getAdminFeedback(): Promise<BuckFeedback[]> {
     throw new Error("Could not fetch feedback");
   }
 
-  return data as BuckFeedback[];
+  return (data ?? []) as BuckFeedback[];
 }
 
 export async function getLatestAIForecast(

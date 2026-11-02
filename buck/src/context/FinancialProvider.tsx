@@ -37,14 +37,16 @@ function writeStoredDashboardCache(cache: DashboardDataCache) {
       return;
     }
 
-    // Admin data (feedback e-mails, infra logs) is sensitive and cheap to
+    // Admin data (feedback, infra logs, telemetry) is sensitive and cheap to
     // refetch: keep it in memory only, never in sessionStorage.
     const {
       adminFeedback: _adminFeedback,
       adminVercelDeployments: _adminVercelDeployments,
       adminSupabaseLogs: _adminSupabaseLogs,
+      adminTelemetry: _adminTelemetry,
       adminVercelError: _adminVercelError,
       adminSupabaseError: _adminSupabaseError,
+      adminTelemetryError: _adminTelemetryError,
       ...persistable
     } = cache;
 
