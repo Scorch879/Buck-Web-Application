@@ -235,14 +235,14 @@ export default function AdminPage() {
       label: "User Feedback",
       icon: FaEnvelopeOpenText,
       description:
-        "Anonymous user feedback with SHA-256 hashed identity verification.",
+        "Feedback from users. Only a one-way hash of the sender's e-mail is stored.",
     },
     {
       id: "buck-ai" as const,
       label: "Buck_AI Status & Logs",
       icon: FaRobot,
       description:
-        "Live Buck_AI deployment status, Gemini model telemetry, and anonymized AI data logs.",
+        "Live Buck_AI deployment status, model telemetry and AI usage logs.",
     },
     {
       id: "health" as const,
@@ -269,7 +269,7 @@ export default function AdminPage() {
     adminTabs.find((t) => t.id === activeTab) || adminTabs[0];
   const ActiveIcon = activeTabMeta.icon;
 
-  // 1. Filtered anonymous feedback (never matches or displays user_email)
+  // 1. Filtered feedback (rows carry only the sender hash, never user_email)
   const filteredFeedback = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return (feedback ?? [])
@@ -476,7 +476,7 @@ export default function AdminPage() {
       {error && (
         <div
           style={{
-            color: "#a81919",
+            color: "var(--admin-danger-text)",
             background: "rgba(255, 56, 56, 0.14)",
             padding: "1rem",
             borderRadius: "8px",
@@ -575,7 +575,7 @@ export default function AdminPage() {
                     </div>
                     <div className="admin-kpi-value">{feedbackCounts.total}</div>
                     <div className="admin-kpi-sub">
-                      100% SHA-256 hashed in DB
+                      Sender e-mails stored as hashes
                     </div>
                   </div>
 
@@ -669,7 +669,7 @@ export default function AdminPage() {
                       aria-hidden="true"
                       style={{ animation: "spin 1s linear infinite" }}
                     />
-                    <p>Loading anonymous feedback...</p>
+                    <p>Loading feedback...</p>
                   </div>
                 ) : filteredFeedback.length > 0 ? (
                   <div className="admin-feedback-list">
@@ -682,10 +682,10 @@ export default function AdminPage() {
                             </span>
                             <span
                               className="admin-anon-badge"
-                              title="Sender identity is SHA-256 hashed in Postgres; plaintext email is never stored or displayed."
+                              title="Only a one-way SHA-256 hash of the sender's e-mail is stored. The address itself is never stored or shown."
                             >
                               <FaLock aria-hidden="true" />
-                              Anonymous · SHA-256 Verified
+                              E-mail hashed
                             </span>
                           </div>
                           <span>{formatAdminDate(item.created_at)}</span>
@@ -1144,7 +1144,7 @@ export default function AdminPage() {
                         },
                         {
                           key: "db",
-                          title: "Supabase Postgres 17",
+                          title: "Supabase Postgres",
                           icon: FaDatabase,
                           health: telemetry.services.supabaseDb,
                           extra: "RLS + private.mfa_satisfied() active",
@@ -1161,7 +1161,7 @@ export default function AdminPage() {
                           title: "Buck_AI Microservice",
                           icon: FaRobot,
                           health: telemetry.services.buckAi,
-                          extra: `${telemetry.services.buckAi.configuredModels.length} Gemini models + Rule fallback`,
+                          extra: `${telemetry.services.buckAi.configuredModels.length} models + rule fallback`,
                         },
                       ].map((svc) => {
                         const SvcIcon = svc.icon;
@@ -1212,7 +1212,7 @@ export default function AdminPage() {
                         </span>
                       </div>
 
-                      <div className="admin-kpi-grid">
+                      <div className="admin-kpi-grid admin-kpi-grid--six">
                         <div className="admin-kpi-card">
                           <div className="admin-kpi-top">
                             <span className="admin-kpi-label">
@@ -1607,7 +1607,7 @@ export default function AdminPage() {
                             style={{
                               color:
                                 dep.state === "READY"
-                                  ? "#2ea043"
+                                  ? "var(--admin-ok)"
                                   : "var(--buck-orange)",
                             }}
                           >
