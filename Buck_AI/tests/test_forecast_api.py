@@ -177,6 +177,9 @@ class ForecastApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(figures, {2423.43, 7156.62, 62.74})
         self.assertEqual(service._commas(service._exact("about ₱2,423, up to ₱7157. Low ₱63; ₱2423 in all.", figures)),
                          "about ₱2,423.43, up to ₱7,156.62. Low ₱62.74; ₱2,423.43 in all.")
+        # One decimal place (production, 2026-11-02): matched to the figure, else padded.
+        self.assertEqual(service._commas(service._exact("about ₱448,714.0; ₱2423.4 and ₱62.7", figures)),
+                         "about ₱448,714.00; ₱2,423.43 and ₱62.74")
         # Exact amounts, amounts with no match and ambiguous ones stay as written.
         self.assertEqual(service._exact("₱2,423.43, ₱500, ₱63", figures | {63.2}), "₱2,423.43, ₱500, ₱63")
 

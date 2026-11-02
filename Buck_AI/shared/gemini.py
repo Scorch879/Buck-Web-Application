@@ -179,11 +179,13 @@ async def stream_with_tools(
     contents: list[types.Content],
     tools: list[Tool],
     max_output_tokens: int = 1024,
+    prefer: str | None = None,
 ) -> AsyncIterator[str]:
     """Streams user-visible text, running tool calls between rounds.
 
     Thought parts are never yielded. Model turns are replayed with their
-    original parts so Gemini's thought signatures are preserved.
+    original parts so Gemini's thought signatures are preserved. `prefer`
+    starts with a model that answered recently (see attempt_plan).
     """
     client = _get_client()
     contents = list(contents)
@@ -195,7 +197,7 @@ async def stream_with_tools(
         max_output_tokens=max_output_tokens,
         automatic_function_calling=_NO_AFC,
     )
-    plan = attempt_plan()
+    plan = attempt_plan(prefer)
     attempt = 0  # shared across rounds: once on a fallback model, stay there
 
     for _ in range(MAX_TOOL_ROUNDS):

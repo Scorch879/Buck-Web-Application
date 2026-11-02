@@ -129,6 +129,8 @@ def _plain(text: str) -> str:
 
 # A whole-peso amount (no centavos) the model may have rounded: ₱2,423 but not ₱2,423.43.
 _WHOLE_PESO = re.compile(r"₱(\d{1,3}(?:,\d{3})+|\d+)(?![.,]?\d)")
+# One decimal place, ₱448,714.0 or ₱2423.4: centavos cut short.
+_ONE_DECIMAL = re.compile(r"₱((?:\d{1,3}(?:,\d{3})+|\d+)\.\d)(?!\d)")
 
 
 def _figures(value: Any) -> set[float]:
@@ -149,7 +151,12 @@ def _exact(text: str, figures: set[float]) -> str:
         whole = int(m.group(1).replace(",", ""))
         hits = {x for x in figures if round(x) == whole or int(x) == whole}
         return peso(hits.pop()) if len(hits) == 1 else m.group(0)
-    return _WHOLE_PESO.sub(fix, text)
+
+    def tenths(m: re.Match[str]) -> str:
+        value = float(m.group(1).replace(",", ""))
+        hits = {x for x in figures if abs(x - value) < 0.1}
+        return peso(hits.pop() if len(hits) == 1 else value)
+    return _ONE_DECIMAL.sub(tenths, _WHOLE_PESO.sub(fix, text))
 
 
 def _gap_first(explanation: str, model: dict[str, Any]) -> str:
