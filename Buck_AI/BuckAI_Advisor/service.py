@@ -48,7 +48,9 @@ INSIGHT_TOKENS = 4096
 INSIGHT_GROQ_TIMEOUT = 10
 # The model that wrote the user's last card goes first if the card is this
 # recent: a new server instance can't know which models are hung right now.
-PREFER_RECENT_MODEL = timedelta(hours=6)
+# Cards are rewritten only when the data moves, so this spans days; a model
+# that has gone bad since costs only the usual race delay.
+PREFER_RECENT_MODEL = timedelta(days=3)
 
 _SAVED_COLUMNS = "id,title,suggestion,advice,financial_health_score,priority,metadata,created_at,valid_until,model_name"
 
