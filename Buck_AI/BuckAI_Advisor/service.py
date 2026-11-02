@@ -152,6 +152,13 @@ async def _write_with_ai(snapshot: Snapshot, previous: dict[str, Any] | None,
     return text, "groq", groq.answered_by.get() or get_settings().groq_models[0]
 
 
+def _recent_model(saved: dict[str, Any] | None, now: datetime) -> str | None:
+    """The model that wrote the saved card, if recent: it likely answers again, so it goes first."""
+    if saved and now - _parse_ts(saved.get("created_at")) < PREFER_RECENT_MODEL:
+        return saved.get("model_name")
+    return None
+
+
 async def get_insight(db: UserDb, refresh: bool = False) -> dict[str, Any]:
     snapshot = await build_snapshot(db)
     parts, fp = fingerprint_parts(snapshot), fingerprint(snapshot)
@@ -178,9 +185,8 @@ async def get_insight(db: UserDb, refresh: bool = False) -> dict[str, Any]:
     generated_with, model_name = "rules", "rules"
     try:
         # model_name is the model that actually answered (a fallback when the primary is busy).
-        recent = latest and now - _parse_ts(latest.get("created_at")) < PREFER_RECENT_MODEL
-        prefer = latest.get("model_name") if recent else None
-        text, generated_with, model_name = await _write_with_ai(snapshot, latest, changed, priority, prefer)
+        text, generated_with, model_name = await _write_with_ai(snapshot, latest, changed, priority,
+                                                                _recent_model(latest, now))
     except gemini.GeminiUnavailable as exc:
         log.warning("Advisor insight fell back to rules: %s", exc)
         if latest and same_data:
@@ -284,6 +290,7 @@ async def chat_events(db: UserDb, question: str, history: list[dict[str, str]]) 
             prompts.chat_system_prompt(snapshot.data, _public(saved)),
             gemini.history_contents(history, question),
             advisor_tools(db),
+            prefer=_recent_model(saved, datetime.now(timezone.utc)),
         )
         try:
             while True:
