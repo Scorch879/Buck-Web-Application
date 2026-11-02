@@ -146,6 +146,8 @@ def build_forecast(h: History, horizon: int = 30) -> dict[str, Any]:
         confidence = 0.15 if low_data else 0.3
     else:
         confidence = max(0.05, min(0.95, 1 - test.error) * min(1.0, observed / 60))
+    if gap["gap"]:
+        confidence = min(confidence, 0.2)  # recent spending is missing, not measured
     warnings = _warnings(month, wallets, categories, month_end, gap)
 
     return {
