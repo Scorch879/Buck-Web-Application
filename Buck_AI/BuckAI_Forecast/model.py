@@ -386,7 +386,11 @@ def backtest(expenses: list[Expense], incomes: list[Income], today: date, skip: 
     actual_by_day = _spend_days(expenses, [i for i, e in enumerate(expenses)
                                            if i not in skip and cut < e.day <= today])
     actual = np.array([actual_by_day.get(d, 0.0) for d in held])
-    past = [e for e in expenses if e.day <= cut]
+    if not actual.any():
+        # Nothing logged in the held-out days: every window misses by 100%, so the
+        # tie would pick the shortest, emptiest one. Use the default instead.
+        return Backtest(30, None, None)
+    past =[e for e in expenses if e.day <= cut]
     past_skip = {i for i, e in enumerate(expenses) if e.day <= cut and i in skip}
     # Indexes shift once later rows are dropped; map them.
     old_to_new = {old: new for new, old in enumerate(i for i, e in enumerate(expenses) if e.day <= cut)}

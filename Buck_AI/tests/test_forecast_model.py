@@ -148,6 +148,11 @@ class ForecastModelTests(unittest.TestCase):
         self.assertTrue(f["warnings"][0].startswith("Nothing logged for 19 days"))
         # The quiet stretch is a gap, not a "spending is down" habit.
         self.assertNotIn("trend", [x["kind"] for x in f["habits"]])
+        # A held-out stretch with nothing logged can't rank the windows (every one misses
+        # by 100%), so the shortest, all-zero window must not win the tie.
+        self.assertEqual(f["model"]["windowDays"], 30)
+        self.assertIsNone(f["model"]["backtestError"])
+        self.assertLessEqual(f["model"]["confidence"], 0.2)
 
     def test_target_gap(self):
         f = build_forecast(history(*user(), attitude="Moderate"), 30)
