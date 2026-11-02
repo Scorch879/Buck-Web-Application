@@ -1244,7 +1244,7 @@ export default function SettingsPage() {
             {activeSettingsTab === "feedback" ? (
               <div style={{ paddingTop: "0.25rem", gridColumn: "1 / -1" }}>
                 <p style={{ marginBottom: "1rem" }}>
-                  Spotted a bug, have a feature idea, or want to flag a question? Tell us — your submission is anonymous and sender identity is cryptographically hashed.
+                  Spotted a bug, have a feature idea, or want to flag a question? Tell us. We don&apos;t store your e-mail with it, only a one-way hash.
                 </p>
 
                 <form className="settings-form" onSubmit={handleSendFeedback}>

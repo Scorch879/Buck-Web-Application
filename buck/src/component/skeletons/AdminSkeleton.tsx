@@ -85,8 +85,8 @@ export default function AdminSkeleton() {
                   </h2>
                   <p>
                     <span className="skeleton-text">
-                      Anonymous user feedback with SHA-256 hashed identity
-                      verification.
+                      Feedback from users. Only a one-way hash of the
+                      sender&apos;s e-mail is stored.
                     </span>
                   </p>
                 </div>
@@ -97,7 +97,7 @@ export default function AdminSkeleton() {
 
             <div className="admin-kpi-grid admin-kpi-grid--compact">
               {[
-                { label: "Total Feedback", sub: "100% SHA-256 hashed in DB" },
+                { label: "Total Feedback", sub: "Sender e-mails stored as hashes" },
                 { label: "Bug Reports", sub: "Issues & defect reports" },
                 { label: "Feature Ideas", sub: "User enhancement requests" },
                 { label: "AI & General Notes", sub: "0 AI advisor reports" },
@@ -131,7 +131,14 @@ export default function AdminSkeleton() {
                 onChange={noop}
                 disabled
                 className="admin-filter-select"
-                options={[{ value: "all", label: "All Categories" }]}
+                options={[
+                  { value: "all", label: "All Categories" },
+                  { value: "bug", label: "Bug Reports" },
+                  { value: "feature", label: "Feature Ideas" },
+                  { value: "ai_response", label: "AI Advisor Reports" },
+                  { value: "question", label: "Questions" },
+                  { value: "general", label: "General / Other" },
+                ]}
               />
               <CustomSelect
                 fit
@@ -139,7 +146,10 @@ export default function AdminSkeleton() {
                 onChange={noop}
                 disabled
                 className="admin-filter-select"
-                options={[{ value: "newest", label: "Newest First" }]}
+                options={[
+                  { value: "newest", label: "Newest First" },
+                  { value: "oldest", label: "Oldest First" },
+                ]}
               />
             </div>
 
@@ -152,7 +162,8 @@ export default function AdminSkeleton() {
                         Feature
                       </span>
                       <span className="admin-anon-badge skeleton-text">
-                        Anonymous · SHA-256 Verified
+                        <IconPlaceholder />
+                        E-mail hashed
                       </span>
                     </div>
                     <span className="skeleton-text">
@@ -166,8 +177,8 @@ export default function AdminSkeleton() {
                   </h3>
                   <p className="admin-feedback-details">
                     <span className="skeleton-text">
-                      Details of the anonymous feedback message submitted by the
-                      user appear here.
+                      Details of the feedback message submitted by the user
+                      appear here.
                     </span>
                   </p>
                 </div>
