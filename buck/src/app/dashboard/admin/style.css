@@ -1,4 +1,9 @@
+/* Status colours shared with the rest of Buck: emerald for OK (wallet/settings
+   badges), the Statistics caution amber, and Buck Coral for danger. */
 .admin-page {
+  --admin-ok: #10b981;
+  --admin-warn: #f59e0b;
+  --admin-danger-text: var(--buck-coral);
   display: flex;
   flex-direction: column;
   gap: clamp(0.75rem, 1.5vw, 1rem);
@@ -105,14 +110,26 @@
 }
 
 /* KPI Summary Strip & Grids */
+/* Fixed column counts so a row never ends with one orphan card:
+   4 cards in one row, 6 cards (--six) in two rows of 3. */
 .admin-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
+.admin-kpi-grid--six {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+  .admin-kpi-grid,
+  .admin-kpi-grid--six {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .admin-kpi-grid--compact {
-  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
   margin-bottom: 0.85rem;
 }
 
@@ -242,21 +259,21 @@
 }
 
 .admin-status-pill--online {
-  color: #2ea043;
-  background: rgba(46, 160, 67, 0.14);
-  border: 1px solid rgba(46, 160, 67, 0.3);
+  color: var(--admin-ok);
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 .admin-status-pill--degraded {
-  color: #d9822b;
-  background: rgba(217, 130, 43, 0.14);
-  border: 1px solid rgba(217, 130, 43, 0.32);
+  color: var(--admin-warn);
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.32);
 }
 
 .admin-status-pill--offline {
-  color: #d93838;
-  background: rgba(217, 56, 56, 0.14);
-  border: 1px solid rgba(217, 56, 56, 0.32);
+  color: var(--admin-danger-text);
+  background: rgba(255, 56, 56, 0.14);
+  border: 1px solid rgba(255, 56, 56, 0.32);
 }
 
 .admin-service-endpoint {
@@ -429,7 +446,7 @@
 }
 
 .admin-bar-fill--secondary {
-  background: linear-gradient(90deg, #4fa3e3, #2b7cd3);
+  background: linear-gradient(90deg, #f8c894, #ffc547);
 }
 
 .admin-chip-cloud {
@@ -512,9 +529,9 @@
   border-radius: 6px;
   font-size: 0.7rem;
   font-weight: 500;
-  color: #2ea043;
-  background: rgba(46, 160, 67, 0.11);
-  border: 1px solid rgba(46, 160, 67, 0.24);
+  color: var(--buck-muted);
+  background: rgba(120, 92, 70, 0.08);
+  border: 1px solid var(--buck-line);
 }
 
 .admin-feedback-title {
@@ -572,23 +589,23 @@
 }
 
 .admin-log-badge--gemini {
-  background: rgba(46, 160, 67, 0.13);
-  color: #2ea043;
+  background: rgba(16, 185, 129, 0.13);
+  color: var(--admin-ok);
 }
 
 .admin-log-badge--rules {
-  background: rgba(217, 130, 43, 0.14);
-  color: #d9822b;
+  background: rgba(245, 158, 11, 0.14);
+  color: var(--admin-warn);
 }
 
 .admin-log-badge--info {
-  background: rgba(79, 163, 227, 0.14);
-  color: #3b8fd4;
+  background: rgba(120, 92, 70, 0.12);
+  color: var(--buck-muted);
 }
 
 .admin-log-badge--danger {
-  background: rgba(217, 56, 56, 0.14);
-  color: #d93838;
+  background: rgba(255, 56, 56, 0.14);
+  color: var(--admin-danger-text);
 }
 
 .admin-log-mono {

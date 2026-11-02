@@ -153,6 +153,19 @@ Branch `feat/2fa-ui`. No API, middleware or migration changes. New files: `compo
 - Account deletion asks for a fresh code after 10 minutes.
 - Passkey add, rename, delete and sign-in (needs Passkeys on in the Supabase dashboard with the production RP ID).
 
+### 🎨 Admin Dashboard UI Review (2026-11-03, PR #245 follow-up)
+
+UI only; the API route, migrations, `supabaseData.ts` and `FinancialContext` types are unchanged.
+
+**Fixed**:
+- Privacy copy overclaimed. Feedback stores an unsalted SHA-256 of the e-mail, which anyone who knows an address can match, so it is not anonymous. Settings now says "We don't store your e-mail with it, only a one-way hash."; the admin feedback description, badge ("E-mail hashed", neutral instead of green), tooltip, KPI caption and loading text no longer say "anonymous" or "SHA-256 Verified".
+- "Supabase Postgres 17" is now "Supabase Postgres". "N Gemini models" is now "N models" (the chain includes Gemma). The Buck_AI tab description no longer says Gemini only.
+- ADR-012: `AdminSkeleton` dropdowns carry the live option lists. `fit` sizes the trigger to the longest option, so the category select used to widen when data loaded.
+- KPI grids wrapped with one orphan card (3 + 1 at 1280 px; the 6-card grid would be 4 + 2). They now use fixed columns: 4 in a row, 6 as 3 + 3, 2 columns below 1100 px, 1 below 480 px.
+- Status colours now match the app: danger is Buck Coral, OK is emerald `#10b981`, caution is amber `#f59e0b`. The blue bar and blue info badge are gone.
+
+**Verified** (dev server, admin signed in): Feedback, Buck_AI and Website Health tabs in dark and light; 375 px with no sideways scroll. CustomSelect everywhere (ADR-040); DangerDeleteDialog red-tinted, buttons ≥ 40 px (ADR-041). `tsc`, `eslint` (0/0), vitest 205/205.
+
 ### 🎨 Chart Hover & Tab Uniformity (2026-10-30)
 
 Branch `maintenance-branch`. UI only; no API, data or migration changes.
