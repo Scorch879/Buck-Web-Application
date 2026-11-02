@@ -200,6 +200,18 @@ class AdvisorApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("".join(e["text"] for e in events if e["type"] == "delta"), "You spent **₱7,500.00**.")
         self.assertEqual(events[-1], {"type": "done"})
 
+        # The model that wrote the saved card answers the chat first.
+        await self.client.get("/advisor/insight", headers=GOOD)
+        seen = {}
+
+        async def watched(*_args, **kwargs):
+            seen.update(kwargs)
+            yield "ok"
+
+        with mock.patch.object(gemini, "stream_with_tools", watched):
+            await self.client.post("/advisor/chat", headers=GOOD, json={"question": "hi"})
+        self.assertEqual(seen["prefer"], self.supa.advisories[0]["model_name"])
+
         async def broken(*_args, **_kwargs):
             raise gemini.GeminiUnavailable("down")
             yield ""  # pragma: no cover
