@@ -46,6 +46,9 @@ INSIGHT_ATTEMPT = 10
 INSIGHT_TOKENS = 4096
 # Groq stands in when Gemini is busy, before the rule-written card.
 INSIGHT_GROQ_TIMEOUT = 10
+# The model that wrote the user's last card goes first if the card is this
+# recent: a new server instance can't know which models are hung right now.
+PREFER_RECENT_MODEL = timedelta(hours=6)
 
 _SAVED_COLUMNS = "id,title,suggestion,advice,financial_health_score,priority,metadata,created_at,valid_until,model_name"
 
@@ -117,14 +120,16 @@ def _tidy_insight(out: dict[str, Any]) -> dict[str, Any] | None:
 
 
 async def _write_with_ai(snapshot: Snapshot, previous: dict[str, Any] | None,
-                         changed: list[str], priority: str) -> tuple[dict[str, Any], str, str]:
+                         changed: list[str], priority: str,
+                         prefer: str | None = None) -> tuple[dict[str, Any], str, str]:
     """(text, generated_with, model_name): Gemini first, then Groq.
     Raises GeminiUnavailable when neither wrote a usable card."""
     system = prompts.insight_system_prompt()
     prompt = prompts.insight_prompt(snapshot.data, _public(previous), changed, priority)
     try:
         out = await gemini.generate_json(system, prompt, prompts.INSIGHT_SCHEMA, timeout_seconds=INSIGHT_TIMEOUT,
-                                         attempt_seconds=INSIGHT_ATTEMPT, max_output_tokens=INSIGHT_TOKENS)
+                                         attempt_seconds=INSIGHT_ATTEMPT, max_output_tokens=INSIGHT_TOKENS,
+                                         prefer=prefer)
         text = _tidy_insight(out)
         if text:
             return text, "gemini", gemini.answered_by.get() or get_settings().gemini_model
@@ -171,7 +176,9 @@ async def get_insight(db: UserDb, refresh: bool = False) -> dict[str, Any]:
     generated_with, model_name = "rules", "rules"
     try:
         # model_name is the model that actually answered (a fallback when the primary is busy).
-        text, generated_with, model_name = await _write_with_ai(snapshot, latest, changed, priority)
+        recent = latest and now - _parse_ts(latest.get("created_at")) < PREFER_RECENT_MODEL
+        prefer = latest.get("model_name") if recent else None
+        text, generated_with, model_name = await _write_with_ai(snapshot, latest, changed, priority, prefer)
     except gemini.GeminiUnavailable as exc:
         log.warning("Advisor insight fell back to rules: %s", exc)
         if latest and same_data:
