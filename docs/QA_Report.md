@@ -160,6 +160,7 @@ Branch `maintenance-branch`. UI only; no API, data or migration changes.
 **Fixed**:
 - A collapsed sidebar opened and then slid shut on every page load (state read after hydration). The state is now set before first paint and the first sync is instant.
 - On mobile, a sidebar collapsed on desktop hid the "Buck" name in the top bar. The rail now collapses only on desktop.
+- The first sidebar toggle after each page load snapped instead of sliding: Framer read the start width from the DOM after `<html data-buck-sidebar>` had already moved the CSS width to the target. The width is now a motion value, and the header's "animating" flag can no longer get stuck (PR #254).
 - The sidebar profile picture swapped in over the initials, and on Settings it jumped and scaled when you hovered anywhere on the card. Photos now fade in once loaded, and hover only warms the ring.
 - Nine modals, two popovers and the mobile menu used different timings (0.15 to 0.2 s tweens, two springs, 10 to 20 px travel); the mobile menu had no animation. All now share `utils/motion.ts`, and reduced-motion users get fades without movement.
 - The AI chat used the browser's grey scrollbar; Goals and dropdowns had their own. One Buck scrollbar now covers every scroll area in light and dark themes, and the chat glides to new messages.
