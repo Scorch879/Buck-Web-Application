@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { popoverMotion } from "@/utils/motion";
 import { FaCalendarAlt, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import styles from "./CustomDatePicker.module.css";
 
@@ -201,10 +202,7 @@ export default function CustomDatePicker({
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            transition={{ duration: 0.15 }}
+            {...popoverMotion}
             className={styles.popover}
           >
             <div className={styles.header}>

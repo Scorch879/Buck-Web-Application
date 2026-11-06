@@ -145,7 +145,7 @@ html[data-buck-theme="dark"] .toastWarning .toastIconBox {
 
 .toastTitle {
   font-size: 0.92rem;
-  font-weight: 850;
+  font-weight: 650;
   color: var(--buck-ink);
   line-height: 1.25;
 }

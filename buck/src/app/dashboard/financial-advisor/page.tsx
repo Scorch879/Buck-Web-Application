@@ -292,9 +292,13 @@ export default function FinancialAdvisorPage() {
       : `All spending comes from ${activeWallet.name}. Add a second wallet to keep savings separate.`;
   }, [aiInsights?.walletAdvice, wallets.length, activeWallet, otherWallets]);
 
-  const analysisPeriod = aiInsights?.period
-    ? `Figures cover ${shortDate(aiInsights.period.monthStart)}–${shortDate(aiInsights.period.asOf)} this month and your last 30 days of expenses.`
-    : null;
+  // Always shown (also while loading, so the card never shifts): where the
+  // numbers come from, and a plain reminder that AI can get them wrong.
+  const analysisNote = `${
+    aiInsights?.period
+      ? `Figures cover ${shortDate(aiInsights.period.monthStart)}–${shortDate(aiInsights.period.asOf)} this month and your last 30 days of expenses.`
+      : "This comes from your Buck expenses."
+  } AI might be inaccurate, so check the amounts before acting.`;
 
   const goalAdvice = useMemo(() => {
     if (!activeGoal) {
@@ -528,9 +532,7 @@ export default function FinancialAdvisorPage() {
           <p className="advisor-analysis__text">
             {aiBusy ? "Generating deep-dive analysis..." : aiInsights?.advice}
           </p>
-          {analysisPeriod && !aiBusy ? (
-            <p className="advisor-footnote">{analysisPeriod}</p>
-          ) : null}
+          <p className="advisor-footnote">{analysisNote}</p>
         </section>
       </div>
     </div>

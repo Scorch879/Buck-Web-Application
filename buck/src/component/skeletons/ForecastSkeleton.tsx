@@ -50,7 +50,7 @@ export default function ForecastSkeleton() {
         </div>
         <div className="forecast-story-foot">
           <span className="skeleton-pill" style={{ width: 84, height: 24, borderRadius: 999 }} />
-          <span className="forecast-foot-note"><span className="skeleton-text">Written by AI from your Buck data. It can be wrong.</span></span>
+          <span className="forecast-foot-note"><span className="skeleton-text">This comes from your expenses. AI might be inaccurate, so treat it as a guide.</span></span>
         </div>
       </section>
 

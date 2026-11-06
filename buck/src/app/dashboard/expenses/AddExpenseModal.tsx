@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { backdropMotion, panelMotion } from "@/utils/motion";
 import { FaPlus, FaTimes, FaExclamationTriangle } from "react-icons/fa";
 import CustomSelect from "@/component/CustomSelect";
 import CustomDatePicker from "@/component/CustomDatePicker";
@@ -154,10 +155,7 @@ export default function AddExpenseModal({
       {open && (
         <motion.div
           className="expenses-modal-backdrop"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.18 }}
+          {...backdropMotion}
           onClick={(e) => {
             if (e.target === e.currentTarget && !saving) {
               onClose();
@@ -170,10 +168,7 @@ export default function AddExpenseModal({
             role="dialog"
             aria-modal="true"
             aria-labelledby="add-expense-modal-title"
-            initial={{ opacity: 0, scale: 0.94, y: 16 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: 16 }}
-            transition={{ type: "spring", stiffness: 420, damping: 28 }}
+            {...panelMotion}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}

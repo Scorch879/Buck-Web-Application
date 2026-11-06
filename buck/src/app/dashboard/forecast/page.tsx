@@ -46,7 +46,7 @@ import "./style.css";
 
 const HORIZONS: ForecastHorizon[] = [30, 60];
 
-const AI_NOTE = "Written by AI from your Buck data. It can be wrong.";
+const AI_NOTE = "This comes from your expenses. AI might be inaccurate, so treat it as a guide.";
 
 const HABIT_ICONS: Record<HabitIcon, IconType> = {
   weekday: FaCalendarWeek,
@@ -493,7 +493,7 @@ function RichForecast({
           ) : (
             <p className="forecast-empty">Nothing was left out.</p>
           )}
-          {aiWritten && <p className="forecast-foot-note forecast-foot-note--ai">{AI_NOTE} The numbers come from Buck.</p>}
+          {aiWritten && <p className="forecast-foot-note forecast-foot-note--ai">Buck calculates the numbers from your expenses; AI only writes the words, and it might be inaccurate.</p>}
         </div>
       </details>
     </>

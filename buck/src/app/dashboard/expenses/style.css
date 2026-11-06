@@ -1375,7 +1375,7 @@ html[data-buck-theme="light"] .expenses-modal-backdrop {
 .expenses-modal-header h2 {
   margin: 0.12rem 0 0;
   font-size: 1.3rem;
-  font-weight: 750;
+  font-weight: 650;
   color: var(--buck-ink);
   line-height: 1.2;
 }
