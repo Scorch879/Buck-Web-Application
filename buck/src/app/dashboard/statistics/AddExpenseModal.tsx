@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { backdropMotion, panelMotion } from "@/utils/motion";
 import CustomSelect from "@/component/CustomSelect";
 import { suggestCategory } from "@/utils/aiApi";
 import CustomDatePicker from "@/component/CustomDatePicker";
@@ -120,10 +121,7 @@ export default function AddExpenseModal({
       {open && (
         <motion.div
           className="modal-backdrop"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
+          {...backdropMotion}
           style={{
             position: "fixed",
             top: 0,
@@ -143,10 +141,7 @@ export default function AddExpenseModal({
             role="dialog"
             aria-modal="true"
             aria-label="Add expense"
-            initial={{ y: 20, opacity: 0, scale: 0.95 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 20, opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.2 }}
+            {...panelMotion}
             style={{
               background: "var(--buck-surface)",
               borderRadius: 20,

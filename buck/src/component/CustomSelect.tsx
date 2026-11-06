@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useId } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { popoverMotion } from "@/utils/motion";
 import { FaChevronDown } from "react-icons/fa";
 import styles from "./CustomSelect.module.css";
 
@@ -111,10 +112,7 @@ export default function CustomSelect({
         {isOpen && (
           <motion.div
             className={styles.dropdown}
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.15 }}
+            {...popoverMotion}
           >
             <ul id={listboxId} className={styles.list} role="listbox">
               {options.map((option) => (

@@ -123,6 +123,10 @@ export type AdminOverviewTelemetry = {
     advisories_7d: number;
     advisories_gemini: number;
     advisories_rules: number;
+    /** Advice written by the Groq fallback (metadata.generated_with = 'groq'). */
+    advisories_groq: number;
+    /** Advice written by any AI model: Gemini plus Groq. */
+    advisories_ai: number;
     avg_health_score: number;
     forecasts_total: number;
     forecasts_active: number;

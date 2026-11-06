@@ -502,7 +502,7 @@ html[data-buck-theme="dark"] .expenses-kpi-range-pin {
 
 .expenses-category-vis-title {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: var(--buck-subcard-title-size);
   font-weight: 650;
   color: var(--buck-ink);
   line-height: 1.2;
@@ -734,7 +734,7 @@ html[data-buck-theme="dark"] .expenses-legend-item:hover {
 .expenses-card h2 {
   margin: 0.12rem 0 0;
   color: var(--buck-ink);
-  font-size: 1.25rem;
+  font-size: var(--buck-card-title-size);
   font-weight: 650;
   line-height: 1.2;
 }
@@ -1375,7 +1375,7 @@ html[data-buck-theme="light"] .expenses-modal-backdrop {
 .expenses-modal-header h2 {
   margin: 0.12rem 0 0;
   font-size: 1.3rem;
-  font-weight: 750;
+  font-weight: 650;
   color: var(--buck-ink);
   line-height: 1.2;
 }

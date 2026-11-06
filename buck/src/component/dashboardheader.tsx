@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, animate, motion, useMotionValue } from "framer-motion";
 import {
   FaAngleDoubleLeft,
   FaBars,
@@ -20,23 +20,16 @@ import {
   FaWallet,
 } from "react-icons/fa";
 import WalletModal from "@/app/dashboard/wallet/WalletModal";
+import FadeInImage from "@/component/FadeInImage";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial } from "@/context/FinancialContext";
 import { useToast } from "@/component/toast";
+import { INSTANT, LABEL_TRANSITION, SPRING, popoverMotion } from "@/utils/motion";
 import { signOutUser } from "./authentication";
 import "./dashboard.css";
 
 const SIDEBAR_STORAGE_KEY = "buck:sidebar-collapsed";
-const SIDEBAR_SPRING = {
-  type: "spring" as const,
-  stiffness: 300,
-  damping: 32,
-  mass: 0.8,
-};
-const LABEL_TRANSITION = {
-  duration: 0.22,
-  ease: [0.22, 1, 0.36, 1] as const,
-};
+const DESKTOP_QUERY = "(min-width: 1025px)";
 
 const dashboardNavItems = [
   { id: "home", label: "Home", href: "/dashboard/home", icon: FaHome },
@@ -104,6 +97,18 @@ export default function DashboardHeader({
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  // False until the saved sidebar state has been applied: the first sync is
+  // instant so a collapsed rail never slides shut on page load.
+  const [sidebarReady, setSidebarReady] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(true);
+  // True while the width spring runs: the header drops its backdrop blur so
+  // the browser doesn't repaint the blur on every frame (ADR-054).
+  const [sidebarAnimating, setSidebarAnimating] = useState(false);
+  // The rail width lives in a motion value so every toggle springs from the
+  // width on screen. Reading it from the DOM instead made the first toggle
+  // after a page load snap: <html data-buck-sidebar> flips first and the CSS
+  // width is already at the target before the animation starts.
+  const railWidth = useMotionValue(250);
   const router = useRouter();
   const pathname = usePathname();
   const user = useOptionalDashboardUser();
@@ -136,13 +141,51 @@ export default function DashboardHeader({
     try {
       const saved = window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
       setSidebarCollapsed(saved);
+      railWidth.set(saved ? 80 : 250);
       document.documentElement.dataset.buckSidebar = saved ? "collapsed" : "expanded";
     } catch {
       // Ignore storage access errors
     }
-  }, []);
+
+    const desktop = window.matchMedia(DESKTOP_QUERY);
+    const syncDesktop = () => setIsDesktop(desktop.matches);
+    syncDesktop();
+    desktop.addEventListener("change", syncDesktop);
+
+    // Two frames: let the instant first sync paint before springs turn on.
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => setSidebarReady(true));
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      desktop.removeEventListener("change", syncDesktop);
+    };
+    // railWidth is a stable motion value; this still runs once.
+  }, [railWidth]);
+
+  // The rail only collapses on desktop; the mobile bar always shows the brand.
+  const railCollapsed = sidebarCollapsed && isDesktop;
+  const sidebarTransition = sidebarReady ? SPRING : INSTANT;
+  const labelTransition = sidebarReady ? LABEL_TRANSITION : INSTANT;
+
+  useEffect(() => {
+    if (!mounted || !isDesktop) return;
+    const target = railCollapsed ? 80 : 250;
+    if (!sidebarReady) {
+      railWidth.set(target);
+      setSidebarAnimating(false);
+      return;
+    }
+    const controls = animate(railWidth, target, {
+      ...SPRING,
+      onComplete: () => setSidebarAnimating(false),
+    });
+    return () => controls.stop();
+  }, [mounted, isDesktop, railCollapsed, sidebarReady, railWidth]);
 
   const toggleSidebar = () => {
+    setSidebarAnimating(true);
     setSidebarCollapsed((prev) => {
       const next = !prev;
       try {
@@ -218,14 +261,14 @@ export default function DashboardHeader({
       .filter((item) => !("adminOnly" in item && item.adminOnly) || user?.isAdmin)
       .map((item) => {
         const Icon = item.icon;
-        const showLabel = isMobile || !sidebarCollapsed;
+        const showLabel = isMobile || !railCollapsed;
 
         return (
           <button
             key={item.id}
             className={`nav-button ${activeNav === item.id ? "active" : ""}`}
             type="button"
-            title={!isMobile && sidebarCollapsed ? item.label : undefined}
+            title={!isMobile && railCollapsed ? item.label : undefined}
             aria-label={item.label}
             onClick={() => navigateTo(item)}
             onFocus={() => {
@@ -248,7 +291,7 @@ export default function DashboardHeader({
                   initial={{ opacity: 0, width: 0, x: -6 }}
                   animate={{ opacity: 1, width: "auto", x: 0 }}
                   exit={{ opacity: 0, width: 0, x: -6 }}
-                  transition={LABEL_TRANSITION}
+                  transition={labelTransition}
                 >
                   {item.label}
                 </motion.span>
@@ -260,12 +303,14 @@ export default function DashboardHeader({
 
   return (
     <motion.header
-      className={`dashboard-header ${
-        sidebarCollapsed ? "dashboard-header--collapsed" : ""
+      className={`dashboard-header${
+        railCollapsed ? " dashboard-header--collapsed" : ""
+      }${sidebarReady ? " dashboard-header--ready" : ""}${
+        sidebarAnimating ? " dashboard-header--animating" : ""
       }`}
-      initial={false}
-      animate={{ width: sidebarCollapsed ? 80 : 250 }}
-      transition={SIDEBAR_SPRING}
+      // No inline width until mounted: before that, CSS sizes the rail from
+      // <html data-buck-sidebar>, set before first paint by the root layout.
+      style={mounted && isDesktop ? { width: railWidth } : undefined}
     >
       <div className="dashboard-header-inner">
         <button
@@ -273,9 +318,9 @@ export default function DashboardHeader({
           type="button"
           onClick={() => navigateTo(dashboardNavItems[0])}
           aria-label="Go to dashboard home"
-          title={sidebarCollapsed ? "Buck — Go to dashboard home" : undefined}
+          title={railCollapsed ? "Buck — Go to dashboard home" : undefined}
         >
-          <motion.span layout="position" transition={SIDEBAR_SPRING} className="dashboard-mascot">
+          <motion.span layout="position" transition={sidebarTransition} className="dashboard-mascot">
             <Image
               src="/BuckMascot.png"
               alt=""
@@ -290,14 +335,14 @@ export default function DashboardHeader({
             />
           </motion.span>
           <AnimatePresence initial={false}>
-            {!sidebarCollapsed && (
+            {!railCollapsed && (
               <motion.span
                 key="brand-copy"
                 className="dashboard-brand-copy"
                 initial={{ opacity: 0, width: 0, x: -8 }}
                 animate={{ opacity: 1, width: "auto", x: 0 }}
                 exit={{ opacity: 0, width: 0, x: -8 }}
-                transition={LABEL_TRANSITION}
+                transition={labelTransition}
               >
                 <span className="dashboard-title">Buck</span>
                 <span className="dashboard-tagline">Go Buck yourself</span>
@@ -313,38 +358,36 @@ export default function DashboardHeader({
         <div className="dashboard-header-actions">
           <motion.div
             layout
-            transition={SIDEBAR_SPRING}
+            transition={sidebarTransition}
             className="dashboard-account-tray"
             role="group"
             aria-label="Profile and sidebar controls"
           >
             <motion.span
               layout="position"
-              transition={SIDEBAR_SPRING}
+              transition={sidebarTransition}
               className="dashboard-account-avatar"
               aria-hidden="true"
-              title={sidebarCollapsed ? `${displayName} (${accountSubtitle})` : undefined}
+              title={railCollapsed ? `${displayName} (${accountSubtitle})` : undefined}
             >
+              {getInitials(displayName)}
               {mounted && avatarSource ? (
-                <img
+                <FadeInImage
                   src={avatarSource}
-                  alt=""
                   className="dashboard-avatar-img"
                   referrerPolicy="no-referrer"
                 />
-              ) : (
-                getInitials(displayName)
-              )}
+              ) : null}
             </motion.span>
             <AnimatePresence initial={false}>
-              {!sidebarCollapsed && (
+              {!railCollapsed && (
                 <motion.span
                   key="account-copy"
                   className="dashboard-account-copy"
                   initial={{ opacity: 0, width: 0, x: -8 }}
                   animate={{ opacity: 1, width: "auto", x: 0 }}
                   exit={{ opacity: 0, width: 0, x: -8 }}
-                  transition={LABEL_TRANSITION}
+                  transition={labelTransition}
                 >
                   <strong>{displayName}</strong>
                   <span>{accountSubtitle}</span>
@@ -356,15 +399,15 @@ export default function DashboardHeader({
                 type="button"
                 className="dashboard-tray-btn dashboard-tray-btn--collapse"
                 onClick={toggleSidebar}
-                aria-expanded={!sidebarCollapsed}
-                aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                aria-expanded={!railCollapsed}
+                aria-label={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                title={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
                 <motion.span
                   className="dashboard-collapse-icon"
                   initial={false}
-                  animate={{ rotate: sidebarCollapsed ? 180 : 0 }}
-                  transition={SIDEBAR_SPRING}
+                  animate={{ rotate: railCollapsed ? 180 : 0 }}
+                  transition={sidebarTransition}
                 >
                   <FaAngleDoubleLeft aria-hidden="true" />
                 </motion.span>
@@ -385,11 +428,15 @@ export default function DashboardHeader({
         </button>
       </div>
 
-      {menuOpen && (
-        <nav
+      <AnimatePresence>
+        {menuOpen && (
+        <motion.nav
+          key="mobile-menu"
           id="dashboard-mobile-menu"
           className="mobile-dropdown"
           aria-label="Mobile dashboard navigation"
+          style={{ transformOrigin: "top right" }}
+          {...popoverMotion}
         >
           {renderNavItems(true)}
           <button
@@ -403,18 +450,15 @@ export default function DashboardHeader({
               void handleSignOut();
             }}
           >
-            <span className="dashboard-account-avatar" aria-hidden="true" suppressHydrationWarning>
-              {avatarSource ? (
-                <img
+            <span className="dashboard-account-avatar" aria-hidden="true">
+              {getInitials(displayName)}
+              {mounted && avatarSource ? (
+                <FadeInImage
                   src={avatarSource}
-                  alt=""
                   className="dashboard-avatar-img"
                   referrerPolicy="no-referrer"
-                  suppressHydrationWarning
                 />
-              ) : (
-                getInitials(displayName)
-              )}
+              ) : null}
             </span>
             <span className="dashboard-account-copy">
               <strong>{displayName}</strong>
@@ -428,8 +472,9 @@ export default function DashboardHeader({
               )}
             </span>
           </button>
-        </nav>
-      )}
+        </motion.nav>
+        )}
+      </AnimatePresence>
 
       <WalletModal
         open={walletOpen}

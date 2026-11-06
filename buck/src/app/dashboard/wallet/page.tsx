@@ -252,7 +252,12 @@ export default function WalletPage() {
       setWallets(walletsArr);
 
       const activeWalletsList = walletsArr.filter((w) => !w.deletedAt);
-      let newActiveId = activeWalletId;
+      // On a first visit the active id may not be loaded yet (fetchActiveWallet
+      // runs alongside). Look it up instead of treating it as "no active
+      // wallet", which wrote a 0 budget into the shared cache and zeroed the
+      // top-bar wallet pill.
+      let newActiveId = activeWalletId ?? (await getActiveWalletId(user.uid));
+      if (newActiveId !== activeWalletId) setActiveWalletId(newActiveId);
 
       if (activeWalletsList.length === 1 && !newActiveId) {
         newActiveId = activeWalletsList[0].id;

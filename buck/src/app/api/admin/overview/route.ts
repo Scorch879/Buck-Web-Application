@@ -209,6 +209,11 @@ export async function GET() {
       advisories_7d: Number(buckAiData.advisories_7d ?? 0),
       advisories_gemini: Number(buckAiData.advisories_gemini ?? 0),
       advisories_rules: Number(buckAiData.advisories_rules ?? 0),
+      advisories_groq: Number(buckAiData.advisories_groq ?? 0),
+      advisories_ai: Number(
+        buckAiData.advisories_ai ??
+          Number(buckAiData.advisories_gemini ?? 0) + Number(buckAiData.advisories_groq ?? 0),
+      ),
       avg_health_score: Number(buckAiData.avg_health_score ?? 0),
       forecasts_total: Number(buckAiData.forecasts_total ?? 0),
       forecasts_active: Number(buckAiData.forecasts_active ?? 0),

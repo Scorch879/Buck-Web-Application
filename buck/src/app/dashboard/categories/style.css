@@ -43,11 +43,11 @@
 }
 
 .cat-heading h2 {
-  font-size: 1.15rem;
+  font-size: var(--buck-card-title-size);
 }
 
 .cat-card h3 {
-  font-size: 1.05rem;
+  font-size: var(--buck-subcard-title-size);
 }
 
 .cat-muted {

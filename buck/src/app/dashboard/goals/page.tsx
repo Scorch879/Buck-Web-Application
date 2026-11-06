@@ -4,6 +4,7 @@ import CustomSelect from "@/component/CustomSelect";
 import CustomDatePicker from "@/component/CustomDatePicker";
 import { useToast } from "@/component/toast/ToastContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { backdropMotion, panelMotion } from "@/utils/motion";
 import "./style.css";
 import "./progress-bar.css";
 import { useRouter } from "next/navigation";
@@ -534,7 +535,7 @@ const GoalsPage = () => {
       labels,
       datasets: [
         {
-          label: "Forecasted Daily Expense",
+          label: "Expected spending per day",
           data: forecastVals,
           borderColor: "#f47536",
           backgroundColor: "rgba(244,117,54,0.16)",
@@ -547,7 +548,7 @@ const GoalsPage = () => {
           borderWidth: 3,
         },
         {
-          label: "Actual Daily Expense",
+          label: "What you spent per day",
           data: actualVals,
           borderColor: "#ffc547",
           backgroundColor: "rgba(255,197,71,0.18)",
@@ -800,9 +801,13 @@ const GoalsPage = () => {
                   <div>
                     <dt>Save per day</dt>
                     <dd>
-                      {detail.perDay !== null && !detail.isComplete
-                        ? formatCurrency(detail.perDay)
-                        : "—"}
+                      {detail.isComplete
+                        ? "—"
+                        : detail.perDay !== null
+                          ? formatCurrency(detail.perDay)
+                          : detail.daysLeft !== null && detail.daysLeft < 0
+                            ? "Set a new date"
+                            : "—"}
                     </dd>
                   </div>
                   <div>
@@ -983,6 +988,7 @@ const GoalsPage = () => {
                   options={{
                     responsive: true,
                     maintainAspectRatio: false,
+                    resizeDelay: 100,
                     interaction: { mode: "index", intersect: false },
                     plugins: {
                       legend: {
@@ -1225,17 +1231,11 @@ const GoalsPage = () => {
         {showProgressModal && progressGoal && (
           <motion.div
             className="modal-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            {...backdropMotion}
           >
             <motion.div
               className="modal"
-              initial={{ y: 20, opacity: 0, scale: 0.95 }}
-              animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: 20, opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.2 }}
+              {...panelMotion}
             >
               <h3>Add Progress to {progressGoal.goalName}</h3>
               <input
@@ -1272,10 +1272,7 @@ const GoalsPage = () => {
         {showErrorModal && (
           <motion.div
             className="modal-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            {...backdropMotion}
             style={{
               position: "fixed",
               top: 0,
@@ -1294,10 +1291,7 @@ const GoalsPage = () => {
                 role="alertdialog"
                 aria-modal="true"
                 aria-label="Action not allowed"
-                initial={{ y: 20, opacity: 0, scale: 0.95 }}
-                animate={{ y: 0, opacity: 1, scale: 1 }}
-                exit={{ y: 20, opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
+                {...panelMotion}
                 style={{
               background: modalBackground,
               color: "var(--buck-ink)",

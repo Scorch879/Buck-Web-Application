@@ -100,8 +100,8 @@
 .progress-title {
   margin: 0;
   color: var(--buck-ink);
-  font-size: 1.05rem;
-  font-weight: 900;
+  font-size: var(--buck-subcard-title-size);
+  font-weight: 650;
 }
 
 .progress-stats {
@@ -186,7 +186,7 @@ html[data-buck-theme="dark"] .progress-add-btn {
   margin: 0;
   color: var(--buck-orange);
   font-size: 1.25rem;
-  font-weight: 900;
+  font-weight: 650;
   text-align: center;
 }
 
@@ -385,7 +385,7 @@ html[data-buck-theme="dark"] .progress-liquid-container {
 
 .progress-liquid-title {
   font-size: 0.7rem;
-  font-weight: 850;
+  font-weight: 650;
   text-transform: uppercase;
   letter-spacing: 0.09em;
   margin-bottom: 0.15rem;

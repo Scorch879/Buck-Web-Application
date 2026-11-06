@@ -583,7 +583,7 @@ const Statistics = () => {
         labels: keys.map((k) => formatDayKey(k)),
         datasets: [
           {
-            label: "Forecast",
+            label: "Expected spending",
             data: forecastVals,
             borderColor: "#f47536",
             backgroundColor: "rgba(244,117,54,0.14)",
@@ -594,7 +594,7 @@ const Statistics = () => {
             borderWidth: 2.5,
           },
           {
-            label: "Actual",
+            label: "What you spent",
             data: actualVals,
             borderColor: "#ffc547",
             backgroundColor: "rgba(255,197,71,0.12)",
@@ -971,6 +971,7 @@ const Statistics = () => {
                   data={forecastChart.data}
                   options={{
                     maintainAspectRatio: false,
+                    resizeDelay: 100,
                     interaction: { mode: "index", intersect: false },
                     plugins: {
                       legend: {

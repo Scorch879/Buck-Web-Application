@@ -50,7 +50,7 @@ export default function ForecastSkeleton() {
         </div>
         <div className="forecast-story-foot">
           <span className="skeleton-pill" style={{ width: 84, height: 24, borderRadius: 999 }} />
-          <span className="forecast-foot-note"><span className="skeleton-text">Written by AI from your Buck data. It can be wrong.</span></span>
+          <span className="forecast-foot-note"><span className="skeleton-text">This comes from your expenses. AI might be inaccurate, so treat it as a guide.</span></span>
         </div>
       </section>
 
@@ -73,9 +73,9 @@ export default function ForecastSkeleton() {
             <span className="skeleton-button" style={{ width: 234, height: 46, borderRadius: 10 }} />
           </div>
           <div className="forecast-legend">
-            <Line width={56} />
-            <Line width={84} />
             <Line width={104} />
+            <Line width={170} />
+            <Line width={165} />
           </div>
           <div className="forecast-chart">
             <span className="skeleton-line" style={{ width: "100%", height: "100%", borderRadius: 8 }} />

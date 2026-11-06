@@ -52,11 +52,11 @@
 }
 
 .stats-heading h2 {
-  font-size: clamp(1.18rem, 2.2vw, 1.35rem);
+  font-size: var(--buck-card-title-size);
 }
 
 .stats-card h3 {
-  font-size: 1.08rem;
+  font-size: var(--buck-subcard-title-size);
 }
 
 .stats-card-header {

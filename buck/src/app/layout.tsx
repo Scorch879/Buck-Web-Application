@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { headers } from "next/headers";
+import MotionProvider from "@/component/MotionProvider";
 import SessionManager from "@/component/SessionManager";
 import "./globals.css";
 import MaintenancePage from "./maintenance-page";
@@ -23,6 +24,10 @@ const themeInitScript = `
     root.classList.toggle("buck-theme-light", theme === "light");
     root.style.backgroundColor = theme === "dark" ? "#120d0a" : "#fff1d8";
     root.style.colorScheme = theme;
+    // Sidebar state before first paint, so a collapsed sidebar never slides
+    // shut on page load (dashboardheader.tsx reads the same key).
+    root.dataset.buckSidebar =
+      window.localStorage.getItem("buck:sidebar-collapsed") === "true" ? "collapsed" : "expanded";
   } catch {
     document.documentElement.dataset.buckTheme = "light";
     document.documentElement.classList.add("buck-theme-light");
@@ -60,10 +65,12 @@ export default async function RootLayout({
         {maintenanceMode ? (
           <MaintenancePage />
         ) : (
-          <ToastProvider>
-            <SessionManager />
-            {children}
-          </ToastProvider>
+          <MotionProvider>
+            <ToastProvider>
+              <SessionManager />
+              {children}
+            </ToastProvider>
+          </MotionProvider>
         )}
       </body>
     </html>

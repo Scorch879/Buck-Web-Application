@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import styles from "./WalletModal.module.css";
 import { motion } from "framer-motion";
+import { backdropMotion, panelMotion } from "@/utils/motion";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial } from "@/context/FinancialContext";
 import { usePointerGradient } from "@/hooks/usePointerGradient";
@@ -249,10 +250,7 @@ export default function WalletModal({
     <motion.div 
       className={styles.backdrop} 
       onClick={onClose}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
+      {...backdropMotion}
     >
       <motion.div 
         className={styles.modal} 
@@ -260,10 +258,7 @@ export default function WalletModal({
         aria-modal="true"
         aria-label="Manage wallets"
         onClick={(e) => e.stopPropagation()}
-        initial={{ y: 20, opacity: 0, scale: 0.95 }}
-        animate={{ y: 0, opacity: 1, scale: 1 }}
-        exit={{ y: 20, opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.2 }}
+        {...panelMotion}
       >
         <h2 className={styles.title}>Wallets</h2>
         <div className={styles.totalBudget}>

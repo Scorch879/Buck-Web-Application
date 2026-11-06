@@ -285,7 +285,7 @@ html[data-buck-theme="dark"] .advisor-card:focus-within {
 .advisor-card h3 {
   margin: 0;
   color: var(--buck-ink);
-  font-size: 1.15rem;
+  font-size: var(--buck-subcard-title-size);
   font-weight: 650;
   line-height: 1.2;
   letter-spacing: 0;

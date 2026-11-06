@@ -32,6 +32,7 @@ import {
   updatePassword,
   verifyCurrentPassword,
 } from "@/component/authentication";
+import FadeInImage from "@/component/FadeInImage";
 import ConnectedAppsSection from "@/component/ConnectedAppsSection";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import PasskeysSection from "@/component/mfa/PasskeysSection";
@@ -841,7 +842,7 @@ export default function SettingsPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(0.7rem, 1.4vw, 0.95rem)' }}>
           <div className="settings-account-card">
-            <img
+            <FadeInImage
               key={profile?.avatarUpdatedAt || profile?.avatarPath || "fallback"}
               src={hasAvatar ? privateAvatarSource : fallbackAvatarSource}
               alt=""
@@ -878,7 +879,7 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="settings-avatar-panel">
-                    <img
+                    <FadeInImage
                       key={profile?.avatarUpdatedAt || profile?.avatarPath || "fallback"}
                       src={hasAvatar ? privateAvatarSource : fallbackAvatarSource}
                       alt=""

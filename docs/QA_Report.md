@@ -153,6 +153,29 @@ Branch `feat/2fa-ui`. No API, middleware or migration changes. New files: `compo
 - Account deletion asks for a fresh code after 10 minutes.
 - Passkey add, rename, delete and sign-in (needs Passkeys on in the Supabase dashboard with the production RP ID).
 
+### 🎨 Motion, Scrollbar and Copy Uniformity (2026-11-06, ADR-054)
+
+Branch `maintenance-branch`. UI only; no API, data or migration changes.
+
+**Fixed**:
+- A collapsed sidebar opened and then slid shut on every page load (state read after hydration). The state is now set before first paint and the first sync is instant.
+- On mobile, a sidebar collapsed on desktop hid the "Buck" name in the top bar. The rail now collapses only on desktop.
+- The first sidebar toggle after each page load snapped instead of sliding: Framer read the start width from the DOM after `<html data-buck-sidebar>` had already moved the CSS width to the target. The width is now a motion value, and the header's "animating" flag can no longer get stuck (PR #254).
+- Goals: the "Time left" tile cut its value to "67 days ove…" (single line with an ellipsis). Goal facts now wrap. An overdue goal's "Save per day" says "Set a new date" instead of a bare dash, and the value weight is 700 (ADR-013).
+- Wallet: opening the Wallet tab first set the top-bar wallet pill to ₱0.00. `fetchWallets` ran before the active wallet id loaded and wrote a 0 budget into the shared cache. It now looks the id up first.
+- The sidebar profile picture swapped in over the initials, and on Settings it jumped and scaled when you hovered anywhere on the card. Photos now fade in once loaded, and hover only warms the ring.
+- Nine modals, two popovers and the mobile menu used different timings (0.15 to 0.2 s tweens, two springs, 10 to 20 px travel); the mobile menu had no animation. All now share `utils/motion.ts`, and reduced-motion users get fades without movement.
+- The AI chat used the browser's grey scrollbar; Goals and dropdowns had their own. One Buck scrollbar now covers every scroll area in light and dark themes, and the chat glides to new messages.
+- AI notes now say where the numbers come from in plain words: "This comes from your Buck expenses ... AI might be inaccurate, so check the amounts before acting." The Advisor's Detailed Analysis card always shows the note (also while loading, matching its skeleton). "Offline summary" now reads "Quick summary while AI is unavailable".
+- Heading weights (ADR-013): 14 card and modal titles at 750 to 900 are now 650; the page title is 700.
+- Heading sizes by role: section card titles on every tab use `--buck-card-title-size` (clamp 1.18 to 1.3rem; was 1.15 to 1.45rem) and cards inside them use `--buck-subcard-title-size` (1.05rem; was 1.0 to 1.15rem). Hero titles keep their larger clamp.
+- Plain chart and status labels: Statistics trend "Forecast/Actual" is now "Expected spending/What you spent"; Goals "Forecasted/Actual Daily Expense" is now "Expected spending/What you spent per day"; the Expenses wallet badge reads "Plenty left", "Under 35% left", "Under 15% left", "Empty" and "No wallet chosen" instead of "Healthy", "Caution (<35%)", "Critical (<15%)", "Depleted" and "No Wallet Selected".
+- Forecast chart legend and tooltip: "Likely" is now "Likely spending", "Low to high" is "Likely range, low to high", "Normal target" is "Spending target (Normal)", "Recurring" is "Recurring bill or payment". Skeleton legend widths match.
+- Home summary row for the grouped donut slice: "Others (Combined)" is now "All other categories" (one `OTHERS_ROW_LABEL` constant drives the label and the selection checks).
+- Performance follow-up (Buck | Security & Performance review): during the sidebar spring every chart resized and redrew each frame and the header repainted its 18px backdrop blur. Charts now use `resizeDelay: 100`, and the header drops the blur while it resizes. The chat's smooth scroll lagged behind streamed text; it now glides only for a new message.
+
+**Verified**: `tsc`, `eslint` (0 warnings), vitest 205/205. Public pages: the pre-paint script sets `data-buck-sidebar`, global scrollbar and fade styles load, and the console shows no errors. CI runs the production build on the PR.
+
 ### 🎨 Admin Dashboard UI Review (2026-11-03, PR #245 follow-up)
 
 UI only; the API route, migrations, `supabaseData.ts` and `FinancialContext` types are unchanged.
@@ -182,7 +205,7 @@ Branch `maintenance-branch`. UI only; no API, data or migration changes.
 
 **Verified** (dev server, signed in): hover tooltips on Statistics trend, budget donut and forecast; Goals forecast; Home pie. Light and dark themes; 375 px with no sideways scroll. `tsc`, `eslint` (0/0), vitest 192/192 and `next build` clean.
 
-**Still open**: card heading sizes and weights still range 0.96–1.6rem and 600–900 across tabs (ADR-013 drift); left for a separate pass.
+**Still open**: card heading sizes and weights still range 0.96–1.6rem and 600–900 across tabs (ADR-013 drift); left for a separate pass. *Fixed 2026-11-06: weights and sizes by role (ADR-054 entry above).*
 
 ### 🤖 Buck MCP Server (2026-10-24, ADR-050)
 
@@ -732,6 +755,17 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
 - **Verification (2026-10-31)**: `npm run lint` 0 problems, `npm run typecheck` clean, `npm test` 199/199 (7 new `forecastDisplay` tests), `npm run build` passes. Browser (signed in, local Buck_AI): 30 and 60 days render; Daily/Cumulative and tooltips (date, likely, 80% range, target in ₱); the explanation card switched from "Writing explanation…" to done without moving content above it; Refresh works and a second tap returns from the cooldown; with Buck_AI stopped the fallback cards render and 60 days is disabled; light and dark themes; 375 px wide with no sideways scroll. After merging 4d01c6a: the daily legend reads "Expected"; a second Refresh showed "Refresh at 2:17 PM" with an info toast and re-enabled itself at that time. That run, gemini-3.8 and 3.7 timed out at 12 s and gemini-3.6 returned truncated JSON ("Unterminated string"), so the explanation stayed rule-written.
 - **Follow-up (2026-11-01): friendly redesign.** Feedback: the page read like a model report (P10/P90, "80% range", "window", "Potential risks", a "Gemini" label) and put eight equal cards in front of the user. Now story first, details on demand: a story card ("Your next N days", the AI headline and explanation with a shimmer at reserved height while pending, "Likely ₱X, somewhere between ₱Y and ₱Z" with a low–high ribbon, confidence in words, "Written by AI from your Buck data. It can be wrong."), three tiles (month total; left over or short in green, amber, or Buck Coral only for a real shortfall; active wallet runway), one chart (Running total by default, Day by day toggle, Low/Likely/High wording), a soft amber Heads-up (max 2, a friendly logging nudge first), habit chips with icons, top 4 categories + Others, compact wallet rows, a goal strip and a closed "How this forecast works". The legacy `advisor-grid` block and every "Gemini" mention are gone (the explanation is now written by Groq, ADR-053). New helpers in `forecastDisplay.ts` replace `isRoughEstimate`/`confidencePercent`/`topCategories`/`splitForecastWarnings`; tests rewritten.
   - Verified 2026-11-01: lint (`--max-warnings=0`), typecheck, `npm test` 204/204, `npm run build` pass. Browser (signed in, local Buck_AI): story card, tiles, Running total/Day by day chart, Heads-up with the logging nudge first, habit chips, top 4 + Others, wallet rows, goal strip and "How this forecast works" render in dark and light; 375 px has no sideways scroll; with Buck_AI stopped the fallback story card and Heads-up render. The page text has no "Gemini", "P10", "P90", "window", "Monte Carlo" or "backtest".
+
+#### BUG-041: [RESOLVED 2026-11-07] Forecaster Gave Two Month Totals and Called Friday the Weekend
+- **Location**: [`Buck_AI/BuckAI_Forecast/forecast.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/forecast.py) (`build_forecast`, `_habits`), [`model.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/model.py) (`simulate`), [`prompts.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/prompts.py)
+- **Impact** (found on production 2026-11-03):
+  - "This month's likely total" read ₱2,346.47 on the 30-day view and ₱2,534.61 on the 60-day view for the same 27 days, and "left over" moved with it. The seed included the horizon and each view drew its own random futures. `target.restOfMonthTarget` (which feeds `aiRecommendedBudget`) was also the horizon's average × days left.
+  - `_habits` counted Friday as the weekend (`{4, 5, 6}`), so a Friday + Sunday spender got "Weekend spender" and Groq wrote "you spend more on weekends".
+- **Fix**:
+  - One seed for every horizon. The model simulates 60 days and cuts to the horizon (`model.head`), so the 30-day view is the first 30 days of the 60-day one. `restOfMonthTarget` is now the expected spend for the days left in the month × the attitude multiplier.
+  - Only Saturday + Sunday is "Weekend spender". Any other pair is named ("Fridays and Sundays are about 1.5x your usual day"), and the prompt tells the AI to say "weekend" only when a habit does.
+  - Found while testing: for a new user the day-by-day noise averaged out over a month (P90/P10 ≈ 1.28), so the "rough guess" band was barely wider than a settled user's. Each simulated path now also gets one level for the whole stretch when history is thin.
+- **Verification**: `python -m unittest` 91/91, including new tests that the 30- and 60-day views give identical `month`, `restOfMonthTarget`, window, category month totals and first-30-day running totals across three synthetic users, and that a Friday + Sunday spender is not called a weekend spender.
 
 ---
 

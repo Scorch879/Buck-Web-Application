@@ -476,22 +476,26 @@ html[data-buck-theme="dark"] .settings-card:focus-within {
 }
 
 .settings-card:hover .settings-card-heading > span,
-.settings-card:focus-within .settings-card-heading > span,
-.settings-account-card:hover .settings-account-icon,
-.settings-account-card:focus-within .settings-account-icon {
+.settings-card:focus-within .settings-card-heading > span {
   color: #241409;
   background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
   border-color: transparent;
   transform: translateY(-1px) rotate(-2deg);
 }
 
+/* Profile pictures never jump, tilt or scale on hover (ADR-054): hovering a
+   large card used to make the photo pop. Only the ring warms up. */
+.settings-account-card:hover .settings-account-icon,
+.settings-account-card:focus-within .settings-account-icon {
+  border-color: rgba(244, 117, 54, 0.5);
+}
+
 .settings-card--profile:hover .settings-avatar,
 .settings-card--profile:focus-within .settings-avatar {
   border-color: rgba(255, 197, 71, 0.72);
   box-shadow:
-    0 18px 36px rgba(255, 122, 51, 0.18),
-    0 0 0 6px rgba(255, 197, 71, 0.1);
-  transform: translateY(-3px) scale(1.03);
+    0 16px 34px rgba(94, 59, 34, 0.16),
+    0 0 0 4px rgba(255, 197, 71, 0.12);
 }
 
 .settings-button {
@@ -1569,7 +1573,7 @@ html[data-buck-theme="dark"] .feedback-category-card.active {
 .wallet-card-title {
   margin: 0;
   color: var(--buck-ink);
-  font-size: 1.15rem;
+  font-size: var(--buck-card-title-size);
   font-weight: 650;
   line-height: 1.25;
   letter-spacing: -0.01em;

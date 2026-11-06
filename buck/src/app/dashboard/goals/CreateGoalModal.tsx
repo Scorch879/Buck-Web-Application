@@ -4,6 +4,7 @@ import "./style.css";
 import CustomSelect from "@/component/CustomSelect";
 import CustomDatePicker from "@/component/CustomDatePicker";
 import { motion } from "framer-motion";
+import { backdropMotion, panelMotion } from "@/utils/motion";
 import type { BuckGoal } from "@/utils/supabaseData";
 
 type CreateGoalModalProps = {
@@ -49,20 +50,14 @@ const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreate
   return (
     <motion.div 
       className="modal-backdrop"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
+      {...backdropMotion}
     >
       <motion.div 
         className="modal-content"
         role="dialog"
         aria-modal="true"
         aria-label="Create a new goal"
-        initial={{ y: 20, opacity: 0, scale: 0.95 }}
-        animate={{ y: 0, opacity: 1, scale: 1 }}
-        exit={{ y: 20, opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.2 }}
+        {...panelMotion}
       >
         <button type="button" className="modal-close" onClick={onClose} aria-label="Close dialog">
           <span aria-hidden="true">×</span>

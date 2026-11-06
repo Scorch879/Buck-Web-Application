@@ -1,4 +1,10 @@
 :root {
+  /* Heading sizes by role: a tab's section card title, and a smaller card
+     inside it. Hero titles keep their own larger clamp. */
+  --buck-card-title-size: clamp(1.18rem, 2.2vw, 1.3rem);
+  --buck-subcard-title-size: 1.05rem;
+  --buck-scroll-thumb: rgba(244, 117, 54, 0.34);
+  --buck-scroll-thumb-hover: rgba(244, 117, 54, 0.62);
   --buck-ink: #2b2523;
   --buck-muted: #756d68;
   --buck-paper: #f4eee6;
@@ -41,6 +47,8 @@ html {
 }
 
 html[data-buck-theme="dark"] {
+  --buck-scroll-thumb: rgba(255, 197, 71, 0.28);
+  --buck-scroll-thumb-hover: rgba(255, 197, 71, 0.52);
   color-scheme: dark;
   --buck-ink: #fff8ed;
   --buck-muted: #d9c7b6;
@@ -100,6 +108,63 @@ body::-webkit-scrollbar {
   display: none;
   width: 0;
   height: 0;
+}
+
+/* One scrollbar for every scroll area (ADR-054), matching the AI chat: a
+   thin rounded Buck-orange thumb on a clear track that darkens on hover.
+   The page itself and full-screen modals keep their hidden scrollbars; their
+   own rules are more specific than these. Chromium and Safari use the
+   ::-webkit-scrollbar parts (they support the hover state); Firefox uses the
+   standard properties, which Chromium would otherwise let override them. */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--buck-scroll-thumb);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:active {
+  background-color: var(--buck-scroll-thumb-hover);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--buck-scroll-thumb) transparent;
+  }
+}
+
+/* Images that load after paint (profile pictures) fade in instead of
+   popping in. Set by component/FadeInImage.tsx. An animation, not a
+   transition, so it never clashes with a component's own transition list. */
+.buck-fade-img {
+  opacity: 0;
+}
+
+.buck-fade-img.is-loaded {
+  opacity: 1;
+  animation: buck-fade-in 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes buck-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 html[data-buck-theme="dark"] body {
