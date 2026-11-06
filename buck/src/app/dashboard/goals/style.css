@@ -389,12 +389,12 @@ html[data-buck-theme="dark"] .goals-card.selected {
 
 .goal-facts dd {
   margin: 0;
-  overflow: hidden;
   color: var(--buck-ink);
   font-size: 1rem;
-  font-weight: 800;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  font-weight: 700;
+  line-height: 1.25;
+  /* Wrap rather than cut a value off: "67 days overdue" must stay readable. */
+  overflow-wrap: anywhere;
 }
 
 .goal-fact--alert {
