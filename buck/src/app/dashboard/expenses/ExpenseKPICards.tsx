@@ -60,32 +60,32 @@ export default function ExpenseKPICards({
       color: "safe" | "warning" | "danger" | "neutral";
       icon: React.ReactNode;
     } = {
-      label: "Healthy",
+      label: "Plenty left",
       color: "safe",
       icon: <FaCheckCircle aria-hidden="true" />,
     };
 
     if (!activeWallet) {
       status = {
-        label: "No Wallet Selected",
+        label: "No wallet chosen",
         color: "neutral",
         icon: <FaInfoCircle aria-hidden="true" />,
       };
     } else if (walletBudget <= 0) {
       status = {
-        label: "Depleted",
+        label: "Empty",
         color: "danger",
         icon: <FaExclamationTriangle aria-hidden="true" />,
       };
     } else if (pctRemaining <= 15) {
       status = {
-        label: "Critical (<15%)",
+        label: "Under 15% left",
         color: "danger",
         icon: <FaExclamationTriangle aria-hidden="true" />,
       };
     } else if (pctRemaining <= 35) {
       status = {
-        label: "Caution (<35%)",
+        label: "Under 35% left",
         color: "warning",
         icon: <FaExclamationTriangle aria-hidden="true" />,
       };

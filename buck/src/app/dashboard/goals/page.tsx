@@ -535,7 +535,7 @@ const GoalsPage = () => {
       labels,
       datasets: [
         {
-          label: "Forecasted Daily Expense",
+          label: "Expected spending per day",
           data: forecastVals,
           borderColor: "#f47536",
           backgroundColor: "rgba(244,117,54,0.16)",
@@ -548,7 +548,7 @@ const GoalsPage = () => {
           borderWidth: 3,
         },
         {
-          label: "Actual Daily Expense",
+          label: "What you spent per day",
           data: actualVals,
           borderColor: "#ffc547",
           backgroundColor: "rgba(255,197,71,0.18)",

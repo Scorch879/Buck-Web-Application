@@ -84,7 +84,7 @@ export default function ExpensesSkeleton() {
       {/* ── LEFT COLUMN: KPI CARDS ── */}
       <section className="expenses-kpi-grid">
         <article className="expenses-kpi-card expenses-kpi-card--wallet">
-          <KpiHeader subtitle="Active Wallet" title="Wallet Balance" badge="Healthy" />
+          <KpiHeader subtitle="Active Wallet" title="Wallet Balance" badge="Plenty left" />
           <div className="expenses-kpi-primary-val">
             <strong className="skeleton-text">₱00,000.00</strong>
             <span className="expenses-kpi-subtext skeleton-text">00% remaining of initial capacity</span>

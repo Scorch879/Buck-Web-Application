@@ -165,6 +165,8 @@ Branch `maintenance-branch`. UI only; no API, data or migration changes.
 - The AI chat used the browser's grey scrollbar; Goals and dropdowns had their own. One Buck scrollbar now covers every scroll area in light and dark themes, and the chat glides to new messages.
 - AI notes now say where the numbers come from in plain words: "This comes from your Buck expenses ... AI might be inaccurate, so check the amounts before acting." The Advisor's Detailed Analysis card always shows the note (also while loading, matching its skeleton). "Offline summary" now reads "Quick summary while AI is unavailable".
 - Heading weights (ADR-013): 14 card and modal titles at 750 to 900 are now 650; the page title is 700.
+- Heading sizes by role: section card titles on every tab use `--buck-card-title-size` (clamp 1.18 to 1.3rem; was 1.15 to 1.45rem) and cards inside them use `--buck-subcard-title-size` (1.05rem; was 1.0 to 1.15rem). Hero titles keep their larger clamp.
+- Plain chart and status labels: Statistics trend "Forecast/Actual" is now "Expected spending/What you spent"; Goals "Forecasted/Actual Daily Expense" is now "Expected spending/What you spent per day"; the Expenses wallet badge reads "Plenty left", "Under 35% left", "Under 15% left", "Empty" and "No wallet chosen" instead of "Healthy", "Caution (<35%)", "Critical (<15%)", "Depleted" and "No Wallet Selected".
 
 **Verified**: `tsc`, `eslint` (0 warnings), vitest 205/205. Public pages: the pre-paint script sets `data-buck-sidebar`, global scrollbar and fade styles load, and the console shows no errors. CI runs the production build on the PR.
 
@@ -197,7 +199,7 @@ Branch `maintenance-branch`. UI only; no API, data or migration changes.
 
 **Verified** (dev server, signed in): hover tooltips on Statistics trend, budget donut and forecast; Goals forecast; Home pie. Light and dark themes; 375 px with no sideways scroll. `tsc`, `eslint` (0/0), vitest 192/192 and `next build` clean.
 
-**Still open**: card heading sizes and weights still range 0.96–1.6rem and 600–900 across tabs (ADR-013 drift); left for a separate pass. *Weights fixed 2026-11-06 (ADR-054 entry above); sizes still vary by card role.*
+**Still open**: card heading sizes and weights still range 0.96–1.6rem and 600–900 across tabs (ADR-013 drift); left for a separate pass. *Fixed 2026-11-06: weights and sizes by role (ADR-054 entry above).*
 
 ### 🤖 Buck MCP Server (2026-10-24, ADR-050)
 
