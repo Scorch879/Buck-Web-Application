@@ -168,6 +168,7 @@ Branch `maintenance-branch`. UI only; no API, data or migration changes.
 - Heading sizes by role: section card titles on every tab use `--buck-card-title-size` (clamp 1.18 to 1.3rem; was 1.15 to 1.45rem) and cards inside them use `--buck-subcard-title-size` (1.05rem; was 1.0 to 1.15rem). Hero titles keep their larger clamp.
 - Plain chart and status labels: Statistics trend "Forecast/Actual" is now "Expected spending/What you spent"; Goals "Forecasted/Actual Daily Expense" is now "Expected spending/What you spent per day"; the Expenses wallet badge reads "Plenty left", "Under 35% left", "Under 15% left", "Empty" and "No wallet chosen" instead of "Healthy", "Caution (<35%)", "Critical (<15%)", "Depleted" and "No Wallet Selected".
 - Forecast chart legend and tooltip: "Likely" is now "Likely spending", "Low to high" is "Likely range, low to high", "Normal target" is "Spending target (Normal)", "Recurring" is "Recurring bill or payment". Skeleton legend widths match.
+- Home summary row for the grouped donut slice: "Others (Combined)" is now "All other categories" (one `OTHERS_ROW_LABEL` constant drives the label and the selection checks).
 
 **Verified**: `tsc`, `eslint` (0 warnings), vitest 205/205. Public pages: the pre-paint script sets `data-buck-sidebar`, global scrollbar and fade styles load, and the console shows no errors. CI runs the production build on the PR.
 

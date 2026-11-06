@@ -26,6 +26,9 @@ import AIAdvisorPlaceholderCard from "./AIAdvisorPlaceholderCard";
 import { BUCK_PIE_PALETTE, CHART_THEME } from "./chartTheme";
 import "./style.css";
 
+// Summary row for the grouped donut slice ("Others" in the chart).
+const OTHERS_ROW_LABEL = "All other categories";
+
 type Category = BuckCategory;
 type Expense = BuckExpense;
 
@@ -304,7 +307,7 @@ function matchesCategoryFilter(
 ): boolean {
   if (!selectedCategory) return true;
   const cat = expenseCategory?.trim() || "Uncategorized";
-  if (selectedCategory === "Others" || selectedCategory === "Others (Combined)") {
+  if (selectedCategory === "Others" || selectedCategory === OTHERS_ROW_LABEL) {
     return !topCategoryNames.has(cat);
   }
   return cat.toLowerCase() === selectedCategory.toLowerCase();
@@ -567,7 +570,7 @@ export default function Dashboard() {
 
   const isSubCategoryOfOthers = useMemo(() => {
     if (!selectedCategory) return false;
-    if (selectedCategory === "Others" || selectedCategory === "Others (Combined)") return false;
+    if (selectedCategory === "Others" || selectedCategory === OTHERS_ROW_LABEL) return false;
     return !top4CategoryNames.has(selectedCategory);
   }, [selectedCategory, top4CategoryNames]);
 
@@ -585,7 +588,7 @@ export default function Dashboard() {
 
   const selectedCategoryAmount = useMemo(() => {
     if (!selectedCategory) return undefined;
-    if (selectedCategory === "Others" || selectedCategory === "Others (Combined)") {
+    if (selectedCategory === "Others" || selectedCategory === OTHERS_ROW_LABEL) {
       const othersSlice = categoryPieData.slices.find((s) => s.category === "Others");
       return othersSlice?.amount;
     }
@@ -609,7 +612,7 @@ export default function Dashboard() {
   // If timeframe changes and selected category no longer exists in current timeframe, reset it
   useEffect(() => {
     if (selectedCategory && pieExpenses.length > 0) {
-      if (selectedCategory === "Others" || selectedCategory === "Others (Combined)") {
+      if (selectedCategory === "Others" || selectedCategory === OTHERS_ROW_LABEL) {
         const hasOthers = categoryPieData.slices.some((s) => s.category === "Others");
         if (!hasOthers) setSelectedCategory(null);
       } else {
@@ -650,7 +653,7 @@ export default function Dashboard() {
 
   const summaryData = useMemo<SummaryTableItem[]>(() => {
     const isOthersSelection =
-      selectedCategory === "Others" || selectedCategory === "Others (Combined)";
+      selectedCategory === "Others" || selectedCategory === OTHERS_ROW_LABEL;
     const activeDayName = selectedDay ? (bucketFullNames[selectedDay] || selectedDay) : null;
 
     if (isOthersSelection) {
@@ -693,7 +696,7 @@ export default function Dashboard() {
 
       if (items.length === 0 && othersExpenses.length > 0) {
         items.push({
-          label: "Others (Combined)",
+          label: OTHERS_ROW_LABEL,
           amount: othersTotal,
           count: othersExpenses.length,
           percentage: 100,
