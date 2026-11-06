@@ -101,6 +101,9 @@ export default function DashboardHeader({
   // instant so a collapsed rail never slides shut on page load.
   const [sidebarReady, setSidebarReady] = useState(false);
   const [isDesktop, setIsDesktop] = useState(true);
+  // True while the width spring runs: the header drops its backdrop blur so
+  // the browser doesn't repaint the blur on every frame (ADR-054).
+  const [sidebarAnimating, setSidebarAnimating] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const user = useOptionalDashboardUser();
@@ -160,6 +163,7 @@ export default function DashboardHeader({
   const labelTransition = sidebarReady ? LABEL_TRANSITION : INSTANT;
 
   const toggleSidebar = () => {
+    setSidebarAnimating(true);
     setSidebarCollapsed((prev) => {
       const next = !prev;
       try {
@@ -279,12 +283,15 @@ export default function DashboardHeader({
     <motion.header
       className={`dashboard-header${
         railCollapsed ? " dashboard-header--collapsed" : ""
-      }${sidebarReady ? " dashboard-header--ready" : ""}`}
+      }${sidebarReady ? " dashboard-header--ready" : ""}${
+        sidebarAnimating ? " dashboard-header--animating" : ""
+      }`}
       initial={false}
       // No inline width until mounted: before that, CSS sizes the rail from
       // <html data-buck-sidebar>, set before first paint by the root layout.
       animate={mounted && isDesktop ? { width: railCollapsed ? 80 : 250 } : undefined}
       transition={sidebarTransition}
+      onAnimationComplete={() => setSidebarAnimating(false)}
     >
       <div className="dashboard-header-inner">
         <button

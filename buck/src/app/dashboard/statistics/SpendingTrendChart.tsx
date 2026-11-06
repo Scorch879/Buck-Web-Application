@@ -200,6 +200,7 @@ export default function SpendingTrendChart({
         plugins={[budgetMarker]}
         options={{
           maintainAspectRatio: false,
+          resizeDelay: 100,
           animation: { duration: 300 },
           layout: { padding: { top: 10, right: 4, left: 0, bottom: 0 } },
           plugins: {

@@ -984,6 +984,7 @@ const GoalsPage = () => {
                   options={{
                     responsive: true,
                     maintainAspectRatio: false,
+                    resizeDelay: 100,
                     interaction: { mode: "index", intersect: false },
                     plugins: {
                       legend: {

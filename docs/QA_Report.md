@@ -169,6 +169,7 @@ Branch `maintenance-branch`. UI only; no API, data or migration changes.
 - Plain chart and status labels: Statistics trend "Forecast/Actual" is now "Expected spending/What you spent"; Goals "Forecasted/Actual Daily Expense" is now "Expected spending/What you spent per day"; the Expenses wallet badge reads "Plenty left", "Under 35% left", "Under 15% left", "Empty" and "No wallet chosen" instead of "Healthy", "Caution (<35%)", "Critical (<15%)", "Depleted" and "No Wallet Selected".
 - Forecast chart legend and tooltip: "Likely" is now "Likely spending", "Low to high" is "Likely range, low to high", "Normal target" is "Spending target (Normal)", "Recurring" is "Recurring bill or payment". Skeleton legend widths match.
 - Home summary row for the grouped donut slice: "Others (Combined)" is now "All other categories" (one `OTHERS_ROW_LABEL` constant drives the label and the selection checks).
+- Performance follow-up (Buck | Security & Performance review): during the sidebar spring every chart resized and redrew each frame and the header repainted its 18px backdrop blur. Charts now use `resizeDelay: 100`, and the header drops the blur while it resizes. The chat's smooth scroll lagged behind streamed text; it now glides only for a new message.
 
 **Verified**: `tsc`, `eslint` (0 warnings), vitest 205/205. Public pages: the pre-paint script sets `data-buck-sidebar`, global scrollbar and fade styles load, and the console shows no errors. CI runs the production build on the PR.
 

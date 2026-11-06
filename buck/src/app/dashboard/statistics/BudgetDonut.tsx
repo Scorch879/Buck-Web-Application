@@ -60,6 +60,7 @@ export default function BudgetDonut({ spent, budget }: BudgetDonutProps) {
         options={{
           cutout: "74%",
           maintainAspectRatio: false,
+          resizeDelay: 100,
           // Room for the hover offset so the lifted arc is never clipped.
           layout: { padding: 6 },
           plugins: {
