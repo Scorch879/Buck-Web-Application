@@ -113,7 +113,7 @@ html[data-buck-theme="dark"] .goals-pill--completed {
 .goals-sidebar-header h2 {
   margin: 0.12rem 0 0;
   color: var(--buck-ink);
-  font-size: 1.25rem;
+  font-size: var(--buck-card-title-size);
   font-weight: 650;
   line-height: 1.2;
 }
@@ -487,7 +487,7 @@ html[data-buck-theme="dark"] .ai-recommendation {
 .goal-expenses-header h3 {
   margin: 0;
   color: var(--buck-ink);
-  font-size: 1rem;
+  font-size: var(--buck-subcard-title-size);
   font-weight: 650;
 }
 

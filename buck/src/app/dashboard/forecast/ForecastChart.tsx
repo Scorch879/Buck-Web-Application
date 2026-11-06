@@ -46,7 +46,7 @@ export default function ForecastChart({ forecast }: { forecast: BuckForecast }) 
   const showTarget = target.multiplier !== 1;
   const pick = (key: "p10" | "p50" | "p90") =>
     days.map((d) => (cumulative ? d.cumulative[key] : d[key]));
-  const centreLabel = "Likely";
+  const centreLabel = "Likely spending";
   const centreValues = cumulative ? pick("p50") : days.map((d) => d.expected);
   const targetValues = days.map((_, i) => (cumulative ? target.dailyTarget * (i + 1) : target.dailyTarget));
   const hasRecurring = days.map((d) => d.recurring.length > 0);
@@ -88,7 +88,7 @@ export default function ForecastChart({ forecast }: { forecast: BuckForecast }) 
     ...(showTarget
       ? [
           {
-            label: "Attitude target",
+            label: "Spending target",
             data: targetValues,
             borderColor: targetColor,
             borderWidth: 1.5,
@@ -109,7 +109,7 @@ export default function ForecastChart({ forecast }: { forecast: BuckForecast }) 
       return `Low ${formatCurrency(band.p10)}, high ${formatCurrency(band.p90)}`;
     }
     if (ctx.datasetIndex === 2) return `${centreLabel}: ${formatCurrency(centreValues[ctx.dataIndex])}`;
-    return `${target.attitude} target: ${formatCurrency(Number(ctx.raw))}`;
+    return `Spending target (${target.attitude}): ${formatCurrency(Number(ctx.raw))}`;
   };
 
   return (
@@ -132,12 +132,12 @@ export default function ForecastChart({ forecast }: { forecast: BuckForecast }) 
       </div>
       <div className="forecast-legend" aria-hidden="true">
           <span><i className="forecast-legend-swatch forecast-legend-swatch--line" />{centreLabel}</span>
-          <span><i className="forecast-legend-swatch forecast-legend-swatch--band" />Low to high</span>
+          <span><i className="forecast-legend-swatch forecast-legend-swatch--band" />Likely range, low to high</span>
           {showTarget && (
-            <span><i className="forecast-legend-swatch forecast-legend-swatch--target" />{target.attitude} target</span>
+            <span><i className="forecast-legend-swatch forecast-legend-swatch--target" />Spending target ({target.attitude})</span>
           )}
           {hasRecurring.some(Boolean) && (
-            <span><i className="forecast-legend-swatch forecast-legend-swatch--marker" />Recurring</span>
+            <span><i className="forecast-legend-swatch forecast-legend-swatch--marker" />Recurring bill or payment</span>
           )}
       </div>
 
