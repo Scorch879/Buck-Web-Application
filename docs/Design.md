@@ -1525,3 +1525,4 @@ Buck-Web-Application/
   - New motion code imports from `@/utils/motion` instead of writing its own timing.
   - New scroll areas get the Buck scrollbar with no extra CSS.
   - Framer Motion stays the only animation library; no new dependency.
+  - Performance (Buck | Security & Performance review, 2026-11-06): the width spring re-lays out `.dashboard-main` each frame, so every Chart.js chart sets `resizeDelay: 100` (one redraw after the resize settles), and the header swaps its backdrop blur for a solid background while `dashboard-header--animating` is set. The AI chat glides only when a message is added; streamed text follows with instant scrolling.

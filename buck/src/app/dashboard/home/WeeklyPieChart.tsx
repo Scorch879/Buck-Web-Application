@@ -524,6 +524,7 @@ export default function WeeklyPieChart({
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    resizeDelay: 100,
     layout: {
       // Sized from the measured callout labels so the pie keeps the largest radius
       // that still leaves room for every label (replaces fixed 70px / 44px padding).

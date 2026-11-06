@@ -148,6 +148,7 @@ export default function ForecastChart({ forecast }: { forecast: BuckForecast }) 
           data={{ labels: days.map((d) => formatShortDate(d.date)), datasets }}
           options={{
             maintainAspectRatio: false,
+            resizeDelay: 100,
             animation: { duration: 300 },
             interaction: { mode: "index", intersect: false },
             layout: { padding: { top: 8, right: 4, left: 0, bottom: 0 } },

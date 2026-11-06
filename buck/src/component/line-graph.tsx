@@ -72,6 +72,7 @@ const WeeklySpendingChart: React.FC<WeeklySpendingChartProps> = ({ data, yMax })
       }}
       options={{
         responsive: true,
+        resizeDelay: 100,
         plugins: { legend: { display: false } },
         scales: {
           x: { grid: { display: false }, ticks: { color: chartText } },

@@ -131,13 +131,17 @@ export default function AIChat({ variant = "card", onClose, onReplyDone }: AICha
     if (!value) el.value = value;
   }, [draft, isPanel]);
 
-  // Keep the newest text in view while streaming. Glide rather than jump,
-  // unless the reader asked their OS for less motion.
+  // Keep the newest text in view. A new message glides into view; streamed
+  // text follows instantly, because a smooth scroll retargeted on every chunk
+  // falls behind the text. Reduced motion always jumps.
+  const lastMessageCount = useRef(0);
   useEffect(() => {
     const log = logRef.current;
     if (!log) return;
+    const added = messages.length !== lastMessageCount.current;
+    lastMessageCount.current = messages.length;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    log.scrollTo({ top: log.scrollHeight, behavior: reduceMotion ? "auto" : "smooth" });
+    log.scrollTo({ top: log.scrollHeight, behavior: added && !reduceMotion ? "smooth" : "auto" });
   }, [messages]);
 
   const patch = (id: string, update: (m: ChatMessage) => ChatMessage) =>

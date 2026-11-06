@@ -43,6 +43,17 @@ html[data-buck-theme="dark"] .dashboard-header {
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
 }
 
+/* While the sidebar resizes, a solid background replaces the blur so it
+   isn't repainted every frame (ADR-054). */
+.dashboard-header--animating {
+  background: #fffaf4;
+  backdrop-filter: none;
+}
+
+html[data-buck-theme="dark"] .dashboard-header--animating {
+  background: #17100c;
+}
+
 .dashboard-header-inner {
   height: 100%;
   padding: clamp(0.85rem, 1.5vw, 1.15rem);

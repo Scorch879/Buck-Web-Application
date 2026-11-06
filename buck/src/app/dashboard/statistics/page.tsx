@@ -971,6 +971,7 @@ const Statistics = () => {
                   data={forecastChart.data}
                   options={{
                     maintainAspectRatio: false,
+                    resizeDelay: 100,
                     interaction: { mode: "index", intersect: false },
                     plugins: {
                       legend: {
