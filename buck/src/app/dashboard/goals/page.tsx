@@ -801,9 +801,13 @@ const GoalsPage = () => {
                   <div>
                     <dt>Save per day</dt>
                     <dd>
-                      {detail.perDay !== null && !detail.isComplete
-                        ? formatCurrency(detail.perDay)
-                        : "—"}
+                      {detail.isComplete
+                        ? "—"
+                        : detail.perDay !== null
+                          ? formatCurrency(detail.perDay)
+                          : detail.daysLeft !== null && detail.daysLeft < 0
+                            ? "Set a new date"
+                            : "—"}
                     </dd>
                   </div>
                   <div>
