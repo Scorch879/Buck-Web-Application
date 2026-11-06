@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, animate, motion, useMotionValue } from "framer-motion";
 import {
   FaAngleDoubleLeft,
   FaBars,
@@ -104,6 +104,11 @@ export default function DashboardHeader({
   // True while the width spring runs: the header drops its backdrop blur so
   // the browser doesn't repaint the blur on every frame (ADR-054).
   const [sidebarAnimating, setSidebarAnimating] = useState(false);
+  // The rail width lives in a motion value so every toggle springs from the
+  // width on screen. Reading it from the DOM instead made the first toggle
+  // after a page load snap: <html data-buck-sidebar> flips first and the CSS
+  // width is already at the target before the animation starts.
+  const railWidth = useMotionValue(250);
   const router = useRouter();
   const pathname = usePathname();
   const user = useOptionalDashboardUser();
@@ -136,6 +141,7 @@ export default function DashboardHeader({
     try {
       const saved = window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
       setSidebarCollapsed(saved);
+      railWidth.set(saved ? 80 : 250);
       document.documentElement.dataset.buckSidebar = saved ? "collapsed" : "expanded";
     } catch {
       // Ignore storage access errors
@@ -155,12 +161,28 @@ export default function DashboardHeader({
       cancelAnimationFrame(frame);
       desktop.removeEventListener("change", syncDesktop);
     };
-  }, []);
+    // railWidth is a stable motion value; this still runs once.
+  }, [railWidth]);
 
   // The rail only collapses on desktop; the mobile bar always shows the brand.
   const railCollapsed = sidebarCollapsed && isDesktop;
   const sidebarTransition = sidebarReady ? SPRING : INSTANT;
   const labelTransition = sidebarReady ? LABEL_TRANSITION : INSTANT;
+
+  useEffect(() => {
+    if (!mounted || !isDesktop) return;
+    const target = railCollapsed ? 80 : 250;
+    if (!sidebarReady) {
+      railWidth.set(target);
+      setSidebarAnimating(false);
+      return;
+    }
+    const controls = animate(railWidth, target, {
+      ...SPRING,
+      onComplete: () => setSidebarAnimating(false),
+    });
+    return () => controls.stop();
+  }, [mounted, isDesktop, railCollapsed, sidebarReady, railWidth]);
 
   const toggleSidebar = () => {
     setSidebarAnimating(true);
@@ -286,12 +308,9 @@ export default function DashboardHeader({
       }${sidebarReady ? " dashboard-header--ready" : ""}${
         sidebarAnimating ? " dashboard-header--animating" : ""
       }`}
-      initial={false}
       // No inline width until mounted: before that, CSS sizes the rail from
       // <html data-buck-sidebar>, set before first paint by the root layout.
-      animate={mounted && isDesktop ? { width: railCollapsed ? 80 : 250 } : undefined}
-      transition={sidebarTransition}
-      onAnimationComplete={() => setSidebarAnimating(false)}
+      style={mounted && isDesktop ? { width: railWidth } : undefined}
     >
       <div className="dashboard-header-inner">
         <button
