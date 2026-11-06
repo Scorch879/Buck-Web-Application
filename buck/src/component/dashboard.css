@@ -214,7 +214,7 @@ html[data-buck-theme="dark"] .dashboard-topbar--welcome {
 .dashboard-topbar h1 {
   margin: 0;
   font-size: clamp(1.2rem, 2.2vw, 1.5rem);
-  font-weight: 900;
+  font-weight: 700;
   line-height: 1.18;
   letter-spacing: -0.02em;
   white-space: nowrap;
@@ -477,10 +477,19 @@ html[data-buck-theme="dark"] .dashboard-account-tray--mobile:focus-visible:not(:
   overflow: hidden;
 }
 
+.dashboard-account-avatar {
+  position: relative;
+}
+
+/* The photo sits over the initials and fades in once it has loaded
+   (FadeInImage), so the avatar never swaps content or "pops" (ADR-054). */
 .dashboard-avatar-img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  background: var(--buck-paper);
   border-radius: 50%;
 }
 
@@ -588,36 +597,51 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
   justify-content: center;
 }
 
-/* Collapsed Left Sidebar Rail Mode (Desktop > 1024px) */
+/* Collapsed Left Sidebar Rail Mode (Desktop > 1024px).
+   Keyed off <html data-buck-sidebar>, which the root layout sets before first
+   paint, so a collapsed rail renders collapsed from the first frame instead of
+   sliding shut after hydration. */
 @media (min-width: 1025px) {
-  .dashboard-header--collapsed .dashboard-header-inner {
+  html[data-buck-sidebar="collapsed"] .dashboard-header {
+    width: 80px;
+  }
+
+  /* Until the header has synced its state, hide the labels a collapsed rail
+     would not show (they exit instantly once React takes over). */
+  html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .nav-button-label,
+  html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .dashboard-brand-copy,
+  html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .dashboard-account-copy {
+    display: none;
+  }
+
+  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-header-inner {
     padding: 0.85rem 0.45rem;
     align-items: center;
   }
 
-  .dashboard-header--collapsed .dashboard-brand {
+  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-brand {
     justify-content: center;
     gap: 0;
     padding: 0.25rem;
     width: 100%;
   }
 
-  .dashboard-header--collapsed .dashboard-mascot {
+  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-mascot {
     width: 46px;
     height: 46px;
   }
 
-  .dashboard-header--collapsed .dashboard-mascot-img {
+  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-mascot-img {
     top: 9px;
     width: 36px;
     height: 52px;
   }
 
-  .dashboard-header--collapsed .dashboard-nav {
+  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-nav {
     align-items: center;
   }
 
-  .dashboard-header--collapsed .nav-button {
+  html[data-buck-sidebar="collapsed"] .dashboard-header .nav-button {
     justify-content: center;
     gap: 0;
     width: 46px;
@@ -626,16 +650,16 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
     margin: 0 auto;
   }
 
-  .dashboard-header--collapsed .nav-button-icon {
+  html[data-buck-sidebar="collapsed"] .dashboard-header .nav-button-icon {
     font-size: 1.08rem;
   }
 
-  .dashboard-header--collapsed .nav-button::after {
+  html[data-buck-sidebar="collapsed"] .dashboard-header .nav-button::after {
     left: 0.55rem;
     right: 0.55rem;
   }
 
-  .dashboard-header--collapsed .dashboard-account-tray {
+  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-account-tray {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -646,7 +670,7 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
     padding: 0.7rem 0.35rem;
   }
 
-  .dashboard-header--collapsed .dashboard-account-controls {
+  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-account-controls {
     flex-direction: column;
     gap: 0.38rem;
   }

@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { backdropMotion, panelMotion } from "@/utils/motion";
 import { FaChevronRight, FaExclamationTriangle, FaTrash } from "react-icons/fa";
 import styles from "./DangerDeleteDialog.module.css";
 
@@ -93,10 +94,7 @@ export default function DangerDeleteDialog({
       {open && (
         <motion.div
           className={styles.backdrop}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.18 }}
+          {...backdropMotion}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) cancel();
           }}
@@ -109,10 +107,7 @@ export default function DangerDeleteDialog({
             role="alertdialog"
             aria-modal="true"
             aria-labelledby={titleId}
-            initial={{ y: 16, opacity: 0, scale: 0.97 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 16, opacity: 0, scale: 0.97 }}
-            transition={{ duration: 0.18 }}
+            {...panelMotion}
           >
             <div className={styles.header}>
               <span className={styles.headerIcon} aria-hidden="true">

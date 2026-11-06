@@ -2197,7 +2197,7 @@ html[data-buck-theme="dark"] .summary-filter-back-btn {
   margin: 0.1rem 0 0.25rem;
   color: var(--buck-ink);
   font-size: clamp(1.2rem, 2.4vw, 1.5rem);
-  font-weight: 750;
+  font-weight: 650;
   line-height: 1.25;
 }
 
@@ -2349,7 +2349,7 @@ html[data-buck-theme="dark"] .home-ai-card:hover {
   margin: 0;
   color: var(--buck-ink);
   font-size: 1.05rem;
-  font-weight: 750;
+  font-weight: 650;
   line-height: 1.25;
 }
 

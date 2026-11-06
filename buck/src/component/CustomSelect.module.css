@@ -158,16 +158,6 @@ html[data-buck-theme="dark"] .dropdown {
   margin: 0;
   padding: 0.25rem;
   list-style: none;
-  scrollbar-width: thin;
-}
-
-.list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.list::-webkit-scrollbar-thumb {
-  background: rgba(244, 117, 54, 0.3);
-  border-radius: 4px;
 }
 
 .option {

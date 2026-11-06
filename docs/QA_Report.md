@@ -153,6 +153,21 @@ Branch `feat/2fa-ui`. No API, middleware or migration changes. New files: `compo
 - Account deletion asks for a fresh code after 10 minutes.
 - Passkey add, rename, delete and sign-in (needs Passkeys on in the Supabase dashboard with the production RP ID).
 
+### 🎨 Motion, Scrollbar and Copy Uniformity (2026-11-06, ADR-054)
+
+Branch `maintenance-branch`. UI only; no API, data or migration changes.
+
+**Fixed**:
+- A collapsed sidebar opened and then slid shut on every page load (state read after hydration). The state is now set before first paint and the first sync is instant.
+- On mobile, a sidebar collapsed on desktop hid the "Buck" name in the top bar. The rail now collapses only on desktop.
+- The sidebar profile picture swapped in over the initials, and on Settings it jumped and scaled when you hovered anywhere on the card. Photos now fade in once loaded, and hover only warms the ring.
+- Nine modals, two popovers and the mobile menu used different timings (0.15 to 0.2 s tweens, two springs, 10 to 20 px travel); the mobile menu had no animation. All now share `utils/motion.ts`, and reduced-motion users get fades without movement.
+- The AI chat used the browser's grey scrollbar; Goals and dropdowns had their own. One Buck scrollbar now covers every scroll area in light and dark themes, and the chat glides to new messages.
+- AI notes now say where the numbers come from in plain words: "This comes from your Buck expenses ... AI might be inaccurate, so check the amounts before acting." The Advisor's Detailed Analysis card always shows the note (also while loading, matching its skeleton). "Offline summary" now reads "Quick summary while AI is unavailable".
+- Heading weights (ADR-013): 14 card and modal titles at 750 to 900 are now 650; the page title is 700.
+
+**Verified**: `tsc`, `eslint` (0 warnings), vitest 205/205. Public pages: the pre-paint script sets `data-buck-sidebar`, global scrollbar and fade styles load, and the console shows no errors. CI runs the production build on the PR.
+
 ### 🎨 Admin Dashboard UI Review (2026-11-03, PR #245 follow-up)
 
 UI only; the API route, migrations, `supabaseData.ts` and `FinancialContext` types are unchanged.
@@ -182,7 +197,7 @@ Branch `maintenance-branch`. UI only; no API, data or migration changes.
 
 **Verified** (dev server, signed in): hover tooltips on Statistics trend, budget donut and forecast; Goals forecast; Home pie. Light and dark themes; 375 px with no sideways scroll. `tsc`, `eslint` (0/0), vitest 192/192 and `next build` clean.
 
-**Still open**: card heading sizes and weights still range 0.96–1.6rem and 600–900 across tabs (ADR-013 drift); left for a separate pass.
+**Still open**: card heading sizes and weights still range 0.96–1.6rem and 600–900 across tabs (ADR-013 drift); left for a separate pass. *Weights fixed 2026-11-06 (ADR-054 entry above); sizes still vary by card role.*
 
 ### 🤖 Buck MCP Server (2026-10-24, ADR-050)
 

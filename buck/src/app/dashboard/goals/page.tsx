@@ -4,6 +4,7 @@ import CustomSelect from "@/component/CustomSelect";
 import CustomDatePicker from "@/component/CustomDatePicker";
 import { useToast } from "@/component/toast/ToastContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { backdropMotion, panelMotion } from "@/utils/motion";
 import "./style.css";
 import "./progress-bar.css";
 import { useRouter } from "next/navigation";
@@ -1225,17 +1226,11 @@ const GoalsPage = () => {
         {showProgressModal && progressGoal && (
           <motion.div
             className="modal-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            {...backdropMotion}
           >
             <motion.div
               className="modal"
-              initial={{ y: 20, opacity: 0, scale: 0.95 }}
-              animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: 20, opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.2 }}
+              {...panelMotion}
             >
               <h3>Add Progress to {progressGoal.goalName}</h3>
               <input
@@ -1272,10 +1267,7 @@ const GoalsPage = () => {
         {showErrorModal && (
           <motion.div
             className="modal-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            {...backdropMotion}
             style={{
               position: "fixed",
               top: 0,
@@ -1294,10 +1286,7 @@ const GoalsPage = () => {
                 role="alertdialog"
                 aria-modal="true"
                 aria-label="Action not allowed"
-                initial={{ y: 20, opacity: 0, scale: 0.95 }}
-                animate={{ y: 0, opacity: 1, scale: 1 }}
-                exit={{ y: 20, opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
+                {...panelMotion}
                 style={{
               background: modalBackground,
               color: "var(--buck-ink)",

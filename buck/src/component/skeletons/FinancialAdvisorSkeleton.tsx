@@ -107,7 +107,7 @@ export default function FinancialAdvisorSkeleton() {
             <span className="skeleton-line" style={{ width: "64%", height: 13 }} />
           </div>
           <p className="advisor-footnote">
-            <span className="skeleton-text">Figures cover Oct 1–Oct 00 this month and your last 30 days of expenses.</span>
+            <span className="skeleton-text">Figures cover Oct 1–Oct 00 this month and your last 30 days of expenses. AI might be inaccurate, so check the amounts before acting.</span>
           </p>
         </section>
       </div>

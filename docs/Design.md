@@ -1510,3 +1510,18 @@ Buck-Web-Application/
   - The explanation usually lands about a second after the numbers. Every failure still ends in the rule-written text.
   - New secret `GROQ_API_KEY`, set only in the Buck_AI Vercel project and its local `.env`. Never in the web app.
   - Two AI vendors to watch. Groq's free limits change, so `GROQ_MODELS` can swap models without a code change.
+
+### ADR-054: One Motion and Scrollbar System
+
+- **Status**: Implemented 2026-11-06 in [`utils/motion.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/motion.ts), [`component/MotionProvider.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/MotionProvider.tsx), [`component/FadeInImage.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/FadeInImage.tsx) and [`app/globals.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/globals.css). UI only; no migration.
+- **Context**: Every modal had its own timing (0.15 to 0.2 s tweens, two different springs, travel from 10 to 20 px). A collapsed sidebar rendered open and then slid shut on every page load, because the saved state was read after hydration. The profile picture swapped in over the initials and, on Settings, jumped and scaled when you hovered anywhere on the card. The AI chat used the browser's grey scrollbar while dropdowns and Goals used their own orange ones.
+- **Decision**:
+  1. `utils/motion.ts` holds the shared values: `EASE_OUT`, `EASE_IN`, `DURATION` (0.16 / 0.22 / 0.32 s), one `SPRING` (stiffness 380, damping 34, mass 0.8), and the presets `backdropMotion`, `panelMotion` (rise 12 px, scale from 0.97) and `popoverMotion` (drop 6 px). Opening eases out or uses the spring; closing is shorter and eases in. All modals, `CustomSelect`, `CustomDatePicker` and the mobile menu spread these presets.
+  2. `MotionProvider` wraps the app in `MotionConfig reducedMotion="user"`, so people who ask their OS for less motion keep the fades but lose the movement.
+  3. The root layout's pre-paint script also sets `<html data-buck-sidebar>`. The collapsed rail CSS keys off that attribute, the header renders no inline width until mounted, and its first state sync uses an instant transition. The spring turns on two frames later (`dashboard-header--ready`). The rail only collapses on desktop, so the mobile bar always shows the brand.
+  4. Profile pictures render through `FadeInImage`: the photo sits over the initials and fades in (an animation, so it never fights a component's own `transition`) once it has loaded. Hover never moves or scales a profile picture.
+  5. One scrollbar in `globals.css` for every scroll area: 8 px, clear track, rounded Buck-orange thumb (gold on dark) that darkens on hover, via `--buck-scroll-thumb` tokens. Firefox gets the standard `scrollbar-color`. The page and full-screen modals keep their hidden scrollbars. Local scrollbar rules in Goals and `CustomSelect` were removed.
+- **Consequences**:
+  - New motion code imports from `@/utils/motion` instead of writing its own timing.
+  - New scroll areas get the Buck scrollbar with no extra CSS.
+  - Framer Motion stays the only animation library; no new dependency.

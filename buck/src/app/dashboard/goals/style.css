@@ -114,7 +114,7 @@ html[data-buck-theme="dark"] .goals-pill--completed {
   margin: 0.12rem 0 0;
   color: var(--buck-ink);
   font-size: 1.25rem;
-  font-weight: 800;
+  font-weight: 650;
   line-height: 1.2;
 }
 
@@ -127,19 +127,6 @@ html[data-buck-theme="dark"] .goals-pill--completed {
   margin: 0 -0.25rem;
   padding: 0.25rem;
   overflow-y: auto;
-}
-
-.goals-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.goals-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.goals-list::-webkit-scrollbar-thumb {
-  background: rgba(244, 117, 54, 0.32);
-  border-radius: 999px;
 }
 
 .goals-card {
@@ -350,7 +337,7 @@ html[data-buck-theme="dark"] .goals-card.selected {
   overflow: hidden;
   color: var(--buck-ink);
   font-size: clamp(1.3rem, 2.4vw, 1.6rem);
-  font-weight: 850;
+  font-weight: 650;
   line-height: 1.2;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -501,7 +488,7 @@ html[data-buck-theme="dark"] .ai-recommendation {
   margin: 0;
   color: var(--buck-ink);
   font-size: 1rem;
-  font-weight: 800;
+  font-weight: 650;
 }
 
 .goal-expenses-empty {
@@ -586,7 +573,7 @@ html[data-buck-theme="dark"] .goals-forecast-modal {
   margin: 0.12rem 0 0;
   color: var(--buck-ink);
   font-size: 1.2rem;
-  font-weight: 800;
+  font-weight: 650;
 }
 
 .goals-modal-close {
@@ -787,7 +774,7 @@ html[data-buck-theme="dark"] .goals-segmented-btn[aria-pressed="true"] {
   margin: 0 0 1.4rem;
   color: var(--buck-ink);
   font-size: clamp(1.55rem, 4vw, 2rem);
-  font-weight: 900;
+  font-weight: 650;
 }
 
 .create-goal-success {
