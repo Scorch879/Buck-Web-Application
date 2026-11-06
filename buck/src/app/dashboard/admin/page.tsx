@@ -461,11 +461,14 @@ export default function AdminPage() {
   }
 
   const totalAdvisories = telemetry?.buckAi.advisories_total ?? 0;
+  // AI-written advice counts both models: Gemini first, Groq as its fallback.
+  const aiAdvisories = telemetry?.buckAi.advisories_ai ?? 0;
   const geminiAdvisories = telemetry?.buckAi.advisories_gemini ?? 0;
+  const groqAdvisories = telemetry?.buckAi.advisories_groq ?? 0;
   const rulesAdvisories = telemetry?.buckAi.advisories_rules ?? 0;
-  const geminiSharePct =
+  const aiSharePct =
     totalAdvisories > 0
-      ? Math.round((geminiAdvisories / totalAdvisories) * 100)
+      ? Math.round((aiAdvisories / totalAdvisories) * 100)
       : 0;
   const activeModelSet = new Set(
     (telemetry?.buckAi.model_breakdown ?? []).map((m) => m.model_name)
@@ -777,16 +780,16 @@ export default function AdminPage() {
                       <div className="admin-kpi-card">
                         <div className="admin-kpi-top">
                           <span className="admin-kpi-label">
-                            Gemini vs. Rules
+                            Written by AI
                           </span>
                           <span className="admin-kpi-icon">
                             <FaCheckCircle aria-hidden="true" />
                           </span>
                         </div>
-                        <div className="admin-kpi-value">{geminiSharePct}%</div>
+                        <div className="admin-kpi-value">{aiSharePct}%</div>
                         <div className="admin-kpi-sub">
-                          {geminiAdvisories} LLM · {rulesAdvisories} deterministic
-                          rules
+                          {geminiAdvisories} Gemini · {groqAdvisories} Groq ·{" "}
+                          {rulesAdvisories} from fixed rules
                         </div>
                       </div>
 
