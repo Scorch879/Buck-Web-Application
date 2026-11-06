@@ -15,7 +15,7 @@ import numpy as np
 from shared.money import ATTITUDES, SPEND_MULTIPLIER, month_bounds, peso
 
 from .model import (BACKTEST_DAYS, MIN_DAYS, MIN_EXPENSES, SIMULATIONS, WINDOWS, Expense, Income,
-                    backtest, find_outliers, find_recurring, first_day, fit, recurring_dates, seed_for,
+                    backtest, find_outliers, find_recurring, first_day, fit, head, recurring_dates, seed_for,
                     simulate)
 
 HORIZONS = (30, 60)
@@ -59,12 +59,15 @@ def build_forecast(h: History, horizon: int = 30) -> dict[str, Any]:
     recurring = find_recurring(past, today, outliers)
     usual = [e for i, e in enumerate(past) if i not in outliers]  # one-offs left out of trends
     skip = outliers | {m for r in recurring for m in r.members}
-    seed = seed_for(today.isoformat(), horizon, sorted((e.day.isoformat(), e.amount, e.category) for e in past))
+    # One seed and one simulated stretch for every horizon, cut to length: the 30- and
+    # 60-day views share their first 30 days, so this month's figures match in both.
+    seed = seed_for(today.isoformat(), sorted((e.day.isoformat(), e.amount, e.category) for e in past))
     test = backtest(past, h.incomes, today, outliers, seed)
     model = fit(past, h.incomes, today, test.window, skip)
 
-    days = [today + timedelta(days=i) for i in range(1, horizon + 1)]
-    sim = simulate(model, recurring, days, SIMULATIONS, seed)
+    longest = [today + timedelta(days=i) for i in range(1, max(HORIZONS) + 1)]
+    sim = head(simulate(model, recurring, longest, SIMULATIONS, seed), horizon)
+    days = sim.days
     cum = np.cumsum(sim.total, axis=1)
     lo, mid, hi = np.percentile(sim.total, [10, 50, 90], axis=0)
     clo, cmid, chi = np.percentile(cum, [10, 50, 90], axis=0)
@@ -130,7 +133,7 @@ def build_forecast(h: History, horizon: int = 30) -> dict[str, Any]:
               "expectedDaily": _m(expected_daily), "dailyTarget": _m(expected_daily * multiplier),
               # Target = expected x multiplier, so the gap is the attitude's ask, not a forecast miss.
               "gapPerDay": _m(expected_daily * (1 - multiplier)),
-              "restOfMonthTarget": _m(expected_daily * multiplier * left)}
+              "restOfMonthTarget": _m(float(mean[:left].sum()) * multiplier)}
 
     goal = _goal(h, observed, sim, horizon)
     gap = _logging_gap(past, usual, today, observed)
@@ -262,8 +265,11 @@ def _habits(model, recurring, past: list[Expense], today: date, observed: int,
         ranked = sorted(range(7), key=lambda d: model.weekday[d], reverse=True)
         top = ranked[0]
         if model.weekday[top] >= 1.3:
-            if set(ranked[:2]) <= {4, 5, 6} and model.weekday[ranked[1]] >= 1.2:
-                text = (f"Weekend spender: {WEEKDAYS[ranked[0]]}s and {WEEKDAYS[ranked[1]]}s are "
+            if model.weekday[ranked[1]] >= 1.2:
+                # Only Saturday + Sunday is a weekend; any other pair is named day by day.
+                pair = sorted(ranked[:2])
+                lead = "Weekend spender: " if pair == [5, 6] else ""
+                text = (f"{lead}{WEEKDAYS[pair[0]]}s and {WEEKDAYS[pair[1]]}s are about "
                         f"{model.weekday[top]:.1f}x your usual day.")
             else:
                 text = f"Spends most on {WEEKDAYS[top]}s ({model.weekday[top]:.1f}x a usual day)."

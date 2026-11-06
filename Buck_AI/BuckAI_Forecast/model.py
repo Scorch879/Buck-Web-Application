@@ -343,13 +343,16 @@ def simulate(model: Fit, recurring: list[Recurring], days: list[date], n: int, s
     inside = np.array([in_payday_window(d, model.paydays) for d in days])
     total = np.zeros((n, horizon))
     by_cat: dict[str, np.ndarray] = {}
+    # Thin history hides the user's real level, and day-by-day noise averages out over
+    # a month, so each path also gets one level for the whole stretch.
+    level = rng.lognormal(-model.noise ** 2 / 2, model.noise, size=(n, 1)) if model.noise else 1.0
     for cat in model.categories:
         effect = np.array([cat.weekday[d.weekday()] for d in days]) * np.where(inside, *cat.payday)
         chance = np.clip(cat.chance * effect, 0.0, MAX_DAILY_CHANCE)
         happens = rng.random((n, horizon)) < chance
         amount = rng.choice(cat.amounts, size=(n, horizon), p=cat.weights)
         if model.noise:
-            amount = amount * rng.lognormal(-model.noise ** 2 / 2, model.noise, size=(n, horizon))
+            amount = amount * level * rng.lognormal(-model.noise ** 2 / 2, model.noise, size=(n, horizon))
         paths = happens * amount
         by_cat[cat.name] = paths
         total += paths
@@ -362,6 +365,11 @@ def simulate(model: Fit, recurring: list[Recurring], days: list[date], n: int, s
             by_cat[item.category] = by_cat.get(item.category, np.zeros((n, horizon))) + fixed
             total += fixed
     return Simulation(days, total, by_cat)
+
+
+def head(sim: Simulation, k: int) -> Simulation:
+    """The first k days of a simulation, same paths."""
+    return Simulation(sim.days[:k], sim.total[:, :k], {c: p[:, :k] for c, p in sim.by_category.items()})
 
 
 # --------------------------------------------------------------- backtest

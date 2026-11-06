@@ -13,7 +13,8 @@ WALLETS = [{"id": "w1", "name": "Cash", "balance": 12000, "active": True},
            {"id": "w2", "name": "GCash", "balance": 3000, "active": False}]
 
 
-def user(days=150, seed=1, *, weekend=False, bill=False, payday=False, one_off=False, end=TODAY):
+def user(days=150, seed=1, *, weekend=False, outing_days=(5, 6), bill=False, payday=False, one_off=False,
+         end=TODAY):
     r = random.Random(seed)
     expenses, incomes = [], []
     for i in range(days):
@@ -21,7 +22,7 @@ def user(days=150, seed=1, *, weekend=False, bill=False, payday=False, one_off=F
         expenses.append(Expense(d, round(max(20, r.gauss(150, 40)), 2), "Food", "w1", "lunch"))
         if d.weekday() < 5 and r.random() < 0.8:
             expenses.append(Expense(d, 50, "Fare", "w1", "jeep"))
-        if weekend and d.weekday() >= 5:
+        if weekend and d.weekday() in outing_days:
             expenses.append(Expense(d, round(max(100, r.gauss(800, 150)), 2), "Entertainment", "w2", "movies"))
         if bill and d.day == 5:
             expenses.append(Expense(d, 1500, "Bills", "w1", "Meralco"))
@@ -71,6 +72,23 @@ class ForecastModelTests(unittest.TestCase):
         self.assertGreater(by_day[5], 2 * by_day[2])  # Saturday vs. Wednesday
         self.assertTrue(any("Weekend spender" in h["text"] for h in f["habits"]), f["habits"])
         self.assertEqual(f["habits"][0]["value"], "weekly")
+
+    def test_friday_and_sunday_are_not_called_a_weekend(self):
+        f = build_forecast(history(*user(weekend=True, outing_days=(4, 6))), 30)
+        text = next(h["text"] for h in f["habits"] if h["kind"] == "weekday")
+        self.assertNotIn("Weekend", text)
+        self.assertIn("Fridays and Sundays", text)
+
+    def test_30_and_60_day_views_agree_on_this_month(self):
+        for kw in ({"weekend": True, "bill": True}, {"payday": True}, {"days": 10}):
+            h = history(*user(**kw))
+            a, b = build_forecast(h, 30), build_forecast(h, 60)
+            self.assertEqual(a["month"], b["month"], kw)
+            self.assertEqual(a["target"]["restOfMonthTarget"], b["target"]["restOfMonthTarget"], kw)
+            self.assertEqual(a["model"]["windowDays"], b["model"]["windowDays"], kw)
+            self.assertEqual([d["cumulative"] for d in a["days"]], [d["cumulative"] for d in b["days"][:30]], kw)
+            self.assertEqual({c["name"]: c["restOfMonth"] for c in a["categories"] if c["restOfMonth"]},
+                             {c["name"]: c["restOfMonth"] for c in b["categories"] if c["restOfMonth"]}, kw)
 
     def test_monthly_bill_lands_on_its_due_date(self):
         f = build_forecast(history(*user(bill=True)), 60)
