@@ -80,10 +80,12 @@ class ForecastModelTests(unittest.TestCase):
         self.assertIn("Fridays and Sundays", text)
 
     def test_30_and_60_day_views_agree_on_this_month(self):
+        goal = {"name": "Laptop", "targetAmount": 50000, "savedAmount": 10000, "targetDate": "2027-03-01"}
         for kw in ({"weekend": True, "bill": True}, {"payday": True}, {"days": 10}):
-            h = history(*user(**kw))
+            h = history(*user(**kw), goal=goal)
             a, b = build_forecast(h, 30), build_forecast(h, 60)
             self.assertEqual(a["month"], b["month"], kw)
+            self.assertEqual(a["goal"], b["goal"], kw)
             self.assertEqual(a["target"]["restOfMonthTarget"], b["target"]["restOfMonthTarget"], kw)
             self.assertEqual(a["model"]["windowDays"], b["model"]["windowDays"], kw)
             self.assertEqual([d["cumulative"] for d in a["days"]], [d["cumulative"] for d in b["days"][:30]], kw)

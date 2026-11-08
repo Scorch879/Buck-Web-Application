@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import AIChatBubble from "@/component/AIChatBubble";
@@ -9,11 +9,12 @@ import DashboardHeader from "@/component/dashboardheader";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import MfaRequiredWatcher from "@/component/mfa/MfaRequiredWatcher";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
-import { useFinancial } from "@/context/FinancialContext";
+import { mergeDashboardDataCache, useFinancial } from "@/context/FinancialContext";
 import FinancialProvider from "@/context/FinancialProvider";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import { FaWallet } from "react-icons/fa";
 import type { BuckUser } from "@/utils/authUser";
+import { getActiveWallet } from "@/utils/supabaseData";
 
 function getSkeletonVariant(pathname: string | null): import("@/component/DashboardSkeletons").DashboardSkeletonVariant {
   if (pathname?.startsWith("/dashboard/expenses")) {
@@ -140,8 +141,36 @@ function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const pageChrome = getPageChrome(pathname);
   const user = useOptionalDashboardUser();
-  const { dashboardCache } = useFinancial();
+  const { dashboardCache, setDashboardCache } = useFinancial();
   const userCache = dashboardCache.userId === user?.uid ? dashboardCache : {};
+  const walletBudgetKnown = userCache.activeWalletBudget !== undefined;
+
+  // The top-bar wallet pill belongs to the layout, so the layout loads the
+  // active wallet itself. Only some tabs fill activeWalletBudget, so a hard
+  // load straight into Forecast, Settings or Admin used to show "Wallet P0.00".
+  useEffect(() => {
+    const uid = user?.uid;
+    if (!uid || walletBudgetKnown) return;
+    let cancelled = false;
+    getActiveWallet(uid)
+      .then((wallet) => {
+        if (cancelled) return;
+        setDashboardCache((current) =>
+          current.userId === uid && current.activeWalletBudget !== undefined
+            ? current
+            : mergeDashboardDataCache(current, uid, {
+                activeWalletId: wallet?.id ?? null,
+                activeWalletBudget: wallet?.budget ?? 0,
+              })
+        );
+      })
+      .catch(() => {
+        // Leave the pill at its fallback; the wallet tab reports load errors.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, walletBudgetKnown, setDashboardCache]);
   const displayName =
     userCache.profile?.username ||
     user?.displayName ||

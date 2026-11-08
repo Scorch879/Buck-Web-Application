@@ -50,7 +50,7 @@ async function probeBuckAiHealth(): Promise<
         endpoint,
         message: isDegraded
           ? `Buck_AI responded slowly (${latencyMs} ms)`
-          : `FastAPI + Gemini ${BUCK_AI_CONFIGURED_MODELS.length}-model fallback chain operational`,
+          : "FastAPI operational: Advisor on Gemini, Forecaster on Groq, rules as fallback",
         checkedAt,
         configuredModels: BUCK_AI_CONFIGURED_MODELS,
         fallbackEngine: BUCK_AI_FALLBACK_ENGINE,
