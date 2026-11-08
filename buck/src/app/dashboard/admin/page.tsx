@@ -313,7 +313,9 @@ export default function AdminPage() {
     const entries: UnifiedAiLogEntry[] = [];
 
     for (const adv of telemetry.buckAi.recent_advisories) {
+      // "gemini" is the AI bucket: advice written by Gemini or its Groq fallback.
       const engine = adv.generated_with === "rules" ? "rules" : "gemini";
+      const aiBadge = adv.generated_with === "groq" ? "GROQ LLM" : "GEMINI LLM";
       entries.push({
         id: `adv-${adv.id}`,
         kind: "advisory",
@@ -324,7 +326,7 @@ export default function AdminPage() {
         detail: `Priority: ${adv.priority.toUpperCase()} · Health Score: ${
           adv.financial_health_score ?? "—"
         }/100 · Trigger: ${adv.generated_by}`,
-        badgeText: engine === "gemini" ? "GEMINI LLM" : "RULES FALLBACK",
+        badgeText: engine === "gemini" ? aiBadge : "RULES FALLBACK",
         userHash: adv.user_hash,
       });
     }
@@ -1037,7 +1039,7 @@ export default function AdminPage() {
                           onChange={(val) => setAiEngineFilter(val)}
                           options={[
                             { value: "all", label: "All Engines" },
-                            { value: "gemini", label: "Gemini LLM" },
+                            { value: "gemini", label: "AI (Gemini / Groq)" },
                             { value: "rules", label: "Rules Fallback" },
                             { value: "rate-limit", label: "Rate Limiter" },
                             { value: "forecast", label: "Forecast Engine" },
