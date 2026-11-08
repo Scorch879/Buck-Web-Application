@@ -767,7 +767,8 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
   - One seed for every horizon. The model simulates 60 days and cuts to the horizon (`model.head`), so the 30-day view is the first 30 days of the 60-day one. `restOfMonthTarget` is now the expected spend for the days left in the month × the attitude multiplier.
   - Only Saturday + Sunday is "Weekend spender". Any other pair is named ("Fridays and Sundays are about 1.5x your usual day"), and the prompt tells the AI to say "weekend" only when a habit does.
   - Found while testing: for a new user the day-by-day noise averaged out over a month (P90/P10 ≈ 1.28), so the "rough guess" band was barely wider than a settled user's. Each simulated path now also gets one level for the whole stretch when history is thin.
-- **Verification**: `python -m unittest` 91/91, including new tests that the 30- and 60-day views give identical `month`, `restOfMonthTarget`, window, category month totals and first-30-day running totals across three synthetic users, and that a Friday + Sunday spender is not called a weekend spender.
+  - Follow-up (2026-11-09, found signed in on production after #258): the goal date was Dec 11 on the 30-day view and Dec 12 on the 60-day view, because goal timing averaged spending over the chosen horizon. It now always uses the full 60-day simulation, so both views give the same `goal`.
+- **Verification**: `python -m unittest` 91/91, including new tests that the 30- and 60-day views give identical `month`, `goal`, `restOfMonthTarget`, window, category month totals and first-30-day running totals across three synthetic users, and that a Friday + Sunday spender is not called a weekend spender. On production (signed in, 2026-11-09) both views show ₱439.62 for the month and ₱451,150.98 left over, and the habit reads "Fridays and Sundays". The test account's real data, run through the follow-up code, gives the goal date Dec 12 in both views.
 
 ---
 

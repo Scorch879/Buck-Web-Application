@@ -61,12 +61,14 @@ def build_forecast(h: History, horizon: int = 30) -> dict[str, Any]:
     skip = outliers | {m for r in recurring for m in r.members}
     # One seed and one simulated stretch for every horizon, cut to length: the 30- and
     # 60-day views share their first 30 days, so this month's figures match in both.
+    # Goal timing looks months ahead, so it always uses the whole stretch.
     seed = seed_for(today.isoformat(), sorted((e.day.isoformat(), e.amount, e.category) for e in past))
     test = backtest(past, h.incomes, today, outliers, seed)
     model = fit(past, h.incomes, today, test.window, skip)
 
     longest = [today + timedelta(days=i) for i in range(1, max(HORIZONS) + 1)]
-    sim = head(simulate(model, recurring, longest, SIMULATIONS, seed), horizon)
+    full = simulate(model, recurring, longest, SIMULATIONS, seed)
+    sim = head(full, horizon)
     days = sim.days
     cum = np.cumsum(sim.total, axis=1)
     lo, mid, hi = np.percentile(sim.total, [10, 50, 90], axis=0)
@@ -135,7 +137,7 @@ def build_forecast(h: History, horizon: int = 30) -> dict[str, Any]:
               "gapPerDay": _m(expected_daily * (1 - multiplier)),
               "restOfMonthTarget": _m(float(mean[:left].sum()) * multiplier)}
 
-    goal = _goal(h, observed, sim, horizon)
+    goal = _goal(h, observed, full)
     gap = _logging_gap(past, usual, today, observed)
     habits = _habits(model, recurring, usual, today, observed, gap["gap"])
     excluded = [{"date": past[i].day.isoformat(), "category": past[i].category, "amount": _m(past[i].amount),
@@ -227,7 +229,7 @@ def _wallets(h: History, past: list[Expense], skip: set[int], recurring, sim, da
     return out
 
 
-def _goal(h: History, observed: int, sim, horizon: int) -> dict[str, Any] | None:
+def _goal(h: History, observed: int, sim) -> dict[str, Any] | None:
     g = h.goal
     if not g:
         return None
@@ -242,7 +244,7 @@ def _goal(h: History, observed: int, sim, horizon: int) -> dict[str, Any] | None
         return out
     span = min(90, observed)
     income_daily = sum(i.amount for i in incomes) / span
-    spend_daily = sim.total.sum(axis=1) / horizon
+    spend_daily = sim.total.mean(axis=1)
     free = income_daily - spend_daily
     band = np.percentile(free, [10, 50, 90])
     out["freeCashPerDay"] = {"low": round(float(band[0]), 2), "likely": round(float(band[1]), 2),
