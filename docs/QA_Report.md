@@ -770,6 +770,18 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
   - Follow-up (2026-11-09, found signed in on production after #258): the goal date was Dec 11 on the 30-day view and Dec 12 on the 60-day view, because goal timing averaged spending over the chosen horizon. It now always uses the full 60-day simulation, so both views give the same `goal`.
 - **Verification**: `python -m unittest` 91/91, including new tests that the 30- and 60-day views give identical `month`, `goal`, `restOfMonthTarget`, window, category month totals and first-30-day running totals across three synthetic users, and that a Friday + Sunday spender is not called a weekend spender. On production (signed in, 2026-11-09) both views show ₱439.62 for the month and ₱451,150.98 left over, and the habit reads "Fridays and Sundays". The test account's real data, run through the follow-up code, gives the goal date Dec 12 in both views.
 
+#### BUG-042: [RESOLVED 2026-11-09] Advisor Said to Spend the Savings Wallet, Rounded Weeks Down and Kept Last Week's Advice
+- **Location**: [`Buck_AI/BuckAI_Advisor/snapshot.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/snapshot.py) (`wallet_kind`), [`rules.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/rules.py) (`wallet_advice`), [`prompts.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/prompts.py), [`plan.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/plan.py), [`fingerprint.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/fingerprint.py)
+- **Impact** (found signed in on production 2026-11-09):
+  - The active wallet was "Emergency & Savings Fund". The prompt said the active wallet is the day-to-day one, so the card read "Use your Emergency & Savings Fund for day-to-day active spending, while keeping your Main Spending Wallet untouched for savings", which is the wrong way round. The rule fallback had the same rule.
+  - `weeks_to_goal_at_recommended` used `round()`, so ₱53,662.50 at ₱3,756.37 a week (14.3 weeks) read "finish in 14 weeks".
+  - The fingerprint had no date, so advice saved on Thursday Nov 6 was still served on Monday Nov 9 with "Nov 1–6" and "the remaining 24 days of November", next to a live "This week: since Mon, Nov 9" card.
+- **Fix**:
+  - Each wallet in the snapshot has a `kind` (`savings` when its name says save/savings/emergency/ipon/reserve/buffer/goal/fund, else `spending`). The prompt and the fallback never say to spend a savings wallet; when it is the active one, they say to keep it for the goal and make a spending wallet active on the Wallet tab.
+  - Weeks to the goal are rounded up.
+  - The fingerprint includes the week (Monday, PH time), so the "this week" step is rewritten at most once a week, plus whenever the data moves materially.
+- **Verification**: `python -m unittest` 94/94, with new tests for the production wallet set, the 14.3 → 15 weeks case, and a Sunday → Monday fingerprint change.
+
 ---
 
 ## 3. Security & Compliance Audit Matrix

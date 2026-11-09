@@ -6,6 +6,7 @@ ids, emails or free-text descriptions. `refs` keeps ids for saving.
 """
 
 import asyncio
+import re
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any
@@ -27,6 +28,15 @@ class Snapshot:
         """What this month's spending is measured against: income when tracked, else the active wallet."""
         income = self.data.get("income_this_month")
         return income if income else self.data["active_wallet_balance"]
+
+
+# A wallet whose name says it holds savings ("Emergency & Savings Fund", "BDO Savings",
+# "Ipon") is never the one to spend from day to day, even when it is the active wallet.
+_SAVINGS_NAME = re.compile(r"\b(sav(e|es|ing|ings)|emergency|ipon|reserve|buffer|goal|fund)\b", re.I)
+
+
+def wallet_kind(name: str) -> str:
+    return "savings" if _SAVINGS_NAME.search(name or "") else "spending"
 
 
 def health_score(spent: float, base: float) -> int:
@@ -76,11 +86,11 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
     )
 
     active_wallet_id = (profile_rows[0].get("active_wallet_id") if profile_rows else None)
-    wallets = [
-        {"name": clean_text(w.get("name"), 60) or "Wallet", "balance": money(w.get("budget")),
-         "active": w.get("id") == active_wallet_id}
-        for w in wallet_rows
-    ]
+    wallets = []
+    for w in wallet_rows:
+        name = clean_text(w.get("name"), 60) or "Wallet"
+        wallets.append({"name": name, "balance": money(w.get("budget")),
+                        "active": w.get("id") == active_wallet_id, "kind": wallet_kind(name)})
     active_balance = next((w["balance"] for w in wallets if w["active"]), 0.0)
 
     # Expense aggregates

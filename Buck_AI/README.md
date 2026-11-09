@@ -14,7 +14,7 @@ Buck has two AIs, one per job:
 ## How the Advisor keeps advice up to date
 
 1. **Snapshot.** On each request it builds a numbers-only snapshot of the user's month from Supabase: spending, income, top categories, wallets and the active goal.
-2. **Fingerprint.** It reduces that snapshot to a fingerprint of the facts that matter. Spending is rounded into steps of 5% of the budget (at least ₱500); the fingerprint also covers top categories, goal progress, wallet, income, the month and the saving attitude.
+2. **Fingerprint.** It reduces that snapshot to a fingerprint of the facts that matter. Spending is rounded into steps of 5% of the budget (at least ₱500); the fingerprint also covers top categories, goal progress, wallet, income, the month, the week (from Monday, PH time) and the saving attitude.
 3. **Reuse.** If the newest saved advisory in `ai_advisories` has the same fingerprint, it is returned straight from the database, with no Gemini call.
 4. **Regenerate.** If the data moved, Gemini writes new advice. It is shown the previous advice and what changed, so it can acknowledge progress or adjust its targets. The new advice is saved as a new row, and older rows stay as history.
 5. **Cooldowns** (5 min after a data change, 60 s for a manual refresh) protect the free Gemini quota. During a cooldown the saved advice is returned with `stale: true`.

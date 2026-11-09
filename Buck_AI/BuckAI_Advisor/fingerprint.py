@@ -9,6 +9,7 @@ whose fingerprint still matches is served straight from the database.
 import hashlib
 import json
 import math
+from datetime import date, timedelta
 from typing import Any
 
 from .snapshot import Snapshot
@@ -25,8 +26,13 @@ def fingerprint_parts(snapshot: Snapshot) -> dict[str, Any]:
     step = max(500.0, base * 0.05)
     goal = d["active_goal"]
     goal_step = max(500.0, goal["target_amount"] * 0.05) if goal else 0
+    today = d.get("today")
     return {
         "month": d["month"]["start"],
+        # The suggestion is "this week's step" and the advice names this month's dates
+        # (e.g. "Nov 1–6"), so a new week (from Monday, PH time) writes fresh advice.
+        "week": (date.fromisoformat(today) - timedelta(days=date.fromisoformat(today).weekday())).isoformat()
+        if today else None,
         "attitude": d["saving_attitude"],
         "spent": _bucket(d["spent_this_month"], step),
         "income": _bucket(d["income_this_month"], step) if d["income_this_month"] else None,

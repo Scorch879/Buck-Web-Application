@@ -83,8 +83,10 @@ Write the user's advisory card:
   recommended per week, and whether that is on track (if not, say how many weeks it takes instead);
   (4) one concrete habit change in the top spending category. Every amount in ₱ with its period.
 - wallet_advice: one or two sentences naming the user's wallets from financial_data.wallets: which one to
-  spend from day to day (the active wallet) and which to keep untouched for the goal or an emergency
-  buffer. Use wallet names and balances exactly as given.
+  spend from day to day and which to keep untouched for the goal or an emergency buffer. Spend from the
+  active wallet only if its kind is "spending". Never tell the user to spend from a wallet whose kind is
+  "savings"; if the active wallet is a savings wallet, say to keep it for the goal and to make a
+  "spending" wallet active on the Wallet tab instead. Use wallet names and balances exactly as given.
 - focus: the one area this advice is about ("spending", "category", "goal", "income", or "buffer")."""
 
 
