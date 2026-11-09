@@ -178,6 +178,11 @@ Branch `maintenance-branch`. UI only; no API, data or migration changes.
 
 **Verified**: `tsc`, `eslint` (0 warnings), vitest 205/205. Public pages: the pre-paint script sets `data-buck-sidebar`, global scrollbar and fade styles load, and the console shows no errors. CI runs the production build on the PR.
 
+**Signed-in check of every tab (2026-11-09)**: Home, Expenses, Wallet, Categories, Financial Advisor, Forecast, Statistics, Goals, Admin and Settings were checked with a real account in light and dark themes at 1280px and 375px. The real profile photo loads and fades in. No page scrolls sideways. Three more fixes came out of it:
+- Sidebar: on a hard load of any tab except Home, the server rendered Home as the active item and the highlight slid to the right tab after hydration. The active item now starts from the URL (`dashboardheader.tsx`).
+- Expenses at 375px: the page grid (`1fr`) and the card grid (implicit `auto` column) grew to their widest content (428px), so the category card and the Expense tracker ran off the right edge, and the page buttons overflowed. Both grids now use `minmax(0, 1fr)`, and the page buttons wrap on screens 640px or narrower.
+- Admin "Written by AI" card: 16 older cards from `meta-llama/Llama-3.3-70B-Instruct-Turbo` (an earlier provider, saved before `metadata.generated_with` existed) were counted as Gemini. Migration `202611090001_admin_telemetry_model_fallback.sql` (applied) reads the model name instead and adds `advisories_other`. The card now reads "18 Gemini · 0 Groq · 16 older models · 6 from fixed rules" (40 total), and those log rows are badged "OLDER MODEL".
+
 ### 🎨 Admin Dashboard UI Review (2026-11-03, PR #245 follow-up)
 
 UI only; the API route, migrations, `supabaseData.ts` and `FinancialContext` types are unchanged.

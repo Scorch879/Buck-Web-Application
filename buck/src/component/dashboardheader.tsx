@@ -91,7 +91,14 @@ function getInitials(value: string) {
 export default function DashboardHeader({
   initialActiveNav = "home",
 }: DashboardHeaderProps) {
-  const [activeNav, setActiveNav] = useState<DashboardNavId>(initialActiveNav);
+  const pathname = usePathname();
+  const currentNav: DashboardNavId =
+    dashboardNavItems.find(
+      (item) => "href" in item && pathname?.startsWith(item.href)
+    )?.id ?? initialActiveNav;
+  // Start on the route's own item so a hard load of /dashboard/goals never
+  // paints Home as active first and then slides the highlight across.
+  const [activeNav, setActiveNav] = useState<DashboardNavId>(currentNav);
   const [menuOpen, setMenuOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -110,7 +117,6 @@ export default function DashboardHeader({
   // width is already at the target before the animation starts.
   const railWidth = useMotionValue(250);
   const router = useRouter();
-  const pathname = usePathname();
   const user = useOptionalDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
   const { toast } = useToast();
@@ -125,12 +131,6 @@ export default function DashboardHeader({
   const avatarSource = userCache.profile?.avatarPath
     ? `/api/profile/avatar${userCache.profile.avatarUpdatedAt ? `?v=${userCache.profile.avatarUpdatedAt}` : ""}`
     : null;
-
-  const currentNav =
-    dashboardNavItems.find(
-      (item) => "href" in item && pathname?.startsWith(item.href)
-    )?.id ??
-    initialActiveNav;
 
   useEffect(() => {
     setActiveNav(currentNav);
