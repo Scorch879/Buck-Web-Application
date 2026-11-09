@@ -37,7 +37,15 @@ class PlanTests(unittest.TestCase):
         self.assertAlmostEqual(p["affordable_saving_per_week"]["amount"], 1716.13, places=2)
         self.assertEqual(pace["recommended_per_week"], p["affordable_saving_per_week"]["amount"])
         self.assertFalse(pace["on_track_by_target_date"])
-        self.assertEqual(pace["weeks_to_goal_at_recommended"], 31)
+        # 53,662.50 / 1,716.13 = 31.3 weeks: the goal is reached in week 32, never "31".
+        self.assertEqual(pace["weeks_to_goal_at_recommended"], 32)
+
+    def test_weeks_to_goal_round_up(self):
+        # Production case: 53,662.50 at 3,756.37 a week is 14.3 weeks -> 15.
+        goal = {**GOAL, "target_date": "2027-03-01", "days_left": 115}
+        pace = plan(goal=goal)["goal_pace"]
+        self.assertAlmostEqual(pace["recommended_per_week"], 3756.37, places=2)
+        self.assertEqual(pace["weeks_to_goal_at_recommended"], 15)
 
     def test_attitude_scales_pace_when_affordable(self):
         pace = plan()["goal_pace"]  # large wallet: affordable is not the limit
@@ -79,6 +87,20 @@ class RuleFallbackTests(unittest.TestCase):
         self.assertIn("BDO Savings (₱90,000.00)", text)  # largest non-active wallet kept for the goal
         self.assertIn("Emergency Buffer", text)
         self.assertIn("Add a wallet", wallet_advice(snapshot(wallets=[])))
+
+    def test_savings_wallet_is_never_the_spending_wallet(self):
+        # Production case: the active wallet is the emergency fund.
+        wallets = [
+            {"name": "Emergency & Savings Fund", "balance": 79247.51, "active": True},
+            {"name": "Main Spending Wallet", "balance": 372343.09, "active": False},
+            {"name": "GCash / Digital Wallet", "balance": 0.0, "active": False},
+        ]
+        text = wallet_advice(snapshot(wallets=wallets))
+        self.assertNotIn("Spend day to day from Emergency", text)
+        self.assertIn("Keep Emergency & Savings Fund (₱79,247.51) for your Emergency Buffer goal", text)
+        self.assertIn("make Main Spending Wallet (₱372,343.09) your active wallet", text)
+        only_savings = wallet_advice(snapshot(wallets=wallets[:1]))
+        self.assertIn("add a separate wallet for day-to-day spending", only_savings)
 
 
 if __name__ == "__main__":

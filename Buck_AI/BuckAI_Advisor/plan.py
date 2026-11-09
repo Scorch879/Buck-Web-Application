@@ -11,6 +11,7 @@ typical spending. It never asks the user to move the whole remaining amount
 at once.
 """
 
+import math
 from typing import Any
 
 from shared.money import SAVE_MULTIPLIER, SPEND_MULTIPLIER, peso  # noqa: F401  (re-exported)
@@ -73,8 +74,9 @@ def build_plan(
             required_basis = "no future target date set"
         target_week = _round(required_week * save_mult) if required_week is not None else affordable_week
         recommended = _round(min(target_week, affordable_week)) if affordable_week > 0 else 0.0
+        # Rounded up: 14.3 weeks of saving means the goal is reached in week 15, not 14.
         weeks_to_goal = (
-            round(goal["remaining"] / recommended) if recommended > 0 else None
+            math.ceil(round(goal["remaining"] / recommended, 6)) if recommended > 0 else None
         )
         plan["goal_pace"] = {
             "required_per_week": required_week,

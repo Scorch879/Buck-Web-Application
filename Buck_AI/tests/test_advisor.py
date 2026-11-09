@@ -286,8 +286,9 @@ class AdvisorApiTests(unittest.IsolatedAsyncioTestCase):
 
 
 class UnitTests(unittest.TestCase):
-    def _snap(self, spent: float) -> Snapshot:
+    def _snap(self, spent: float, today: str = "2026-10-14") -> Snapshot:
         return Snapshot({
+            "today": today,
             "month": {"start": "2026-10-01"}, "saving_attitude": "Normal", "spent_this_month": spent,
             "income_this_month": 25000, "active_wallet_balance": 20000,
             "top_categories_this_month": [{"name": "Food", "amount": spent}], "active_goal": None,
@@ -296,6 +297,11 @@ class UnitTests(unittest.TestCase):
     def test_fingerprint_ignores_small_changes(self):
         self.assertEqual(fingerprint(self._snap(6000)), fingerprint(self._snap(6040)))
         self.assertNotEqual(fingerprint(self._snap(6000)), fingerprint(self._snap(9000)))
+
+    def test_new_week_writes_new_advice(self):
+        # Wed Oct 14 and Sun Oct 18 share a week; Mon Oct 19 starts a new one.
+        self.assertEqual(fingerprint(self._snap(6000, "2026-10-14")), fingerprint(self._snap(6000, "2026-10-18")))
+        self.assertNotEqual(fingerprint(self._snap(6000, "2026-10-18")), fingerprint(self._snap(6000, "2026-10-19")))
 
     def test_health_score(self):
         self.assertEqual(health_score(1000, 10000), 90)
