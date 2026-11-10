@@ -166,7 +166,6 @@ html[data-buck-theme="dark"] .progress-add-btn {
   justify-content: center;
   padding: 1rem;
   background: rgba(18, 13, 10, 0.48);
-  backdrop-filter: blur(6px);
 }
 
 .modal {

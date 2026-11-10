@@ -9,7 +9,6 @@
   justify-content: center;
   padding: clamp(1rem, 4vw, 2rem);
   background: rgba(18, 13, 10, 0.48);
-  backdrop-filter: blur(8px);
 }
 
 .confirmBackdrop {

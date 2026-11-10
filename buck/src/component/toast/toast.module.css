@@ -25,13 +25,11 @@
   box-shadow: 0 16px 36px rgba(94, 59, 34, 0.16), 0 4px 12px rgba(94, 59, 34, 0.08);
   pointer-events: auto;
   overflow: hidden;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   transition: border-color 180ms ease, box-shadow 180ms ease;
 }
 
 html[data-buck-theme="dark"] .toastNotification {
-  background: rgba(35, 23, 19, 0.96);
+  background: var(--buck-surface-solid);
   border-color: rgba(244, 117, 54, 0.22);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 4px 14px rgba(0, 0, 0, 0.35);
 }
