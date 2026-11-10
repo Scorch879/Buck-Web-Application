@@ -116,7 +116,7 @@ export default function HomeSkeleton() {
                 ))}
               </div>
               <div className="graph-x-axis-footer">
-                <span className="graph-axis-title graph-axis-title--x">Day of the Week</span>
+                <span className="graph-axis-title graph-axis-title--x">Day of the week</span>
               </div>
             </div>
           </div>

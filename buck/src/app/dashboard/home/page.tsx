@@ -778,12 +778,12 @@ export default function Dashboard() {
 
   const barXAxisTitle =
     timeframe === "week"
-      ? "Day of the Week"
+      ? "Day of the week"
       : timeframe === "month"
-      ? "Week of the Month (Weeks 1–4)"
+      ? "Week of the month"
       : allTimeGranularity === "years"
-      ? "Year (5-Year Window)"
-      : "Month (6-Month Window)";
+      ? "Year (5 years shown)"
+      : "Month (6 months shown)";
 
   return (
     <div className="dashboard-container">

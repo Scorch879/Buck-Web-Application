@@ -765,7 +765,7 @@ const Statistics = () => {
                 {trend.unit === "day"
                   ? "Daily spending"
                   : trend.unit === "week"
-                    ? "Weekly spending (Weeks 1–4)"
+                    ? "Weekly spending this month"
                     : trend.unit === "year"
                       ? "Yearly spending"
                       : "Monthly spending"}

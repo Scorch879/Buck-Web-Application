@@ -118,8 +118,8 @@ describe("computeCashFlow", () => {
 
 describe("formatDeltaVsLastMonth", () => {
   it("formats positive and negative deltas", () => {
-    expect(formatDeltaVsLastMonth(5000)).toBe("+₱5,000 vs last mo.");
-    expect(formatDeltaVsLastMonth(-2100)).toBe("-₱2,100 vs last mo.");
-    expect(formatDeltaVsLastMonth(0)).toBe("+₱0 vs last mo.");
+    expect(formatDeltaVsLastMonth(5000)).toBe("₱5,000 more than last month");
+    expect(formatDeltaVsLastMonth(-2100)).toBe("₱2,100 less than last month");
+    expect(formatDeltaVsLastMonth(0)).toBe("Same as last month");
   });
 });
