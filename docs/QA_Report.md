@@ -183,6 +183,15 @@ Branch `maintenance-branch`. UI only; no API, data or migration changes.
 - Expenses at 375px: the page grid (`1fr`) and the card grid (implicit `auto` column) grew to their widest content (428px), so the category card and the Expense tracker ran off the right edge, and the page buttons overflowed. Both grids now use `minmax(0, 1fr)`, and the page buttons wrap on screens 640px or narrower.
 - Admin "Written by AI" card: 16 older cards from `meta-llama/Llama-3.3-70B-Instruct-Turbo` (an earlier provider, saved before `metadata.generated_with` existed) were counted as Gemini. Migration `202611090001_admin_telemetry_model_fallback.sql` (applied) reads the model name instead and adds `advisories_other`. The card now reads "18 Gemini · 0 Groq · 16 older models · 6 from fixed rules" (40 total), and those log rows are badged "OLDER MODEL".
 
+**Frame-rate and screen-size check (2026-11-11)**: measured signed in, with the browser pane on screen at full speed:
+- Sidebar slide 250→80px and back: about 30 frames, median 5ms per frame, worst 15–20ms, none over 33ms.
+- Wallet popover, mobile menu and Add Spending modal: open and close at a median of 5ms per frame, worst about 15ms.
+- All ten tabs at 320, 768, 1024 and 1920px, and a live resize from 1280 to 1000, 600, 375 and 1440: each change switched layout within one frame, no page scrolled sideways, and no long tasks were logged.
+
+Two fixes came out of it:
+- Profile photo "pop" on collapse: the account tray turns from a 62px row into a 140px column. Its full `layout` animation scaled the tray to bridge that, and the round photo was squashed to 70% height and stretched back. The tray and its controls now use `layout="position"` (`dashboardheader.tsx`), so they only move and nothing scales.
+- Financial Advisor at 320px: the page grid's implicit `auto` column grew to 311px inside a 296px content area, so every card ran 3px off screen. The page grid and its responsive single columns now use `minmax(0, 1fr)`.
+
 ### 🎨 Admin Dashboard UI Review (2026-11-03, PR #245 follow-up)
 
 UI only; the API route, migrations, `supabaseData.ts` and `FinancialContext` types are unchanged.
