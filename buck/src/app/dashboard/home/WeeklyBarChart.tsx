@@ -82,7 +82,7 @@ export default function WeeklyBarChart({
   categoryColor,
   selectedDay,
   onSelectDay,
-  xAxisTitle = "Day of the Week",
+  xAxisTitle = "Day of the week",
 }: {
   data: WeeklyDatum[];
   categoryColor?: string;
