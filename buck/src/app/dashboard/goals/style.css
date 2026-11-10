@@ -822,6 +822,238 @@ html[data-buck-theme="dark"] .create-goal-input {
   cursor: not-allowed;
 }
 
+/* ---- AI-detected saving attitude and goal plan (ADR-055) ---- */
+
+.goals-ghost-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* The create dialog now holds the attitude and plan, so it scrolls inside the
+   standard modal bounds instead of growing past the screen. */
+.modal-content {
+  max-height: min(82dvh, 760px);
+  overflow-y: auto;
+}
+
+.goal-fact--wide {
+  grid-column: 1 / -1;
+}
+
+.goal-fact-note {
+  display: block;
+  margin-top: 0.1rem;
+  color: var(--buck-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.goal-facts dd.goal-fact-reason {
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.goal-attitude-chip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.goal-attitude-source {
+  color: var(--buck-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.goals-pill--attitude {
+  padding: 0.2rem 0.65rem;
+  font-size: 0.8rem;
+}
+
+.goals-pill--normal {
+  color: var(--buck-ink);
+  background: rgba(117, 109, 104, 0.16);
+}
+
+.goals-pill--moderate {
+  color: #8a6400;
+  background: rgba(255, 197, 71, 0.3);
+}
+
+html[data-buck-theme="dark"] .goals-pill--moderate {
+  color: var(--buck-gold);
+  background: rgba(255, 197, 71, 0.16);
+}
+
+.goals-pill--aggressive {
+  color: var(--buck-orange);
+  background: rgba(244, 117, 54, 0.14);
+}
+
+.goal-plan {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.goal-plan caption {
+  padding-bottom: 0.4rem;
+  color: var(--buck-ink);
+  font-size: 0.9rem;
+  font-weight: 650;
+  text-align: left;
+}
+
+.goal-plan th,
+.goal-plan td {
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--buck-line);
+}
+
+.goal-plan tbody tr:last-child th,
+.goal-plan tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.goal-plan thead th {
+  color: var(--buck-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.goal-plan tbody th {
+  color: var(--buck-muted);
+  font-weight: 600;
+  text-align: left;
+}
+
+.goal-plan tbody td {
+  color: var(--buck-ink);
+  font-weight: 650;
+}
+
+.goal-plan-note {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+/* Three amount columns must fit a 320px phone without scrolling sideways. */
+@media (max-width: 480px) {
+  .goal-plan {
+    font-size: 0.78rem;
+  }
+
+  .goal-plan th,
+  .goal-plan td {
+    padding: 0.4rem 0.25rem;
+  }
+
+  .goal-plan thead th {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .goal-plan {
+    font-size: 0.72rem;
+  }
+
+  .goal-plan th,
+  .goal-plan td {
+    padding: 0.4rem 0.15rem;
+  }
+}
+
+.create-goal-attitude {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+  text-align: left;
+}
+
+.create-goal-attitude--warning,
+.goals-forecast-attitude--warning {
+  background: rgba(255, 197, 71, 0.12);
+  border-color: rgba(255, 197, 71, 0.6);
+}
+
+.create-goal-attitude-label {
+  margin: 0;
+  color: var(--buck-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.create-goal-attitude-text {
+  margin: 0;
+  color: var(--buck-ink);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.create-goal-attitude-text--strong {
+  font-weight: 650;
+}
+
+.goals-forecast-attitude {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+}
+
+.goals-forecast-attitude p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.goals-forecast-notes {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.goals-forecast-chart-block {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.goals-forecast-chart-block h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.goals-forecast-state--block {
+  height: auto;
+  min-height: 180px;
+  padding: 1rem;
+}
+
+.goals-forecast-state-title {
+  color: var(--buck-ink);
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.goals-forecast-disclaimer {
+  margin: 0;
+  color: var(--buck-muted);
+  font-size: 0.8rem;
+}
+
 /* ---- Responsive ---- */
 
 @media (max-width: 1280px) {

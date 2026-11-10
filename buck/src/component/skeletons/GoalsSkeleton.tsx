@@ -84,13 +84,26 @@ export default function GoalsSkeleton() {
               ["Target date", "Dec 31, 2026"],
               ["Time left", "000 days"],
               ["Save per day", "₱000.00"],
-              ["Saving attitude", "Normal"],
             ].map(([label, value]) => (
               <div key={label}>
                 <dt><span className="skeleton-text">{label}</span></dt>
                 <dd><span className="skeleton-text">{value}</span></dd>
               </div>
             ))}
+            {/* Attitude tile with its source note, then the full-width reason tile */}
+            <div>
+              <dt><span className="skeleton-text">Saving attitude</span></dt>
+              <dd>
+                <span className="skeleton-text">Normal</span>
+                <span className="goal-fact-note"><span className="skeleton-text">Detected by AI Advisor</span></span>
+              </dd>
+            </div>
+            <div className="goal-fact--wide">
+              <dt><span className="skeleton-text">Why this attitude</span></dt>
+              <dd className="goal-fact-reason">
+                <span className="skeleton-text">Your usual spending already leaves enough to reach this goal on time.</span>
+              </dd>
+            </div>
           </dl>
         </div>
 
