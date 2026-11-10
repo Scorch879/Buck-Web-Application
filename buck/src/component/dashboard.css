@@ -30,28 +30,18 @@
   width: 250px;
   height: 100%;
   color: var(--buck-ink);
-  background: rgba(255, 250, 244, 0.9);
+  /* Solid, not glass: the page never shows through the dashboard chrome, and
+     nothing has to be re-blurred while the rail slides (ADR-054). */
+  background: #fffaf4;
   border-right: 1px solid var(--buck-line);
   border-bottom: 0;
   box-shadow: 0 12px 28px rgba(94, 59, 34, 0.08);
-  backdrop-filter: blur(18px);
   overflow: hidden;
 }
 
 html[data-buck-theme="dark"] .dashboard-header {
-  background: rgba(23, 16, 12, 0.86);
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
-}
-
-/* While the sidebar resizes, a solid background replaces the blur so it
-   isn't repainted every frame (ADR-054). */
-.dashboard-header--animating {
-  background: #fffaf4;
-  backdrop-filter: none;
-}
-
-html[data-buck-theme="dark"] .dashboard-header--animating {
   background: #17100c;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
 }
 
 .dashboard-header-inner {
@@ -173,31 +163,30 @@ html[data-buck-theme="dark"] .dashboard-mascot {
      ~18px each side gives the title room instead of filling the bar. */
   padding: clamp(0.95rem, 1.4vw, 1.15rem) clamp(0.75rem, 1.5vw, 1rem);
   color: var(--buck-ink);
-  background: rgba(255, 250, 244, 0.82);
+  background: #fffaf4;
   border-bottom: 1px solid transparent;
-  backdrop-filter: blur(18px);
 }
 
 .dashboard-topbar--welcome {
   background:
     linear-gradient(135deg, rgba(255, 250, 244, 0.9), rgba(255, 197, 71, 0.14)),
-    rgba(255, 250, 244, 0.84);
+    #fffaf4;
 }
 
 html[data-buck-theme="dark"] .dashboard-topbar--welcome {
   background:
     linear-gradient(135deg, rgba(18, 13, 10, 0.9), rgba(255, 197, 71, 0.08)),
-    rgba(18, 13, 10, 0.84);
+    #120d0a;
 }
 
 html[data-buck-theme="dark"] .dashboard-topbar {
-  background: rgba(23, 16, 12, 0.82);
+  background: #17100c;
 }
 
 html[data-buck-theme="dark"] .dashboard-topbar--welcome {
   background:
     linear-gradient(135deg, rgba(23, 16, 12, 0.9), rgba(255, 122, 51, 0.1)),
-    rgba(23, 16, 12, 0.84);
+    #17100c;
 }
 
 .dashboard-topbar p,

@@ -2387,17 +2387,16 @@ html[data-buck-theme="dark"] .legal-section {
   pointer-events: auto;
   padding: 1rem;
   color: var(--buck-ink);
-  background: rgba(255, 250, 244, 0.94);
+  background: var(--buck-surface-solid);
   border: 1px solid rgba(244, 117, 54, 0.28);
   border-radius: 8px;
   box-shadow: 0 20px 46px rgba(94, 59, 34, 0.18);
-  backdrop-filter: blur(18px);
   animation: session-warning-enter 220ms ease both;
 }
 
 html[data-buck-theme="dark"] .session-timeout-card {
   color: #fff8ed;
-  background: rgba(31, 20, 14, 0.94);
+  background: var(--buck-surface-solid);
   border-color: rgba(255, 197, 71, 0.28);
   box-shadow: 0 22px 52px rgba(0, 0, 0, 0.36);
 }
