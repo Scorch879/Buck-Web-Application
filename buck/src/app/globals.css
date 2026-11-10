@@ -9,6 +9,9 @@
   --buck-muted: #756d68;
   --buck-paper: #f4eee6;
   --buck-surface: #fffaf6;
+  /* Opaque panel colour for modals: the dark --buck-surface is 86% opaque,
+     which let the page show through every dialog. */
+  --buck-surface-solid: #fffaf6;
   --buck-line: #ded2c7;
   --buck-orange: #f47536;
   --buck-coral: #ff3838;
@@ -54,6 +57,8 @@ html[data-buck-theme="dark"] {
   --buck-muted: #d9c7b6;
   --buck-paper: #17100c;
   --buck-surface: rgba(38, 25, 18, 0.86);
+  /* The dark surface already blended over the page colour (#120d0a). */
+  --buck-surface-solid: #23170f;
   --buck-line: rgba(255, 211, 154, 0.2);
   --buck-gold-soft: rgba(255, 197, 71, 0.16);
   --buck-shadow: 0 18px 45px rgba(0, 0, 0, 0.34);
@@ -2001,7 +2006,6 @@ main {
   place-items: center;
   padding: clamp(1rem, 3vw, 2rem);
   background: rgba(25, 16, 11, 0.62);
-  backdrop-filter: blur(14px);
 }
 
 .modal-glow-shell {
@@ -3156,4 +3160,11 @@ html[data-buck-theme="dark"] .session-timeout-actions button:last-child {
     width: 100%;
   }
 
+}
+
+/* Modals are solid, not glass: no see-through panel and no blurred page
+   behind it. Every dialog panel paints var(--buck-surface), so swapping in
+   the opaque token here covers them all. */
+[aria-modal="true"] {
+  --buck-surface: var(--buck-surface-solid);
 }

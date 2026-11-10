@@ -900,8 +900,7 @@ html[data-buck-theme="dark"] .settings-confirm-hint--match {
   display: grid;
   place-items: center;
   padding: 1rem;
-  background: rgba(36, 20, 9, 0.38);
-  backdrop-filter: blur(14px);
+  background: rgba(36, 20, 9, 0.48);
   animation: settings-modal-backdrop-in 180ms ease both;
 }
 
@@ -1488,7 +1487,7 @@ html[data-buck-theme="dark"] .feedback-category-card.active {
   }
 }
 
-.settings-modal-backdrop { position: fixed; inset: 0; background: rgba(18, 13, 10, 0.8); backdrop-filter: blur(8px); display: grid; place-items: center; z-index: 1000; padding: 1rem; }
+.settings-modal-backdrop { position: fixed; inset: 0; background: rgba(18, 13, 10, 0.8); display: grid; place-items: center; z-index: 1000; padding: 1rem; }
 .settings-modal-content { background: var(--buck-surface); border: 1px solid var(--buck-line); padding: 1.5rem; border-radius: 12px; max-width: 400px; width: 100%; box-shadow: var(--buck-shadow); }
 
 /* =========================================================

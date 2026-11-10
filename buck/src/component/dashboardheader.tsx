@@ -393,7 +393,11 @@ export default function DashboardHeader({
                 />
               ) : null}
             </motion.span>
-            <AnimatePresence initial={false}>
+            {/* popLayout: the name block leaves the layout as soon as its exit
+                starts. Otherwise it held its space until the fade ended, then
+                the collapsed tray shrank and the photo dropped ~40px in one
+                frame at the end of the slide. */}
+            <AnimatePresence initial={false} mode="popLayout">
               {!railCollapsed && (
                 <motion.span
                   key="account-copy"

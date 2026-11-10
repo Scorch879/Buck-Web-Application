@@ -1344,7 +1344,6 @@ html[data-buck-theme="dark"] .expenses-page-btn {
   justify-content: center;
   padding: clamp(0.75rem, 3vw, 1.5rem);
   background: rgba(18, 13, 10, 0.65);
-  backdrop-filter: blur(6px);
 }
 
 html[data-buck-theme="light"] .expenses-modal-backdrop {
