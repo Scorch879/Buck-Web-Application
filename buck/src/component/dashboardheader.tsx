@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, animate, motion, useMotionValue } from "framer-motion";
@@ -184,13 +184,22 @@ export default function DashboardHeader({
     return () => controls.stop();
   }, [mounted, isDesktop, railCollapsed, sidebarReady, railWidth]);
 
+  // Flip <html data-buck-sidebar> after React commits, not inside the state
+  // update. The collapsed tray layout is CSS keyed on that attribute; setting
+  // it before the render let the layout change before Framer took its
+  // "before" snapshot, so it saw no movement and the profile photo jumped
+  // 38px in one frame instead of gliding.
+  useLayoutEffect(() => {
+    if (!mounted) return;
+    document.documentElement.dataset.buckSidebar = sidebarCollapsed ? "collapsed" : "expanded";
+  }, [mounted, sidebarCollapsed]);
+
   const toggleSidebar = () => {
     setSidebarAnimating(true);
     setSidebarCollapsed((prev) => {
       const next = !prev;
       try {
         window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next));
-        document.documentElement.dataset.buckSidebar = next ? "collapsed" : "expanded";
       } catch {
         // Ignore storage access errors
       }

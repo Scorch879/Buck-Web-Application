@@ -190,6 +190,7 @@ Branch `maintenance-branch`. UI only; no API, data or migration changes.
 
 Two fixes came out of it:
 - Profile photo "pop" on collapse: the account tray turns from a 62px row into a 140px column. Its full `layout` animation scaled the tray to bridge that, and the round photo was squashed to 70% height and stretched back. The tray and its controls now use `layout="position"` (`dashboardheader.tsx`), so they only move and nothing scales.
+- Profile photo still jumped (38px in one frame) after that fix: `toggleSidebar` set `<html data-buck-sidebar>` inside the state update, so the CSS layout changed before Framer took its "before" snapshot, and Framer saw nothing to animate. The attribute is now set in a `useLayoutEffect` after React commits. Framer now writes translate-only moves to the tray, avatar and controls in both directions.
 - Financial Advisor at 320px: the page grid's implicit `auto` column grew to 311px inside a 296px content area, so every card ran 3px off screen. The page grid and its responsive single columns now use `minmax(0, 1fr)`.
 
 ### 🎨 Admin Dashboard UI Review (2026-11-03, PR #245 follow-up)
