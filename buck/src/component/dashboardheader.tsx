@@ -356,8 +356,13 @@ export default function DashboardHeader({
         </nav>
 
         <div className="dashboard-header-actions">
+          {/* layout="position", not layout: the tray turns from a 62px row into
+              a 140px column when the rail collapses. A full layout animation
+              scales the tray to bridge that, which squashed and stretched the
+              round profile photo (a visible "pop"). The tray is transparent,
+              so only its children need to move; nothing here scales now. */}
           <motion.div
-            layout
+            layout="position"
             transition={sidebarTransition}
             className="dashboard-account-tray"
             role="group"
@@ -394,7 +399,11 @@ export default function DashboardHeader({
                 </motion.span>
               )}
             </AnimatePresence>
-            <div className="dashboard-account-controls">
+            <motion.div
+              layout="position"
+              transition={sidebarTransition}
+              className="dashboard-account-controls"
+            >
               <button
                 type="button"
                 className="dashboard-tray-btn dashboard-tray-btn--collapse"
@@ -412,7 +421,7 @@ export default function DashboardHeader({
                   <FaAngleDoubleLeft aria-hidden="true" />
                 </motion.span>
               </button>
-            </div>
+            </motion.div>
           </motion.div>
         </div>
 

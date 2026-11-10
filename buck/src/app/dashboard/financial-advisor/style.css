@@ -9,6 +9,9 @@
 
 .advisor-page {
   display: grid;
+  /* minmax(0, 1fr), not the implicit auto track: an auto track grows to its
+     widest card, which pushed every card 3px past a 320px screen. */
+  grid-template-columns: minmax(0, 1fr);
   gap: clamp(0.75rem, 1.5vw, 1rem);
   width: 100%;
   margin: 0;
@@ -546,13 +549,13 @@ html[data-buck-theme="dark"] .info-tip__bubble {
 
 @media (max-width: 1100px) {
   .advisor-ai-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
 @media (max-width: 920px) {
   .advisor-hero {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .advisor-hero__side {
@@ -564,7 +567,7 @@ html[data-buck-theme="dark"] .info-tip__bubble {
   }
 
   .advisor-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
