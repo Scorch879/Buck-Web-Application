@@ -808,6 +808,21 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
   - The fingerprint includes the week (Monday, PH time), so the "this week" step is rewritten at most once a week, plus whenever the data moves materially.
 - **Verification**: `python -m unittest` 94/94, with new tests for the production wallet set, the 14.3 → 15 weeks case, and a Sunday → Monday fingerprint change.
 
+#### BUG-043: [RESOLVED 2026-11-11] Goals: Attitude Picked by Hand, Active Goal Could Vanish, Progress Could Be Lost
+- **Location**: [`utils/supabaseData.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts) (`setOnlyGoalActiveRecord`, `updateGoalProgress`), [`component/goals.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/goals.tsx), [`Buck_AI/BuckAI_Advisor/snapshot.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/snapshot.py), [`Buck_AI/BuckAI_Forecast/history.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/history.py), `goals` table
+- **Impact**:
+  - The saving attitude was a dropdown on Create Goal. Nothing checked it against the user's spending, so an Aggressive goal could need no cut and a Normal one could be out of reach.
+  - Switching the active goal was two requests (deactivate all, then activate one). If the second failed, the user had no active goal.
+  - Add Progress wrote a total computed in the browser, so two quick saves could lose one. A completed goal stayed active.
+  - When no goal was active, the Advisor and Forecaster quietly planned for the newest unfinished goal instead.
+  - The Goals page's "AI forecast" was plain math (`utils/goalForecast.ts`), not the AI Forecaster.
+- **Fix** (ADR-055):
+  - The Advisor detects the attitude (`Buck_AI/shared/attitude.py`, `POST /advisor/attitude`) and saves it on the goal; the Forecaster returns `forecast.goal.plan` (spending and saving per day, week and month).
+  - Migration `202611110001_goal_attitude_and_activation.sql`: `set_active_goal()` and `add_goal_progress()` run in one transaction; a completed goal is never active; a user's goal is made active when they have none; `goals.attitude` is required and checked.
+  - Both AIs plan only for the goal the user set active.
+  - The Goals page UI (detected attitude instead of a dropdown, the Forecaster's plan in the forecast dialog) is handed to Buck | Frontend.
+- **Verification**: rolled-back SQL scenario as a real user (switch, add, finish, auto-activate, bad input, other users' goals invisible); `python -m unittest` 111/111 with 17 new attitude and API tests; `vitest` with 8 new goal-data tests.
+
 ---
 
 ## 3. Security & Compliance Audit Matrix

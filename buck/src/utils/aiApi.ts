@@ -1,6 +1,7 @@
 import type { ChatRequest, ChatStreamEvent } from "@/utils/aiChat";
 import { buckAiError, buckAiFetch } from "@/utils/buckAi";
 import { createSseParser } from "@/utils/sse";
+import { isSavingAttitude, type GoalAttitude } from "@/utils/goalAttitude";
 
 /**
  * AI Financial Advisor calls (Buck_AI `/advisor/*`). Insights live in
@@ -55,6 +56,30 @@ export async function getGoalTip(
     return typeof data.tip === "string" ? data.tip : "";
   } catch {
     return "";
+  }
+}
+
+/**
+ * The saving attitude a goal needs, detected by the Advisor from the user's
+ * spending and income, with the daily / weekly / monthly plan it implies.
+ * `{ goalId }` detects and saves it on a saved goal; the other form previews
+ * a goal being created (save `attitude` with the new goal). No Gemini call,
+ * so it answers even when the AI is busy. Null when Buck_AI is unreachable.
+ */
+export async function detectGoalAttitude(
+  goal: { goalId: string } | { targetAmount: number | string; savedAmount?: number; targetDate: string }
+): Promise<GoalAttitude | null> {
+  try {
+    const body =
+      "goalId" in goal
+        ? goal
+        : { targetAmount: Number(goal.targetAmount), savedAmount: goal.savedAmount ?? 0, targetDate: goal.targetDate };
+    const response = await buckAiFetch("/advisor/attitude", { method: "POST", body: JSON.stringify(body) });
+    if (!response.ok) return null;
+    const data = (await response.json()) as GoalAttitude;
+    return isSavingAttitude(data?.attitude) ? data : null;
+  } catch {
+    return null;
   }
 }
 

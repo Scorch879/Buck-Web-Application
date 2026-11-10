@@ -2,6 +2,7 @@ import { getSupabaseClient } from "@/utils/supabase";
 import { bumpDataEpoch, cachedRead, copyList } from "@/utils/dataCache";
 import { toLocalDateString } from "@/utils/cashFlow";
 import { appLogoPath } from "@/utils/connectedApps";
+import type { AttitudeBasis } from "@/utils/goalAttitude";
 import {
   designPreviewUserId,
   isDesignPreviewMode,
@@ -75,6 +76,9 @@ export type BuckGoal = {
   targetDate?: string;
   createdAt: string;
   attitude?: string;
+  /** Figures behind the detected attitude (Buck_AI `shared/attitude.py`); null until first detected. */
+  attitudeBasis?: AttitudeBasis | null;
+  attitudeDetectedAt?: string | null;
   isActive: boolean;
   completed: boolean;
   aiRecommendation?: string;
@@ -365,6 +369,9 @@ function mapIncome(row: Record<string, unknown>): BuckIncome {
   };
 }
 
+const GOAL_COLUMNS =
+  "id, goal_name, target_amount, current_amount, target_date, created_at, attitude, attitude_basis, attitude_detected_at, is_active, completed, ai_recommendation, ai_recommended_budget";
+
 function mapGoal(row: Record<string, unknown>): BuckGoal {
   return {
     id: String(row.id),
@@ -374,6 +381,11 @@ function mapGoal(row: Record<string, unknown>): BuckGoal {
     targetDate: row.target_date ? String(row.target_date) : undefined,
     createdAt: String(row.created_at || new Date().toISOString()),
     attitude: row.attitude ? String(row.attitude) : undefined,
+    attitudeBasis:
+      row.attitude_basis && typeof row.attitude_basis === "object"
+        ? (row.attitude_basis as AttitudeBasis)
+        : null,
+    attitudeDetectedAt: row.attitude_detected_at ? String(row.attitude_detected_at) : null,
     isActive: Boolean(row.is_active),
     completed: Boolean(row.completed),
     aiRecommendation: row.ai_recommendation
@@ -1381,7 +1393,7 @@ async function fetchListGoals(userId: string) {
   const { data, error } = await supabase
     .from("goals")
     .select(
-      "id, goal_name, target_amount, current_amount, target_date, created_at, attitude, is_active, completed, ai_recommendation, ai_recommended_budget"
+      GOAL_COLUMNS
     )
     .eq("user_id", safeUserId)
     .order("created_at", { ascending: false });
@@ -1398,7 +1410,8 @@ export async function createGoalRecord(
   targetAmount: string,
   attitude: string,
   targetDate: string,
-  aiRecommendation = ""
+  aiRecommendation = "",
+  attitudeBasis: AttitudeBasis | null = null
 ) {
   if (isDesignPreviewMode) {
     return {
@@ -1425,12 +1438,15 @@ export async function createGoalRecord(
       goal_name: goalName,
       target_amount: Number(targetAmount),
       attitude,
+      attitude_basis: attitudeBasis,
+      attitude_detected_at: attitudeBasis ? new Date().toISOString() : null,
       target_date: targetDate,
+      // The database makes it active when the user has no active goal yet.
       is_active: false,
       ai_recommendation: aiRecommendation,
     })
     .select(
-      "id, goal_name, target_amount, current_amount, target_date, created_at, attitude, is_active, completed, ai_recommendation, ai_recommended_budget"
+      GOAL_COLUMNS
     )
     .single();
 
@@ -1484,27 +1500,45 @@ export async function setOnlyGoalActiveRecord(goalId: string) {
     return;
   }
 
-  const userId = await getCurrentUserId();
   const safeGoalId = assertUuid(goalId, "goal id");
   const supabase = getSupabaseClient();
-  const { error: deactivateError } = await supabase
-    .from("goals")
-    .update({ is_active: false })
-    .eq("user_id", userId);
+  // One transaction (set_active_goal): the old two-request switch could leave no goal active.
+  const { error } = await supabase.rpc("set_active_goal", { p_goal_id: safeGoalId });
 
-  if (deactivateError) {
-    throw new Error(deactivateError.message);
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+/**
+ * Adds to a goal's saved amount in the database (add_goal_progress), so two
+ * quick saves can't overwrite each other. Reaching the target completes the
+ * goal and makes it inactive. Returns the goal's new state.
+ */
+export async function addGoalProgressRecord(goalId: string, amount: number) {
+  const safeGoalId = assertUuid(goalId, "goal id");
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("Amount must be more than 0.");
+  }
+  if (isDesignPreviewMode) {
+    return { currentAmount: amount, completed: false, isActive: true };
   }
 
-  const { error: activateError } = await supabase
-    .from("goals")
-    .update({ is_active: true })
-    .eq("id", safeGoalId)
-    .eq("user_id", userId);
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.rpc("add_goal_progress", {
+    p_goal_id: safeGoalId,
+    p_amount: Math.round(amount * 100) / 100,
+  });
 
-  if (activateError) {
-    throw new Error(activateError.message);
+  if (error) {
+    throw new Error(error.message);
   }
+  const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
+  return {
+    currentAmount: toNumber(row?.current_amount),
+    completed: Boolean(row?.completed),
+    isActive: Boolean(row?.is_active),
+  };
 }
 
 export async function updateGoalRecord(

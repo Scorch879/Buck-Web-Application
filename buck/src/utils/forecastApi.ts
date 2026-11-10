@@ -1,3 +1,4 @@
+import type { GoalPlan, SavingAttitude } from "@/utils/goalAttitude";
 import { buckAiError, buckAiFetch } from "@/utils/buckAi";
 
 /** Low / likely / high: the 80% range (P10-P90) and the median. */
@@ -99,6 +100,17 @@ export interface BuckForecast {
     freeCashPerDay: ForecastRange | null;
     reachBy: ForecastDateRange | null;
     onTrack: boolean | null;
+    /** The saving attitude the Advisor detected for this goal. */
+    attitude: SavingAttitude;
+    attitudeReason: string | null;
+    /** False when the goal needs more than a 40% cut in spending. */
+    feasible: boolean | null;
+    /** Daily, weekly and monthly spending limit and saving; null without spending history. */
+    plan: GoalPlan | null;
+    /** The model's expected spending per day (same in the 30- and 60-day views). */
+    forecastDailySpending: number;
+    /** Whether that expected spending fits inside `plan.spending.perDay`. */
+    withinPlan: boolean | null;
   } | null;
   habits: ForecastHabit[];
   recurring: { category: string; label: string; cadence: "weekly" | "monthly"; amount: number; nextDue: string }[];

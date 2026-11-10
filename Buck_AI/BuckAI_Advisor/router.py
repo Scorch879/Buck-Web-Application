@@ -6,6 +6,7 @@ GET  /advisor/insight?refresh=false  saved advice, regenerated when the data mov
 GET  /advisor/history?limit=10       previously saved advice, newest first
 POST /advisor/chat                   streaming chat (text/event-stream)
 POST /advisor/goal-tip               two-sentence tip for a goal
+POST /advisor/attitude               saving attitude a goal needs + its spending plan
 POST /advisor/categorize             file descriptions under the user's own categories
 """
 
@@ -108,6 +109,40 @@ async def goal_tip(body: GoalTipInput, user: AuthUser = Depends(current_user)):
     )
     try:
         return {"tip": await service.goal_tip(_db(user), goal)}
+    except LookupError:
+        raise HTTPException(404, "Goal not found.")
+    except DbError:
+        raise _unavailable()
+
+
+class AttitudeInput(BaseModel):
+    """Either `goalId` (a saved goal: detected and saved) or a goal being created."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    goal_id: str | None = Field(default=None, pattern=r"^[0-9a-fA-F-]{36}$")
+    target_amount: float | None = Field(default=None, gt=0, le=1_000_000_000_000)
+    saved_amount: float = Field(default=0, ge=0, le=1_000_000_000_000)
+    target_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+    @model_validator(mode="after")
+    def _one_goal(self):
+        if not self.goal_id and not (self.target_amount and self.target_date):
+            raise ValueError("Send goalId, or targetAmount and targetDate.")
+        return self
+
+
+@router.post("/attitude")
+async def attitude(body: AttitudeInput, user: AuthUser = Depends(current_user)):
+    """The saving attitude a goal needs (Normal / Moderate / Aggressive), why,
+    and the daily / weekly / monthly spending and saving plan it implies.
+    Deterministic: no Gemini call, so it works when the AI is busy."""
+    await rate_limit.enforce(_db(user), "tip")
+    goal = ({"goal_id": body.goal_id} if body.goal_id else
+            {"target_amount": body.target_amount, "saved_amount": body.saved_amount,
+             "target_date": body.target_date})
+    try:
+        return await service.goal_attitude(_db(user), goal)
     except LookupError:
         raise HTTPException(404, "Goal not found.")
     except DbError:

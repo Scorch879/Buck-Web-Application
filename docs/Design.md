@@ -1316,7 +1316,8 @@ Buck-Web-Application/
      - Clicking `Rename` animates the inline rename form (`input` + Save `✓` + Cancel `✕`) via Framer Motion (`AnimatePresence mode="wait"`) directly inside the Actions cell where the `Rename` button resides, while keeping the left `Category` column intact.
 - **Consequences**:
   - Zero vertical page bloat regardless of category count, higher information density on hover, and 1:1 skeletal loading parity via updated [`CategoriesSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/CategoriesSkeleton.tsx).
----
+
+---
 
 ### ADR-046: Categories Filter/Sort Dropdown & Wallets / Wallet History Pagination
 
@@ -1526,3 +1527,17 @@ Buck-Web-Application/
   - New scroll areas get the Buck scrollbar with no extra CSS.
   - Framer Motion stays the only animation library; no new dependency.
   - Performance (Buck | Security & Performance review, 2026-11-06): the width spring re-lays out `.dashboard-main` each frame, so every Chart.js chart sets `resizeDelay: 100` (one redraw after the resize settles), and the header swaps its backdrop blur for a solid background while `dashboard-header--animating` is set. The AI chat glides only when a message is added; streamed text follows with instant scrolling.
+
+### ADR-055: Detected Saving Attitude and a Forecast Goal Plan
+
+- **Status**: Implemented 2026-11-11 in [`Buck_AI/shared/attitude.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/shared/attitude.py), [`BuckAI_Advisor/service.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/service.py) (`goal_attitude`), [`BuckAI_Forecast/forecast.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/forecast.py) (`_goal`) and migration [`202611110001_goal_attitude_and_activation.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202611110001_goal_attitude_and_activation.sql). Amends §6.5 of CLAUDE.md: the attitude is detected, not chosen.
+- **Context**: The user picked Normal, Moderate or Aggressive when creating a goal, and nothing tied that choice to their money. The Forecaster showed an attitude target line but no plan for the goal, and the Goals page drew its own straight-line "forecast".
+- **Decision**:
+  1. **Detection** (deterministic, no Gemini, so it works when the AI is busy). The goal needs `remaining ÷ days left` a day. Allowance = income per day (last 30–90 days) − that amount; with no income logged Buck assumes the user breaks even (income = usual spending). Cut = 1 − allowance ÷ usual daily spending (last 30 days). Cut ≤ 0 → Normal, ≤ 20% → Moderate, more → Aggressive; over 40% is flagged `feasible: false` with a plain reason. A 3-point margin keeps a saved attitude from flipping on a boundary.
+  2. **Goal plan**: spending limit = the lower of the allowance and usual spending × the attitude multiplier (1.00 / 0.80 / 0.60), never below 0.60×; saving = income − limit. Both per day, week (×7) and month (×30), plus days to the goal and whether it lands by the target date.
+  3. **One source**: both AIs read 90 days of rows and call the same functions, so they always agree. The Advisor's insight, `POST /advisor/attitude` and `GET /forecast` save the result on the goal through `save_goal_attitude()` (RLS as the user; skipped when nothing changed).
+  4. **One active goal, kept by the database**: `set_active_goal()` (one transaction), `add_goal_progress()` (atomic; completing deactivates), trigger `goals_activation` (a new goal turns active when none is; a completed goal never stays active), check `goals_active_not_completed`. The AIs plan only for the flagged goal.
+- **Consequences**:
+  - `goals.attitude` is now written by Buck_AI; the web shows it with `attitude_basis.reason`. A manual pick is only a fallback when Buck_AI can't be reached.
+  - The Forecaster's goal block gains `attitude`, `attitudeReason`, `feasible`, `plan`, `forecastDailySpending` and `withinPlan`. It is the same in the 30- and 60-day views.
+  - `utils/goalForecast.ts` remains for the Statistics chart until the UI moves to `forecast.goal.plan`.

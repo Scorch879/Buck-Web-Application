@@ -29,6 +29,8 @@ from shared.supabase import DbError, UserDb
 
 from . import prompts
 from .forecast import ai_view, build_forecast
+from shared.attitude import save_detected
+
 from .history import load_history
 
 log = logging.getLogger("buck_ai.forecast")
@@ -238,7 +240,9 @@ def _next_ph_midnight(now: datetime) -> datetime:
 
 async def _compute(db: UserDb, horizon: int):
     # One database round trip, not two: Supabase is a long way from most callers.
-    (history, refs), latest = await asyncio.gather(load_history(db), latest_saved(db, horizon))
+    (history, refs, goal_row), latest = await asyncio.gather(load_history(db), latest_saved(db, horizon))
+    # The Forecaster plans with the attitude the Advisor detects; keep it saved on the goal.
+    await save_detected(db, refs.get("goal_id"), history.detection, goal_row)
     f = build_forecast(history, horizon)
     return f, refs, fingerprint(ai_view(f)), latest
 
