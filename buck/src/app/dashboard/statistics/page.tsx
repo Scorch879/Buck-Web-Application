@@ -39,7 +39,7 @@ import {
 import BudgetDonut, { getBudgetLevel } from "./BudgetDonut";
 import CategoryBreakdown, { type CategoryTotal } from "./CategoryBreakdown";
 import SpendingTrendChart from "./SpendingTrendChart";
-import AddExpenseModal from "./AddExpenseModal";
+import AddExpenseModal from "../expenses/AddExpenseModal";
 import {
   buildMonthRanges,
   buildWeekRanges,
@@ -1026,8 +1026,9 @@ const Statistics = () => {
         onClose={() => setShowExpenseModal(false)}
         userId={user.uid}
         categories={categories}
+        walletBudget={wallet}
         goalId={forecastGoal?.id ?? null}
-        onSaved={() => void refreshWallet()}
+        onExpenseAdded={refreshWallet}
       />
     </div>
   );

@@ -1447,6 +1447,35 @@ html[data-buck-theme="dark"] .expenses-modal-close-btn {
   color: var(--buck-ink);
 }
 
+.expenses-modal-category {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* Quiet text link under the category picker: opens the Categories tab. */
+.expenses-modal-manage-link {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  color: var(--buck-orange);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 6px;
+}
+
+.expenses-modal-manage-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.expenses-modal-manage-link:focus-visible {
+  outline: 2px solid var(--buck-orange);
+  outline-offset: 2px;
+}
+
 .expenses-modal-form input {
   width: 100%;
   min-height: 42px;
