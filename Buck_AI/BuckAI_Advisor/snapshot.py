@@ -93,7 +93,7 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
             "goals",
             {"select": "id,goal_name,target_amount,current_amount,target_date,attitude,attitude_basis,"
                        "is_active,completed",
-             "user_id": uid, "order": "created_at.desc", "limit": "20"},
+             "user_id": uid, "deleted_at": "is.null", "order": "created_at.desc", "limit": "20"},
         ),
         incomes(),
     )

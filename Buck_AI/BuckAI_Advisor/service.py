@@ -239,7 +239,7 @@ async def goal_tip(db: UserDb, goal: dict[str, Any]) -> str:
     today = today_ph()
     if goal.get("goal_id"):
         rows = await db.select("goals", {"select": "goal_name,target_amount,current_amount,target_date,attitude",
-                                         "user_id": f"eq.{db.user_id}", "id": f"eq.{goal['goal_id']}", "limit": "1"})
+                                         "user_id": f"eq.{db.user_id}", "id": f"eq.{goal['goal_id']}", "deleted_at": "is.null", "limit": "1"})
         if not rows:
             raise LookupError("Goal not found.")
         r = rows[0]
@@ -284,7 +284,7 @@ async def goal_attitude(db: UserDb, goal: dict[str, Any]) -> dict[str, Any]:
     if goal_id:
         rows = await db.select("goals", {"select": "id,target_amount,current_amount,target_date,attitude,"
                                                    "attitude_basis,completed",
-                                         "user_id": f"eq.{db.user_id}", "id": f"eq.{goal_id}", "limit": "1"})
+                                         "user_id": f"eq.{db.user_id}", "id": f"eq.{goal_id}", "deleted_at": "is.null", "limit": "1"})
         if not rows:
             raise LookupError("Goal not found.")
         r = rows[0]

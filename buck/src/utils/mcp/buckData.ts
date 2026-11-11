@@ -211,6 +211,7 @@ export async function getGoals(db: SupabaseClient): Promise<GoalRow[]> {
   const { data, error } = await db
     .from("goals")
     .select("goal_name, target_amount, current_amount, target_date, is_active, completed, attitude, created_at")
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
   if (error) fail("goals", error);
   return (data ?? []).map((row) => ({

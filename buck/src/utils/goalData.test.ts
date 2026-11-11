@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { rpc, buckAiFetch } = vi.hoisted(() => ({ rpc: vi.fn(), buckAiFetch: vi.fn() }));
+const { rpc, buckAiFetch, from, getUser } = vi.hoisted(() => ({
+  rpc: vi.fn(),
+  buckAiFetch: vi.fn(),
+  from: vi.fn(),
+  getUser: vi.fn(),
+}));
 
 vi.mock("@/utils/designPreview", () => ({
   designPreviewUserId: "preview-user",
@@ -8,7 +13,11 @@ vi.mock("@/utils/designPreview", () => ({
 }));
 
 vi.mock("@/utils/supabase", () => ({
-  getSupabaseClient: () => ({ rpc }),
+  getSupabaseClient: () => ({
+    rpc,
+    from,
+    auth: { getUser },
+  }),
 }));
 
 vi.mock("@/utils/buckAi", () => ({
@@ -17,13 +26,22 @@ vi.mock("@/utils/buckAi", () => ({
 }));
 
 import { detectGoalAttitude } from "./aiApi";
-import { addGoalProgressRecord, setOnlyGoalActiveRecord } from "./supabaseData";
+import {
+  addGoalProgressRecord,
+  deleteGoalRecord,
+  restoreGoalRecord,
+  setOnlyGoalActiveRecord,
+} from "./supabaseData";
 
+const userId = "11111111-1111-4111-8111-111111111111";
 const goalId = "44444444-4444-4444-8444-444444444444";
 
 beforeEach(() => {
   rpc.mockReset();
   buckAiFetch.mockReset();
+  from.mockReset();
+  getUser.mockReset();
+  getUser.mockResolvedValue({ data: { user: { id: userId } }, error: null });
 });
 
 describe("setOnlyGoalActiveRecord", () => {
@@ -90,5 +108,124 @@ describe("detectGoalAttitude", () => {
     expect(await detectGoalAttitude({ goalId })).toBeNull();
     buckAiFetch.mockRejectedValueOnce(new Error("offline"));
     expect(await detectGoalAttitude({ goalId })).toBeNull();
+  });
+});
+
+describe("deleteGoalRecord", () => {
+  it("performs a soft-delete instead of a hard delete", async () => {
+    const update = vi.fn().mockReturnThis();
+    const eq = vi.fn().mockReturnThis();
+    const is = vi.fn().mockResolvedValue({ error: null });
+    const deleteFn = vi.fn();
+
+    from.mockReturnValue({
+      update,
+      delete: deleteFn,
+      eq,
+      is,
+    });
+
+    await deleteGoalRecord(goalId);
+
+    expect(from).toHaveBeenCalledWith("goals");
+    expect(deleteFn).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledWith({
+      deleted_at: expect.any(String),
+      is_active: false,
+    });
+    expect(eq).toHaveBeenCalledWith("id", goalId);
+    expect(eq).toHaveBeenCalledWith("user_id", userId);
+    expect(is).toHaveBeenCalledWith("deleted_at", null);
+  });
+
+  it("surfaces database errors", async () => {
+    const update = vi.fn().mockReturnThis();
+    const eq = vi.fn().mockReturnThis();
+    const is = vi.fn().mockResolvedValue({ error: { message: "Database update failed" } });
+
+    from.mockReturnValue({
+      update,
+      eq,
+      is,
+    });
+
+    await expect(deleteGoalRecord(goalId)).rejects.toThrow("Database update failed");
+  });
+});
+
+describe("restoreGoalRecord", () => {
+  it("clears deleted_at, marks inactive and returns the mapped BuckGoal", async () => {
+    const row = {
+      id: goalId,
+      goal_name: "Emergency Fund",
+      target_amount: "10000.00",
+      current_amount: "2500.00",
+      target_date: "2027-01-01",
+      created_at: "2026-01-01T00:00:00.000Z",
+      attitude: "Moderate",
+      attitude_basis: null,
+      attitude_detected_at: null,
+      is_active: false,
+      completed: false,
+      ai_recommendation: "Save steadily",
+      ai_recommended_budget: 500,
+      deleted_at: null,
+    };
+
+    const update = vi.fn().mockReturnThis();
+    const eq = vi.fn().mockReturnThis();
+    const select = vi.fn().mockReturnThis();
+    const single = vi.fn().mockResolvedValue({ data: row, error: null });
+
+    from.mockReturnValue({
+      update,
+      eq,
+      select,
+      single,
+    });
+
+    const restored = await restoreGoalRecord(goalId);
+
+    expect(from).toHaveBeenCalledWith("goals");
+    expect(update).toHaveBeenCalledWith({
+      deleted_at: null,
+      is_active: false,
+    });
+    expect(eq).toHaveBeenCalledWith("id", goalId);
+    expect(eq).toHaveBeenCalledWith("user_id", userId);
+    expect(select).toHaveBeenCalled();
+    expect(single).toHaveBeenCalled();
+    expect(restored).toEqual({
+      id: goalId,
+      goalName: "Emergency Fund",
+      targetAmount: 10000,
+      currentAmount: 2500,
+      targetDate: "2027-01-01",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      attitude: "Moderate",
+      attitudeBasis: null,
+      attitudeDetectedAt: null,
+      isActive: false,
+      completed: false,
+      aiRecommendation: "Save steadily",
+      aiRecommendedBudget: 500,
+      deletedAt: null,
+    });
+  });
+
+  it("surfaces database errors on restore", async () => {
+    const update = vi.fn().mockReturnThis();
+    const eq = vi.fn().mockReturnThis();
+    const select = vi.fn().mockReturnThis();
+    const single = vi.fn().mockResolvedValue({ data: null, error: { message: "Goal restore failed" } });
+
+    from.mockReturnValue({
+      update,
+      eq,
+      select,
+      single,
+    });
+
+    await expect(restoreGoalRecord(goalId)).rejects.toThrow("Goal restore failed");
   });
 });

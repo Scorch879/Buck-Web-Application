@@ -210,6 +210,20 @@ Two fixes came out of it:
   - Not checked yet: the same screens with live Buck_AI data (detected attitude, plan numbers, 30-day chart) and the create, set-active and add-progress writes. They need a signed-in session.
 - Financial Advisor at 320px: the page grid's implicit `auto` column grew to 311px inside a 296px content area, so every card ran 3px off screen. The page grid and its responsive single columns now use `minmax(0, 1fr)`.
 
+### 🎯 Goal Soft-Delete & Recovery Audit and Playwright E2E Verification (2026-11-11, ADR-056)
+
+Migration [`202611110002_soft_delete_goals.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202611110002_soft_delete_goals.sql) applied live to `glnuzqmnmzuxgujmxigx` and recorded.
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **BUG-045** | 🔴 Critical | Deleting any funded goal (`current_amount > 0`) on `/dashboard/goals` failed with Postgres exception `Cannot delete a goal that has funds allocated to it (current_amount > 0).` from `trg_check_goal_deletion` (`202606130001_strict_deletions.sql`) because [`deleteGoalRecord`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L1493) issued a hard `DELETE FROM public.goals`. Unfunded goals (`current_amount = 0`) were permanently destroyed with `expenses.goal_id` set to `NULL` and no recovery path. | **Resolved 2026-11-11 (ADR-056).** Added `public.goals.deleted_at timestamptz`, check `goals_active_not_deleted`, updated `goals_activation()`, `set_active_goal()`, `add_goal_progress()`, `save_goal_attitude()`, and `get_admin_telemetry()`. Converted `deleteGoalRecord` to a soft-delete `UPDATE` (`deleted_at = now(), is_active = false`), added `listDeletedGoals` and `restoreGoalRecord` / `restoreGoal`, filtered `deleted_at IS NULL` across `Buck_AI` (`snapshot.py`, `tools.py`, `service.py`, `history.py`), `aiInsightsGenerator.ts`, and `mcp/buckData.ts`, and added the collapsible **Deleted goals** recovery section on `/dashboard/goals`. |
+
+**Verified**:
+- `npm run typecheck` (0 errors), `npm run lint` (0 errors, 0 warnings, ADR-044), `npm test` in `buck/` (19 files, 217/217 passed including new `deleteGoalRecord` and `restoreGoalRecord` unit tests in [`goalData.test.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/goalData.test.ts#L114-L230)), and `Buck_AI` unittest/pytest (117/117 passed).
+- **Playwright Browser E2E Verification** on `http://localhost:3000/dashboard/goals` (signed in as `swifter879@gmail.com`):
+  1. **Funded Inactive Goal (`Ergonomic Workstation Setup`, `₱11,880 of ₱18,000`)**: 3-step `DangerDeleteDialog` (slide → "I understand, continue" → type exact goal name → Delete) succeeded with toast `"Ergonomic Workstation Setup" moved to deleted goals. You can restore it anytime.`; DB row verified `deleted_at IS NOT NULL`, `is_active = false`, `current_amount = 11880`; goal appeared in sidebar **Deleted goals (`1`)** and restored via 1-click **Restore** (`deleted_at = null`, `current_amount = 11880`).
+  2. **Funded Active Goal (`Emergency Buffer (3 Months)`, `₱19,552.50 of ₱24,750`, `ACTIVE`)**: Soft-deleted via `DangerDeleteDialog` (`deleted_at IS NOT NULL`, `is_active = false`); restored when no other active goal was active and automatically re-promoted to `is_active = true` by `goals_activation()`.
+
 ### 🎨 Admin Dashboard UI Review (2026-11-03, PR #245 follow-up)
 
 UI only; the API route, migrations, `supabaseData.ts` and `FinancialContext` types are unchanged.

@@ -22,6 +22,7 @@ import {
   deleteGoal,
   updateGoalStatus,
   setOnlyGoalActive,
+  restoreGoal,
 } from "@/component/goals";
 import ProgressBarCard from "./ProgressBarCard";
 import DangerDeleteDialog from "@/component/DangerDeleteDialog";
@@ -46,6 +47,7 @@ import {
   getActiveWallet,
   listExpenses,
   listGoals,
+  listDeletedGoals,
   subscribeUserTable,
   type BuckCategory,
   type BuckExpense,
@@ -96,6 +98,9 @@ const GoalsPage = () => {
   const isDarkTheme = useAuthPageTheme();
   const { text: chartTextColor, grid: chartGridColor } = buckChartColors(isDarkTheme);
   const [goals, setGoals] = useState<Goal[]>(() => userCache.goals ?? []);
+  const [deletedGoals, setDeletedGoals] = useState<Goal[]>([]);
+  const [showDeletedGoals, setShowDeletedGoals] = useState(false);
+  const [restoringGoalId, setRestoringGoalId] = useState<string | null>(null);
   const [loadingGoals, setLoadingGoals] = useState(
     () => !hasInitialGoalsData
   );
@@ -136,21 +141,56 @@ const GoalsPage = () => {
   const [confirmGoalDelete, setConfirmGoalDelete] = useState(false);
 
   const handleDeleteGoal = async () => {
-    if (!selectedGoal) return;
+    const goalToDelete = selectedGoal;
+    if (!goalToDelete) return;
 
-    const result = await deleteGoal(selectedGoal.id);
+    const result = await deleteGoal(goalToDelete.id);
     if (result.success) {
-      const nextGoals = goals.filter((goal) => goal.id !== selectedGoal.id);
+      const nextGoals = goals.filter((goal) => goal.id !== goalToDelete.id);
       setGoals(nextGoals);
+      setDeletedGoals((prev) => [
+        { ...goalToDelete, isActive: false, deletedAt: new Date().toISOString() },
+        ...prev.filter((g) => g.id !== goalToDelete.id),
+      ]);
       setDashboardCache((currentCache) =>
         mergeDashboardDataCache(currentCache, user.uid, {
           goals: nextGoals,
         })
       );
-      setSelectedGoal(null);
-      toast("Goal deleted successfully", "success");
+      setSelectedGoal(nextGoals[0] ?? null);
+      toast("Goal moved to Deleted Goals. You can restore it anytime.", "success");
     } else {
       toast(result.message || "Failed to delete goal.", "error");
+    }
+  };
+
+  const handleRestoreGoal = async (goalToRestore: Goal) => {
+    if (restoringGoalId) return;
+    setRestoringGoalId(goalToRestore.id);
+    try {
+      const result = await restoreGoal(goalToRestore.id);
+      if (result.success) {
+        const restored: Goal = result.goal ?? {
+          ...goalToRestore,
+          isActive: false,
+          deletedAt: null,
+        };
+        const nextGoals = [restored, ...goals.filter((g) => g.id !== restored.id)];
+        setGoals(nextGoals);
+        setDeletedGoals((prev) => prev.filter((g) => g.id !== goalToRestore.id));
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, { goals: nextGoals })
+        );
+        setSelectedGoal(restored);
+        toast(`Restored "${restored.goalName}"`, "success");
+      } else {
+        toast(result.message || "Failed to restore goal.", "error");
+      }
+    } catch (error) {
+      console.error("Failed to restore goal:", error);
+      toast("Failed to restore goal.", "error");
+    } finally {
+      setRestoringGoalId(null);
     }
   };
 
@@ -318,31 +358,36 @@ const GoalsPage = () => {
 
   // --- Effects ---
   useEffect(() => {
-    if (goals.length === 0) {
-      setSelectedGoal(null);
-      return;
-    }
-    // Try to find an active goal
-    const activeGoal = goals.find((goal) => goal.isActive);
-    if (activeGoal) {
-      setSelectedGoal(activeGoal);
-      return;
-    }
-    // Fallback: use localStorage or first goal
-    const storedGoalId = localStorage.getItem("selectedGoalId");
-    if (storedGoalId) {
-      const foundGoal = goals.find((goal) => goal.id === storedGoalId);
-      setSelectedGoal(foundGoal || goals[0]);
-    } else {
-      setSelectedGoal(goals[0]);
-    }
+    setSelectedGoal((prev) => {
+      if (goals.length === 0) {
+        return null;
+      }
+      const currentMatch = prev ? goals.find((g) => g.id === prev.id) : null;
+      if (currentMatch) {
+        return currentMatch;
+      }
+      const activeGoal = goals.find((goal) => goal.isActive);
+      if (activeGoal) {
+        return activeGoal;
+      }
+      const storedGoalId = localStorage.getItem("selectedGoalId");
+      if (storedGoalId) {
+        const foundGoal = goals.find((goal) => goal.id === storedGoalId);
+        return foundGoal || goals[0];
+      }
+      return goals[0];
+    });
   }, [goals]);
 
   useEffect(() => {
     const fetchGoals = async () => {
       try {
-        const nextGoals = await listGoals(user.uid);
+        const [nextGoals, nextDeletedGoals] = await Promise.all([
+          listGoals(user.uid),
+          listDeletedGoals(user.uid),
+        ]);
         setGoals(nextGoals);
+        setDeletedGoals(nextDeletedGoals);
         setDashboardCache((currentCache) =>
           mergeDashboardDataCache(currentCache, user.uid, {
             goals: nextGoals,
@@ -518,6 +563,54 @@ const GoalsPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setDashboardCache, selectedGoal, user.uid]);
 
+  const renderDeletedGoalsSection = (forceExpanded = false) => {
+    if (deletedGoals.length === 0) return null;
+    const isExpanded = forceExpanded || showDeletedGoals;
+    return (
+      <div className="goals-deleted-section">
+        <button
+          type="button"
+          className="goals-deleted-toggle"
+          aria-expanded={isExpanded}
+          onClick={() => setShowDeletedGoals((prev) => !prev)}
+        >
+          <span>Deleted goals</span>
+          <span className="goals-count-badge">{deletedGoals.length}</span>
+        </button>
+        {isExpanded && (
+          <div
+            className="goals-deleted-list"
+            role="region"
+            aria-label="Deleted goals"
+          >
+            {deletedGoals.map((goal) => (
+              <div key={goal.id} className="goals-deleted-item">
+                <div className="goals-deleted-info">
+                  <span className="goals-deleted-name" title={goal.goalName}>
+                    {goal.goalName}
+                  </span>
+                  <span className="goals-deleted-meta">
+                    {formatCurrency(goal.currentAmount || 0)} of{" "}
+                    {formatCurrency(goal.targetAmount)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="goals-restore-btn"
+                  onClick={() => void handleRestoreGoal(goal)}
+                  disabled={restoringGoalId === goal.id}
+                  aria-label={`Restore ${goal.goalName}`}
+                >
+                  {restoringGoalId === goal.id ? "Restoring…" : "Restore"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (loadingGoals) {
     return <DashboardPageSkeleton variant="goals" />;
   }
@@ -541,6 +634,7 @@ const GoalsPage = () => {
               Create Goal
             </button>
           </div>
+          {renderDeletedGoalsSection(true)}
         </div>
         <AnimatePresence>
           {showModal && (
@@ -670,6 +764,7 @@ const GoalsPage = () => {
               );
             })}
           </div>
+          {renderDeletedGoalsSection()}
         </aside>
 
         {/* Selected goal */}
@@ -1027,8 +1122,8 @@ const GoalsPage = () => {
         itemType="goal"
         itemName={selectedGoal?.goalName ?? ""}
         consequences={[
-          "The goal, its progress and its AI recommendation are removed.",
-          "Expenses linked to it are kept but no longer linked to a goal.",
+          "The goal will be moved to Deleted Goals and deactivated.",
+          "Its saved progress, AI recommendation, and linked expenses are kept so you can restore it anytime.",
         ]}
         onCancel={() => setConfirmGoalDelete(false)}
         onConfirm={async () => {

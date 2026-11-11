@@ -4,9 +4,11 @@ import {
   addGoalProgressRecord,
   createGoalRecord,
   deleteGoalRecord,
+  restoreGoalRecord,
   setOnlyGoalActiveRecord,
   updateGoalRecord,
   updateGoalStatusRecord,
+  type BuckGoal,
 } from "@/utils/supabaseData";
 
 /**
@@ -58,7 +60,25 @@ export async function deleteGoal(goalId: string) {
     return { success: true };
   } catch (error) {
     console.error("Failed to delete goal:", error);
-    return { success: false, message: "Failed to delete goal." };
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to delete goal.",
+    };
+  }
+}
+
+export async function restoreGoal(
+  goalId: string
+): Promise<{ success: boolean; goal?: BuckGoal; message?: string }> {
+  try {
+    const goal = await restoreGoalRecord(goalId);
+    return { success: true, goal };
+  } catch (error) {
+    console.error("Failed to restore goal:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to restore goal.",
+    };
   }
 }
 

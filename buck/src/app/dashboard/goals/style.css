@@ -727,6 +727,178 @@ html[data-buck-theme="dark"] .goals-segmented-btn[aria-pressed="true"] {
   width: min(220px, 100%);
 }
 
+/* ---- Deleted goals recovery section ---- */
+
+.goals-deleted-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--buck-line);
+  flex-shrink: 0;
+}
+
+.goals-deleted-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 36px;
+  padding: 0.45rem 0.7rem;
+  color: var(--buck-muted);
+  background: transparent;
+  border: 1px dashed var(--buck-line);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.goals-deleted-toggle:hover {
+  color: var(--buck-ink);
+  background: rgba(244, 117, 54, 0.06);
+  border-color: var(--buck-orange);
+}
+
+html[data-buck-theme="dark"] .goals-deleted-toggle:hover {
+  background: rgba(255, 197, 71, 0.08);
+  border-color: var(--buck-gold);
+}
+
+.goals-deleted-toggle[aria-expanded="true"] {
+  color: var(--buck-ink);
+  border-style: solid;
+  border-color: rgba(244, 117, 54, 0.45);
+}
+
+html[data-buck-theme="dark"] .goals-deleted-toggle[aria-expanded="true"] {
+  border-color: rgba(255, 197, 71, 0.45);
+}
+
+.goals-deleted-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-height: 200px;
+  padding: 0.15rem 0.05rem;
+  overflow-y: auto;
+}
+
+.goals-deleted-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+html[data-buck-theme="dark"] .goals-deleted-item {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.goals-deleted-item:hover {
+  border-color: rgba(244, 117, 54, 0.35);
+}
+
+.goals-deleted-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.goals-deleted-name {
+  overflow: hidden;
+  color: var(--buck-ink);
+  font-size: 0.86rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.goals-deleted-meta {
+  color: var(--buck-muted);
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
+.goals-restore-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0.35rem 0.8rem;
+  color: var(--buck-orange);
+  background: rgba(244, 117, 54, 0.1);
+  border: 1px solid rgba(244, 117, 54, 0.35);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.goals-restore-btn:hover:not(:disabled) {
+  color: #fff;
+  background: var(--buck-orange);
+  border-color: var(--buck-orange);
+}
+
+.goals-restore-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+html[data-buck-theme="dark"] .goals-restore-btn {
+  color: var(--buck-gold);
+  background: rgba(255, 197, 71, 0.12);
+  border-color: rgba(255, 197, 71, 0.3);
+}
+
+html[data-buck-theme="dark"] .goals-restore-btn:hover:not(:disabled) {
+  color: #241409;
+  background: var(--buck-gold);
+  border-color: var(--buck-gold);
+}
+
+/* Empty state recovery variant */
+.emptyContainer .goals-deleted-section {
+  width: 100%;
+  max-width: 760px;
+  margin-top: 1.25rem;
+  padding: 1.1rem 1.35rem;
+  background: var(--buck-surface);
+  border: 1px solid var(--buck-line);
+  border-radius: 10px;
+  box-shadow: var(--buck-shadow);
+}
+
+.emptyContainer .goals-deleted-list {
+  max-height: 320px;
+}
+
+.emptyContainer .goals-deleted-item {
+  padding: 0.75rem 1rem;
+}
+
 .goals-title {
   color: var(--buck-ink);
 }

@@ -83,6 +83,7 @@ export type BuckGoal = {
   completed: boolean;
   aiRecommendation?: string;
   aiRecommendedBudget?: number | null;
+  deletedAt?: string | null;
 };
 
 export type BuckWallet = {
@@ -248,6 +249,7 @@ const previewGoals: BuckGoal[] = [
     aiRecommendation:
       "Keep a PHP 850 weekend envelope and move PHP 300 to savings after bills clear.",
     aiRecommendedBudget: 850,
+    deletedAt: null,
   },
   {
     id: "preview-goal-laptop",
@@ -262,6 +264,7 @@ const previewGoals: BuckGoal[] = [
     aiRecommendation:
       "Hold nonessential shopping below PHP 900 this week to keep the goal moving.",
     aiRecommendedBudget: 900,
+    deletedAt: null,
   },
 ];
 
@@ -370,7 +373,7 @@ function mapIncome(row: Record<string, unknown>): BuckIncome {
 }
 
 const GOAL_COLUMNS =
-  "id, goal_name, target_amount, current_amount, target_date, created_at, attitude, attitude_basis, attitude_detected_at, is_active, completed, ai_recommendation, ai_recommended_budget";
+  "id, goal_name, target_amount, current_amount, target_date, created_at, attitude, attitude_basis, attitude_detected_at, is_active, completed, ai_recommendation, ai_recommended_budget, deleted_at";
 
 function mapGoal(row: Record<string, unknown>): BuckGoal {
   return {
@@ -395,6 +398,7 @@ function mapGoal(row: Record<string, unknown>): BuckGoal {
       row.ai_recommended_budget === null || row.ai_recommended_budget === undefined
         ? null
         : toNumber(row.ai_recommended_budget),
+    deletedAt: row.deleted_at ? String(row.deleted_at) : null,
   };
 }
 
@@ -1396,9 +1400,36 @@ async function fetchListGoals(userId: string) {
       GOAL_COLUMNS
     )
     .eq("user_id", safeUserId)
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
   if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map(mapGoal);
+}
+
+async function fetchListDeletedGoals(userId: string) {
+  if (isDesignPreviewMode) {
+    return [];
+  }
+
+  const supabase = getSupabaseClient();
+  const safeUserId = assertUuid(userId, "user id");
+  const { data, error } = await supabase
+    .from("goals")
+    .select(
+      GOAL_COLUMNS
+    )
+    .eq("user_id", safeUserId)
+    .not("deleted_at", "is", null)
+    .order("deleted_at", { ascending: false });
+
+  if (error) {
+    if (isMissingColumnError(error)) {
+      return [];
+    }
     throw new Error(error.message);
   }
 
@@ -1426,6 +1457,7 @@ export async function createGoalRecord(
       completed: false,
       aiRecommendation,
       aiRecommendedBudget: null,
+      deletedAt: null,
     };
   }
 
@@ -1454,6 +1486,7 @@ export async function createGoalRecord(
     throw new Error(error.message);
   }
 
+  bumpDataEpoch();
   return mapGoal(data);
 }
 
@@ -1467,13 +1500,48 @@ export async function deleteGoalRecord(goalId: string) {
   const supabase = getSupabaseClient();
   const { error } = await supabase
     .from("goals")
-    .delete()
+    .update({
+      deleted_at: new Date().toISOString(),
+      is_active: false,
+    })
     .eq("id", safeGoalId)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .is("deleted_at", null);
 
   if (error) {
     throw new Error(error.message);
   }
+
+  bumpDataEpoch();
+}
+
+export async function restoreGoalRecord(goalId: string): Promise<BuckGoal> {
+  if (isDesignPreviewMode) {
+    throw new Error("Cannot restore goal in design preview mode");
+  }
+
+  const userId = await getCurrentUserId();
+  const safeGoalId = assertUuid(goalId, "goal id");
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("goals")
+    .update({
+      deleted_at: null,
+      is_active: false,
+    })
+    .eq("id", safeGoalId)
+    .eq("user_id", userId)
+    .select(
+      GOAL_COLUMNS
+    )
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  bumpDataEpoch();
+  return mapGoal(data);
 }
 
 export async function updateGoalStatusRecord(goalId: string, isActive: boolean) {
@@ -1493,6 +1561,8 @@ export async function updateGoalStatusRecord(goalId: string, isActive: boolean) 
   if (error) {
     throw new Error(error.message);
   }
+
+  bumpDataEpoch();
 }
 
 export async function setOnlyGoalActiveRecord(goalId: string) {
@@ -1508,6 +1578,8 @@ export async function setOnlyGoalActiveRecord(goalId: string) {
   if (error) {
     throw new Error(error.message);
   }
+
+  bumpDataEpoch();
 }
 
 /**
@@ -1533,6 +1605,7 @@ export async function addGoalProgressRecord(goalId: string, amount: number) {
   if (error) {
     throw new Error(error.message);
   }
+  bumpDataEpoch();
   const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
   return {
     currentAmount: toNumber(row?.current_amount),
@@ -1571,6 +1644,8 @@ export async function updateGoalRecord(
   if (error) {
     throw new Error(error.message);
   }
+
+  bumpDataEpoch();
 }
 
 export async function updateGoalProgress(
@@ -1598,6 +1673,8 @@ export async function updateGoalProgress(
   if (error) {
     throw new Error(error.message);
   }
+
+  bumpDataEpoch();
 }
 
 export async function updateGoalAiRecommendedBudget(
@@ -2346,6 +2423,10 @@ export function listGoals(userId: string) {
   return cachedRead(`goals:${userId}`, () => fetchListGoals(userId)).then(copyList);
 }
 
+export function listDeletedGoals(userId: string) {
+  return cachedRead(`deleted-goals:${userId}`, () => fetchListDeletedGoals(userId)).then(copyList);
+}
+
 export function listWallets(userId: string) {
   return cachedRead(`wallets:${userId}`, () => fetchListWallets(userId)).then(copyList);
 }
@@ -2411,4 +2492,47 @@ export async function disconnectConnectedApp(clientId: string) {
   if (error) {
     throw new Error(error.message);
   }
+}
+
+/** Which first-run steps a user has done (the Home "Getting started" card, ADR-056). */
+export type OnboardingStatus = {
+  hasWallet: boolean;
+  hasExpense: boolean;
+  /** null = income isn't tracked on this database, so the step isn't offered. */
+  hasIncome: boolean | null;
+  hasGoal: boolean;
+};
+
+/**
+  * Four count-only reads (no rows come back), each under RLS as the user.
+  * Archived wallets and soft-deleted goals don't count.
+  */
+export async function getOnboardingStatus(userId: string): Promise<OnboardingStatus> {
+  if (isDesignPreviewMode) {
+    return { hasWallet: true, hasExpense: true, hasIncome: true, hasGoal: true };
+  }
+
+  const safeUserId = assertUuid(userId, "user id");
+  const supabase = getSupabaseClient();
+  const head = { count: "exact", head: true } as const;
+  const [wallets, expenses, goals, incomes] = await Promise.all([
+    supabase.from("wallets").select("id", head).eq("user_id", safeUserId).is("deleted_at", null),
+    supabase.from("expenses").select("id", head).eq("user_id", safeUserId),
+    supabase.from("goals").select("id", head).eq("user_id", safeUserId).is("deleted_at", null),
+    supabase.from("incomes").select("id", head).eq("user_id", safeUserId),
+  ]);
+
+  for (const result of [wallets, expenses, goals]) {
+    if (result.error) throw new Error(result.error.message);
+  }
+  if (incomes.error && !isIncomeMissingError(incomes.error)) {
+    throw new Error(incomes.error.message);
+  }
+
+  return {
+    hasWallet: (wallets.count ?? 0) > 0,
+    hasExpense: (expenses.count ?? 0) > 0,
+    hasIncome: incomes.error ? null : (incomes.count ?? 0) > 0,
+    hasGoal: (goals.count ?? 0) > 0,
+  };
 }

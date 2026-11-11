@@ -104,6 +104,7 @@ export async function fetchUserFinancialContext(
     .from("goals")
     .select("id, goal_name, target_amount, current_amount, target_date, attitude, is_active, completed")
     .eq("user_id", userId)
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
   const activeGoalRow =

@@ -40,7 +40,7 @@ async def load_history(db: UserDb, today: date | None = None) -> tuple[History, 
                                    ("user_id", uid), ("spent_on", f"gte.{since}"), ("spent_on", f"lte.{today}")]),
         db.select("goals", {"select": "id,goal_name,target_amount,current_amount,target_date,attitude,attitude_basis,"
                                       "is_active,completed",
-                            "user_id": uid, "order": "created_at.desc", "limit": "20"}),
+                            "user_id": uid, "deleted_at": "is.null", "order": "created_at.desc", "limit": "20"}),
         incomes(),
     )
 
