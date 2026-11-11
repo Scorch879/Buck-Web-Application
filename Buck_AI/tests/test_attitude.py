@@ -260,6 +260,34 @@ class AttitudeApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(goal["withinPlan"], bool)
         self.assertEqual(self.supa.saved[-1]["p_attitude"], "Moderate")
 
+    async def test_both_ais_agree_for_a_user_who_stopped_logging(self):
+        # Spent 200 a day until 30 days ago, then logged nothing; paid 9,000 a month before that.
+        quiet = NOW - timedelta(days=30)
+        rows = [{"amount": 200, "category_name": "Food", "wallet_id": "w1", "description": "food",
+                 "spent_on": (quiet - timedelta(days=i)).isoformat(), "metadata": {}} for i in range(50)]
+        pay = [{"amount": 9000, "received_on": (quiet - timedelta(days=d)).isoformat(), "wallet_id": "w1",
+                "category_name": "Salary", "description": "pay"} for d in (3, 33)]
+        base = self.supa.handler
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            table = request.url.path.rsplit("/", 1)[-1]
+            if request.method == "GET" and table == "expenses":
+                return httpx.Response(200, json=rows)
+            if request.method == "GET" and table == "incomes":
+                return httpx.Response(200, json=pay)
+            return base(request)
+
+        set_http(httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+        advisor = (await self.client.post("/advisor/attitude", headers=GOOD, json={"goalId": GOAL_ID})).json()
+        forecast = (await self.client.get("/forecast?horizon=60", headers=GOOD)).json()["forecast"]["goal"]
+        self.assertEqual(advisor["typicalDailySpending"], 200.0)  # not 0: the gap is skipped
+        self.assertTrue(advisor["loggingGap"])
+        self.assertIn("haven't logged spending since", advisor["reason"])
+        self.assertEqual(forecast["attitude"], advisor["attitude"])
+        self.assertEqual(forecast["plan"]["spending"], advisor["plan"]["spending"])
+        self.assertEqual(forecast["plan"]["saving"], advisor["plan"]["saving"])
+        self.assertTrue(all(s["p_basis"]["loggingGap"] for s in self.supa.saved))
+
     async def test_inactive_goal_is_not_planned(self):
         self.supa.goal["is_active"] = False
         r = await self.client.get("/forecast?horizon=30", headers=GOOD)
