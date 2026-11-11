@@ -30,6 +30,7 @@ BOUNDS = (0.0, 0.20)          # Normal | Moderate | Aggressive
 MAX_FEASIBLE_CUT = 0.40       # Aggressive spends 0.60x usual: the most Buck asks
 MARGIN = 0.03
 SPEND_DAYS = 30               # usual spending: the last 30 days
+QUIET_DAYS = 7                # nothing logged this long: measure up to the last logged day
 INCOME_DAYS_MIN, INCOME_DAYS_MAX = 30, 90
 WEEK, MONTH = 7, 30
 
@@ -47,21 +48,31 @@ def attitude_inputs(expenses: Iterable[tuple[date, float]], incomes: Iterable[tu
     Spending: the last 30 days, divided by the days actually logged when the
     user is newer than that (at least 7). Income: the last 30-90 days (as
     much history as exists), so a monthly allowance is spread over a month.
+    When no expense has been logged for 7+ days, both windows end at the last
+    logged expense instead of today, so a logging gap doesn't read as "spends
+    nothing" (or as a missed payday). Only rows from the last 90 days count,
+    whatever the caller loaded.
     """
-    spent = [(d, a) for d, a in expenses if d <= today and a > 0]
-    earned = [(d, a) for d, a in incomes if d <= today and a > 0]
+    def recent(rows: Iterable[tuple[date, float]]) -> list[tuple[date, float]]:
+        return [(d, a) for d, a in rows if 0 <= (today - d).days < INCOME_DAYS_MAX and a > 0]
+
+    spent, earned = recent(expenses), recent(incomes)
     first = min([d for d, _ in spent] + [d for d, _ in earned], default=None)
-    observed = (today - first).days + 1 if first else 0
+    last = max((d for d, _ in spent), default=None)
+    gap = last is not None and (today - last).days >= QUIET_DAYS
+    end = last if gap else today
+    observed = max(0, (end - first).days + 1) if first else 0
     spend_days = max(7, min(SPEND_DAYS, observed))
-    last30 = sum(a for d, a in spent if (today - d).days < SPEND_DAYS)
+    last30 = sum(a for d, a in spent if 0 <= (end - d).days < SPEND_DAYS)
     income_days = max(INCOME_DAYS_MIN, min(INCOME_DAYS_MAX, observed))
-    income = sum(a for d, a in earned if (today - d).days < income_days)
+    income = sum(a for d, a in earned if 0 <= (end - d).days < income_days)
     return {
         "typical_daily": round(last30 / spend_days, 2) if spent else 0.0,
         "income_daily": round(income / income_days, 2) if income > 0 else None,
         "spend_days": spend_days,
         "income_days": income_days if income > 0 else None,
         "observed_days": observed,
+        "spending_until": end.isoformat() if gap else None,
     }
 
 
@@ -84,9 +95,31 @@ def _periods(per_day: float) -> dict[str, float]:
     return {"perDay": _m(per_day), "perWeek": _m(per_day * WEEK), "perMonth": _m(per_day * MONTH)}
 
 
+def _day_label(day: date) -> str:
+    return day.strftime("%b %d, %Y").replace(" 0", " ")
+
+
 def detect_attitude(*, typical_daily: float, income_daily: float | None, remaining: float,
-                    target_date: str | None, today: date, current: str | None = None) -> dict[str, Any]:
-    """The attitude a goal needs, with the figures behind it (saved as `goals.attitude_basis`)."""
+                    target_date: str | None, today: date, current: str | None = None,
+                    spending_until: str | None = None) -> dict[str, Any]:
+    """The attitude a goal needs, with the figures behind it (saved as `goals.attitude_basis`).
+
+    `spending_until`: the last logged expense when the user has been quiet for
+    7+ days (`attitude_inputs`); the reason then says the figures stop there.
+    It is kept in the basis, so the saved attitude refreshes once logging resumes.
+    """
+    result = _detect(typical_daily, income_daily, remaining, target_date, today, current)
+    result["loggingGap"] = bool(spending_until)
+    result["spendingUntil"] = spending_until
+    if spending_until and result.get("requiredSavingPerDay") is not None:
+        since = _day_label(date.fromisoformat(spending_until))
+        result["reason"] = (f"You haven't logged spending since {since}, so this uses your figures up to then. "
+                            + result["reason"])
+    return result
+
+
+def _detect(typical_daily: float, income_daily: float | None, remaining: float, target_date: str | None,
+            today: date, current: str | None) -> dict[str, Any]:
     remaining = _m(remaining)
     try:
         days_left = (date.fromisoformat(target_date[:10]) - today).days if target_date else None
@@ -116,16 +149,22 @@ def detect_attitude(*, typical_daily: float, income_daily: float | None, remaini
     cut = 1 - allowance / typical_daily
     attitude = _choose(cut, current)
     feasible = cut <= MAX_FEASIBLE_CUT
-    by = date.fromisoformat(target_date[:10]).strftime("%b %d, %Y").replace(" 0", " ")
+    by = _day_label(date.fromisoformat(target_date[:10]))
     if cut <= 0:
         reason = (f"Your usual spending of {peso(typical_daily)} a day already leaves room to save "
                   f"{peso(required)} a day, so no cut is needed.")
     elif feasible:
         reason = (f"To save {peso(required)} a day by {by}, spend about {round(cut * 100)}% less than your "
                   f"usual {peso(typical_daily)} a day.")
+    elif income_daily and income_daily <= typical_daily * SPEND_MULTIPLIER["Aggressive"]:
+        reason = (f"Your usual spending of {peso(typical_daily)} a day is well above your income of "
+                  f"{peso(income_daily)} a day, so even a 40% cut leaves nothing for this goal. "
+                  "Log any income that's missing, or bring spending under your income first.")
     else:
         reason = (f"Saving {peso(required)} a day by {by} would mean cutting your usual {peso(typical_daily)} a day "
                   f"by more than 40%. The plan below keeps a 40% cut; a later date or a smaller target fits it.")
+    if attitude != ATTITUDES[_level(cut)]:  # held by the margin
+        reason += f" You're close to the line, so Buck keeps your {attitude} plan for now."
     return {**base, "attitude": attitude, "cutNeeded": round(cut, 3), "feasible": feasible,
             "spendAllowancePerDay": _m(allowance), "reason": reason}
 

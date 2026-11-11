@@ -77,7 +77,8 @@ async def load_history(db: UserDb, today: date | None = None) -> tuple[History, 
         detection = detect_attitude(
             typical_daily=inputs["typical_daily"], income_daily=inputs["income_daily"],
             remaining=goal["targetAmount"] - goal["savedAmount"], target_date=goal["targetDate"], today=today,
-            current=goal_row.get("attitude") if goal_row.get("attitude") in ATTITUDES else None)
+            current=goal_row.get("attitude") if goal_row.get("attitude") in ATTITUDES else None,
+            spending_until=inputs.get("spending_until"))
         attitude = detection["attitude"]
 
     history = History(today, expenses, incomes_out, wallets, attitude, goal, detection)

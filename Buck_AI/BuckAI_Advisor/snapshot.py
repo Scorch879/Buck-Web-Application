@@ -165,7 +165,8 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
         detection = detect_attitude(
             typical_daily=inputs["typical_daily"], income_daily=inputs["income_daily"],
             remaining=goal["remaining"], target_date=target_date, today=today,
-            current=goal_row.get("attitude") if goal_row.get("attitude") in ATTITUDES else None)
+            current=goal_row.get("attitude") if goal_row.get("attitude") in ATTITUDES else None,
+            spending_until=inputs.get("spending_until"))
         attitude = detection["attitude"]
         goal["attitude_reason"] = detection["reason"]
         goal["goal_plan"] = goal_plan(detection)

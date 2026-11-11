@@ -295,7 +295,8 @@ async def goal_attitude(db: UserDb, goal: dict[str, Any]) -> dict[str, Any]:
     remaining = max(0.0, money(goal.get("target_amount")) - money(goal.get("saved_amount")))
     target_date = str(goal["target_date"])[:10] if goal.get("target_date") else None
     detection = detect_attitude(typical_daily=inputs["typical_daily"], income_daily=inputs["income_daily"],
-                                remaining=remaining, target_date=target_date, today=today, current=current)
+                                remaining=remaining, target_date=target_date, today=today, current=current,
+                                spending_until=inputs.get("spending_until"))
     if goal_id:
         await save_detected(db, goal_id, detection, r)
     return {**detection, "goalId": goal_id, "plan": goal_plan(detection),

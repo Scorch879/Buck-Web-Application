@@ -60,6 +60,9 @@ class DetectTests(unittest.TestCase):
         self.assertEqual(detect(remaining=21 * 3 * 60, current="Moderate")["attitude"], "Moderate")
         self.assertEqual(detect(remaining=25 * 3 * 60, current="Moderate")["attitude"], "Aggressive")
         self.assertEqual(detect(remaining=19 * 3 * 60, current="Aggressive")["attitude"], "Aggressive")
+        self.assertIn("close to the line, so Buck keeps your Aggressive plan",
+                      detect(remaining=19 * 3 * 60, current="Aggressive")["reason"])
+        self.assertNotIn("close to the line", detect(remaining=15 * 3 * 60, current="Aggressive")["reason"])
         self.assertEqual(detect(remaining=15 * 3 * 60, current="Aggressive")["attitude"], "Moderate")
 
     def test_edge_cases(self):
@@ -104,6 +107,43 @@ class InputsTests(unittest.TestCase):
         self.assertEqual(out["typical_daily"], 100.0)  # 1,000 over 10 days, future row ignored
         self.assertEqual(out["income_daily"], 100.0)   # 3,000 over at least 30 days
         self.assertIsNone(attitude_inputs([], [], TODAY)["income_daily"])
+
+    def test_logging_gap_uses_the_30_days_up_to_the_last_expense(self):
+        last = TODAY - timedelta(days=20)  # quiet for 20 days
+        spend = [(last - timedelta(days=i), 200.0) for i in range(40)]
+        out = attitude_inputs(spend, [(TODAY - timedelta(days=5), 9000.0)], TODAY)
+        self.assertEqual(out["typical_daily"], 200.0)  # not (10 days x 200) / 30
+        self.assertEqual(out["spending_until"], last.isoformat())
+        d = detect_attitude(typical_daily=out["typical_daily"], income_daily=out["income_daily"],
+                            remaining=3000.0, target_date=IN_60, today=TODAY,
+                            spending_until=out["spending_until"])
+        self.assertTrue(d["loggingGap"])
+        self.assertTrue(d["reason"].startswith("You haven't logged spending since Oct 22, 2026"))
+
+    def test_logging_gap_also_ends_the_income_window(self):
+        last = TODAY - timedelta(days=30)
+        spend = [(last - timedelta(days=i), 100.0) for i in range(60)]
+        pay = [(last - timedelta(days=d), 6000.0) for d in (5, 35)]  # two monthly pays before the gap
+        out = attitude_inputs(spend, pay, TODAY)
+        self.assertEqual(out["income_days"], 60)       # Aug 14 .. Oct 12, not 90 days to today
+        self.assertEqual(out["income_daily"], 200.0)   # 12,000 / 60
+
+    def test_spending_above_income_says_so(self):
+        d = detect(typical=1000.0, income=500.0)
+        self.assertFalse(d["feasible"])
+        self.assertIn("well above your income of ₱500.00 a day", d["reason"])
+        self.assertEqual(goal_plan(d)["saving"]["perDay"], 0.0)
+
+    def test_short_pause_is_not_a_gap(self):
+        spend = [(TODAY - timedelta(days=3 + i), 100.0) for i in range(30)]
+        out = attitude_inputs(spend, [], TODAY)
+        self.assertIsNone(out["spending_until"])
+        self.assertEqual(out["typical_daily"], 90.0)  # 27 rows inside the last 30 days
+        self.assertFalse(detect()["loggingGap"])
+
+    def test_rows_older_than_90_days_are_ignored(self):
+        old = [(TODAY - timedelta(days=100 + i), 500.0) for i in range(30)]
+        self.assertEqual(attitude_inputs(old, old, TODAY)["typical_daily"], 0.0)
 
 
 class SaveTests(unittest.IsolatedAsyncioTestCase):
