@@ -467,6 +467,12 @@ html[data-buck-theme="dark"] .ai-recommendation {
   line-height: 1.6;
 }
 
+.ai-recommendation-note {
+  margin: 0.55rem 0 0;
+  color: var(--buck-muted);
+  font-size: 0.8rem;
+}
+
 .goals-bottom-buttons {
   display: flex;
   flex-wrap: wrap;
