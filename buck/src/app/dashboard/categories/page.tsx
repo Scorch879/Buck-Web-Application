@@ -1067,7 +1067,7 @@ export default function CategoriesPage() {
                                   whileHover={{ scale: 1.02, y: -1 }}
                                   whileTap={{ scale: 0.97 }}
                                 >
-                                  <FaEdit aria-hidden="true" /> Rename
+                                  <FaEdit aria-hidden="true" /> <span className="cat-action-label">Rename</span>
                                 </motion.button>
                                 <motion.button
                                   type="button"
@@ -1077,7 +1077,7 @@ export default function CategoriesPage() {
                                   whileHover={{ scale: 1.02, y: -1 }}
                                   whileTap={{ scale: 0.97 }}
                                 >
-                                  <FaTrash aria-hidden="true" /> Delete
+                                  <FaTrash aria-hidden="true" /> <span className="cat-action-label">Delete</span>
                                 </motion.button>
                               </motion.div>
                             )}

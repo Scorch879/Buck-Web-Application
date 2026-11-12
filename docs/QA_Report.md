@@ -210,6 +210,24 @@ Two fixes came out of it:
   - Not checked yet: the same screens with live Buck_AI data (detected attitude, plan numbers, 30-day chart) and the create, set-active and add-progress writes. They need a signed-in session.
 - Financial Advisor at 320px: the page grid's implicit `auto` column grew to 311px inside a 296px content area, so every card ran 3px off screen. The page grid and its responsive single columns now use `minmax(0, 1fr)`.
 
+### 🔎 Signed-In Tab Review at Phone Width (2026-11-12)
+
+Every dashboard tab was checked signed in, at 404px, in dark mode. Advisor and Forecast were also checked in light mode.
+
+Fixed:
+- **Categories:** the table was 710px wide in a 346px card, and the extra width was cut off. Below 720px, Rename and Delete are icon buttons (with aria-labels, 38px hit areas) and the columns have no minimum widths. Below 560px, Entries is hidden and cells have less padding. The table now fits (344px).
+- **Getting started card:** it showed on an account that was already set up, because the Advisor step can't be detected from data. On first load, an account whose data steps are all done is treated as set up (ADR-057).
+- **Advisor and Home:** "Cached <date>" is now "Updated <date>".
+- **Goals:** the delete dialog no longer says the delete can't be undone (soft delete, ADR-056). `DangerDeleteDialog` takes an optional `warning` for deletes that can be restored.
+
+Checked and fine:
+- No sideways overflow on Home, Expenses, Wallet, Goals, Forecast, Statistics, Admin or Settings.
+- Admin's feedback list uses the shared scrollbar.
+- In light mode, the AI notes use `--buck-muted` on cream, about 4.9:1 contrast.
+- Forecast shows its AI note only when the AI wrote the text. During a logging gap the rules write it, so no note is correct.
+
+Left for AI Integration Architecture: one Goals tip said "₱14,400 per month". The plan's required amount is ₱14,769.60 per month. The tip also suggested a separate savings account, which is not in the plan.
+
 ### 🎞️ Motion Uniformity Sweep (2026-11-12, ADR-054)
 
 Code audit of every tab against the shared motion and modal rules:

@@ -165,7 +165,7 @@ const GoalsPage = () => {
         })
       );
       setSelectedGoal(nextGoals[0] ?? null);
-      toast("Goal moved to Deleted Goals. You can restore it anytime.", "success");
+      toast("Goal moved to Deleted goals. You can restore it anytime.", "success");
     } else {
       toast(result.message || "Failed to delete goal.", "error");
     }
@@ -1139,9 +1139,10 @@ const GoalsPage = () => {
         open={confirmGoalDelete && Boolean(selectedGoal)}
         itemType="goal"
         itemName={selectedGoal?.goalName ?? ""}
+        warning="This goal will move to Deleted goals. You can restore it anytime."
         consequences={[
-          "The goal will be moved to Deleted Goals and deactivated.",
-          "Its saved progress, AI recommendation, and linked expenses are kept so you can restore it anytime.",
+          "If it is your active goal, it stops being active.",
+          "Its saved progress, AI recommendation and linked expenses are kept.",
         ]}
         onCancel={() => setConfirmGoalDelete(false)}
         onConfirm={async () => {

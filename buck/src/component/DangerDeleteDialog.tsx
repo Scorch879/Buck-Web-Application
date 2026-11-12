@@ -26,6 +26,11 @@ export interface DangerDeleteDialogProps {
   verb?: string;
   /** "-ing" form of `verb`, e.g. "Disconnecting". Defaults to "Deleting". */
   verbing?: string;
+  /**
+   * First line of step 1. Defaults to "<Verbing> this <itemType> cannot be
+   * undone."; pass it for deletes that can be restored (goals, ADR-056).
+   */
+  warning?: React.ReactNode;
   /** Performs the delete. The dialog stays open (busy) until it settles. */
   onConfirm: () => Promise<void> | void;
   onCancel: () => void;
@@ -40,6 +45,7 @@ export default function DangerDeleteDialog({
   consequences = [],
   verb = "Delete",
   verbing = "Deleting",
+  warning,
   onConfirm,
   onCancel,
 }: DangerDeleteDialogProps) {
@@ -134,7 +140,7 @@ export default function DangerDeleteDialog({
             {step === 1 && (
               <div className={styles.body}>
                 <p className={styles.warning}>
-                  {verbing} this {itemType} cannot be undone.
+                  {warning ?? `${verbing} this ${itemType} cannot be undone.`}
                 </p>
                 {consequences.length > 0 && (
                   <ul className={styles.consequences}>

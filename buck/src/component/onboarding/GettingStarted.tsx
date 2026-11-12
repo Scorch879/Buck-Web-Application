@@ -162,8 +162,12 @@ export default function GettingStarted({
         const previous = savedRef.current;
         if (previous?.state === "finished") return;
         const next = fromStatus(userId, status, previous?.metAdvisor ?? false);
-        const allDone = next.done.length === next.ids.length;
-        if (allDone && !previous) {
+        // The Advisor step has no data behind it, so an account whose data
+        // steps are all done on first sight was already set up.
+        const dataDone = next.ids
+          .filter((id) => id !== "advisor")
+          .every((id) => next.done.includes(id));
+        if (dataDone && !previous) {
           // An account that was already set up: never show the checklist.
           apply({ ...next, state: "finished" });
           return;
