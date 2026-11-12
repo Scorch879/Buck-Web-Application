@@ -226,6 +226,8 @@ Checked and fine:
 - In light mode, the AI notes use `--buck-muted` on cream, about 4.9:1 contrast.
 - Forecast shows its AI note only when the AI wrote the text. During a logging gap the rules write it, so no note is correct.
 
+- **Statistics:** the "AI forecast / Forecast vs actual" card was mislabelled at desktop width. Its orange "Expected spending" line was the goal's required saving per day (amount left divided by days left, from `utils/goalForecast.ts`). Its "What you spent" line was always ₱0, because `actual_per_day` is never filled in. The note said "keep daily spending under ₱492.32", which is a saving target, not a spending cap. The card is now "Goal / Daily saving pace", with one line, "Save each day", and the note "Save ₱X a day to reach <goal> by its target date." The skeleton matches (ADR-012).
+
 Left for AI Integration Architecture: one Goals tip said "₱14,400 per month". The plan's required amount is ₱14,769.60 per month. The tip also suggested a separate savings account, which is not in the plan.
 
 ### 🎞️ Motion Uniformity Sweep (2026-11-12, ADR-054)

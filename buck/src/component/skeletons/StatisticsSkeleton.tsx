@@ -143,13 +143,13 @@ export default function StatisticsSkeleton() {
         <section className="stats-card stats-forecast">
           <div className="stats-card-header">
             <div>
-              <p className="stats-eyebrow"><span className="skeleton-text">AI forecast</span></p>
-              <h3><span className="skeleton-text">Forecast vs actual</span></h3>
+              <p className="stats-eyebrow"><span className="skeleton-text">Goal</span></p>
+              <h3><span className="skeleton-text">Daily saving pace</span></h3>
             </div>
           </div>
           <div className="stats-forecast-body">
             <span className="stats-forecast-chart skeleton-line" style={{ display: "block", borderRadius: 8 }} />
-            <p className="stats-forecast-summary"><span className="skeleton-text">To stay on track, keep daily spending under ₱000.00.</span></p>
+            <p className="stats-forecast-summary"><span className="skeleton-text">Save ₱000.00 a day to reach Goal name by its target date.</span></p>
           </div>
         </section>
       </div>
