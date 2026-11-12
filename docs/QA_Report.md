@@ -266,6 +266,18 @@ I read computed styles on every dashboard tab at 1280px, signed in, after PRs #2
 - The browser pane was hidden, so it drew no frames, and the slide's timing could not be recorded frame by frame. Earlier QA entries hold the recordings.
 - In development, Next.js's dev-tools badge sits over the sidebar's expand button at the bottom left. It does not exist in production builds.
 
+**Sidebar slide curve (frame by frame, from framer-motion's own solver).** The rail width runs `animate(railWidth, 80 | 250, SPRING)` (`dashboardheader.tsx`). I sampled framer-motion's `spring()` with the same settings (stiffness 380, damping 34, mass 0.8) at 60 fps.
+
+| ms | 0 | 50 | 100 | 150 | 200 | 250 | 300 | 350 | 400 |
+|---|---|---|---|---|---|---|---|---|---|
+| Collapse (px) | 250.0 | 198.8 | 139.4 | 105.7 | 90.1 | 83.7 | 81.3 | 80.4 | 80.1 |
+| Expand (px) | 80.0 | 131.2 | 190.6 | 224.3 | 239.9 | 246.3 | 248.7 | 249.6 | 249.9 |
+
+- The damping ratio is 0.975 (just under critical), and the rail overshoots by 0.00px, so there is no bounce.
+- The rail settles to within 0.5px in about 350ms.
+- The largest single-frame step is 22.8px, in the first frames. Every later frame moves less, which is the ease-out a slide should have.
+- The profile photo glides with the rail rather than jumping, because `<html data-buck-sidebar>` flips in `useLayoutEffect` after Framer takes its "before" snapshot.
+
 ### 📏 Measured Card Uniformity Across Tabs (2026-11-12)
 
 On every dashboard tab at 1280px, signed in, I read the computed corner radius, padding and title and eyebrow type of each outer card.
