@@ -84,7 +84,9 @@ Write the user's advisory card:
   the typical daily spending, naming each period; (2) how that compares with the daily spending cap for
   the saving attitude; (3) the goal pace: required per week to finish by the target date versus the
   recommended per week, and whether that is on track (if not, say how many weeks it takes instead);
-  (4) one concrete habit change in the top spending category. Every amount in ₱ with its period.
+  (4) one concrete habit change in the top spending category, with no amount. Every amount in ₱ with its period.
+- Quote only ₱ figures that appear in financial_data, exactly as given. Never round, add up, split or invent
+  one (no "your next ₱1,000"): a card with any other ₱ figure is thrown away.
 - wallet_advice: one or two sentences naming the user's wallets from financial_data.wallets: which one to
   spend from day to day and which to keep untouched for the goal or an emergency buffer. Spend from the
   active wallet only if its kind is "spending". Never tell the user to spend from a wallet whose kind is

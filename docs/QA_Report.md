@@ -930,7 +930,11 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
   - `updateGoal` saves with an empty tip and then requests it by goal id, like `createGoal`.
 - **Verification**: `python -m unittest` 122/122 (plan figures in the prompt, invented and rounded figures discarded, Groq fallback, rule tip not stored, two-decimal figures); `vitest` goal-data 13/13; `tsc` and `eslint` clean. Live Gemini on three plans: every tip quoted exact plan figures, and the tight date was named correctly.
 - **Follow-up (same day, live check)**: the first version quoted `plan.saving`, which is all spare income ("save ₱52,073.40 per month" toward an ₱11,160 remainder), while the page's "Save per day" showed ₱80.29. The tip now quotes `plan.required` when the user can afford it, and `plan.saving` with "the date is tight" when they can't. A tip for a saved goal also saves the attitude it used (`save_detected`), so the page no longer shows a stale attitude. The two tips written by the drafts were cleared and regenerated. Live: Emergency Buffer "₱492.32 per day" and Ergonomic Workstation Setup "₱2,408.70 per month" (₱80.29 × 30), both matching the page; 125/125 tests.
-- **Still open**: the Advisor card's own text is not checked figure by figure the way the tip is. One live card added "record your next ₱1,000", which is not a plan figure.
+- **Advisor card (fixed the same day)**: the card's text was not checked figure by figure the way the tip is. One live card added "record your next ₱1,000", which is not in the data. Now:
+  - `_checked_card` discards a Gemini or Groq card that quotes any ₱ figure missing from the snapshot data, and writes accepted figures as ₱1,234.56.
+  - A saved card is served again only if its figures still pass the check (`_saved_card_ok`), so cards saved before this check are replaced.
+  - The prompt says the habit change has no amount.
+  - Live: Gemini's card was discarded twice for an invented figure, and the rule card (gap stated, plan figures only) replaced the saved "₱1,000" card. 128/128 tests.
 
 #### BUG-048: [RESOLVED 2026-11-12] Advisor: a Logging Gap Read as ₱0.00 a Day
 - **Found by**: Buck | Frontend's signed-in review of `/dashboard/financial-advisor`. The account last logged spending on 2026-10-11 (32 days earlier).
