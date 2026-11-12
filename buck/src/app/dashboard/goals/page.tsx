@@ -898,6 +898,11 @@ const GoalsPage = () => {
                 <div className="ai-recommendation">
                   <strong>{tipFromPlan ? "Buck's plan" : "AI recommendation"}</strong>
                   <div className="ai-recommendation-content">{aiRecommendation}</div>
+                  {!tipFromPlan && !aiRecommendation.startsWith("Loading") && (
+                    <p className="ai-recommendation-note">
+                      This comes from your goal plan and expenses. AI might be inaccurate, so treat it as a guide.
+                    </p>
+                  )}
                 </div>
               )}
 
