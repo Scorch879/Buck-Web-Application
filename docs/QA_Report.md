@@ -210,6 +210,15 @@ Two fixes came out of it:
   - Not checked yet: the same screens with live Buck_AI data (detected attitude, plan numbers, 30-day chart) and the create, set-active and add-progress writes. They need a signed-in session.
 - Financial Advisor at 320px: the page grid's implicit `auto` column grew to 311px inside a 296px content area, so every card ran 3px off screen. The page grid and its responsive single columns now use `minmax(0, 1fr)`.
 
+### 🎞️ Motion Uniformity Sweep (2026-11-12, ADR-054)
+
+Code audit of every tab against the shared motion and modal rules:
+- No native `<select>`, `window.confirm` or `alert()` left.
+- The only `backdrop-filter` blurs are on the landing header, the legal pages and Home's empty-chart overlay. None are modals.
+- Categories used its own springs (stiffness 420–440, damping 28), which overshoot, and started at 96% scale. These were the visible "pops". They now use the shared `SPRING` and 98% scale.
+- Toasts (420/30) also overshot slightly and now use `SPRING`.
+- The other custom springs are left as they are: the goal progress fill, the chat bubble and the scroll-progress bars. They are critically damped, so they don't bounce.
+
 ### 🧭 First-Run Experience Audit (2026-11-12, ADR-057)
 
 Brand-new account walkthrough of every tab:
