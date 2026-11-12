@@ -309,10 +309,34 @@ class AttitudeApiTests(unittest.IsolatedAsyncioTestCase):
                                    json={"goalName": "Bike", "targetAmount": 5000, "attitude": "Normal"})
             self.assertEqual(len(self.supa.patched), 1)
 
-    async def test_goal_tip_unavailable_stores_nothing(self):
-        r = await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": GOAL_ID})
-        self.assertEqual(r.json()["tip"], "")
+    async def test_goal_tip_unavailable_gives_the_rule_tip_and_stores_nothing(self):
+        plan = (await self.client.post("/advisor/attitude", headers=GOOD, json={"goalId": GOAL_ID})).json()["plan"]
+        r = (await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": GOAL_ID})).json()
+        self.assertEqual(r["source"], "rules")
+        saving, spending = plan["saving"], plan["spending"]
+        self.assertTrue(r["tip"].startswith(f"Save ₱{saving['perWeek']:,.2f} a week (₱{saving['perDay']:,.2f} a day) "
+                                            f"by keeping spending under ₱{spending['perDay']:,.2f} a day."), r["tip"])
+        self.assertEqual(self.supa.patched, [])  # a later visit asks the AI again
+
+    async def test_goal_tip_uses_the_same_plan_as_the_page(self):
+        plan = (await self.client.post("/advisor/attitude", headers=GOOD, json={"goalId": GOAL_ID})).json()["plan"]
+        gen = mock.AsyncMock(return_value={"tip": "Save ₱1.00 a week. Skip coffee."})
+        with mock.patch.object(gemini, "generate_json", gen):
+            r = (await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": GOAL_ID})).json()
+        sent = json.loads(gen.await_args.args[1].split("<financial_data>")[1].split("</financial_data>")[0])
+        self.assertEqual(sent["plan"]["saving"], plan["saving"])
+        self.assertEqual(sent["plan"]["spending"], plan["spending"])
+        self.assertEqual(r["source"], "rules")  # ₱1.00 is not a plan figure
         self.assertEqual(self.supa.patched, [])
+        self.assertRegex(sent["target_date"], r"^[A-Z][a-z]{2} \d{1,2}, \d{4}$")  # e.g. "Jan 9, 2027", not today
+
+    async def test_goal_tip_figures_are_written_with_two_decimals(self):
+        plan = (await self.client.post("/advisor/attitude", headers=GOOD, json={"goalId": GOAL_ID})).json()["plan"]
+        week = plan["saving"]["perWeek"]
+        gen = mock.AsyncMock(return_value={"tip": f"Save ₱{week:.1f} a week. Skip coffee."})
+        with mock.patch.object(gemini, "generate_json", gen):
+            r = (await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": GOAL_ID})).json()
+        self.assertEqual(r, {"tip": f"Save ₱{week:,.2f} a week. Skip coffee.", "source": "ai"})
 
     async def test_inactive_goal_is_not_planned(self):
         self.supa.goal["is_active"] = False

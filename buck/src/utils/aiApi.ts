@@ -40,7 +40,9 @@ export async function suggestCategory(kind: CategorizeKind, description: string)
 
 /**
  * Two-sentence Advisor tip for a saved goal (`{ goalId }`) or a goal being
- * created. Empty string when no tip is available (tips are optional).
+ * created. Every ₱ figure in it is from the goal plan. When no AI model gives a
+ * valid tip, Buck_AI sends the rule-written tip (`source: "rules"`) and does not
+ * store it. Empty string when Buck_AI can't be reached (tips are optional).
  */
 export async function getGoalTip(
   goal: { goalId: string } | { goalName: string; targetAmount: number | string; attitude: string; targetDate?: string }

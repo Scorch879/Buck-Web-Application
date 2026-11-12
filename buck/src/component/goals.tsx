@@ -124,15 +124,12 @@ export async function updateGoal(
     // The amount or date may have changed, so the attitude it needs may too.
     const preview = await detectGoalAttitude({ targetAmount, targetDate });
     const chosen: SavingAttitude = preview?.attitude ?? (isSavingAttitude(attitude) ? attitude : "Normal");
-    const aiRecommendation = await getGoalTip({
-      goalName,
-      targetAmount,
-      attitude: chosen,
-      targetDate,
-    });
-    await updateGoalRecord(goalId, goalName, targetAmount, chosen, targetDate, aiRecommendation);
+    // The old tip quoted the old plan, so it is cleared; as on create, Buck_AI writes
+    // the new one onto the goal once ready and the save never waits for Gemini.
+    await updateGoalRecord(goalId, goalName, targetAmount, chosen, targetDate, "");
     // Detect again from the saved goal (counts what is already saved) and store the basis.
     const detected = await detectGoalAttitude({ goalId });
+    void getGoalTip({ goalId });
 
     return { success: true, attitude: detected };
   } catch (error) {

@@ -228,7 +228,7 @@ Checked and fine:
 
 - **Statistics:** the "AI forecast / Forecast vs actual" card was mislabelled at desktop width. Its orange "Expected spending" line was the goal's required saving per day (amount left divided by days left, from `utils/goalForecast.ts`). Its "What you spent" line was always ₱0, because `actual_per_day` is never filled in. The note said "keep daily spending under ₱492.32", which is a saving target, not a spending cap. The card is now "Goal / Daily saving pace", with one line, "Save each day", and the note "Save ₱X a day to reach <goal> by its target date." The skeleton matches (ADR-012).
 
-Left for AI Integration Architecture: one Goals tip said "₱14,400 per month". The plan's required amount is ₱14,769.60 per month. The tip also suggested a separate savings account, which is not in the plan.
+Left for AI Integration Architecture: one Goals tip said "₱14,400 per month". The plan's required amount is ₱14,769.60 per month. The tip also suggested a separate savings account, which is not in the plan. Fixed in BUG-047: the tip now gets the goal plan and is thrown away if it quotes any other ₱ figure.
 
 ### 🎞️ Motion Uniformity Sweep (2026-11-12, ADR-054)
 
@@ -900,6 +900,20 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
   - `forecast.goal.forecastDailySpending` and `withinPlan` are null when the detection has `loggingGap` (the page already hides the line).
 - **Verification**: `python -m unittest` 119/119 (tip stored by id, not for previews, nothing stored when Gemini is down; no verdict during a gap); `vitest` 218/218 (`createGoal` resolves while the tip never arrives).
 - **Page fixes (Buck | Frontend, `ac9f9af`)**: a stored `aiRecommendation` shows at once and `getGoalTip({ goalId })` runs only when none is stored (effect keyed on the goal id and stored tip); `onGoalCreated` upserts by id (`upsertGoal`), so a new goal is no longer listed twice; "+ Add Progress" is disabled on a reached goal ("This goal is already reached.").
+
+#### BUG-047: [RESOLVED 2026-11-12] Goals: AI Tip Invented Its Own Figures and Was Empty When Gemini Was Busy
+- **Found by**: live Gemini run of the goal-tip prompt (2026-11-12) and Buck | Frontend's signed-in review (Emergency Buffer tip "₱14,400 per month" against the plan's ₱14,769.60).
+- **Impact**:
+  - `POST /advisor/goal-tip` sent Gemini only the target, the amount left, the attitude and the days left, never the goal plan. Gemini worked out its own amounts ("₱242.00 per week", "₱35.00 daily", "approximately ₱1,000.00 per month") and added transfers that are not in the plan, which breaks the rule that every ₱ figure comes from the plan.
+  - With the first Gemini models hung (40 s timeouts, 503s on 2026-11-12) the 20 s budget ran out, and the goal tip, unlike the advice card, had no Groq or rule fallback, so a new goal had no recommendation at all.
+  - The prompt had no target date, so a model wrote "the target date of 2026-11-12 is tight" (today's date). Figures sometimes came back with one decimal ("₱15,600.0").
+  - `updateGoal` (`component/goals.tsx`, no caller yet) still awaited a preview tip that treated saved progress as ₱0, and stored it.
+- **Fix** (`Buck_AI/BuckAI_Advisor/service.py` `goal_tip`, `prompts.goal_tip_prompt`):
+  - The tip is built on `shared/attitude.goal_plan`, the same plan the Goals page and the Forecaster show (saving and spending limit per day, week and month, days to goal, whether the target date is reached). The prompt also gets the target date as "Jan 9, 2027".
+  - Gemini, then Groq (when `GROQ_API_KEY` is set), only words it. A tip with no ₱ figure, or any ₱ figure that is not a plan figure, is discarded. Accepted figures are rewritten as ₱1,234.56.
+  - When no model gives a valid tip, the rule-written tip (built only from the plan) is returned with `source: "rules"` and not stored, so a later visit asks the AI again. Response: `{ tip, source: "ai" | "groq" | "rules" }`.
+  - `updateGoal` saves with an empty tip and then requests it by goal id, like `createGoal`.
+- **Verification**: `python -m unittest` 122/122 (plan figures in the prompt, invented and rounded figures discarded, Groq fallback, rule tip not stored, two-decimal figures); `vitest` goal-data 13/13; `tsc` and `eslint` clean. Live Gemini on three plans: every tip quoted exact plan figures, and the tight date was named correctly.
 
 ---
 

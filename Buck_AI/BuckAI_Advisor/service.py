@@ -14,13 +14,15 @@ Advice lifecycle (the database is the source of truth):
 import asyncio
 import json
 import logging
+import re
 from collections.abc import AsyncIterator
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from shared import gemini, groq
-from shared.attitude import detect_attitude, goal_plan, load_inputs, save_detected
+from shared.attitude import day_label, detect_attitude, goal_plan, load_inputs, save_detected
 from shared.config import get_settings
+from shared.money import peso
 from shared.safety import clean_text, limit_sentences
 from shared.supabase import DbError, UserDb
 
@@ -233,11 +235,63 @@ async def get_insight(db: UserDb, refresh: bool = False) -> dict[str, Any]:
 
 # ---------------------------------------------------------------- goal tips
 
-async def goal_tip(db: UserDb, goal: dict[str, Any]) -> str:
+_PESO_FIGURE = re.compile(r"₱\s?(\d[\d,]*(?:\.\d+)?)")
+
+
+def _figures_ok(tip: str, allowed: set[float]) -> bool:
+    """True when the tip quotes at least one ₱ figure and every one is a plan figure."""
+    found = [float(m.replace(",", "")) for m in _PESO_FIGURE.findall(tip)]
+    return bool(found) and all(any(abs(x - a) < 0.01 for a in allowed) for x in found)
+
+
+def _date_label(value: str | None) -> str | None:
+    try:
+        return day_label(date.fromisoformat(value)) if value else None
+    except ValueError:
+        return None
+
+
+def _peso_format(tip: str) -> str:
+    """Write every ₱ figure as ₱1,234.56 (models sometimes drop a decimal: ₱15,600.0)."""
+    return _PESO_FIGURE.sub(lambda m: peso(float(m.group(1).replace(",", ""))), tip)
+
+
+def _plan_figures(data: dict[str, Any]) -> set[float]:
+    plan = data.get("plan") or {}
+    figures = {data["target_amount"], data["remaining_amount"]}
+    for key in ("saving", "spending", "required"):
+        figures.update((plan.get(key) or {}).values())
+    return figures
+
+
+def rule_goal_tip(data: dict[str, Any]) -> str:
+    """Two sentences built only from the plan, for when no model can write the tip."""
+    plan = data.get("plan")
+    if not plan:
+        return ""
+    save, spend = plan["saving"], plan["spending"]
+    first = (f"Save {peso(save['perWeek'])} a week ({peso(save['perDay'])} a day) by keeping spending "
+             f"under {peso(spend['perDay'])} a day.")
+    if plan.get("reachesByTargetDate"):
+        second = f"At that pace you reach {data['goal']} in about {plan['daysToGoal']} days, before your target date."
+    elif plan.get("daysToGoal"):
+        second = (f"At that pace {data['goal']} takes about {plan['daysToGoal']} days, so a later target date "
+                  "or a smaller target would fit better.")
+    else:
+        second = "Log your income so Buck can see how much is left to save."
+    return f"{first} {second}"
+
+
+async def goal_tip(db: UserDb, goal: dict[str, Any]) -> dict[str, str]:
     """Two-sentence tip for a saved goal (`goal_id`) or one being created.
-    Empty string when Gemini is unavailable; callers treat tips as optional.
-    A tip for a saved goal is also stored on it (`goals.ai_recommendation`), so
-    the page can show it at once and a new goal never waits for Gemini."""
+
+    Every ₱ figure comes from the goal plan (`shared/attitude.goal_plan`), the
+    same numbers the Goals page and the Forecaster show. Gemini (then Groq)
+    only words it; an answer that quotes any other ₱ figure is thrown away.
+    When no model gives a valid tip, the rule-written tip is returned
+    (`source: "rules"`) and not stored, so a later visit asks the AI again.
+    An AI tip for a saved goal is stored on it (`goals.ai_recommendation`), so
+    the page shows it at once and a new goal never waits for Gemini."""
     today = today_ph()
     goal_id = goal.get("goal_id")
     if goal_id:
@@ -250,33 +304,55 @@ async def goal_tip(db: UserDb, goal: dict[str, Any]) -> str:
                 "saved_amount": r.get("current_amount"), "target_date": r.get("target_date"),
                 "attitude": r.get("attitude")}
     target, saved = money(goal.get("target_amount")), money(goal.get("saved_amount"))
+    remaining = round(max(0.0, target - saved), 2)
     target_date = str(goal["target_date"])[:10] if goal.get("target_date") else None
-    try:
-        days_left = (datetime.fromisoformat(target_date).date() - today).days if target_date else None
-    except ValueError:
-        days_left = None
+    attitude = goal.get("attitude") if goal.get("attitude") in ATTITUDES else None
+    inputs = await load_inputs(db, today)
+    detection = detect_attitude(typical_daily=inputs["typical_daily"], income_daily=inputs["income_daily"],
+                                remaining=remaining, target_date=target_date, today=today, current=attitude,
+                                spending_until=inputs.get("spending_until"))
+    plan = goal_plan(detection)
     data = {
         "goal": clean_text(goal.get("name"), 80) or "Goal",
         "target_amount": target,
-        "remaining_amount": round(max(0.0, target - saved), 2),
-        "saving_attitude": goal.get("attitude") if goal.get("attitude") in ATTITUDES else "Normal",
-        "days_left": days_left,
-        "today": today.isoformat(),
+        "remaining_amount": remaining,
+        "saving_attitude": detection["attitude"],
+        "days_left": detection["daysLeft"],
+        "today": day_label(today),
+        "target_date": _date_label(target_date),
+        "plan": plan and {k: plan[k] for k in ("saving", "spending", "required", "daysToGoal",
+                                                 "reachesByTargetDate")},
     }
-    try:
-        out = await gemini.generate_json(prompts.insight_system_prompt(), prompts.goal_tip_prompt(data),
-                                         prompts.GOAL_TIP_SCHEMA)
-        tip = limit_sentences(clean_text(out.get("tip"), 400), 2)
-    except gemini.GeminiUnavailable as exc:
-        log.warning("Advisor goal tip unavailable: %s", exc)
-        return ""
-    if goal_id and tip:
+    if not plan:  # reached, date passed or no spending logged: the reason already says it
+        return {"tip": detection["reason"], "source": "rules"}
+
+    allowed = _plan_figures(data)
+    tip, source = "", "rules"
+    system, prompt = prompts.insight_system_prompt(), prompts.goal_tip_prompt(data)
+    writers = [("ai", lambda: gemini.generate_json(system, prompt, prompts.GOAL_TIP_SCHEMA))]
+    if get_settings().groq_configured:
+        writers.append(("groq", lambda: groq.generate_json(system, prompt, prompts.GOAL_TIP_SCHEMA_STRICT,
+                                                           timeout_seconds=INSIGHT_GROQ_TIMEOUT)))
+    for name, write in writers:
+        try:
+            out = await write()
+        except (gemini.GeminiUnavailable, groq.GroqUnavailable) as exc:
+            log.warning("Goal tip from %s unavailable: %s", name, exc)
+            continue
+        text = limit_sentences(clean_text(out.get("tip"), 400), 2)
+        if _figures_ok(text, allowed):
+            tip, source = _peso_format(text), name
+            break
+        log.warning("Goal tip from %s quoted figures outside the plan; discarded.", name)
+    if not tip:
+        return {"tip": rule_goal_tip(data), "source": "rules"}
+    if goal_id:
         try:
             await db.update("goals", {"id": f"eq.{goal_id}", "user_id": f"eq.{db.user_id}",
                                       "deleted_at": "is.null"}, {"ai_recommendation": tip})
         except DbError as exc:  # the tip is still returned; saving it is best effort
             log.warning("Could not save the goal tip: %s", exc)
-    return tip
+    return {"tip": tip, "source": source}
 
 
 # --------------------------------------------------------- saving attitude

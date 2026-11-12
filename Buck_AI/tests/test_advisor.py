@@ -6,6 +6,7 @@ by patching shared.gemini and shared.groq, so these run offline with no keys.
 
 import json
 import os
+import re
 import unittest
 from datetime import datetime, timedelta, timezone
 from unittest import mock
@@ -253,12 +254,42 @@ class AdvisorApiTests(unittest.IsolatedAsyncioTestCase):
         r = await self.client.get("/")
         self.assertEqual(r.json(), {"service": "buck-ai", "ok": True})
 
+    async def _plan_figures(self) -> tuple[float, float, float]:
+        """Saving per week, per day and the daily spending limit, read from the rule tip
+        (built only from the goal plan) while Gemini is down."""
+        self.gen.side_effect = gemini.GeminiUnavailable("down")
+        r = (await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": "g1"})).json()
+        self.gen.side_effect = None
+        self.assertEqual(r["source"], "rules")
+        return tuple(float(x.replace(",", "")) for x in re.findall(r"₱([\d,]+\.\d\d)", r["tip"])[:3])
+
     async def test_goal_tip(self):
-        self.gen.return_value = {"tip": "Save ₱2,875.00 a week. Skip one takeout meal. Extra sentence."}
+        week, day, cap = await self._plan_figures()
+        self.gen.return_value = {"tip": f"Save ₱{week:,.2f} a week and spend under ₱{cap:,.2f} a day. "
+                                        "Skip one takeout meal. Extra sentence."}
         r = await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": "g1"})
-        self.assertEqual(r.json(), {"tip": "Save ₱2,875.00 a week. Skip one takeout meal."})
+        self.assertEqual(r.json(), {"tip": f"Save ₱{week:,.2f} a week and spend under ₱{cap:,.2f} a day. "
+                                           "Skip one takeout meal.", "source": "ai"})
+        # A figure that is not in the plan (rounded, invented) is thrown away for the rule tip.
+        self.gen.return_value = {"tip": "Save ₱2,875.00 a week. Transfer ₱3,600 every payday."}
+        r = (await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": "g1"})).json()
+        self.assertEqual(r["source"], "rules")
+        self.assertIn(f"₱{week:,.2f} a week", r["tip"])
+        self.assertNotIn("2,875", r["tip"])
         r = await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalName": "Bike"})
         self.assertEqual(r.status_code, 422)
+
+    async def test_groq_writes_the_goal_tip_when_gemini_is_busy(self):
+        week, day, cap = await self._plan_figures()
+        self.gen.side_effect = gemini.GeminiUnavailable("timeout")
+        self.groq.side_effect = None
+        self.groq.return_value = {"tip": f"Save ₱{day:,.2f} a day. Pack lunch twice a week."}
+        with mock.patch.dict(os.environ, {"GROQ_API_KEY": "test-groq"}):
+            get_settings.cache_clear()
+            r = (await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": "g1"})).json()
+        get_settings.cache_clear()
+        self.assertEqual(r, {"tip": f"Save ₱{day:,.2f} a day. Pack lunch twice a week.", "source": "groq"})
+        self.assertFalse(self.groq.await_args.args[2]["additionalProperties"])  # strict-mode ready
 
     async def test_categorize_uses_only_the_users_categories(self):
         self.gen.return_value = {"results": [
