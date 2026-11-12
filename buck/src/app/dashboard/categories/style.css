@@ -1131,6 +1131,24 @@ html[data-buck-theme="dark"] .cat-page-btn--active {
     display: none;
   }
 
+  /* Phones and narrow tablets: the table has to fit the card, not scroll
+     sideways. Rename and Delete become icon buttons (they keep their
+     aria-labels and 38px hit area). */
+  .cat-col-category,
+  .cat-col-total,
+  .cat-col-actions {
+    min-width: 0;
+  }
+
+  .cat-action-label {
+    display: none;
+  }
+
+  .cat-col-actions .cat-action-btn {
+    width: 38px;
+    padding: 0;
+  }
+
   .cat-pagination {
     display: flex;
     flex-direction: column;
@@ -1145,5 +1163,18 @@ html[data-buck-theme="dark"] .cat-page-btn--active {
   .cat-pagination-info {
     justify-self: center;
     text-align: center;
+  }
+}
+
+/* Phones: Entries is left out too; the category's total still shows. */
+@media (max-width: 560px) {
+  .cat-col-entries {
+    display: none;
+  }
+
+  .cat-table th,
+  .cat-table td {
+    padding-right: 0.6rem;
+    padding-left: 0.6rem;
   }
 }

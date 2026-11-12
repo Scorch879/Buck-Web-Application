@@ -74,8 +74,12 @@ export default function AIAdvisorPlaceholderCard({
             <p className="card-eyebrow">Financial Advisor</p>
             {aiInsights?.createdAt && (
               <span className="home-ai-timestamp">
-                {aiInsights.cached ? "Cached" : "Updated"}:{" "}
-                {new Date(aiInsights.createdAt).toLocaleDateString()}
+                Updated{" "}
+                {new Date(aiInsights.createdAt).toLocaleDateString("en-PH", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
               </span>
             )}
           </div>
