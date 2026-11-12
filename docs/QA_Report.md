@@ -210,6 +210,23 @@ Two fixes came out of it:
   - Not checked yet: the same screens with live Buck_AI data (detected attitude, plan numbers, 30-day chart) and the create, set-active and add-progress writes. They need a signed-in session.
 - Financial Advisor at 320px: the page grid's implicit `auto` column grew to 311px inside a 296px content area, so every card ran 3px off screen. The page grid and its responsive single columns now use `minmax(0, 1fr)`.
 
+### 🧭 First-Run Experience Audit (2026-11-12, ADR-057)
+
+Brand-new account walkthrough of every tab:
+- Home was titled "Welcome back" and showed only empty charts.
+- Expenses, Income, Forecast and Goals said "No X yet" without a next step; only Statistics linked to one (Wallet budget).
+
+Changes:
+- Home now opens with a "Getting started" checklist whose steps tick off from the user's own data.
+- New accounts are greeted with "Welcome".
+- The Expenses, Income and Forecast empty states name the next action and link to it.
+
+Verified:
+- `npm run typecheck`, ESLint on the changed files, and `npx vitest run` (217/217).
+- The card at 0, 2 and 5 of 5 steps, in dark and light at 1100px and dark at 320px (no horizontal overflow), on a temporary harness page that was removed afterwards.
+
+Not checked yet: the live card on a fresh signed-in account (realtime tick-off, dismiss, skeleton hand-off). It needs a new account signed in.
+
 ### 🎯 Goal Soft-Delete & Recovery Audit and Playwright E2E Verification (2026-11-11, ADR-056)
 
 Migration [`202611110002_soft_delete_goals.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202611110002_soft_delete_goals.sql) applied live to `glnuzqmnmzuxgujmxigx` and recorded.

@@ -2494,7 +2494,7 @@ export async function disconnectConnectedApp(clientId: string) {
   }
 }
 
-/** Which first-run steps a user has done (the Home "Getting started" card, ADR-056). */
+/** Which first-run steps a user has done (the Home "Getting started" card, ADR-057). */
 export type OnboardingStatus = {
   hasWallet: boolean;
   hasExpense: boolean;
@@ -2504,9 +2504,9 @@ export type OnboardingStatus = {
 };
 
 /**
-  * Four count-only reads (no rows come back), each under RLS as the user.
-  * Archived wallets and soft-deleted goals don't count.
-  */
+ * Four count-only reads (no rows come back), each under RLS as the user.
+ * Archived wallets and soft-deleted goals don't count.
+ */
 export async function getOnboardingStatus(userId: string): Promise<OnboardingStatus> {
   if (isDesignPreviewMode) {
     return { hasWallet: true, hasExpense: true, hasIncome: true, hasGoal: true };

@@ -628,8 +628,8 @@ export default function ExpensesPage() {
               </div>
             ) : (
               <div className="expenses-empty-new">
-                <p>No expenses tracked yet.</p>
-                <span>Add your first spending using the button above to visualize your cash flow!</span>
+                <p>No expenses yet.</p>
+                <span>Use Add Spending above to log what you spent. It comes out of your wallet and shows up in your charts.</span>
               </div>
             )}
           </div>

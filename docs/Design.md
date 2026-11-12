@@ -1569,3 +1569,16 @@ Buck-Web-Application/
 - **Consequences**:
   - Funded and active goals can be deleted cleanly without database trigger errors, while preserving `current_amount`, `attitude_basis`, and `expenses.goal_id` links.
   - Users can inspect and restore soft-deleted goals in one click, and neither the AI Advisor, AI Forecaster, nor MCP tools include soft-deleted goals in active calculations.
+
+### ADR-057: First-Run "Getting started" Checklist on Home
+
+- **Status**: Implemented 2026-11-12 in [`component/onboarding/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/onboarding/) (`GettingStarted.tsx`, `GettingStartedCard.tsx`, `gettingStarted.module.css`) and `getOnboardingStatus` in [`utils/supabaseData.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts).
+- **Context**: A new account landed on Home under "Welcome back" with empty charts. Most empty states said "No X yet" without saying what to do next, so a new user had to discover the order (wallet first, then spending) on their own.
+- **Decision**:
+  1. Home shows a "Getting started" card first: add a wallet, log an expense, record income (only where income is tracked), set a savings goal, meet the AI Advisor. The first open step is highlighted and gets the filled button. Every other open step gets an outlined button, and done steps show a check.
+  2. Steps tick themselves off from the user's own data: four count-only reads under RLS, excluding archived wallets and soft-deleted goals (ADR-056). Realtime changes on `wallets`, `expenses`, `incomes` and `goals` refresh them. "Meet your AI Advisor" has no data to check, so opening it completes it.
+  3. The card leaves for good when the user dismisses it or closes it after the last step. An account that is already set up never sees it. This browser remembers the state in `localStorage` (`buck:getting-started`, keyed by user id); the data always decides whether a step is done.
+  4. The card slides open with the shared `SPRING` (ADR-054) only the first time. The Home skeleton renders the remembered card (`preview`, inert) so Home does not jump (ADR-012).
+  5. The income step links to `/dashboard/wallet?view=income`, which opens the Wallet tab on Income.
+  6. Supporting copy: Home greets accounts under a day old with "Welcome" instead of "Welcome back". The Expenses, Income and Forecast empty states name the next action and link to it.
+- **Consequences**: No schema change and no new endpoint. Clearing site data can bring a dismissed card back if setup is still incomplete; that is acceptable for a hint.
