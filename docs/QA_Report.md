@@ -210,6 +210,32 @@ Two fixes came out of it:
   - Not checked yet: the same screens with live Buck_AI data (detected attitude, plan numbers, 30-day chart) and the create, set-active and add-progress writes. They need a signed-in session.
 - Financial Advisor at 320px: the page grid's implicit `auto` column grew to 311px inside a 296px content area, so every card ran 3px off screen. The page grid and its responsive single columns now use `minmax(0, 1fr)`.
 
+### 🧭 UI/UX Principles Pass: Motion, Scrollbars, Labels (2026-11-12)
+
+The principles this pass checks against, and how Buck meets each one:
+
+| Principle | Rule in Buck | Where it lives |
+|---|---|---|
+| Consistency (same thing looks and moves the same everywhere) | One card radius (`--buck-card-radius`, 8px) and one title weight (650). One set of motion presets: `SPRING`, `DURATION` and `EASE_OUT` / `EASE_IN`. One Buck-orange scrollbar. | `globals.css`, `utils/motion.ts` (ADR-054) |
+| Motion explains change, never decorates | Entrances rise and fade, and none starts below 97% scale, so nothing "pops". The sidebar state is set before the first paint, so it never slides on load. Profile pictures fade in (`FadeInImage`). | `app/layout.tsx`, `component/FadeInImage.tsx` |
+| Respect the user's settings | `MotionConfig reducedMotion="user"` turns movement off for people who ask for less motion. | `component/MotionProvider.tsx` |
+| Feedback matches the action | Press feedback (`whileTap`) stays a short squeeze. Exits are quicker than entrances (ease-in, `DURATION.fast`). | `utils/motion.ts` |
+| Plain, sourced labels | Every AI text says where it comes from and that it might be inaccurate. Chart captions name their source, for example "Dashed line: your weekly budget. That's {wallet} split across 4 weeks." | Advisor, Forecast, Goals tip and modal, AI chat, Statistics |
+| No layout shift | Skeletons share their screens' classes, so the radius and weight changes reach them too (ADR-012). | `component/skeletons/` |
+
+**Static audit of every tab's CSS and TSX after the motion sweep (PR #273):**
+- The only scrollbar override outside `globals.css` is `.dashboard-main`. Its scrollbar is hidden on purpose, because the page scrolls as a whole.
+- No CSS keyframe scales below 0.9. Framer entrances on dashboard tabs now use the presets.
+- Fixed in this pass:
+  - Admin KPI and service cards: corner radius 12px → `--buck-card-radius`.
+  - Categories tooltip and popover titles, Home chart axis titles and the Wallet budget figure: weight 700 → 650.
+- Left as is:
+  - The "Buck" wordmark at 900, because it is the logo.
+  - The Add Income modal subtitle, because it is not a card.
+- The Goals AI tip gained the source note "This comes from your goal plan and expenses. AI might be inaccurate, so treat it as a guide." (PR #274).
+
+The signed-in visual pass of every tab, the sidebar slide and the profile picture fade-in waits for a fresh sign-in, because the session timed out after 30 minutes idle.
+
 ### 📏 Measured Card Uniformity Across Tabs (2026-11-12)
 
 On every dashboard tab at 1280px, signed in, I read the computed corner radius, padding and title and eyebrow type of each outer card.
