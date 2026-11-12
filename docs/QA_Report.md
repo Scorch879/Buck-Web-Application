@@ -202,7 +202,44 @@ Two fixes came out of it:
   - Rule-based fallback text (`utils/aiInsightsGenerator.ts`, shown when Buck_AI is unreachable) no longer uses "burn rate", "expenditure", "deficit borrowing", "expense driver" or "net wallet savings". Same numbers, plain words. Forecast rows already saved in `ai_forecasts` keep the old sentence until they refresh (up to 7 days).
   - Removed `component/line-graph.tsx`: unused, with a vague "Progress" series label.
 - Light mode and other sizes: sidebar and top bar compute to `rgb(255, 250, 244)` with no blur; the Add Spending panel is `rgb(255, 250, 246)` at full opacity. At 1120, 1440 and 1920 the rail goes 250 ↔ 80, the photo ends at 36x36 and no element is scaled; at 1024 and below there is no rail. Frame-rate recording was done at 1440 in dark mode only (the app window was hidden for the later runs, which stops animation frames).
+- Follow-up recordings in headless Chromium (renders frames while the app window is hidden), on a temporary uncommitted page that rendered the real dashboard shell with design-preview sample data; the page is deleted. Sidebar slide at 1120, 1440 (production build) and 1920, light and dark: ~210 frames per toggle, no frame over 15 ms, photo steps of 3px or less, photo 36x36, rail 250 <-> 80. Light-mode screenshots show a solid sidebar, top bar and Add Spending panel with no blur.
+- Open item, not an app defect: the first sidebar toggle after a page load stalls once for 45-140 ms in headless Chromium (5 of 5 fresh loads, dev and production builds); every later toggle is clean. A browser trace shows no main-thread task over 8 ms. The time is in the GPU process (`RasterDecoderImpl::DoEndRasterCHROMIUM::Flush` 93 ms with `DawnPlatformImpl::RunWorkerTask`), a one-time graphics pipeline compile when the content is first redrawn at a new width. It does not happen with the page content hidden. Still to confirm in a visible desktop browser, where compiled pipelines are cached on disk between visits.
+- Not re-read in rendered light mode: the Forecast chart legend and the Advisor and Forecast disclaimers. They need a signed-in session with Buck_AI running, and the session expired. Their wording was reviewed in source (`ForecastChart.tsx`, `forecast/page.tsx`, `AIChat.tsx`). Local note: Buck_AI's `ALLOWED_ORIGINS` only lists `http://localhost:3000`, so the web app must run on port 3000 to reach it.
+- Goals UI for the AI-detected saving attitude (ADR-055), built from Backend's hand-off: no manual attitude picker; detected attitude, reason and plan in Create Goal; attitude source and reason in goal details (skeleton updated to match, ADR-012); "Set as active" disabled for reached goals; atomic Add Progress; the forecast dialog now shows the AI Forecaster's plan instead of the plain-math chart. Uniformity fixes found on the way: the Goals page had a third one-off Add Expense dialog with inline styles (now the shared Add Spending dialog), an inline-styled error dialog (removed with the wallet check that needed it), an Add Progress dialog without `role="dialog"`/`aria-modal` (so it missed the solid modal surface), and a doubled border around the Create Goal date field.
+  - Checked signed-out with design-preview sample data in headless Chromium (temporary uncommitted page, deleted): goal details at 1440; Create Goal moving from the prompt to "Working out…" to the unreachable fallback; the forecast dialog's unavailable state; Add Spending opening above the forecast dialog; the plan table and attitude chip with sample numbers in dark at 1440 and light at 320 (no sideways scroll). typecheck, eslint (0 warnings), vitest 213/213.
+  - Not checked yet: the same screens with live Buck_AI data (detected attitude, plan numbers, 30-day chart) and the create, set-active and add-progress writes. They need a signed-in session.
 - Financial Advisor at 320px: the page grid's implicit `auto` column grew to 311px inside a 296px content area, so every card ran 3px off screen. The page grid and its responsive single columns now use `minmax(0, 1fr)`.
+
+### 🧭 First-Run Experience Audit (2026-11-12, ADR-057)
+
+Brand-new account walkthrough of every tab:
+- Home was titled "Welcome back" and showed only empty charts.
+- Expenses, Income, Forecast and Goals said "No X yet" without a next step; only Statistics linked to one (Wallet budget).
+
+Changes:
+- Home now opens with a "Getting started" checklist whose steps tick off from the user's own data.
+- New accounts are greeted with "Welcome".
+- The Expenses, Income and Forecast empty states name the next action and link to it.
+
+Verified:
+- `npm run typecheck`, ESLint on the changed files, and `npx vitest run` (217/217).
+- The card at 0, 2 and 5 of 5 steps, in dark and light at 1100px and dark at 320px (no horizontal overflow), on a temporary harness page that was removed afterwards.
+
+Not checked yet: the live card on a fresh signed-in account (realtime tick-off, dismiss, skeleton hand-off). It needs a new account signed in.
+
+### 🎯 Goal Soft-Delete & Recovery Audit and Playwright E2E Verification (2026-11-11, ADR-056)
+
+Migration [`202611110002_soft_delete_goals.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202611110002_soft_delete_goals.sql) applied live to `glnuzqmnmzuxgujmxigx` and recorded.
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **BUG-045** | 🔴 Critical | Deleting any funded goal (`current_amount > 0`) on `/dashboard/goals` failed with Postgres exception `Cannot delete a goal that has funds allocated to it (current_amount > 0).` from `trg_check_goal_deletion` (`202606130001_strict_deletions.sql`) because [`deleteGoalRecord`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L1493) issued a hard `DELETE FROM public.goals`. Unfunded goals (`current_amount = 0`) were permanently destroyed with `expenses.goal_id` set to `NULL` and no recovery path. | **Resolved 2026-11-11 (ADR-056).** Added `public.goals.deleted_at timestamptz`, check `goals_active_not_deleted`, updated `goals_activation()`, `set_active_goal()`, `add_goal_progress()`, `save_goal_attitude()`, and `get_admin_telemetry()`. Converted `deleteGoalRecord` to a soft-delete `UPDATE` (`deleted_at = now(), is_active = false`), added `listDeletedGoals` and `restoreGoalRecord` / `restoreGoal`, filtered `deleted_at IS NULL` across `Buck_AI` (`snapshot.py`, `tools.py`, `service.py`, `history.py`), `aiInsightsGenerator.ts`, and `mcp/buckData.ts`, and added the collapsible **Deleted goals** recovery section on `/dashboard/goals`. |
+
+**Verified**:
+- `npm run typecheck` (0 errors), `npm run lint` (0 errors, 0 warnings, ADR-044), `npm test` in `buck/` (19 files, 217/217 passed including new `deleteGoalRecord` and `restoreGoalRecord` unit tests in [`goalData.test.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/goalData.test.ts#L114-L230)), and `Buck_AI` unittest/pytest (117/117 passed).
+- **Playwright Browser E2E Verification** on `http://localhost:3000/dashboard/goals` (signed in as `swifter879@gmail.com`):
+  1. **Funded Inactive Goal (`Ergonomic Workstation Setup`, `₱11,880 of ₱18,000`)**: 3-step `DangerDeleteDialog` (slide → "I understand, continue" → type exact goal name → Delete) succeeded with toast `"Ergonomic Workstation Setup" moved to deleted goals. You can restore it anytime.`; DB row verified `deleted_at IS NOT NULL`, `is_active = false`, `current_amount = 11880`; goal appeared in sidebar **Deleted goals (`1`)** and restored via 1-click **Restore** (`deleted_at = null`, `current_amount = 11880`).
+  2. **Funded Active Goal (`Emergency Buffer (3 Months)`, `₱19,552.50 of ₱24,750`, `ACTIVE`)**: Soft-deleted via `DangerDeleteDialog` (`deleted_at IS NOT NULL`, `is_active = false`); restored when no other active goal was active and automatically re-promoted to `is_active = true` by `goals_activation()`.
 
 ### 🎨 Admin Dashboard UI Review (2026-11-03, PR #245 follow-up)
 
@@ -807,6 +844,21 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
   - Weeks to the goal are rounded up.
   - The fingerprint includes the week (Monday, PH time), so the "this week" step is rewritten at most once a week, plus whenever the data moves materially.
 - **Verification**: `python -m unittest` 94/94, with new tests for the production wallet set, the 14.3 → 15 weeks case, and a Sunday → Monday fingerprint change.
+
+#### BUG-043: [RESOLVED 2026-11-11] Goals: Attitude Picked by Hand, Active Goal Could Vanish, Progress Could Be Lost
+- **Location**: [`utils/supabaseData.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts) (`setOnlyGoalActiveRecord`, `updateGoalProgress`), [`component/goals.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/goals.tsx), [`Buck_AI/BuckAI_Advisor/snapshot.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/snapshot.py), [`Buck_AI/BuckAI_Forecast/history.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/history.py), `goals` table
+- **Impact**:
+  - The saving attitude was a dropdown on Create Goal. Nothing checked it against the user's spending, so an Aggressive goal could need no cut and a Normal one could be out of reach.
+  - Switching the active goal was two requests (deactivate all, then activate one). If the second failed, the user had no active goal.
+  - Add Progress wrote a total computed in the browser, so two quick saves could lose one. A completed goal stayed active.
+  - When no goal was active, the Advisor and Forecaster quietly planned for the newest unfinished goal instead.
+  - The Goals page's "AI forecast" was plain math (`utils/goalForecast.ts`), not the AI Forecaster.
+- **Fix** (ADR-055):
+  - The Advisor detects the attitude (`Buck_AI/shared/attitude.py`, `POST /advisor/attitude`) and saves it on the goal; the Forecaster returns `forecast.goal.plan` (spending and saving per day, week and month).
+  - Migration `202611110001_goal_attitude_and_activation.sql`: `set_active_goal()` and `add_goal_progress()` run in one transaction; a completed goal is never active; a user's goal is made active when they have none; `goals.attitude` is required and checked.
+  - Both AIs plan only for the goal the user set active.
+  - The Goals page UI (detected attitude instead of a dropdown, the Forecaster's plan in the forecast dialog) is handed to Buck | Frontend.
+- **Verification**: rolled-back SQL scenario as a real user (switch, add, finish, auto-activate, bad input, other users' goals invisible); `python -m unittest` 111/111 with 17 new attitude and API tests; `vitest` with 8 new goal-data tests.
 
 ---
 

@@ -19,6 +19,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from shared import gemini, groq
+from shared.attitude import detect_attitude, goal_plan, load_inputs, save_detected
 from shared.config import get_settings
 from shared.safety import clean_text, limit_sentences
 from shared.supabase import DbError, UserDb
@@ -162,7 +163,11 @@ def _recent_model(saved: dict[str, Any] | None, now: datetime) -> str | None:
 async def get_insight(db: UserDb, refresh: bool = False) -> dict[str, Any]:
     snapshot = await build_snapshot(db)
     parts, fp = fingerprint_parts(snapshot), fingerprint(snapshot)
-    latest = await latest_saved(db)
+    # Keep the active goal's saved attitude current (writes only on a change).
+    latest, _ = await asyncio.gather(
+        latest_saved(db),
+        save_detected(db, snapshot.refs.get("goal_id"), snapshot.attitude, snapshot.goal_row),
+    )
     now = datetime.now(timezone.utc)
     ai_on = get_settings().gemini_configured or get_settings().groq_configured
 
@@ -234,7 +239,7 @@ async def goal_tip(db: UserDb, goal: dict[str, Any]) -> str:
     today = today_ph()
     if goal.get("goal_id"):
         rows = await db.select("goals", {"select": "goal_name,target_amount,current_amount,target_date,attitude",
-                                         "user_id": f"eq.{db.user_id}", "id": f"eq.{goal['goal_id']}", "limit": "1"})
+                                         "user_id": f"eq.{db.user_id}", "id": f"eq.{goal['goal_id']}", "deleted_at": "is.null", "limit": "1"})
         if not rows:
             raise LookupError("Goal not found.")
         r = rows[0]
@@ -262,6 +267,40 @@ async def goal_tip(db: UserDb, goal: dict[str, Any]) -> str:
     except gemini.GeminiUnavailable as exc:
         log.warning("Advisor goal tip unavailable: %s", exc)
         return ""
+
+
+# --------------------------------------------------------- saving attitude
+
+async def goal_attitude(db: UserDb, goal: dict[str, Any]) -> dict[str, Any]:
+    """The saving attitude a goal needs, with the plan it implies.
+
+    `{"goal_id"}`: a saved goal. The attitude is detected and saved on it.
+    `{"target_amount", "saved_amount", "target_date"}`: a goal being created
+    (nothing is saved; the web stores the attitude with the new goal).
+    """
+    today = today_ph()
+    current = None
+    goal_id = goal.get("goal_id")
+    if goal_id:
+        rows = await db.select("goals", {"select": "id,target_amount,current_amount,target_date,attitude,"
+                                                   "attitude_basis,completed",
+                                         "user_id": f"eq.{db.user_id}", "id": f"eq.{goal_id}", "deleted_at": "is.null", "limit": "1"})
+        if not rows:
+            raise LookupError("Goal not found.")
+        r = rows[0]
+        goal = {"target_amount": r.get("target_amount"), "saved_amount": r.get("current_amount"),
+                "target_date": r.get("target_date")}
+        current = r.get("attitude") if r.get("attitude") in ATTITUDES else None
+    inputs = await load_inputs(db, today)
+    remaining = max(0.0, money(goal.get("target_amount")) - money(goal.get("saved_amount")))
+    target_date = str(goal["target_date"])[:10] if goal.get("target_date") else None
+    detection = detect_attitude(typical_daily=inputs["typical_daily"], income_daily=inputs["income_daily"],
+                                remaining=remaining, target_date=target_date, today=today, current=current,
+                                spending_until=inputs.get("spending_until"))
+    if goal_id:
+        await save_detected(db, goal_id, detection, r)
+    return {**detection, "goalId": goal_id, "plan": goal_plan(detection),
+            "window": {"spendingDays": inputs["spend_days"], "incomeDays": inputs["income_days"]}}
 
 
 # --------------------------------------------------------------------- chat

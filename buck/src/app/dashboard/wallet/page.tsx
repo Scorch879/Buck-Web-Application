@@ -225,6 +225,12 @@ export default function WalletPage() {
   } = useIncomes(user?.uid ?? "", userCache.expenses ?? []);
   const [incomeModalOpen, setIncomeModalOpen] = useState(false);
   const [view, setView] = useState<"wallets" | "income">("wallets");
+  // /dashboard/wallet?view=income opens on Income (the Home checklist links here).
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("view") === "income") {
+      setView("income");
+    }
+  }, []);
   const [incomeSearchQuery, setIncomeSearchQuery] = useState("");
 
   // Search, Filter & Pagination States

@@ -116,7 +116,7 @@ def advisor_tools(db: UserDb) -> list[Tool]:
 
     async def goals(_: dict[str, Any]):
         rows = await db.select("goals", {"select": "goal_name,target_amount,current_amount,target_date,attitude,is_active,completed",
-                                         "user_id": uid, "order": "created_at.desc", "limit": "20"})
+                                         "user_id": uid, "deleted_at": "is.null", "order": "created_at.desc", "limit": "20"})
         return [{"name": clean_text(g.get("goal_name"), 80) or "Goal", "target": money(g.get("target_amount")),
                  "saved": money(g.get("current_amount")), "target_date": g.get("target_date"),
                  "attitude": g.get("attitude"), "active": bool(g.get("is_active")), "completed": bool(g.get("completed"))}

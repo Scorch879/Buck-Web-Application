@@ -66,7 +66,7 @@ class FakeSupabase:
             "profiles": [{"active_wallet_id": "w1"}],
             "wallets": [{"id": "w1", "name": "Cash", "budget": 20000}],
             "expenses": self.expenses,
-            "incomes": [{"amount": 25000, "source": "Salary"}],
+            "incomes": [{"amount": 25000, "source": "Salary", "received_on": TODAY.replace(day=1).isoformat()}],
             "goals": [{"id": "g1", "goal_name": "Laptop", "target_amount": 50000, "current_amount": 10000,
                        "target_date": (TODAY + timedelta(days=120)).isoformat(), "attitude": "Moderate",
                        "is_active": True, "completed": False}],
