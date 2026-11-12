@@ -78,8 +78,9 @@ class FakeSupabase:
 
 
 GOOD = {"Authorization": "Bearer good"}
-ADVICE = {"title": "Trim Food Spending", "suggestion": "Cap Food at ₱4,000 this month.",
-          "advice": "Spend at most ₱1,000 a week on Food. Move ₱1,500 to Laptop every Friday.", "focus": "category"}
+# Every ₱ figure here is in the fake user's data (Laptop: ₱50,000 target, ₱40,000 to go).
+ADVICE = {"title": "Trim Food Spending", "suggestion": "Keep Laptop's ₱40,000 to go in view this week.",
+          "advice": "Laptop has ₱40,000.00 to go of ₱50,000.00. Cook at home on weekdays.", "focus": "category"}
 
 
 class AdvisorApiTests(unittest.IsolatedAsyncioTestCase):
@@ -168,6 +169,28 @@ class AdvisorApiTests(unittest.IsolatedAsyncioTestCase):
         kwargs = self.gen.await_args.kwargs
         self.assertGreater(kwargs["attempt_seconds"], 8)
         self.assertGreaterEqual(kwargs["max_output_tokens"], 4096)
+
+    async def test_card_with_an_invented_figure_is_not_saved(self):
+        # "record your next ₱1,000" (seen live): ₱1,000 is in none of the user's figures.
+        self.gen.return_value = {**ADVICE, "advice": ADVICE["advice"] + " Record your next ₱1,000 of spending."}
+        r = (await self.client.get("/advisor/insight", headers=GOOD)).json()
+        self.assertEqual(r["generatedWith"], "rules")
+        self.assertNotIn("₱1,000 of", r["advice"])
+
+    async def test_saved_card_with_an_invented_figure_is_replaced(self):
+        await self.client.get("/advisor/insight", headers=GOOD)
+        # A card saved before the check existed, for the same data, quoting ₱1,000.
+        self.supa.advisories[0]["advice"] += " Record your next ₱1,000 of spending."
+        self.gen.side_effect = gemini.GeminiUnavailable("busy")
+        with mock.patch("BuckAI_Advisor.service.REFRESH_COOLDOWN", timedelta(0)):
+            r = (await self.client.get("/advisor/insight?refresh=true", headers=GOOD)).json()
+        self.assertEqual(r["generatedWith"], "rules")
+        self.assertNotIn("₱1,000", r["advice"])
+
+    async def test_card_figures_are_written_with_two_decimals(self):
+        r = (await self.client.get("/advisor/insight", headers=GOOD)).json()
+        self.assertEqual(r["generatedWith"], "gemini")
+        self.assertEqual(r["suggestion"], "Keep Laptop's ₱40,000.00 to go in view this week.")  # ₱1,234.56 form
 
     async def test_groq_writes_the_card_when_gemini_is_busy(self):
         self.gen.side_effect = gemini.GeminiUnavailable("timeout")

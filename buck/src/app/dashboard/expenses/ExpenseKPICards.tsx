@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
+import { DURATION, EASE_OUT } from "@/utils/motion";
 import { motion } from "framer-motion";
 import {
   FaWallet,
@@ -238,7 +239,7 @@ export default function ExpenseKPICards({
               className={`expenses-kpi-progress-fill expenses-kpi-progress-fill--${walletHealthStatus.color}`}
               initial={{ width: 0 }}
               animate={{ width: `${percentRemaining}%` }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
+              transition={{ duration: DURATION.slow * 2, ease: EASE_OUT }}
             />
             {/* Threshold Ticks */}
             <span className="expenses-kpi-tick" style={{ left: "25%" }} />

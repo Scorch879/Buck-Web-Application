@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { SPRING } from "@/utils/motion";
+import { DURATION, EASE_OUT, SPRING } from "@/utils/motion";
 import {
   FaCheck,
   FaChevronLeft,
@@ -569,10 +569,10 @@ export default function CategoriesPage() {
                   className="cat-search-clear"
                   onClick={() => setQuery("")}
                   aria-label="Clear search"
-                  initial={{ opacity: 0, scale: 0.8 }}
+                  initial={{ opacity: 0, scale: 0.97 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.14 }}
+                  exit={{ opacity: 0, scale: 0.97 }}
+                  transition={{ duration: DURATION.fast, ease: EASE_OUT }}
                 >
                   <FaTimes aria-hidden="true" />
                 </motion.button>
@@ -759,7 +759,7 @@ export default function CategoriesPage() {
               variants={PAGE_VARIANTS}
               initial="enter"
               animate="center"
-              transition={{ duration: 0.18, ease: "easeOut" }}
+              transition={{ duration: DURATION.base, ease: EASE_OUT }}
             >
               {paginatedRows.length === 0 ? (
                 <tr>
@@ -972,7 +972,7 @@ export default function CategoriesPage() {
                                     : 0
                                 }%`,
                               }}
-                              transition={{ duration: 0.45, ease: "easeOut" }}
+                              transition={{ duration: DURATION.slow * 2, ease: EASE_OUT }}
                             />
                           </span>
                           <span
@@ -1054,7 +1054,7 @@ export default function CategoriesPage() {
                                 className="cat-actions-group"
                                 initial={{ opacity: 0, scale: 0.98 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                transition={{ duration: 0.15 }}
+                                transition={{ duration: DURATION.fast, ease: EASE_OUT }}
                               >
                                 <motion.button
                                   type="button"

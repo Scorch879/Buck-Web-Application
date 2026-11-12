@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import { DURATION, EASE_OUT } from "@/utils/motion";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FaSearch,
@@ -216,18 +217,18 @@ export default function FinancialSummaryTable({
               className="summary-filter-pill-group summary-table-active-filters"
               role="status"
               aria-label="Active chart filters"
-              initial={{ opacity: 0, scale: 0.9, x: 8 }}
+              initial={{ opacity: 0, scale: 0.97, x: 8 }}
               animate={{ opacity: 1, scale: 1, x: 0 }}
-              exit={{ opacity: 0, scale: 0.9, x: 8 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
+              exit={{ opacity: 0, scale: 0.97, x: 8 }}
+              transition={{ duration: DURATION.base, ease: EASE_OUT }}
             >
               {selectedDay && (
                 <motion.div
                   className="summary-filter-pill-item"
-                  initial={{ opacity: 0, scale: 0.9 }}
+                  initial={{ opacity: 0, scale: 0.97 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.16 }}
+                  exit={{ opacity: 0, scale: 0.97 }}
+                  transition={{ duration: DURATION.fast, ease: EASE_OUT }}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
@@ -268,10 +269,10 @@ export default function FinancialSummaryTable({
               {selectedCategory && (
                 <motion.div
                   className="summary-filter-pill-item"
-                  initial={{ opacity: 0, scale: 0.9 }}
+                  initial={{ opacity: 0, scale: 0.97 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.16 }}
+                  exit={{ opacity: 0, scale: 0.97 }}
+                  transition={{ duration: DURATION.fast, ease: EASE_OUT }}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",

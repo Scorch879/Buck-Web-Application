@@ -34,6 +34,7 @@ import {
   FaSpinner,
 } from "react-icons/fa";
 import { AnimatePresence, motion } from "framer-motion";
+import { DURATION, EASE_OUT } from "@/utils/motion";
 import "../settings/style.css";
 import WalletModal from "./WalletModal";
 import DangerDeleteDialog from "@/component/DangerDeleteDialog";
@@ -633,7 +634,7 @@ export default function WalletPage() {
                   className="settings-wallet-list"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ duration: 0.18, ease: "easeOut" }}
+                  transition={{ duration: DURATION.base, ease: EASE_OUT }}
                 >
                   {paginatedActiveWallets.length === 0 ? (
                     <p className="settings-wallet-empty">
@@ -849,7 +850,7 @@ export default function WalletPage() {
                   className="settings-wallet-list"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ duration: 0.18, ease: "easeOut" }}
+                  transition={{ duration: DURATION.base, ease: EASE_OUT }}
                 >
                   {paginatedHistoryWallets.length === 0 ? (
                     <p className="settings-wallet-empty">No wallet history found.</p>

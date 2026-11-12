@@ -124,6 +124,49 @@ def _tidy_insight(out: dict[str, Any]) -> dict[str, Any] | None:
     return text if text["title"] and text["suggestion"] and text["advice"] else None
 
 
+def _numbers(value: Any) -> set[float]:
+    """Every number in the snapshot data (plan, wallets, goal, categories, totals)."""
+    if isinstance(value, bool):
+        return set()
+    if isinstance(value, (int, float)):
+        return {round(float(value), 2)}
+    if isinstance(value, dict):
+        return set().union(*map(_numbers, value.values())) if value else set()
+    if isinstance(value, list):
+        return set().union(*map(_numbers, value)) if value else set()
+    return set()
+
+
+def _checked_card(out: dict[str, Any], snapshot: Snapshot) -> dict[str, Any] | None:
+    """The tidied card when every ₱ figure in it is a figure from the snapshot data,
+    rewritten as ₱1,234.56; None when the model invented, rounded or added one up
+    (e.g. "record your next ₱1,000"), so the next writer or the rule card is used."""
+    text = _tidy_insight(out)
+    if not text:
+        return None
+    if not _card_figures_ok(text, snapshot):
+        log.warning("Advisor card quoted a ₱ figure outside the data; discarded.")
+        return None
+    for key in ("suggestion", "advice", "wallet_advice"):
+        text[key] = _peso_format(text[key]) if text[key] else text[key]
+    return text
+
+
+def _card_figures_ok(text: dict[str, Any], snapshot: Snapshot) -> bool:
+    allowed = _numbers(snapshot.data)
+    found = [float(m.replace(",", "")) for key in ("suggestion", "advice", "wallet_advice")
+             for m in _PESO_FIGURE.findall(text.get(key) or "")]
+    return all(any(abs(x - a) < 0.01 for a in allowed) for x in found)
+
+
+def _saved_card_ok(row: dict[str, Any], snapshot: Snapshot) -> bool:
+    """A saved AI card is served again only if its figures still pass the check
+    (cards saved before the check existed can hold invented amounts)."""
+    meta = row.get("metadata") or {}
+    return _card_figures_ok({"suggestion": row.get("suggestion"), "advice": row.get("advice"),
+                             "wallet_advice": meta.get("wallet_advice")}, snapshot)
+
+
 async def _write_with_ai(snapshot: Snapshot, previous: dict[str, Any] | None,
                          changed: list[str], priority: str,
                          prefer: str | None = None) -> tuple[dict[str, Any], str, str]:
@@ -135,10 +178,10 @@ async def _write_with_ai(snapshot: Snapshot, previous: dict[str, Any] | None,
         out = await gemini.generate_json(system, prompt, prompts.INSIGHT_SCHEMA, timeout_seconds=INSIGHT_TIMEOUT,
                                          attempt_seconds=INSIGHT_ATTEMPT, max_output_tokens=INSIGHT_TOKENS,
                                          prefer=prefer)
-        text = _tidy_insight(out)
+        text = _checked_card(out, snapshot)
         if text:
             return text, "gemini", gemini.answered_by.get() or get_settings().gemini_model
-        reason = "Incomplete advisory."
+        reason = "Incomplete advisory, or a ₱ figure outside the data."
     except gemini.GeminiUnavailable as exc:
         reason = str(exc)
     if not get_settings().groq_configured:
@@ -149,9 +192,9 @@ async def _write_with_ai(snapshot: Snapshot, previous: dict[str, Any] | None,
                                        timeout_seconds=INSIGHT_GROQ_TIMEOUT)
     except groq.GroqUnavailable as exc:
         raise gemini.GeminiUnavailable(f"{reason}; Groq: {exc}") from exc
-    text = _tidy_insight(out)
+    text = _checked_card(out, snapshot)
     if not text:
-        raise gemini.GeminiUnavailable(f"{reason}; Groq: incomplete advisory.")
+        raise gemini.GeminiUnavailable(f"{reason}; Groq: incomplete advisory or a ₱ figure outside the data.")
     return text, "groq", groq.answered_by.get() or get_settings().groq_models[0]
 
 
@@ -179,7 +222,7 @@ async def get_insight(db: UserDb, refresh: bool = False) -> dict[str, Any]:
         still_valid = _parse_ts(latest.get("valid_until")) > now
         age = now - _parse_ts(latest.get("created_at"))
         # Rule-based advice is upgraded to AI advice once an AI is available.
-        good_enough = meta.get("generated_with") in ("gemini", "groq") or not ai_on
+        good_enough = (meta.get("generated_with") in ("gemini", "groq") and _saved_card_ok(latest, snapshot))             or not ai_on
         if not refresh and same_data and still_valid and (good_enough or age < DATA_CHANGE_COOLDOWN):
             return to_response(latest, cached=True)
         if age < (REFRESH_COOLDOWN if refresh else DATA_CHANGE_COOLDOWN):
@@ -196,7 +239,7 @@ async def get_insight(db: UserDb, refresh: bool = False) -> dict[str, Any]:
                                                                 _recent_model(latest, now))
     except gemini.GeminiUnavailable as exc:
         log.warning("Advisor insight fell back to rules: %s", exc)
-        if latest and same_data:
+        if latest and same_data and _saved_card_ok(latest, snapshot):
             return to_response(latest, cached=True)  # never replace good advice with rules for the same data
         text = {**rule_insight(snapshot), "focus": None}
 
