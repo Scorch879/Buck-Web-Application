@@ -8,7 +8,7 @@
   color: var(--buck-ink);
   background: var(--buck-surface);
   border: 1px solid var(--buck-line);
-  border-radius: 10px;
+  border-radius: var(--buck-card-radius);
   box-shadow: var(--buck-shadow);
 }
 

@@ -26,7 +26,7 @@ import {
 } from "@/component/goals";
 import ProgressBarCard from "./ProgressBarCard";
 import DangerDeleteDialog from "@/component/DangerDeleteDialog";
-import { detectGoalAttitude, getGoalTip } from "@/utils/aiApi";
+import { detectGoalAttitude, getGoalTipWithSource } from "@/utils/aiApi";
 import { fetchAIForecastInsights, type ForecastDay } from "@/utils/forecastApi";
 import type { GoalPlan, SavingAttitude } from "@/utils/goalAttitude";
 import { Line } from "react-chartjs-2";
@@ -114,6 +114,8 @@ const GoalsPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [aiRecommendation, setAIRecommendation] = useState<string | null>(null);
+  // True when Buck_AI wrote the tip from the goal plan's rules, not an AI model.
+  const [tipFromPlan, setTipFromPlan] = useState(false);
   const [walletBudget, setWalletBudget] = useState<number | null>(
     () => userCache.activeWalletBudget ?? null
   );
@@ -429,18 +431,22 @@ const GoalsPage = () => {
   const selectedGoalId = selectedGoal?.id;
   const storedTip = selectedGoal?.aiRecommendation?.trim() || null;
   useEffect(() => {
+    setTipFromPlan(false);
     if (!selectedGoalId) {
       setAIRecommendation(null);
       return;
     }
     if (storedTip) {
+      // Only AI-written tips are stored.
       setAIRecommendation(storedTip);
       return;
     }
     let cancelled = false;
     setAIRecommendation("Loading AI recommendation...");
-    void getGoalTip({ goalId: selectedGoalId }).then((tip) => {
-      if (!cancelled) setAIRecommendation(tip || null);
+    void getGoalTipWithSource({ goalId: selectedGoalId }).then(({ tip, source }) => {
+      if (cancelled) return;
+      setAIRecommendation(tip || null);
+      setTipFromPlan(source === "rules");
     });
     return () => {
       cancelled = true;
@@ -890,7 +896,7 @@ const GoalsPage = () => {
 
               {aiRecommendation && (
                 <div className="ai-recommendation">
-                  <strong>AI recommendation</strong>
+                  <strong>{tipFromPlan ? "Buck's plan" : "AI recommendation"}</strong>
                   <div className="ai-recommendation-content">{aiRecommendation}</div>
                 </div>
               )}

@@ -2,6 +2,9 @@
   /* Heading sizes by role: a tab's section card title, and a smaller card
      inside it. Hero titles keep their own larger clamp. */
   --buck-card-title-size: clamp(1.18rem, 2.2vw, 1.3rem);
+  /* One corner radius for every dashboard card, on every tab. Modals keep
+     their own, larger radius. */
+  --buck-card-radius: 8px;
   --buck-subcard-title-size: 1.05rem;
   --buck-scroll-thumb: rgba(244, 117, 54, 0.34);
   --buck-scroll-thumb-hover: rgba(244, 117, 54, 0.62);

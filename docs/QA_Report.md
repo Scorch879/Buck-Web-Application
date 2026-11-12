@@ -210,6 +210,21 @@ Two fixes came out of it:
   - Not checked yet: the same screens with live Buck_AI data (detected attitude, plan numbers, 30-day chart) and the create, set-active and add-progress writes. They need a signed-in session.
 - Financial Advisor at 320px: the page grid's implicit `auto` column grew to 311px inside a 296px content area, so every card ran 3px off screen. The page grid and its responsive single columns now use `minmax(0, 1fr)`.
 
+### 📏 Measured Card Uniformity Across Tabs (2026-11-12)
+
+On every dashboard tab at 1280px, signed in, I read the computed corner radius, padding and title and eyebrow type of each outer card.
+
+| Finding | Before | After |
+|---|---|---|
+| Card corner radius | 8px on Home, Wallet, Forecast, Advisor, Admin and Settings; 10px on Expenses, Categories, Goals, Statistics and the Getting started card | 8px everywhere, via the new `--buck-card-radius` token. Modals keep their own radius. |
+| Categories card titles | weight 700 | 650, like every other card title |
+| Monthly cash flow / Income history titles | 1.25rem / 700 | `--buck-card-title-size` / 650 |
+| Home AI card eyebrows | 0.74rem / 800 | 0.75rem / 650, like every other eyebrow |
+
+Card padding still varies between tabs (15–24px). It follows each tab's density (dense tables and tiles against hero cards), so it is left as it is. The skeletons use the same classes, so they pick up the changes (ADR-012).
+
+The Goals card now labels a rule-written tip (`source: "rules"` from `POST /advisor/goal-tip`, BUG-047) "Buck's plan" instead of "AI recommendation", via `getGoalTipWithSource`.
+
 ### 🔎 Signed-In Tab Review at Phone Width (2026-11-12)
 
 Every dashboard tab was checked signed in, at 404px, in dark mode. Advisor and Forecast were also checked in light mode.
