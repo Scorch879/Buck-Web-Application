@@ -236,6 +236,36 @@ The principles this pass checks against, and how Buck meets each one:
 
 The signed-in visual pass of every tab, the sidebar slide and the profile picture fade-in waits for a fresh sign-in, because the session timed out after 30 minutes idle.
 
+### ✅ Signed-In Live Verification After the Motion Sweep (2026-11-12)
+
+I read computed styles on every dashboard tab at 1280px, signed in, after PRs #272–#275.
+
+| Tab | Outer cards | Card titles (h2/h3) | Overflowing scroll areas | Sideways scroll | AI note |
+|---|---|---|---|---|---|
+| Home | 8px (spending, graph, summary, interpretation) | 650 ×6 | none | no | — (Buck_AI not running locally) |
+| Expenses | 8px (KPI, expenses) | 650 ×5 | none | no | — |
+| Wallet | 8px | 650 ×3 | none | no | — |
+| Categories | 8px | 650 | none | no | — |
+| Goals | 8px (GoalsCard, progress) | 650 ×4 | none | no | "This comes from your goal plan and expenses. AI might be inaccurate…" |
+| Statistics | 8px (stats, flow) | 650 ×7 | none | no | Captions name their source: "Weekly budget ₱93,085.77 = ¼ of your active wallet (₱372,343.09)." and "Save ₱492.32 a day to reach Emergency Buffer (3 Months) by its target date." |
+| Forecast | 8px (forecast-story) | 650 | none | no | None shown: the text was rule-written because of the logging gap, as designed |
+| Financial Advisor | 8px | 650 ×6 | none | no | "This comes from your Buck expenses. AI might be inaccurate, so check the amounts…" |
+| Settings | 8px | 650 for card titles, 600 for the smaller subsections (Avatar, Display information, Security summary), one step down by design | none | no | — |
+| Admin | 8px (KPI and service cards, after PR #275) | 650 for card titles, 600 for feedback list rows | `admin-feedback-list` (global gold thumb) | no | — |
+
+**Sidebar.**
+- I reloaded with `buck:sidebar-collapsed=true`. The inline `<head>` script set `data-buck-sidebar=collapsed` before React ran, and the sidebar loaded at its collapsed 79px width with the button reading "Expand sidebar", so it never slides on load.
+- The slide itself uses `SPRING` (`dashboardheader.tsx`). It uses `INSTANT` until the sidebar is ready.
+- Expanding saved `false` and set the button to "Collapse sidebar".
+
+**Profile picture.**
+- At desktop width the avatar is `buck-fade-img is-loaded` with opacity 1. The fade-in is a 0.24s ease-out from opacity 0, with no scale.
+- At phone width, the avatar inside the closed menu stays at opacity 0 until the menu opens. That is expected: CSS animations do not run in hidden subtrees.
+
+**Limits of this check.**
+- The browser pane was hidden, so it drew no frames, and the slide's timing could not be recorded frame by frame. Earlier QA entries hold the recordings.
+- In development, Next.js's dev-tools badge sits over the sidebar's expand button at the bottom left. It does not exist in production builds.
+
 ### 📏 Measured Card Uniformity Across Tabs (2026-11-12)
 
 On every dashboard tab at 1280px, signed in, I read the computed corner radius, padding and title and eyebrow type of each outer card.
