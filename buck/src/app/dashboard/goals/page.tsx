@@ -66,6 +66,13 @@ ChartJS.register(
 
 type Goal = BuckGoal;
 
+/** Adds a goal, or replaces it if the cache or realtime sync already added it (BUG-046). */
+function upsertGoal(goals: Goal[], goal: Goal): Goal[] {
+  return goals.some((g) => g.id === goal.id)
+    ? goals.map((g) => (g.id === goal.id ? goal : g))
+    : [...goals, goal];
+}
+
 /**
  * What the forecast dialog shows for the selected goal (ADR-055). The active
  * goal gets the AI Forecaster's plan and 30 days; any other goal gets the plan
@@ -415,21 +422,32 @@ const GoalsPage = () => {
     };
   }, [setDashboardCache, user.uid]);
 
-  // AI Financial Advisor tip for the selected goal (read server-side by id).
+  // AI Financial Advisor tip for the selected goal. Buck_AI saves every tip on
+  // goals.ai_recommendation, so a stored tip shows at once; only a goal without
+  // one asks for it (BUG-046). Keyed on the id, not the goal object, so other
+  // edits to the goal don't refetch.
+  const selectedGoalId = selectedGoal?.id;
+  const storedTip = selectedGoal?.aiRecommendation?.trim() || null;
   useEffect(() => {
-    if (!selectedGoal) {
+    if (!selectedGoalId) {
       setAIRecommendation(null);
+      return;
+    }
+    if (storedTip) {
+      setAIRecommendation(storedTip);
       return;
     }
     let cancelled = false;
     setAIRecommendation("Loading AI recommendation...");
-    void getGoalTip({ goalId: selectedGoal.id }).then((tip) => {
+    void getGoalTip({ goalId: selectedGoalId }).then((tip) => {
       if (!cancelled) setAIRecommendation(tip || null);
     });
     return () => {
       cancelled = true;
     };
-  }, [selectedGoal]);
+    // A tip saved later (realtime) replaces the pending request instead of
+    // starting another one.
+  }, [selectedGoalId, storedTip]);
 
   useEffect(() => {
     const fetchWalletBudget = async () => {
@@ -642,7 +660,7 @@ const GoalsPage = () => {
               onClose={() => setShowModal(false)}
               onGoalCreated={(newGoal) => {
                 setShowModal(false);
-                setGoals((prev) => [...prev, newGoal]);
+                setGoals((prev) => upsertGoal(prev, newGoal));
                 setSelectedGoal(newGoal);
               }}
             />
@@ -1137,7 +1155,7 @@ const GoalsPage = () => {
             onClose={() => setShowModal(false)}
             onGoalCreated={(newGoal) => {
               setShowModal(false);
-              setGoals((prev) => [...prev, newGoal]);
+              setGoals((prev) => upsertGoal(prev, newGoal));
               setSelectedGoal(newGoal);
             }}
           />
