@@ -105,8 +105,10 @@ export function computeCashFlow(
   };
 }
 
-/** `+₱5,000 vs last mo.` / `-₱2,100 vs last mo.` */
+/** `₱5,000 more than last month` / `₱2,100 less than last month`.
+ *  Plain words instead of a +/- sign and "mo.", so the change reads at a glance. */
 export function formatDeltaVsLastMonth(delta: number) {
-  const sign = delta < 0 ? "-" : "+";
-  return `${sign}${formatCurrency(Math.abs(delta))} vs last mo.`;
+  if (delta === 0) return "Same as last month";
+  const direction = delta > 0 ? "more" : "less";
+  return `${formatCurrency(Math.abs(delta))} ${direction} than last month`;
 }

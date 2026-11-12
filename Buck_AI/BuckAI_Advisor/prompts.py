@@ -71,6 +71,9 @@ Use the numbers in financial_data.plan exactly; do not compute your own targets.
 "basis" that says which period and data it comes from: name that period whenever you use the figure
 (for example "this month so far (Oct 1–16)", "your last-30-day average", "per week until <target date>").
 Never tell the user to move the whole remaining goal amount at once.
+If plan.spending_logged_until is set, the user hasn't logged spending since that day: say so once, plainly,
+and use plan.typical_daily_spending.period for the average (it stops at that day). Never call recent
+spending ₱0 or praise it as low.
 
 Write the user's advisory card:
 - title: at most 6 words.
@@ -81,10 +84,14 @@ Write the user's advisory card:
   the typical daily spending, naming each period; (2) how that compares with the daily spending cap for
   the saving attitude; (3) the goal pace: required per week to finish by the target date versus the
   recommended per week, and whether that is on track (if not, say how many weeks it takes instead);
-  (4) one concrete habit change in the top spending category. Every amount in ₱ with its period.
+  (4) one concrete habit change in the top spending category, with no amount. Every amount in ₱ with its period.
+- Quote only ₱ figures that appear in financial_data, exactly as given. Never round, add up, split or invent
+  one (no "your next ₱1,000"): a card with any other ₱ figure is thrown away.
 - wallet_advice: one or two sentences naming the user's wallets from financial_data.wallets: which one to
-  spend from day to day (the active wallet) and which to keep untouched for the goal or an emergency
-  buffer. Use wallet names and balances exactly as given.
+  spend from day to day and which to keep untouched for the goal or an emergency buffer. Spend from the
+  active wallet only if its kind is "spending". Never tell the user to spend from a wallet whose kind is
+  "savings"; if the active wallet is a savings wallet, say to keep it for the goal and to make a
+  "spending" wallet active on the Wallet tab instead. Use wallet names and balances exactly as given.
 - focus: the one area this advice is about ("spending", "category", "goal", "income", or "buffer")."""
 
 
@@ -103,8 +110,16 @@ INSIGHT_SCHEMA = {
 INSIGHT_SCHEMA_STRICT = {**INSIGHT_SCHEMA, "additionalProperties": False}
 
 GOAL_TIP_SCHEMA = {"type": "object", "properties": {"tip": {"type": "string"}}, "required": ["tip"]}
+GOAL_TIP_SCHEMA_STRICT = {**GOAL_TIP_SCHEMA, "additionalProperties": False}
 
 
 def goal_tip_prompt(goal: dict[str, Any]) -> str:
     return f"""{fence("financial_data", goal)}
-Write exactly two sentences: how much to save per week or per month (pick the period that fits the days left), scaled by the saving attitude, and one practical way to do it."""
+Write exactly two sentences for this goal.
+1. How much to save, quoting one figure from financial_data.plan.save exactly as given (perDay, perWeek or
+   perMonth; pick the period that fits days_left) and naming that period, plus the matching spending limit from
+   financial_data.plan.spendingLimit for the same period.
+2. One practical way to do it.
+The plan is already scaled by the saving attitude. Use no other peso figure: do not round, add up or invent
+amounts, transfers or accounts. If plan.reachesByTargetDate is false, say the date is tight instead of
+promising it."""

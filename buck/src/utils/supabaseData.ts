@@ -2,6 +2,7 @@ import { getSupabaseClient } from "@/utils/supabase";
 import { bumpDataEpoch, cachedRead, copyList } from "@/utils/dataCache";
 import { toLocalDateString } from "@/utils/cashFlow";
 import { appLogoPath } from "@/utils/connectedApps";
+import type { AttitudeBasis } from "@/utils/goalAttitude";
 import {
   designPreviewUserId,
   isDesignPreviewMode,
@@ -75,10 +76,14 @@ export type BuckGoal = {
   targetDate?: string;
   createdAt: string;
   attitude?: string;
+  /** Figures behind the detected attitude (Buck_AI `shared/attitude.py`); null until first detected. */
+  attitudeBasis?: AttitudeBasis | null;
+  attitudeDetectedAt?: string | null;
   isActive: boolean;
   completed: boolean;
   aiRecommendation?: string;
   aiRecommendedBudget?: number | null;
+  deletedAt?: string | null;
 };
 
 export type BuckWallet = {
@@ -244,6 +249,7 @@ const previewGoals: BuckGoal[] = [
     aiRecommendation:
       "Keep a PHP 850 weekend envelope and move PHP 300 to savings after bills clear.",
     aiRecommendedBudget: 850,
+    deletedAt: null,
   },
   {
     id: "preview-goal-laptop",
@@ -258,6 +264,7 @@ const previewGoals: BuckGoal[] = [
     aiRecommendation:
       "Hold nonessential shopping below PHP 900 this week to keep the goal moving.",
     aiRecommendedBudget: 900,
+    deletedAt: null,
   },
 ];
 
@@ -365,6 +372,9 @@ function mapIncome(row: Record<string, unknown>): BuckIncome {
   };
 }
 
+const GOAL_COLUMNS =
+  "id, goal_name, target_amount, current_amount, target_date, created_at, attitude, attitude_basis, attitude_detected_at, is_active, completed, ai_recommendation, ai_recommended_budget, deleted_at";
+
 function mapGoal(row: Record<string, unknown>): BuckGoal {
   return {
     id: String(row.id),
@@ -374,6 +384,11 @@ function mapGoal(row: Record<string, unknown>): BuckGoal {
     targetDate: row.target_date ? String(row.target_date) : undefined,
     createdAt: String(row.created_at || new Date().toISOString()),
     attitude: row.attitude ? String(row.attitude) : undefined,
+    attitudeBasis:
+      row.attitude_basis && typeof row.attitude_basis === "object"
+        ? (row.attitude_basis as AttitudeBasis)
+        : null,
+    attitudeDetectedAt: row.attitude_detected_at ? String(row.attitude_detected_at) : null,
     isActive: Boolean(row.is_active),
     completed: Boolean(row.completed),
     aiRecommendation: row.ai_recommendation
@@ -383,6 +398,7 @@ function mapGoal(row: Record<string, unknown>): BuckGoal {
       row.ai_recommended_budget === null || row.ai_recommended_budget === undefined
         ? null
         : toNumber(row.ai_recommended_budget),
+    deletedAt: row.deleted_at ? String(row.deleted_at) : null,
   };
 }
 
@@ -1381,12 +1397,39 @@ async function fetchListGoals(userId: string) {
   const { data, error } = await supabase
     .from("goals")
     .select(
-      "id, goal_name, target_amount, current_amount, target_date, created_at, attitude, is_active, completed, ai_recommendation, ai_recommended_budget"
+      GOAL_COLUMNS
     )
     .eq("user_id", safeUserId)
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
   if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map(mapGoal);
+}
+
+async function fetchListDeletedGoals(userId: string) {
+  if (isDesignPreviewMode) {
+    return [];
+  }
+
+  const supabase = getSupabaseClient();
+  const safeUserId = assertUuid(userId, "user id");
+  const { data, error } = await supabase
+    .from("goals")
+    .select(
+      GOAL_COLUMNS
+    )
+    .eq("user_id", safeUserId)
+    .not("deleted_at", "is", null)
+    .order("deleted_at", { ascending: false });
+
+  if (error) {
+    if (isMissingColumnError(error)) {
+      return [];
+    }
     throw new Error(error.message);
   }
 
@@ -1398,7 +1441,8 @@ export async function createGoalRecord(
   targetAmount: string,
   attitude: string,
   targetDate: string,
-  aiRecommendation = ""
+  aiRecommendation = "",
+  attitudeBasis: AttitudeBasis | null = null
 ) {
   if (isDesignPreviewMode) {
     return {
@@ -1413,6 +1457,7 @@ export async function createGoalRecord(
       completed: false,
       aiRecommendation,
       aiRecommendedBudget: null,
+      deletedAt: null,
     };
   }
 
@@ -1425,12 +1470,15 @@ export async function createGoalRecord(
       goal_name: goalName,
       target_amount: Number(targetAmount),
       attitude,
+      attitude_basis: attitudeBasis,
+      attitude_detected_at: attitudeBasis ? new Date().toISOString() : null,
       target_date: targetDate,
+      // The database makes it active when the user has no active goal yet.
       is_active: false,
       ai_recommendation: aiRecommendation,
     })
     .select(
-      "id, goal_name, target_amount, current_amount, target_date, created_at, attitude, is_active, completed, ai_recommendation, ai_recommended_budget"
+      GOAL_COLUMNS
     )
     .single();
 
@@ -1438,6 +1486,7 @@ export async function createGoalRecord(
     throw new Error(error.message);
   }
 
+  bumpDataEpoch();
   return mapGoal(data);
 }
 
@@ -1451,13 +1500,48 @@ export async function deleteGoalRecord(goalId: string) {
   const supabase = getSupabaseClient();
   const { error } = await supabase
     .from("goals")
-    .delete()
+    .update({
+      deleted_at: new Date().toISOString(),
+      is_active: false,
+    })
     .eq("id", safeGoalId)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .is("deleted_at", null);
 
   if (error) {
     throw new Error(error.message);
   }
+
+  bumpDataEpoch();
+}
+
+export async function restoreGoalRecord(goalId: string): Promise<BuckGoal> {
+  if (isDesignPreviewMode) {
+    throw new Error("Cannot restore goal in design preview mode");
+  }
+
+  const userId = await getCurrentUserId();
+  const safeGoalId = assertUuid(goalId, "goal id");
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("goals")
+    .update({
+      deleted_at: null,
+      is_active: false,
+    })
+    .eq("id", safeGoalId)
+    .eq("user_id", userId)
+    .select(
+      GOAL_COLUMNS
+    )
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  bumpDataEpoch();
+  return mapGoal(data);
 }
 
 export async function updateGoalStatusRecord(goalId: string, isActive: boolean) {
@@ -1477,6 +1561,8 @@ export async function updateGoalStatusRecord(goalId: string, isActive: boolean) 
   if (error) {
     throw new Error(error.message);
   }
+
+  bumpDataEpoch();
 }
 
 export async function setOnlyGoalActiveRecord(goalId: string) {
@@ -1484,27 +1570,48 @@ export async function setOnlyGoalActiveRecord(goalId: string) {
     return;
   }
 
-  const userId = await getCurrentUserId();
   const safeGoalId = assertUuid(goalId, "goal id");
   const supabase = getSupabaseClient();
-  const { error: deactivateError } = await supabase
-    .from("goals")
-    .update({ is_active: false })
-    .eq("user_id", userId);
+  // One transaction (set_active_goal): the old two-request switch could leave no goal active.
+  const { error } = await supabase.rpc("set_active_goal", { p_goal_id: safeGoalId });
 
-  if (deactivateError) {
-    throw new Error(deactivateError.message);
+  if (error) {
+    throw new Error(error.message);
   }
 
-  const { error: activateError } = await supabase
-    .from("goals")
-    .update({ is_active: true })
-    .eq("id", safeGoalId)
-    .eq("user_id", userId);
+  bumpDataEpoch();
+}
 
-  if (activateError) {
-    throw new Error(activateError.message);
+/**
+ * Adds to a goal's saved amount in the database (add_goal_progress), so two
+ * quick saves can't overwrite each other. Reaching the target completes the
+ * goal and makes it inactive. Returns the goal's new state.
+ */
+export async function addGoalProgressRecord(goalId: string, amount: number) {
+  const safeGoalId = assertUuid(goalId, "goal id");
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("Amount must be more than 0.");
   }
+  if (isDesignPreviewMode) {
+    return { currentAmount: amount, completed: false, isActive: true };
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.rpc("add_goal_progress", {
+    p_goal_id: safeGoalId,
+    p_amount: Math.round(amount * 100) / 100,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  bumpDataEpoch();
+  const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
+  return {
+    currentAmount: toNumber(row?.current_amount),
+    completed: Boolean(row?.completed),
+    isActive: Boolean(row?.is_active),
+  };
 }
 
 export async function updateGoalRecord(
@@ -1537,6 +1644,8 @@ export async function updateGoalRecord(
   if (error) {
     throw new Error(error.message);
   }
+
+  bumpDataEpoch();
 }
 
 export async function updateGoalProgress(
@@ -1564,6 +1673,8 @@ export async function updateGoalProgress(
   if (error) {
     throw new Error(error.message);
   }
+
+  bumpDataEpoch();
 }
 
 export async function updateGoalAiRecommendedBudget(
@@ -2312,6 +2423,10 @@ export function listGoals(userId: string) {
   return cachedRead(`goals:${userId}`, () => fetchListGoals(userId)).then(copyList);
 }
 
+export function listDeletedGoals(userId: string) {
+  return cachedRead(`deleted-goals:${userId}`, () => fetchListDeletedGoals(userId)).then(copyList);
+}
+
 export function listWallets(userId: string) {
   return cachedRead(`wallets:${userId}`, () => fetchListWallets(userId)).then(copyList);
 }
@@ -2377,4 +2492,47 @@ export async function disconnectConnectedApp(clientId: string) {
   if (error) {
     throw new Error(error.message);
   }
+}
+
+/** Which first-run steps a user has done (the Home "Getting started" card, ADR-057). */
+export type OnboardingStatus = {
+  hasWallet: boolean;
+  hasExpense: boolean;
+  /** null = income isn't tracked on this database, so the step isn't offered. */
+  hasIncome: boolean | null;
+  hasGoal: boolean;
+};
+
+/**
+ * Four count-only reads (no rows come back), each under RLS as the user.
+ * Archived wallets and soft-deleted goals don't count.
+ */
+export async function getOnboardingStatus(userId: string): Promise<OnboardingStatus> {
+  if (isDesignPreviewMode) {
+    return { hasWallet: true, hasExpense: true, hasIncome: true, hasGoal: true };
+  }
+
+  const safeUserId = assertUuid(userId, "user id");
+  const supabase = getSupabaseClient();
+  const head = { count: "exact", head: true } as const;
+  const [wallets, expenses, goals, incomes] = await Promise.all([
+    supabase.from("wallets").select("id", head).eq("user_id", safeUserId).is("deleted_at", null),
+    supabase.from("expenses").select("id", head).eq("user_id", safeUserId),
+    supabase.from("goals").select("id", head).eq("user_id", safeUserId).is("deleted_at", null),
+    supabase.from("incomes").select("id", head).eq("user_id", safeUserId),
+  ]);
+
+  for (const result of [wallets, expenses, goals]) {
+    if (result.error) throw new Error(result.error.message);
+  }
+  if (incomes.error && !isIncomeMissingError(incomes.error)) {
+    throw new Error(incomes.error.message);
+  }
+
+  return {
+    hasWallet: (wallets.count ?? 0) > 0,
+    hasExpense: (expenses.count ?? 0) > 0,
+    hasIncome: incomes.error ? null : (incomes.count ?? 0) > 0,
+    hasGoal: (goals.count ?? 0) > 0,
+  };
 }

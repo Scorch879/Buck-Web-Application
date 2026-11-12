@@ -9,7 +9,6 @@
   justify-content: center;
   padding: 1rem;
   background: rgba(18, 13, 10, 0.55);
-  backdrop-filter: blur(4px);
 }
 
 .dialog {

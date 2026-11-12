@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { backdropMotion, panelMotion } from "@/utils/motion";
 import { FaPlus, FaTimes, FaExclamationTriangle } from "react-icons/fa";
@@ -14,6 +15,9 @@ import {
   addExpenseWithWalletDeduction,
   type BuckCategory,
 } from "@/utils/supabaseData";
+// Shared by the Expenses and Statistics tabs; its classes all start with
+// .expenses-, so loading this sheet elsewhere touches nothing else.
+import "./style.css";
 
 const QUICK_AMOUNTS = [50, 100, 200, 500, 1000];
 
@@ -24,6 +28,8 @@ interface AddExpenseModalProps {
   walletBudget: number;
   userId: string;
   onExpenseAdded: () => Promise<void> | void;
+  /** Goal the expense is linked to (Statistics forecast), if any. */
+  goalId?: string | null;
 }
 
 export default function AddExpenseModal({
@@ -33,6 +39,7 @@ export default function AddExpenseModal({
   walletBudget,
   userId,
   onExpenseAdded,
+  goalId = null,
 }: AddExpenseModalProps) {
   const { toast } = useToast();
   const [portalReady, setPortalReady] = useState(false);
@@ -128,6 +135,7 @@ export default function AddExpenseModal({
         categoryName: categoryName || "Uncategorized",
         date: spentOn || toLocalDateString(new Date()),
         description: description.trim() || "Expense",
+        goalId,
       });
 
       // The expense is saved from here on; a refresh failure must not look like a failed save.
@@ -258,21 +266,31 @@ export default function AddExpenseModal({
                 </motion.div>
               )}
 
-              {/* Category */}
-              <label>
-                <span>Category</span>
-                <CustomSelect
-                  value={categoryName}
-                  onChange={(val) => setCategoryName(val)}
-                  disabled={saving}
-                  options={[
-                    ...categories.map((c) => ({ value: c.name, label: c.name })),
-                    ...(!categories.some((c) => c.name === "Uncategorized")
-                      ? [{ value: "Uncategorized", label: "Uncategorized" }]
-                      : []),
-                  ]}
-                />
-              </label>
+              {/* Category. Adding, renaming and deleting live on the Categories
+                  tab; the modal only picks one. */}
+              <div className="expenses-modal-category">
+                <label>
+                  <span>Category</span>
+                  <CustomSelect
+                    value={categoryName}
+                    onChange={(val) => setCategoryName(val)}
+                    disabled={saving}
+                    options={[
+                      ...categories.map((c) => ({ value: c.name, label: c.name })),
+                      ...(!categories.some((c) => c.name === "Uncategorized")
+                        ? [{ value: "Uncategorized", label: "Uncategorized" }]
+                        : []),
+                    ]}
+                  />
+                </label>
+                <Link
+                  href="/dashboard/categories"
+                  className="expenses-modal-manage-link"
+                  onClick={onClose}
+                >
+                  Manage categories
+                </Link>
+              </div>
 
               {/* Date */}
               <label>

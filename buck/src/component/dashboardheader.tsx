@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, animate, motion, useMotionValue } from "framer-motion";
@@ -91,7 +91,14 @@ function getInitials(value: string) {
 export default function DashboardHeader({
   initialActiveNav = "home",
 }: DashboardHeaderProps) {
-  const [activeNav, setActiveNav] = useState<DashboardNavId>(initialActiveNav);
+  const pathname = usePathname();
+  const currentNav: DashboardNavId =
+    dashboardNavItems.find(
+      (item) => "href" in item && pathname?.startsWith(item.href)
+    )?.id ?? initialActiveNav;
+  // Start on the route's own item so a hard load of /dashboard/goals never
+  // paints Home as active first and then slides the highlight across.
+  const [activeNav, setActiveNav] = useState<DashboardNavId>(currentNav);
   const [menuOpen, setMenuOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -110,7 +117,6 @@ export default function DashboardHeader({
   // width is already at the target before the animation starts.
   const railWidth = useMotionValue(250);
   const router = useRouter();
-  const pathname = usePathname();
   const user = useOptionalDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
   const { toast } = useToast();
@@ -125,12 +131,6 @@ export default function DashboardHeader({
   const avatarSource = userCache.profile?.avatarPath
     ? `/api/profile/avatar${userCache.profile.avatarUpdatedAt ? `?v=${userCache.profile.avatarUpdatedAt}` : ""}`
     : null;
-
-  const currentNav =
-    dashboardNavItems.find(
-      (item) => "href" in item && pathname?.startsWith(item.href)
-    )?.id ??
-    initialActiveNav;
 
   useEffect(() => {
     setActiveNav(currentNav);
@@ -184,13 +184,22 @@ export default function DashboardHeader({
     return () => controls.stop();
   }, [mounted, isDesktop, railCollapsed, sidebarReady, railWidth]);
 
+  // Flip <html data-buck-sidebar> after React commits, not inside the state
+  // update. The collapsed tray layout is CSS keyed on that attribute; setting
+  // it before the render let the layout change before Framer took its
+  // "before" snapshot, so it saw no movement and the profile photo jumped
+  // 38px in one frame instead of gliding.
+  useLayoutEffect(() => {
+    if (!mounted) return;
+    document.documentElement.dataset.buckSidebar = sidebarCollapsed ? "collapsed" : "expanded";
+  }, [mounted, sidebarCollapsed]);
+
   const toggleSidebar = () => {
     setSidebarAnimating(true);
     setSidebarCollapsed((prev) => {
       const next = !prev;
       try {
         window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next));
-        document.documentElement.dataset.buckSidebar = next ? "collapsed" : "expanded";
       } catch {
         // Ignore storage access errors
       }
@@ -356,8 +365,13 @@ export default function DashboardHeader({
         </nav>
 
         <div className="dashboard-header-actions">
+          {/* layout="position", not layout: the tray turns from a 62px row into
+              a 140px column when the rail collapses. A full layout animation
+              scales the tray to bridge that, which squashed and stretched the
+              round profile photo (a visible "pop"). The tray is transparent,
+              so only its children need to move; nothing here scales now. */}
           <motion.div
-            layout
+            layout="position"
             transition={sidebarTransition}
             className="dashboard-account-tray"
             role="group"
@@ -379,7 +393,11 @@ export default function DashboardHeader({
                 />
               ) : null}
             </motion.span>
-            <AnimatePresence initial={false}>
+            {/* popLayout: the name block leaves the layout as soon as its exit
+                starts. Otherwise it held its space until the fade ended, then
+                the collapsed tray shrank and the photo dropped ~40px in one
+                frame at the end of the slide. */}
+            <AnimatePresence initial={false} mode="popLayout">
               {!railCollapsed && (
                 <motion.span
                   key="account-copy"
@@ -394,7 +412,11 @@ export default function DashboardHeader({
                 </motion.span>
               )}
             </AnimatePresence>
-            <div className="dashboard-account-controls">
+            <motion.div
+              layout="position"
+              transition={sidebarTransition}
+              className="dashboard-account-controls"
+            >
               <button
                 type="button"
                 className="dashboard-tray-btn dashboard-tray-btn--collapse"
@@ -412,7 +434,7 @@ export default function DashboardHeader({
                   <FaAngleDoubleLeft aria-hidden="true" />
                 </motion.span>
               </button>
-            </div>
+            </motion.div>
           </motion.div>
         </div>
 

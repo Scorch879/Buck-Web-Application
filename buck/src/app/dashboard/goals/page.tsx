@@ -1,7 +1,5 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
-import CustomSelect from "@/component/CustomSelect";
-import CustomDatePicker from "@/component/CustomDatePicker";
 import { useToast } from "@/component/toast/ToastContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { backdropMotion, panelMotion } from "@/utils/motion";
@@ -17,15 +15,20 @@ import {
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import { buckChartColors, buckTooltip } from "@/utils/chartTheme";
 import CreateGoalModal from "./CreateGoalModal";
+import GoalPlanTable, { AttitudeChip } from "./GoalPlanTable";
+import AddExpenseModal from "../expenses/AddExpenseModal";
 import {
+  addGoalProgress,
   deleteGoal,
   updateGoalStatus,
   setOnlyGoalActive,
+  restoreGoal,
 } from "@/component/goals";
 import ProgressBarCard from "./ProgressBarCard";
 import DangerDeleteDialog from "@/component/DangerDeleteDialog";
-import { getGoalTip, suggestCategory } from "@/utils/aiApi";
-import { computeGoalForecast, type GoalForecast } from "@/utils/goalForecast";
+import { detectGoalAttitude, getGoalTipWithSource } from "@/utils/aiApi";
+import { fetchAIForecastInsights, type ForecastDay } from "@/utils/forecastApi";
+import type { GoalPlan, SavingAttitude } from "@/utils/goalAttitude";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -38,26 +41,15 @@ import {
   Legend,
 } from "chart.js";
 import { formatCurrency } from "@/utils/formatters";
+import { daysBetween, formatDayKey, storedDayKey, toDayKey } from "@/utils/periods";
 import {
-  buildMonthRanges,
-  buildWeekRanges,
-  daysBetween,
-  findCurrentRangeIndex,
-  formatDayKey,
-  parseDayKey,
-  storedDayKey,
-  toDayKey,
-  type DateRange,
-  type MonthRange,
-} from "@/utils/periods";
-import {
-  addExpenseWithWalletDeduction,
+  ensureDefaultCategories,
   getActiveWallet,
   listExpenses,
   listGoals,
+  listDeletedGoals,
   subscribeUserTable,
-  updateGoalAiRecommendedBudget,
-  updateGoalProgress,
+  type BuckCategory,
   type BuckExpense,
   type BuckGoal,
 } from "@/utils/supabaseData";
@@ -74,6 +66,33 @@ ChartJS.register(
 
 type Goal = BuckGoal;
 
+/** Adds a goal, or replaces it if the cache or realtime sync already added it (BUG-046). */
+function upsertGoal(goals: Goal[], goal: Goal): Goal[] {
+  return goals.some((g) => g.id === goal.id)
+    ? goals.map((g) => (g.id === goal.id ? goal : g))
+    : [...goals, goal];
+}
+
+/**
+ * What the forecast dialog shows for the selected goal (ADR-055). The active
+ * goal gets the AI Forecaster's plan and 30 days; any other goal gets the plan
+ * from the AI Advisor's attitude check.
+ */
+type GoalForecastView =
+  | { kind: "unavailable" }
+  | {
+      kind: "active" | "inactive";
+      attitude: SavingAttitude;
+      reason: string | null;
+      feasible: boolean | null;
+      /** Null when there is no spending history to plan from. */
+      plan: GoalPlan | null;
+      /** Active goal only: the Forecaster's expected spending per day. */
+      forecastDailySpending: number | null;
+      withinPlan: boolean | null;
+      days: ForecastDay[];
+    };
+
 const RECENT_EXPENSE_LIMIT = 5;
 
 const GoalsPage = () => {
@@ -85,21 +104,18 @@ const GoalsPage = () => {
   const hasInitialGoalsData = Boolean(userCache.goals);
   const isDarkTheme = useAuthPageTheme();
   const { text: chartTextColor, grid: chartGridColor } = buckChartColors(isDarkTheme);
-  const primaryButtonBackground = isDarkTheme
-    ? "linear-gradient(135deg, #ffc547, #f47536)"
-    : "linear-gradient(135deg, #f47536, #ff3838)";
-  const primaryButtonColor = isDarkTheme ? "#241409" : "#fffaf4";
-  const modalBackground = "var(--buck-surface)";
-  const fieldBackground = isDarkTheme
-    ? "rgba(255,197,71,0.08)"
-    : "rgba(255,250,244,0.74)";
   const [goals, setGoals] = useState<Goal[]>(() => userCache.goals ?? []);
+  const [deletedGoals, setDeletedGoals] = useState<Goal[]>([]);
+  const [showDeletedGoals, setShowDeletedGoals] = useState(false);
+  const [restoringGoalId, setRestoringGoalId] = useState<string | null>(null);
   const [loadingGoals, setLoadingGoals] = useState(
     () => !hasInitialGoalsData
   );
   const [showModal, setShowModal] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [aiRecommendation, setAIRecommendation] = useState<string | null>(null);
+  // True when Buck_AI wrote the tip from the goal plan's rules, not an AI model.
+  const [tipFromPlan, setTipFromPlan] = useState(false);
   const [walletBudget, setWalletBudget] = useState<number | null>(
     () => userCache.activeWalletBudget ?? null
   );
@@ -110,18 +126,18 @@ const GoalsPage = () => {
   const [progressInput, setProgressInput] = useState("");
   const [progressLoading, setProgressLoading] = useState(false);
 
-  const [forecastData, setForecastData] = useState<GoalForecast | null>(null);
+  // Forecast dialog: the AI Forecaster's plan for the selected goal.
+  const [forecastView, setForecastView] = useState<GoalForecastView | null>(null);
   const [forecastLoading, setForecastLoading] = useState(false);
-  const [forecastError, setForecastError] = useState<string | null>(null);
-
   const [forecastModalOpen, setForecastModalOpen] = useState(false);
-  // --- Add Expense Modal state for goals page ---
+  // Only the newest forecast request may write its answer.
+  const forecastRequestRef = useRef(0);
+
+  // Add Spending dialog (opened from the forecast dialog) and its categories.
   const [showExpenseModal, setShowExpenseModal] = useState(false);
-  const [expenseDate, setExpenseDate] = useState("");
-  const [expenseAmount, setExpenseAmount] = useState("");
-  const [expenseDesc, setExpenseDesc] = useState("");
-  const [expenseLoading, setExpenseLoading] = useState(false);
-  const [expenseError, setExpenseError] = useState("");
+  const [categories, setCategories] = useState<BuckCategory[]>(
+    () => userCache.categories ?? []
+  );
 
   // Add state for expenses
   const [expenses, setExpenses] = useState<BuckExpense[]>(
@@ -129,107 +145,119 @@ const GoalsPage = () => {
   );
   const hadInitialGoalsData = useRef(hasInitialGoalsData);
 
-  const [showErrorModal, setShowErrorModal] = useState(false);
-  const [errorModalMessage, setErrorModalMessage] = useState("");
-
-  const [selectedMode, setSelectedMode] = useState<
-    "week" | "month" | "overall"
-  >("week");
-  const [selectedWeek, setSelectedWeek] = useState(0);
-  const [selectedMonth, setSelectedMonth] = useState(0);
-
-  // Week/month ranges spanning the selected goal (forecast modal selectors)
-  let weekDateRanges: DateRange[] = [];
-  let monthDateRanges: MonthRange[] = [];
-  if (selectedGoal) {
-    const from = parseDayKey(storedDayKey(selectedGoal.createdAt) || toDayKey(new Date()));
-    const to = parseDayKey(
-      storedDayKey(selectedGoal.targetDate || selectedGoal.createdAt) || toDayKey(new Date())
-    );
-    weekDateRanges = buildWeekRanges(from, to);
-    monthDateRanges = buildMonthRanges(from, to);
-  }
-  const currentWeekIdx = findCurrentRangeIndex(weekDateRanges);
-  const currentMonthIdx = findCurrentRangeIndex(monthDateRanges);
-
-  const userSelectedWeekRef = useRef(false);
-  const userSelectedMonthRef = useRef(false);
-
-  useEffect(() => {
-    if (!userSelectedWeekRef.current && currentWeekIdx >= 0) {
-      setSelectedWeek(currentWeekIdx);
-    }
-  }, [currentWeekIdx]);
-
-  useEffect(() => {
-    if (!userSelectedMonthRef.current && currentMonthIdx >= 0) {
-      setSelectedMonth(currentMonthIdx);
-    }
-  }, [currentMonthIdx]);
-
   // --- CRUD Handlers ---
   // Opened by the Delete button; the three-step dialog (ADR-041) calls handleDeleteGoal.
   const [confirmGoalDelete, setConfirmGoalDelete] = useState(false);
 
   const handleDeleteGoal = async () => {
-    if (!selectedGoal) return;
+    const goalToDelete = selectedGoal;
+    if (!goalToDelete) return;
 
-    const result = await deleteGoal(selectedGoal.id);
+    const result = await deleteGoal(goalToDelete.id);
     if (result.success) {
-      const nextGoals = goals.filter((goal) => goal.id !== selectedGoal.id);
+      const nextGoals = goals.filter((goal) => goal.id !== goalToDelete.id);
+      setGoals(nextGoals);
+      setDeletedGoals((prev) => [
+        { ...goalToDelete, isActive: false, deletedAt: new Date().toISOString() },
+        ...prev.filter((g) => g.id !== goalToDelete.id),
+      ]);
+      setDashboardCache((currentCache) =>
+        mergeDashboardDataCache(currentCache, user.uid, {
+          goals: nextGoals,
+        })
+      );
+      setSelectedGoal(nextGoals[0] ?? null);
+      toast("Goal moved to Deleted goals. You can restore it anytime.", "success");
+    } else {
+      toast(result.message || "Failed to delete goal.", "error");
+    }
+  };
+
+  const handleRestoreGoal = async (goalToRestore: Goal) => {
+    if (restoringGoalId) return;
+    setRestoringGoalId(goalToRestore.id);
+    try {
+      const result = await restoreGoal(goalToRestore.id);
+      if (result.success) {
+        const restored: Goal = result.goal ?? {
+          ...goalToRestore,
+          isActive: false,
+          deletedAt: null,
+        };
+        const nextGoals = [restored, ...goals.filter((g) => g.id !== restored.id)];
+        setGoals(nextGoals);
+        setDeletedGoals((prev) => prev.filter((g) => g.id !== goalToRestore.id));
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, { goals: nextGoals })
+        );
+        setSelectedGoal(restored);
+        toast(`Restored "${restored.goalName}"`, "success");
+      } else {
+        toast(result.message || "Failed to restore goal.", "error");
+      }
+    } catch (error) {
+      console.error("Failed to restore goal:", error);
+      toast("Failed to restore goal.", "error");
+    } finally {
+      setRestoringGoalId(null);
+    }
+  };
+
+  const handleSetActive = async () => {
+    if (!selectedGoal || !user) return;
+    const applyToSelected = (patch: Partial<Goal>, deactivateOthers: boolean) => {
+      const nextGoals = goals.map((goal) =>
+        goal.id === selectedGoal.id
+          ? { ...goal, ...patch }
+          : deactivateOthers
+            ? { ...goal, isActive: false }
+            : goal
+      );
       setGoals(nextGoals);
       setDashboardCache((currentCache) =>
         mergeDashboardDataCache(currentCache, user.uid, {
           goals: nextGoals,
         })
       );
-      setSelectedGoal(null);
-      toast("Goal deleted successfully", "success");
-    } else {
-      toast(result.message || "Failed to delete goal.", "error");
-    }
-  };
+      setSelectedGoal({ ...selectedGoal, ...patch });
+    };
 
-  const handleSetActive = async () => {
-    if (!selectedGoal || !user) return;
     if (selectedGoal.isActive) {
-      // Deactivate the goal
       const result = await updateGoalStatus(selectedGoal.id, false);
       if (result.success) {
-        const nextGoals = goals.map((goal) =>
-          goal.id === selectedGoal.id ? { ...goal, isActive: false } : goal
-        );
-        setGoals(nextGoals);
-        setDashboardCache((currentCache) =>
-          mergeDashboardDataCache(currentCache, user.uid, {
-            goals: nextGoals,
-          })
-        );
-        setSelectedGoal({ ...selectedGoal, isActive: false });
+        applyToSelected({ isActive: false }, false);
       } else {
         toast(result.message || "Failed to update goal status.", "error");
       }
-    } else {
-      // Activate only this goal, deactivate others
-      const result = await setOnlyGoalActive(selectedGoal.id);
-      if (result.success) {
-        // No wallet allocation to goal! Just set active status.
-        const nextGoals = goals.map((goal) =>
-          goal.id === selectedGoal.id
-            ? { ...goal, isActive: true }
-            : { ...goal, isActive: false }
-        );
-        setGoals(nextGoals);
-        setDashboardCache((currentCache) =>
-          mergeDashboardDataCache(currentCache, user.uid, {
-            goals: nextGoals,
-          })
-        );
-        setSelectedGoal({ ...selectedGoal, isActive: true });
-      } else {
-        toast(result.message || "Failed to update goal status.", "error");
-      }
+      return;
     }
+
+    // A goal that is already reached can't be active again; the database
+    // refuses it too (set_active_goal).
+    if (selectedGoal.completed) return;
+
+    // Makes this the one active goal and re-detects its saving attitude.
+    const result = await setOnlyGoalActive(selectedGoal.id);
+    if (!result.success) {
+      toast(result.message || "Failed to update goal status.", "error");
+      return;
+    }
+    const detected = result.attitude ?? null;
+    applyToSelected(
+      detected
+        ? {
+            isActive: true,
+            attitude: detected.attitude,
+            attitudeBasis: detected,
+            attitudeDetectedAt: new Date().toISOString(),
+          }
+        : { isActive: true },
+      true
+    );
+    toast(
+      `"${selectedGoal.goalName}" is now your active goal. Only one goal can be active, and Buck forecasts the active one.`,
+      "success"
+    );
   };
 
   // --- Progress Modal Handlers ---
@@ -247,113 +275,128 @@ const GoalsPage = () => {
       return;
     }
     setProgressLoading(true);
-    const newAmount = (progressGoal.currentAmount || 0) + amountToAdd;
-    const isCompleted = newAmount >= progressGoal.targetAmount;
-    try {
-      await updateGoalProgress(
-        user.uid,
-        progressGoal.id,
-        newAmount,
-        isCompleted
-      );
-      // Update local state
-      setGoals((currentGoals) => {
-        const nextGoals = currentGoals.map((goal) =>
-          goal.id === progressGoal.id
-            ? { ...goal, currentAmount: newAmount, completed: isCompleted }
-            : goal
-        );
-        setDashboardCache((currentCache) =>
-          mergeDashboardDataCache(currentCache, user.uid, {
-            goals: nextGoals,
-          })
-        );
-        return nextGoals;
-      });
-      // If the selected goal is the one updated, update it too
-      if (selectedGoal && selectedGoal.id === progressGoal.id) {
-        setSelectedGoal({
-          ...selectedGoal,
-          currentAmount: newAmount,
-          completed: isCompleted,
-        });
-      }
-      setShowProgressModal(false);
-      toast(
-        isCompleted
-          ? "Congratulations! Goal completed!"
-          : "Goal progress updated successfully",
-        "success"
-      );
-    } catch {
+    // The database adds the amount itself (add_goal_progress), so two quick
+    // saves can't overwrite each other the way a browser-computed total could.
+    const result = await addGoalProgress(progressGoal.id, amountToAdd);
+    setProgressLoading(false);
+    if (!result.success || !("currentAmount" in result)) {
       toast("Failed to update progress.", "error");
-    } finally {
-      setProgressLoading(false);
+      return;
+    }
+    const patch = {
+      currentAmount: result.currentAmount,
+      completed: result.completed,
+      // Reaching the target completes the goal and makes it inactive.
+      isActive: result.isActive,
+    };
+    const nextGoals = goals.map((goal) =>
+      goal.id === progressGoal.id ? { ...goal, ...patch } : goal
+    );
+    setGoals(nextGoals);
+    setDashboardCache((currentCache) =>
+      mergeDashboardDataCache(currentCache, user.uid, {
+        goals: nextGoals,
+      })
+    );
+    if (selectedGoal && selectedGoal.id === progressGoal.id) {
+      setSelectedGoal({ ...selectedGoal, ...patch });
+    }
+    setShowProgressModal(false);
+    toast(
+      patch.completed
+        ? "Congratulations! Goal completed!"
+        : "Goal progress updated successfully",
+      "success"
+    );
+  };
+
+  const loadGoalForecast = async (goal: Goal): Promise<GoalForecastView> => {
+    try {
+      if (goal.isActive) {
+        const insights = await fetchAIForecastInsights({ horizon: 30 });
+        const forecastGoal = insights.forecast?.goal;
+        // The rule-engine fallback carries no forecast, and so no goal plan.
+        if (insights.source !== "buck_ai" || !insights.forecast || !forecastGoal) {
+          return { kind: "unavailable" };
+        }
+        return {
+          kind: "active",
+          attitude: forecastGoal.attitude,
+          reason: forecastGoal.attitudeReason,
+          feasible: forecastGoal.feasible,
+          plan: forecastGoal.plan,
+          forecastDailySpending: forecastGoal.forecastDailySpending,
+          withinPlan: forecastGoal.withinPlan,
+          days: insights.forecast.days,
+        };
+      }
+      // Only the active goal is forecast; any other goal gets its plan from
+      // the AI Advisor's attitude check.
+      const detected = await detectGoalAttitude({ goalId: goal.id });
+      if (!detected) return { kind: "unavailable" };
+      return {
+        kind: "inactive",
+        attitude: detected.attitude,
+        reason: detected.reason,
+        feasible: detected.feasible,
+        plan: detected.plan,
+        forecastDailySpending: null,
+        withinPlan: null,
+        days: [],
+      };
+    } catch {
+      return { kind: "unavailable" };
     }
   };
 
-  const handleSeeForecast = async () => {
-    if (!selectedGoal || walletBudget == null || !user) {
-      const missing: string[] = [];
-      if (!selectedGoal) missing.push("goal");
-      if (walletBudget == null) missing.push("wallet budget");
-      if (!user) missing.push("user");
-      setErrorModalMessage(
-        `Cannot show forecast. Missing: ${missing.join(
-          ", "
-        )}. Please make sure you have selected a goal, are logged in, and have a wallet budget set.`
-      );
-      setShowErrorModal(true);
-      return;
-    }
+  const refreshForecast = async (goal: Goal) => {
+    const request = ++forecastRequestRef.current;
     setForecastLoading(true);
-    setForecastError(null);
-    setForecastData(null);
+    const view = await loadGoalForecast(goal);
+    if (request !== forecastRequestRef.current) return;
+    setForecastView(view);
+    setForecastLoading(false);
+  };
+
+  const handleSeeForecast = () => {
+    if (!selectedGoal) return;
+    setForecastView(null);
     setForecastModalOpen(true);
-    try {
-      const data = computeGoalForecast(selectedGoal);
-      setForecastData(data);
-      if (data.ai_recommended_budget && selectedGoal && user) {
-        await updateGoalAiRecommendedBudget(
-          user.uid,
-          selectedGoal.id,
-          Number(data.ai_recommended_budget)
-        );
-      }
-    } catch (err) {
-      setForecastError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setForecastLoading(false);
-    }
+    void refreshForecast(selectedGoal);
   };
 
   // --- Effects ---
   useEffect(() => {
-    if (goals.length === 0) {
-      setSelectedGoal(null);
-      return;
-    }
-    // Try to find an active goal
-    const activeGoal = goals.find((goal) => goal.isActive);
-    if (activeGoal) {
-      setSelectedGoal(activeGoal);
-      return;
-    }
-    // Fallback: use localStorage or first goal
-    const storedGoalId = localStorage.getItem("selectedGoalId");
-    if (storedGoalId) {
-      const foundGoal = goals.find((goal) => goal.id === storedGoalId);
-      setSelectedGoal(foundGoal || goals[0]);
-    } else {
-      setSelectedGoal(goals[0]);
-    }
+    setSelectedGoal((prev) => {
+      if (goals.length === 0) {
+        return null;
+      }
+      const currentMatch = prev ? goals.find((g) => g.id === prev.id) : null;
+      if (currentMatch) {
+        return currentMatch;
+      }
+      const activeGoal = goals.find((goal) => goal.isActive);
+      if (activeGoal) {
+        return activeGoal;
+      }
+      const storedGoalId = localStorage.getItem("selectedGoalId");
+      if (storedGoalId) {
+        const foundGoal = goals.find((goal) => goal.id === storedGoalId);
+        return foundGoal || goals[0];
+      }
+      return goals[0];
+    });
   }, [goals]);
 
   useEffect(() => {
     const fetchGoals = async () => {
       try {
-        const nextGoals = await listGoals(user.uid);
+        const [nextGoals, nextDeletedGoals] = await Promise.all([
+          listGoals(user.uid),
+          listDeletedGoals(user.uid),
+        ]);
         setGoals(nextGoals);
+        setDeletedGoals(nextDeletedGoals);
         setDashboardCache((currentCache) =>
           mergeDashboardDataCache(currentCache, user.uid, {
             goals: nextGoals,
@@ -381,21 +424,36 @@ const GoalsPage = () => {
     };
   }, [setDashboardCache, user.uid]);
 
-  // AI Financial Advisor tip for the selected goal (read server-side by id).
+  // AI Financial Advisor tip for the selected goal. Buck_AI saves every tip on
+  // goals.ai_recommendation, so a stored tip shows at once; only a goal without
+  // one asks for it (BUG-046). Keyed on the id, not the goal object, so other
+  // edits to the goal don't refetch.
+  const selectedGoalId = selectedGoal?.id;
+  const storedTip = selectedGoal?.aiRecommendation?.trim() || null;
   useEffect(() => {
-    if (!selectedGoal) {
+    setTipFromPlan(false);
+    if (!selectedGoalId) {
       setAIRecommendation(null);
+      return;
+    }
+    if (storedTip) {
+      // Only AI-written tips are stored.
+      setAIRecommendation(storedTip);
       return;
     }
     let cancelled = false;
     setAIRecommendation("Loading AI recommendation...");
-    void getGoalTip({ goalId: selectedGoal.id }).then((tip) => {
-      if (!cancelled) setAIRecommendation(tip || null);
+    void getGoalTipWithSource({ goalId: selectedGoalId }).then(({ tip, source }) => {
+      if (cancelled) return;
+      setAIRecommendation(tip || null);
+      setTipFromPlan(source === "rules");
     });
     return () => {
       cancelled = true;
     };
-  }, [selectedGoal]);
+    // A tip saved later (realtime) replaces the pending request instead of
+    // starting another one.
+  }, [selectedGoalId, storedTip]);
 
   useEffect(() => {
     const fetchWalletBudget = async () => {
@@ -427,142 +485,73 @@ const GoalsPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setDashboardCache, user.uid]);
 
+  // Categories for the Add Spending dialog. Loaded when the forecast dialog
+  // opens, so the category picker is ready before Add Spending is.
   useEffect(() => {
-    if (!forecastModalOpen || !selectedGoal || !user) return;
-    const fetchForecast = async () => {
-      setForecastError(null);
-      try {
-        // Plain-math trajectory over the whole horizon (BuckAI_Forecast will
-        // add AI on top later); the chart slices it to the selected week/month.
-        const data = computeGoalForecast(selectedGoal);
-        setForecastData(data);
-        // Save only a changed value: the save updates the goal, which re-runs
-        // this effect, so an unconditional write reloads the chart forever.
-        const savedCents = Math.round(Number(selectedGoal.aiRecommendedBudget ?? 0) * 100);
-        const nextCents = Math.round(Number(data.ai_recommended_budget ?? 0) * 100);
-        if (data.ai_recommended_budget && savedCents !== nextCents && user) {
-          await updateGoalAiRecommendedBudget(
-            user.uid,
-            selectedGoal.id,
-            Number(data.ai_recommended_budget)
-          );
-        }
-      } catch (err) {
-        setForecastError(err instanceof Error ? err.message : "Unknown error");
-      } finally {
-        setForecastLoading(false);
-      }
+    if (!(forecastModalOpen || showExpenseModal) || categories.length > 0) return;
+    let active = true;
+    ensureDefaultCategories(user.uid)
+      .then((cats) => {
+        if (!active) return;
+        const nextCategories = [...cats].sort((a, b) => a.name.localeCompare(b.name));
+        setCategories(nextCategories);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            categories: nextCategories,
+          })
+        );
+      })
+      .catch((error) => console.error("Failed to load categories:", error));
+    return () => {
+      active = false;
     };
-    fetchForecast();
-  }, [
-    forecastModalOpen,
-    selectedGoal,
-    user,
-    walletBudget,
-    selectedMode,
-    selectedWeek,
-    selectedMonth,
-  ]);
+  }, [forecastModalOpen, showExpenseModal, categories.length, setDashboardCache, user.uid]);
 
-  // Add expense handler for modal
-  const handleAddExpense = async () => {
-    if (!user || !selectedGoal) return;
-    const expenseValue = parseFloat(expenseAmount);
-    if (isNaN(expenseValue) || expenseValue <= 0) {
-      setExpenseError("Please enter a valid expense amount.");
-      return;
-    }
-    if (walletBudget === null || walletBudget <= 0) {
-      setExpenseError(
-        "You have no money in your wallet. Please add funds before adding expenses."
-      );
-      return;
-    }
-    if (expenseValue > walletBudget) {
-      setExpenseError(
-        "Expense exceeds your wallet balance. Please enter a smaller amount."
-      );
-      return;
-    }
-    setExpenseLoading(true);
-    setExpenseError("");
-    try {
-      // The AI Advisor files the expense under one of the user's own categories.
-      const aiCategory = await suggestCategory("expense", expenseDesc);
-      await addExpenseWithWalletDeduction(user.uid, {
-        date: expenseDate,
-        amount: expenseValue,
-        description: expenseDesc,
-        categoryName: aiCategory || "Uncategorized",
-        goalId: selectedGoal.id,
-      });
-      const activeWallet = await getActiveWallet(user.uid);
-      setWalletBudget(activeWallet?.budget ?? null);
-      setShowExpenseModal(false);
-      setExpenseDate("");
-      setExpenseAmount("");
-      setExpenseDesc("");
-    } catch (err) {
-      if (err instanceof Error) {
-        setExpenseError(err.message);
-      } else {
-        setExpenseError("Unknown error");
-      }
-    } finally {
-      setExpenseLoading(false);
-    }
+  // After an expense is saved: refresh the wallet, and the plan if it's open.
+  const handleExpenseAdded = async () => {
+    const activeWallet = await getActiveWallet(user.uid);
+    setWalletBudget(activeWallet?.budget ?? null);
+    if (forecastModalOpen && selectedGoal) void refreshForecast(selectedGoal);
   };
 
-  // Prepare data for Chart.js (Spending Report style)
-  let chartData = null;
-  if (forecastData && forecastData.forecast_per_day) {
-    // Day keys are YYYY-MM-DD, so string comparison keeps the selected range.
-    const activeRange =
-      selectedMode === "week"
-        ? weekDateRanges[selectedWeek]
-        : selectedMode === "month"
-          ? monthDateRanges[selectedMonth]
-          : undefined;
-    const labels = Object.keys(forecastData.forecast_per_day).filter(
-      (d) => !activeRange || (d >= activeRange.start && d <= activeRange.end)
-    );
-    const forecastVals = labels.map((d) => forecastData.forecast_per_day[d]);
-    const actualVals = labels.map(
-      (d) =>
-        (forecastData.actual_per_day && forecastData.actual_per_day[d]) || 0
-    );
-    chartData = {
-      labels,
-      datasets: [
-        {
-          label: "Expected spending per day",
-          data: forecastVals,
-          borderColor: "#f47536",
-          backgroundColor: "rgba(244,117,54,0.16)",
-          fill: true,
-          tension: 0.4,
-          pointBackgroundColor: "#f47536",
-          pointBorderColor: "#f47536",
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          borderWidth: 3,
-        },
-        {
-          label: "What you spent per day",
-          data: actualVals,
-          borderColor: "#ffc547",
-          backgroundColor: "rgba(255,197,71,0.18)",
-          fill: true,
-          tension: 0.4,
-          pointBackgroundColor: "#ffc547",
-          pointBorderColor: "#ffc547",
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          borderWidth: 3,
-        },
-      ],
-    };
-  }
+  // Forecast chart: the Forecaster's likely running total for the next 30
+  // days against the plan's spending limit added up day by day.
+  const forecastPlan =
+    forecastView && forecastView.kind !== "unavailable" ? forecastView.plan : null;
+  const forecastDays = forecastView?.kind === "active" ? forecastView.days : [];
+  const chartData =
+    forecastPlan && forecastDays.length > 0
+      ? {
+          labels: forecastDays.map((day) => formatDayKey(day.date)),
+          datasets: [
+            {
+              label: "Likely spending (running total)",
+              data: forecastDays.map((day) => day.cumulative.p50),
+              borderColor: "#f47536",
+              backgroundColor: "rgba(244,117,54,0.16)",
+              fill: true,
+              tension: 0.3,
+              pointRadius: 0,
+              pointHoverRadius: 5,
+              pointBackgroundColor: "#f47536",
+              borderWidth: 3,
+            },
+            {
+              label: "Your spending limit (running total)",
+              data: forecastDays.map((_, index) => forecastPlan.spending.perDay * (index + 1)),
+              borderColor: "#ffc547",
+              backgroundColor: "#ffc547",
+              borderDash: [6, 4],
+              fill: false,
+              tension: 0,
+              pointRadius: 0,
+              pointHoverRadius: 5,
+              pointBackgroundColor: "#ffc547",
+              borderWidth: 2,
+            },
+          ],
+        }
+      : null;
 
   // Fetch expenses for the selected goal
   useEffect(() => {
@@ -598,7 +587,53 @@ const GoalsPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setDashboardCache, selectedGoal, user.uid]);
 
-  const chartRef = useRef<ChartJS<"line"> | null>(null);
+  const renderDeletedGoalsSection = (forceExpanded = false) => {
+    if (deletedGoals.length === 0) return null;
+    const isExpanded = forceExpanded || showDeletedGoals;
+    return (
+      <div className="goals-deleted-section">
+        <button
+          type="button"
+          className="goals-deleted-toggle"
+          aria-expanded={isExpanded}
+          onClick={() => setShowDeletedGoals((prev) => !prev)}
+        >
+          <span>Deleted goals</span>
+          <span className="goals-count-badge">{deletedGoals.length}</span>
+        </button>
+        {isExpanded && (
+          <div
+            className="goals-deleted-list"
+            role="region"
+            aria-label="Deleted goals"
+          >
+            {deletedGoals.map((goal) => (
+              <div key={goal.id} className="goals-deleted-item">
+                <div className="goals-deleted-info">
+                  <span className="goals-deleted-name" title={goal.goalName}>
+                    {goal.goalName}
+                  </span>
+                  <span className="goals-deleted-meta">
+                    {formatCurrency(goal.currentAmount || 0)} of{" "}
+                    {formatCurrency(goal.targetAmount)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="goals-restore-btn"
+                  onClick={() => void handleRestoreGoal(goal)}
+                  disabled={restoringGoalId === goal.id}
+                  aria-label={`Restore ${goal.goalName}`}
+                >
+                  {restoringGoalId === goal.id ? "Restoring…" : "Restore"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   if (loadingGoals) {
     return <DashboardPageSkeleton variant="goals" />;
@@ -623,6 +658,7 @@ const GoalsPage = () => {
               Create Goal
             </button>
           </div>
+          {renderDeletedGoalsSection(true)}
         </div>
         <AnimatePresence>
           {showModal && (
@@ -630,7 +666,7 @@ const GoalsPage = () => {
               onClose={() => setShowModal(false)}
               onGoalCreated={(newGoal) => {
                 setShowModal(false);
-                setGoals((prev) => [...prev, newGoal]);
+                setGoals((prev) => upsertGoal(prev, newGoal));
                 setSelectedGoal(newGoal);
               }}
             />
@@ -677,6 +713,20 @@ const GoalsPage = () => {
   const recentGoalExpenses = [...expenses]
     .sort((a, b) => storedDayKey(b.date).localeCompare(storedDayKey(a.date)))
     .slice(0, RECENT_EXPENSE_LIMIT);
+
+  /** When the plan's saving reaches the goal, set against the target date. */
+  const reachLine = (plan: GoalPlan) => {
+    if (plan.daysToGoal === null) {
+      return "This plan leaves nothing to save yet, so there is no reach date.";
+    }
+    const days = `${plan.daysToGoal} ${plan.daysToGoal === 1 ? "day" : "days"}`;
+    const reach = `Saving ${formatCurrency(plan.saving.perDay)} per day, you reach this goal in ${days}.`;
+    if (!detail?.dueKey) return reach;
+    const due = formatDayKey(detail.dueKey, true);
+    return plan.reachesByTargetDate
+      ? `${reach} That is in time for your target date, ${due}.`
+      : `${reach} That is after your target date, ${due}.`;
+  };
 
   return (
     <>
@@ -738,6 +788,7 @@ const GoalsPage = () => {
               );
             })}
           </div>
+          {renderDeletedGoalsSection()}
         </aside>
 
         {/* Selected goal */}
@@ -755,7 +806,19 @@ const GoalsPage = () => {
                   </div>
                 </div>
                 <div className="goal-detail-actions">
-                  <button type="button" className="goals-ghost-btn" onClick={handleSetActive}>
+                  <button
+                    type="button"
+                    className="goals-ghost-btn"
+                    onClick={handleSetActive}
+                    disabled={detail.isComplete && !selectedGoal.isActive}
+                    title={
+                      selectedGoal.isActive
+                        ? undefined
+                        : detail.isComplete
+                          ? "A goal you have reached can't be made active again."
+                          : "Only one goal can be active. Buck forecasts the active goal."
+                    }
+                  >
                     {selectedGoal.isActive ? "Set as inactive" : "Set as active"}
                   </button>
                   <button
@@ -812,15 +875,34 @@ const GoalsPage = () => {
                   </div>
                   <div>
                     <dt>Saving attitude</dt>
-                    <dd>{selectedGoal.attitude || "Normal"}</dd>
+                    <dd>
+                      {selectedGoal.attitude || "Normal"}
+                      <span className="goal-fact-note">
+                        {selectedGoal.attitudeBasis
+                          ? "Detected by AI Advisor"
+                          : "Not checked by AI Advisor yet"}
+                      </span>
+                    </dd>
+                  </div>
+                  <div className="goal-fact--wide">
+                    <dt>Why this attitude</dt>
+                    <dd className="goal-fact-reason">
+                      {selectedGoal.attitudeBasis?.reason ??
+                        "Your AI Advisor sets this from your spending once Buck's AI is reachable."}
+                    </dd>
                   </div>
                 </dl>
               </div>
 
               {aiRecommendation && (
                 <div className="ai-recommendation">
-                  <strong>AI recommendation</strong>
+                  <strong>{tipFromPlan ? "Buck's plan" : "AI recommendation"}</strong>
                   <div className="ai-recommendation-content">{aiRecommendation}</div>
+                  {!tipFromPlan && !aiRecommendation.startsWith("Loading") && (
+                    <p className="ai-recommendation-note">
+                      This comes from your goal plan and expenses. AI might be inaccurate, so treat it as a guide.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -829,7 +911,8 @@ const GoalsPage = () => {
                   type="button"
                   className="goals-action-btn"
                   onClick={handleSeeForecast}
-                  disabled={forecastLoading || walletBudget == null}
+                  disabled={forecastLoading || detail.isComplete}
+                  title={detail.isComplete ? "This goal is already reached." : undefined}
                 >
                   See forecast
                 </button>
@@ -884,7 +967,7 @@ const GoalsPage = () => {
         </section>
       </div>
 
-      {/* Forecast dialog */}
+      {/* Forecast dialog: the AI Forecaster's plan for this goal (ADR-055) */}
       {forecastModalOpen && selectedGoal && (
         <div
           className="modal-backdrop"
@@ -901,7 +984,7 @@ const GoalsPage = () => {
           >
             <div className="goals-modal-header">
               <div>
-                <p className="goals-eyebrow">AI forecast</p>
+                <p className="goals-eyebrow">AI Forecaster</p>
                 <h3 id="goals-forecast-title">{selectedGoal.goalName}</h3>
               </div>
               <button
@@ -912,50 +995,6 @@ const GoalsPage = () => {
               >
                 &times;
               </button>
-            </div>
-
-            <div className="goals-forecast-controls">
-              <div className="goals-segmented" role="group" aria-label="Forecast range">
-                {(["week", "month", "overall"] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    className="goals-segmented-btn"
-                    aria-pressed={selectedMode === m}
-                    onClick={() => setSelectedMode(m)}
-                  >
-                    {m === "week" ? "Week" : m === "month" ? "Month" : "Overall"}
-                  </button>
-                ))}
-              </div>
-              {selectedMode === "week" && weekDateRanges.length > 0 && (
-                <CustomSelect
-                  className="goals-forecast-select"
-                  value={String(selectedWeek)}
-                  onChange={(val) => {
-                    userSelectedWeekRef.current = true;
-                    setSelectedWeek(Number(val));
-                  }}
-                  options={weekDateRanges.map((range, idx) => ({
-                    value: String(idx),
-                    label: `Week ${idx + 1} · ${formatDayKey(range.start)} – ${formatDayKey(range.end)}`,
-                  }))}
-                />
-              )}
-              {selectedMode === "month" && monthDateRanges.length > 0 && (
-                <CustomSelect
-                  className="goals-forecast-select"
-                  value={String(selectedMonth)}
-                  onChange={(val) => {
-                    userSelectedMonthRef.current = true;
-                    setSelectedMonth(Number(val));
-                  }}
-                  options={monthDateRanges.map((range, idx) => ({
-                    value: String(idx),
-                    label: range.label,
-                  }))}
-                />
-              )}
             </div>
 
             <div className="goals-forecast-progress">
@@ -971,63 +1010,111 @@ const GoalsPage = () => {
               </div>
             </div>
 
-            <div className="goals-forecast-chart">
-              {forecastLoading ? (
-                <div className="goals-forecast-state" role="status">
-                  <div className="spinner" />
-                  <p>Loading forecast…</p>
-                </div>
-              ) : forecastError ? (
-                <p className="goals-forecast-state goals-forecast-state--error">
-                  The forecast service is unavailable right now. Try again later.
+            {forecastLoading || !forecastView ? (
+              <div className="goals-forecast-state goals-forecast-state--block" role="status">
+                <div className="spinner" />
+                <p>Loading your plan…</p>
+              </div>
+            ) : forecastView.kind === "unavailable" ? (
+              <div className="goals-forecast-state goals-forecast-state--block">
+                <p className="goals-forecast-state-title">AI Forecaster unavailable</p>
+                <p>
+                  Buck can&apos;t reach the AI Forecaster right now. Your goal and progress are
+                  safe. Try again in a little while.
                 </p>
-              ) : chartData ? (
-                <Line
-                  ref={chartRef}
-                  data={chartData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    resizeDelay: 100,
-                    interaction: { mode: "index", intersect: false },
-                    plugins: {
-                      legend: {
-                        display: true,
-                        position: "top",
-                        align: "end",
-                        labels: { color: chartTextColor, boxWidth: 12, boxHeight: 12 },
-                      },
-                      tooltip: {
-                        ...buckTooltip(isDarkTheme),
-                        callbacks: {
-                          label: function (context) {
-                            const value = Number(context.raw);
-                            return `${context.dataset.label}: ${formatCurrency(value)}`;
+              </div>
+            ) : (
+              <>
+                <div
+                  className={`goals-forecast-attitude${
+                    forecastView.feasible === false ? " goals-forecast-attitude--warning" : ""
+                  }`}
+                >
+                  <AttitudeChip attitude={forecastView.attitude} />
+                  {forecastView.reason && <p>{forecastView.reason}</p>}
+                </div>
+
+                {forecastView.plan && (
+                  <>
+                    <GoalPlanTable
+                      plan={forecastView.plan}
+                      caption="Your plan to reach this goal"
+                      showRequired
+                    />
+                    <ul className="goals-forecast-notes">
+                      <li>{reachLine(forecastView.plan)}</li>
+                      {forecastView.forecastDailySpending !== null && (
+                        <li>
+                          Forecast spending is {formatCurrency(forecastView.forecastDailySpending)} per
+                          day
+                          {forecastView.withinPlan === null
+                            ? "."
+                            : `, ${forecastView.withinPlan ? "within" : "over"} your plan of ${formatCurrency(
+                                forecastView.plan.spending.perDay
+                              )} per day.`}
+                        </li>
+                      )}
+                      {forecastView.kind === "inactive" && (
+                        <li>Set this goal active to see the full AI forecast.</li>
+                      )}
+                    </ul>
+                  </>
+                )}
+
+                {chartData && (
+                  <div className="goals-forecast-chart-block">
+                    <h4>Next 30 days: likely spending against your limit</h4>
+                    <div className="goals-forecast-chart">
+                      <Line
+                        data={chartData}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          resizeDelay: 100,
+                          interaction: { mode: "index", intersect: false },
+                          plugins: {
+                            legend: {
+                              display: true,
+                              position: "top",
+                              align: "end",
+                              labels: { color: chartTextColor, boxWidth: 12, boxHeight: 12 },
+                            },
+                            tooltip: {
+                              ...buckTooltip(isDarkTheme),
+                              callbacks: {
+                                label: function (context) {
+                                  const value = Number(context.raw);
+                                  return `${context.dataset.label}: ${formatCurrency(value)}`;
+                                },
+                              },
+                            },
                           },
-                        },
-                      },
-                    },
-                    scales: {
-                      x: {
-                        grid: { display: false },
-                        ticks: { color: chartTextColor, maxTicksLimit: 8 },
-                      },
-                      y: {
-                        grid: { color: chartGridColor },
-                        beginAtZero: true,
-                        ticks: {
-                          color: chartTextColor,
-                          maxTicksLimit: 5,
-                          callback: (v) => `₱${Number(v).toLocaleString("en-US")}`,
-                        },
-                      },
-                    },
-                  }}
-                />
-              ) : (
-                <p className="goals-forecast-state">No forecast data for this range.</p>
-              )}
-            </div>
+                          scales: {
+                            x: {
+                              grid: { display: false },
+                              ticks: { color: chartTextColor, maxTicksLimit: 8 },
+                            },
+                            y: {
+                              grid: { color: chartGridColor },
+                              beginAtZero: true,
+                              ticks: {
+                                color: chartTextColor,
+                                maxTicksLimit: 5,
+                                callback: (v) => `₱${Number(v).toLocaleString("en-US")}`,
+                              },
+                            },
+                          },
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <p className="goals-forecast-disclaimer">
+                  This comes from your expenses. AI might be inaccurate, so treat it as a guide.
+                </p>
+              </>
+            )}
 
             <div className="goals-modal-footer">
               <button
@@ -1048,166 +1135,25 @@ const GoalsPage = () => {
           </div>
         </div>
       )}
-      {/* Add expense (opened from the forecast dialog) */}
-      {showExpenseModal && (
-        <div
-            className="modal-backdrop"
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            background: "rgba(18,13,10,0.48)",
-            zIndex: 1100,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
-        >
-          <div
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Add expense"
-            style={{
-              background: modalBackground,
-              color: "var(--buck-ink)",
-              border: "1px solid var(--buck-line)",
-              borderRadius: 20,
-              padding: 32,
-              width: "min(540px, 100%)",
-              boxSizing: "border-box",
-              boxShadow: "0 12px 48px rgba(239,138,87,0.18)",
-              position: "relative",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              animation: "fadeInScale 0.35s",
-              fontSize: 17,
-              maxHeight: "min(82dvh, 760px)",
-              overflowY: "auto",
-            }}
-          >
-            <button
-              type="button"
-              aria-label="Close dialog"
-              onClick={() => setShowExpenseModal(false)}
-              style={{
-                position: "absolute",
-                top: 18,
-                right: 22,
-                background: "none",
-                border: "none",
-                fontSize: 26,
-                cursor: "pointer",
-                color: "var(--buck-orange)",
-                fontWeight: 700,
-                transition: "color 0.2s",
-              }}
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
-            <h3
-              style={{
-                marginTop: 0,
-                marginBottom: 18,
-                color: "var(--buck-orange)",
-                fontWeight: 800,
-                fontSize: 30,
-                letterSpacing: 1,
-              }}
-            >
-              Add Expense
-            </h3>
-            <CustomDatePicker
-              value={expenseDate}
-              onChange={(val) => setExpenseDate(val)}
-              style={{
-                width: "100%",
-                marginBottom: 12,
-                boxSizing: "border-box",
-              }}
-            />
-            <input
-              type="number"
-              value={expenseAmount}
-              onChange={(e) =>
-                setExpenseAmount(e.target.value)
-              }
-              placeholder="Amount"
-              style={{
-                width: "100%",
-                marginBottom: 12,
-                padding: 12,
-                borderRadius: 7,
-                border: "1px solid rgba(244,117,54,0.32)",
-                background: fieldBackground,
-                fontSize: 17,
-                boxSizing: "border-box",
-                display: "block",
-                color: "var(--buck-ink)",
-                transition: "border 0.2s",
-              }}
-            />
-            <input
-              type="text"
-              value={expenseDesc}
-              onChange={(e) => setExpenseDesc(e.target.value)}
-              placeholder="Description"
-              style={{
-                width: "100%",
-                marginBottom: 12,
-                padding: 12,
-                borderRadius: 7,
-                border: "1px solid rgba(244,117,54,0.32)",
-                background: fieldBackground,
-                fontSize: 17,
-                boxSizing: "border-box",
-                display: "block",
-                color: "var(--buck-ink)",
-                transition: "border 0.2s",
-              }}
-            />
-            {expenseError && (
-              <div style={{ color: "red", marginBottom: 12 }}>
-                {expenseError}
-              </div>
-            )}
-            <button
-              onClick={handleAddExpense}
-              disabled={expenseLoading}
-              style={{
-                background: primaryButtonBackground,
-                color: primaryButtonColor,
-                border: "none",
-                borderRadius: 9,
-                padding: "1.1rem 1.7rem",
-                fontWeight: 800,
-                fontSize: 20,
-                cursor: "pointer",
-                width: "100%",
-                marginTop: 10,
-                boxShadow: "0 2px 8px rgba(239,138,87,0.08)",
-                transition: "background 0.2s",
-              }}
-            >
-              {expenseLoading ? "Adding..." : "Add Expense"}
-            </button>
-            <style>{`
-              @keyframes fadeInScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-            `}</style>
-          </div>
-        </div>
-      )}
+      {/* Add Spending (opened from the forecast dialog): the shared dialog,
+          linked to this goal. */}
+      <AddExpenseModal
+        open={showExpenseModal && Boolean(selectedGoal)}
+        onClose={() => setShowExpenseModal(false)}
+        categories={categories}
+        walletBudget={walletBudget ?? 0}
+        userId={user.uid}
+        goalId={selectedGoal?.id ?? null}
+        onExpenseAdded={handleExpenseAdded}
+      />
       <DangerDeleteDialog
         open={confirmGoalDelete && Boolean(selectedGoal)}
         itemType="goal"
         itemName={selectedGoal?.goalName ?? ""}
+        warning="This goal will move to Deleted goals. You can restore it anytime."
         consequences={[
-          "The goal, its progress and its AI recommendation are removed.",
-          "Expenses linked to it are kept but no longer linked to a goal.",
+          "If it is your active goal, it stops being active.",
+          "Its saved progress, AI recommendation and linked expenses are kept.",
         ]}
         onCancel={() => setConfirmGoalDelete(false)}
         onConfirm={async () => {
@@ -1221,7 +1167,7 @@ const GoalsPage = () => {
             onClose={() => setShowModal(false)}
             onGoalCreated={(newGoal) => {
               setShowModal(false);
-              setGoals((prev) => [...prev, newGoal]);
+              setGoals((prev) => upsertGoal(prev, newGoal));
               setSelectedGoal(newGoal);
             }}
           />
@@ -1235,6 +1181,9 @@ const GoalsPage = () => {
           >
             <motion.div
               className="modal"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Add progress to ${progressGoal.goalName}`}
               {...panelMotion}
             >
               <h3>Add Progress to {progressGoal.goalName}</h3>
@@ -1264,92 +1213,6 @@ const GoalsPage = () => {
                   Cancel
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {showErrorModal && (
-          <motion.div
-            className="modal-backdrop"
-            {...backdropMotion}
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              width: "100vw",
-              height: "100vh",
-              background: "rgba(18,13,10,0.48)",
-              zIndex: 1200,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <motion.div
-                className="modal"
-                role="alertdialog"
-                aria-modal="true"
-                aria-label="Action not allowed"
-                {...panelMotion}
-                style={{
-              background: modalBackground,
-              color: "var(--buck-ink)",
-              border: "1px solid var(--buck-line)",
-              borderRadius: 8,
-              padding: 24,
-              width: "min(400px, 100%)",
-              boxSizing: "border-box",
-              boxShadow: "var(--buck-shadow)",
-              position: "relative",
-              textAlign: "center",
-            }}
-          >
-            <button
-              type="button"
-              aria-label="Close dialog"
-              onClick={() => setShowErrorModal(false)}
-              style={{
-                position: "absolute",
-                top: 8,
-                right: 8,
-                background: "none",
-                border: "none",
-                fontSize: 20,
-                cursor: "pointer",
-              }}
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
-            <h3 style={{ marginTop: 0, color: "var(--buck-coral)" }}>
-              Action Not Allowed
-            </h3>
-            <div
-              style={{
-                margin: "18px 0",
-                fontWeight: 500,
-                color: "var(--buck-ink)",
-                fontSize: 17,
-              }}
-            >
-              {errorModalMessage}
-            </div>
-            <button
-              onClick={() => setShowErrorModal(false)}
-              style={{
-                background: primaryButtonBackground,
-                color: primaryButtonColor,
-                border: "none",
-                borderRadius: 8,
-                padding: "0.7rem 1.5rem",
-                fontWeight: 600,
-                fontSize: 16,
-                cursor: "pointer",
-                width: "100%",
-              }}
-            >
-              Close
-            </button>
             </motion.div>
           </motion.div>
         )}

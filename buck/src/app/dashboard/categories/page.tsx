@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { DURATION, EASE_OUT, SPRING } from "@/utils/motion";
 import {
   FaCheck,
   FaChevronLeft,
@@ -568,10 +569,10 @@ export default function CategoriesPage() {
                   className="cat-search-clear"
                   onClick={() => setQuery("")}
                   aria-label="Clear search"
-                  initial={{ opacity: 0, scale: 0.8 }}
+                  initial={{ opacity: 0, scale: 0.97 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.14 }}
+                  exit={{ opacity: 0, scale: 0.97 }}
+                  transition={{ duration: DURATION.fast, ease: EASE_OUT }}
                 >
                   <FaTimes aria-hidden="true" />
                 </motion.button>
@@ -597,9 +598,9 @@ export default function CategoriesPage() {
                     key="add-form"
                     className="cat-add-inline"
                     onSubmit={handleAdd}
-                    initial={{ opacity: 0, scale: 0.96 }}
+                    initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ type: "spring", stiffness: 420, damping: 28 }}
+                    transition={SPRING}
                   >
                     <input
                       value={newName}
@@ -649,11 +650,11 @@ export default function CategoriesPage() {
                     type="button"
                     className="cat-secondary-btn cat-add-trigger-btn"
                     onClick={() => setIsAddOpen(true)}
-                    initial={{ opacity: 0, scale: 0.96 }}
+                    initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
                     whileHover={{ scale: 1.02, y: -1 }}
                     whileTap={{ scale: 0.97 }}
-                    transition={{ type: "spring", stiffness: 420, damping: 28 }}
+                    transition={SPRING}
                   >
                     <FaPlus aria-hidden="true" /> Add {nounCapitalized} Category
                   </motion.button>
@@ -703,10 +704,10 @@ export default function CategoriesPage() {
                     id="cat-ai-tooltip"
                     role="tooltip"
                     className="cat-ai-tooltip"
-                    initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 6, scale: 0.96 }}
-                    transition={{ type: "spring", stiffness: 420, damping: 28 }}
+                    exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                    transition={SPRING}
                   >
                     <p className="cat-ai-tooltip-eyebrow">Needs a category</p>
                     <p className="cat-ai-tooltip-title">
@@ -758,7 +759,7 @@ export default function CategoriesPage() {
               variants={PAGE_VARIANTS}
               initial="enter"
               animate="center"
-              transition={{ duration: 0.18, ease: "easeOut" }}
+              transition={{ duration: DURATION.base, ease: EASE_OUT }}
             >
               {paginatedRows.length === 0 ? (
                 <tr>
@@ -867,14 +868,10 @@ export default function CategoriesPage() {
                               initial={{
                                 opacity: 0,
                                 y: openPopoverDown ? -6 : 6,
-                                scale: 0.96,
+                                scale: 0.98,
                               }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
-                              transition={{
-                                type: "spring",
-                                stiffness: 420,
-                                damping: 28,
-                              }}
+                              transition={SPRING}
                             >
                               <div className="cat-entries-popover-head">
                                 <span className="cat-entries-popover-title">
@@ -975,7 +972,7 @@ export default function CategoriesPage() {
                                     : 0
                                 }%`,
                               }}
-                              transition={{ duration: 0.45, ease: "easeOut" }}
+                              transition={{ duration: DURATION.slow * 2, ease: EASE_OUT }}
                             />
                           </span>
                           <span
@@ -999,13 +996,9 @@ export default function CategoriesPage() {
                                   e.preventDefault();
                                   void handleRename(row);
                                 }}
-                                initial={{ opacity: 0, scale: 0.96 }}
+                                initial={{ opacity: 0, scale: 0.98 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                transition={{
-                                  type: "spring",
-                                  stiffness: 440,
-                                  damping: 28,
-                                }}
+                                transition={SPRING}
                               >
                                 <div className="cat-rename-input-wrap">
                                   <input
@@ -1059,9 +1052,9 @@ export default function CategoriesPage() {
                               <motion.div
                                 key="action-buttons"
                                 className="cat-actions-group"
-                                initial={{ opacity: 0, scale: 0.96 }}
+                                initial={{ opacity: 0, scale: 0.98 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                transition={{ duration: 0.15 }}
+                                transition={{ duration: DURATION.fast, ease: EASE_OUT }}
                               >
                                 <motion.button
                                   type="button"
@@ -1074,7 +1067,7 @@ export default function CategoriesPage() {
                                   whileHover={{ scale: 1.02, y: -1 }}
                                   whileTap={{ scale: 0.97 }}
                                 >
-                                  <FaEdit aria-hidden="true" /> Rename
+                                  <FaEdit aria-hidden="true" /> <span className="cat-action-label">Rename</span>
                                 </motion.button>
                                 <motion.button
                                   type="button"
@@ -1084,7 +1077,7 @@ export default function CategoriesPage() {
                                   whileHover={{ scale: 1.02, y: -1 }}
                                   whileTap={{ scale: 0.97 }}
                                 >
-                                  <FaTrash aria-hidden="true" /> Delete
+                                  <FaTrash aria-hidden="true" /> <span className="cat-action-label">Delete</span>
                                 </motion.button>
                               </motion.div>
                             )}
@@ -1117,7 +1110,7 @@ export default function CategoriesPage() {
                 aria-label="Previous page"
                 title="Previous page"
                 whileHover={safeCurrentPage <= 1 ? undefined : { scale: 1.03 }}
-                whileTap={safeCurrentPage <= 1 ? undefined : { scale: 0.96 }}
+                whileTap={safeCurrentPage <= 1 ? undefined : { scale: 0.98 }}
               >
                 <FaChevronLeft aria-hidden="true" />
                 <span>Prev</span>
@@ -1164,7 +1157,7 @@ export default function CategoriesPage() {
                 aria-label="Next page"
                 title="Next page"
                 whileHover={safeCurrentPage >= totalPages ? undefined : { scale: 1.03 }}
-                whileTap={safeCurrentPage >= totalPages ? undefined : { scale: 0.96 }}
+                whileTap={safeCurrentPage >= totalPages ? undefined : { scale: 0.98 }}
               >
                 <span>Next</span>
                 <FaChevronRight aria-hidden="true" />

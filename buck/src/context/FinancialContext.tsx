@@ -125,7 +125,9 @@ export type AdminOverviewTelemetry = {
     advisories_rules: number;
     /** Advice written by the Groq fallback (metadata.generated_with = 'groq'). */
     advisories_groq: number;
-    /** Advice written by any AI model: Gemini plus Groq. */
+    /** Older advice from a model that is neither Gemini nor Groq (e.g. the earlier Llama provider). */
+    advisories_other: number;
+    /** Advice written by any AI model: everything that is not fixed rules. */
     advisories_ai: number;
     avg_health_score: number;
     forecasts_total: number;

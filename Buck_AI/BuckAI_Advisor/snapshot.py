@@ -6,10 +6,12 @@ ids, emails or free-text descriptions. `refs` keeps ids for saving.
 """
 
 import asyncio
+import re
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any
 
+from shared.attitude import attitude_inputs, detect_attitude, goal_plan
 from shared.money import ATTITUDES, PH_TZ, money, month_bounds, today_ph  # noqa: F401  (re-exported)
 from shared.safety import clean_text
 from shared.supabase import DbError, UserDb
@@ -21,12 +23,31 @@ from .plan import build_plan
 class Snapshot:
     data: dict[str, Any]
     refs: dict[str, str | None] = field(default_factory=dict)
+    # The detected saving attitude for the active goal (saved on the goal by the service).
+    attitude: dict[str, Any] | None = None
+    goal_row: dict[str, Any] | None = None
 
     @property
     def spending_base(self) -> float:
         """What this month's spending is measured against: income when tracked, else the active wallet."""
         income = self.data.get("income_this_month")
         return income if income else self.data["active_wallet_balance"]
+
+
+# A wallet whose name says it holds savings ("Emergency & Savings Fund", "BDO Savings",
+# "Ipon") is never the one to spend from day to day, even when it is the active wallet.
+_SAVINGS_NAME = re.compile(r"\b(sav(e|es|ing|ings)|emergency|ipon|reserve|buffer|goal|fund)\b", re.I)
+
+
+def _day(value: Any) -> date | None:
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def wallet_kind(name: str) -> str:
+    return "savings" if _SAVINGS_NAME.search(name or "") else "spending"
 
 
 def health_score(spent: float, base: float) -> int:
@@ -44,16 +65,17 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
     today = today or today_ph()
     month_start, month_end = month_bounds(today)
     prev_start, _ = month_bounds(month_start - timedelta(days=1))
-    # Enough history for both last month and a full last-30-day window.
-    history_start = min(prev_start, today - timedelta(days=29))
+    # Enough history for last month, a full last-30-day window and the 90 days
+    # the saving-attitude detector reads (the same window as the Forecaster).
+    history_start = min(prev_start, today - timedelta(days=89))
     uid = f"eq.{db.user_id}"
 
     async def incomes() -> list[dict[str, Any]] | None:
         try:
             return await db.select_all(
                 "incomes",
-                [("select", "amount"), ("user_id", uid),
-                 ("received_on", f"gte.{month_start}"), ("received_on", f"lte.{month_end}")],
+                [("select", "amount,received_on"), ("user_id", uid),
+                 ("received_on", f"gte.{history_start}"), ("received_on", f"lte.{month_end}")],
             )
         except DbError:
             return None  # income tracking not available on this database
@@ -69,23 +91,25 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
         ),
         db.select(
             "goals",
-            {"select": "id,goal_name,target_amount,current_amount,target_date,attitude,is_active,completed",
-             "user_id": uid, "order": "created_at.desc", "limit": "20"},
+            {"select": "id,goal_name,target_amount,current_amount,target_date,attitude,attitude_basis,"
+                       "is_active,completed",
+             "user_id": uid, "deleted_at": "is.null", "order": "created_at.desc", "limit": "20"},
         ),
         incomes(),
     )
 
     active_wallet_id = (profile_rows[0].get("active_wallet_id") if profile_rows else None)
-    wallets = [
-        {"name": clean_text(w.get("name"), 60) or "Wallet", "balance": money(w.get("budget")),
-         "active": w.get("id") == active_wallet_id}
-        for w in wallet_rows
-    ]
+    wallets = []
+    for w in wallet_rows:
+        name = clean_text(w.get("name"), 60) or "Wallet"
+        wallets.append({"name": name, "balance": money(w.get("budget")),
+                        "active": w.get("id") == active_wallet_id, "kind": wallet_kind(name)})
     active_balance = next((w["balance"] for w in wallets if w["active"]), 0.0)
 
     # Expense aggregates
     by_category: dict[str, float] = {}
     spent_month = spent_prev = last7 = prior7 = last30 = 0.0
+    spend_days: list[tuple[date, float]] = []
     for row in expense_rows:
         amount = money(row.get("amount"))
         try:
@@ -94,6 +118,7 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
             continue
         if spent_on > today:
             continue
+        spend_days.append((spent_on, amount))
         if spent_on >= month_start:
             spent_month += amount
             name = clean_text(row.get("category_name"), 60) or "Uncategorized"
@@ -113,16 +138,20 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
     avg_daily = spent_month / days_elapsed if days_elapsed else 0.0
     projected = spent_month + avg_daily * (days_total - days_elapsed)
 
-    income = round(sum(money(r.get("amount")) for r in income_rows), 2) if income_rows is not None else None
+    income_days = [(d, money(r.get("amount"))) for r in (income_rows or [])
+                   if (d := _day(r.get("received_on"))) and d <= today]
+    income = (round(sum(a for d, a in income_days if d >= month_start), 2)
+              if income_rows is not None else None)
 
-    # Active goal: the flagged one, else the newest unfinished one.
-    goal_row = next((g for g in goal_rows if g.get("is_active") and not g.get("completed")), None) or next(
-        (g for g in goal_rows if not g.get("completed")), None
-    )
+    # Usual spending and income, shared by the plan and the goal attitude (logging gaps handled).
+    inputs = attitude_inputs(spend_days, income_days, today)
+
+    # Active goal: only the one the user set active (one per user, kept by the database).
+    goal_row = next((g for g in goal_rows if g.get("is_active") and not g.get("completed")), None)
     goal = None
     attitude = "Normal"
+    detection = None
     if goal_row:
-        attitude = goal_row.get("attitude") if goal_row.get("attitude") in ATTITUDES else "Normal"
         target, saved = money(goal_row.get("target_amount")), money(goal_row.get("current_amount"))
         target_date = str(goal_row["target_date"])[:10] if goal_row.get("target_date") else None
         days_left = (date.fromisoformat(target_date) - today).days if target_date else None
@@ -134,6 +163,15 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
             "target_date": target_date,
             "days_left": days_left,
         }
+        # The Advisor detects the saving attitude the goal needs (shared/attitude.py).
+        detection = detect_attitude(
+            typical_daily=inputs["typical_daily"], income_daily=inputs["income_daily"],
+            remaining=goal["remaining"], target_date=target_date, today=today,
+            current=goal_row.get("attitude") if goal_row.get("attitude") in ATTITUDES else None,
+            spending_until=inputs.get("spending_until"))
+        attitude = detection["attitude"]
+        goal["attitude_reason"] = detection["reason"]
+        goal["goal_plan"] = goal_plan(detection)
 
     total_spent = round(spent_month, 2)
     top = sorted(by_category.items(), key=lambda kv: kv[1], reverse=True)[:8]
@@ -160,7 +198,9 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
         "active_goal": goal,
         "plan": build_plan(
             attitude=attitude,
-            spent_last_30_days=last30,
+            spent_last_30_days=inputs["spent_in_window"],
+            spend_days=inputs["spend_days"],
+            spending_until=inputs["spending_until"],
             income_this_month=income,
             active_wallet_balance=active_balance,
             days_in_month=days_total,
@@ -169,6 +209,6 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
         ),
     }
     snapshot = Snapshot(data, {"goal_id": goal_row.get("id") if goal_row else None,
-                               "wallet_id": active_wallet_id})
+                               "wallet_id": active_wallet_id}, detection, goal_row)
     data["financial_health_score"] = health_score(total_spent, snapshot.spending_base)
     return snapshot

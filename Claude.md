@@ -556,7 +556,7 @@ Each account also gets 7 default income categories: `Salary`, `Allowance`, `Free
 
 ### 6.5 AI Financial Advisor & Attitude Multipliers
 - Card lengths: **suggestion 1 sentence** (this week's step), **Detailed Analysis 3–5 sentences**, **wallet advice 1–2 sentences**, **goal tips 2 sentences**.
-- Numbers come from the deterministic plan (`Buck_AI/BuckAI_Advisor/plan.py`): typical daily spending (last 30 days ÷ 30), daily spending cap (× spend multiplier), required goal pace per week, affordable saving per week, and the recommended weekly saving (required × savings multiplier, capped at affordable). Gemini quotes them and names each period; it never invents targets or asks to move the whole remaining goal at once.
+- Numbers come from the deterministic plan (`Buck_AI/BuckAI_Advisor/plan.py`): typical daily spending (last 30 days ÷ 30, or ÷ the days logged for a newer user; during a 7+ day logging gap the window ends at the last logged expense, `shared/attitude.attitude_inputs`), daily spending cap (× spend multiplier), required goal pace per week, affordable saving per week, and the recommended weekly saving (required × savings multiplier, capped at affordable). Gemini quotes them and names each period; it never invents targets or asks to move the whole remaining goal at once.
 - Recommendations must include explicit numeric amounts in Philippine Peso (`₱`).
 - Attitude multipliers:
   - **Normal**: `1.0x` baseline multiplier.

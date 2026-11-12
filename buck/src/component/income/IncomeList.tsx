@@ -199,7 +199,7 @@ export default function IncomeList({
       {!tracked ? (
         <p className={styles.empty}>Income tracking is not available yet.</p>
       ) : incomes.length === 0 ? (
-        <p className={styles.empty}>No income recorded yet.</p>
+        <p className={styles.empty}>No income yet. Use Add Income to record your salary or allowance.</p>
       ) : (
         <>
           {/* Summary of the rows currently shown by the search */}

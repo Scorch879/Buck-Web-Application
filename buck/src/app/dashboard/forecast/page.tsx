@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
 import type { IconType } from "react-icons";
 import {
   FaBullseye,
@@ -395,7 +396,9 @@ function RichForecast({
               ))}
             </ul>
           ) : (
-            <p className="forecast-empty">No category spending to forecast yet.</p>
+            <p className="forecast-empty">
+              No category spending to forecast yet. <Link href="/dashboard/expenses">Log an expense</Link> to start.
+            </p>
           )}
         </section>
 
@@ -427,7 +430,9 @@ function RichForecast({
               ))}
             </ul>
           ) : (
-            <p className="forecast-empty">No wallets to forecast yet.</p>
+            <p className="forecast-empty">
+              No wallets to forecast yet. <Link href="/dashboard/wallet">Add a wallet</Link> to start.
+            </p>
           )}
         </section>
       </div>
@@ -447,7 +452,9 @@ function RichForecast({
               : ""}
           </p>
         ) : (
-          <p className="forecast-goal-text">No active goal yet. Set one on the Goals tab to see when you would likely reach it.</p>
+          <p className="forecast-goal-text">
+            No active goal yet. <Link href="/dashboard/goals">Set one on Goals</Link> to see when you would likely reach it.
+          </p>
         )}
         {goal && goal.onTrack !== null && (
           <span className={`forecast-chip ${goal.onTrack ? "forecast-chip--good" : "forecast-chip--warn"}`}>

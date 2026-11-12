@@ -315,7 +315,12 @@ export default function AdminPage() {
     for (const adv of telemetry.buckAi.recent_advisories) {
       // "gemini" is the AI bucket: advice written by Gemini or its Groq fallback.
       const engine = adv.generated_with === "rules" ? "rules" : "gemini";
-      const aiBadge = adv.generated_with === "groq" ? "GROQ LLM" : "GEMINI LLM";
+      const aiBadge =
+        adv.generated_with === "groq"
+          ? "GROQ LLM"
+          : adv.generated_with === "other"
+            ? "OLDER MODEL"
+            : "GEMINI LLM";
       entries.push({
         id: `adv-${adv.id}`,
         kind: "advisory",
@@ -468,6 +473,8 @@ export default function AdminPage() {
   const geminiAdvisories = telemetry?.buckAi.advisories_gemini ?? 0;
   const groqAdvisories = telemetry?.buckAi.advisories_groq ?? 0;
   const rulesAdvisories = telemetry?.buckAi.advisories_rules ?? 0;
+  // Older cards from a model that is neither Gemini nor Groq.
+  const otherAdvisories = telemetry?.buckAi.advisories_other ?? 0;
   const aiSharePct =
     totalAdvisories > 0
       ? Math.round((aiAdvisories / totalAdvisories) * 100)
@@ -791,6 +798,7 @@ export default function AdminPage() {
                         <div className="admin-kpi-value">{aiSharePct}%</div>
                         <div className="admin-kpi-sub">
                           {geminiAdvisories} Gemini · {groqAdvisories} Groq ·{" "}
+                          {otherAdvisories > 0 && <>{otherAdvisories} older models · </>}
                           {rulesAdvisories} from fixed rules
                         </div>
                       </div>

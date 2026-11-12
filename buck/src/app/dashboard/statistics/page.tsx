@@ -39,7 +39,7 @@ import {
 import BudgetDonut, { getBudgetLevel } from "./BudgetDonut";
 import CategoryBreakdown, { type CategoryTotal } from "./CategoryBreakdown";
 import SpendingTrendChart from "./SpendingTrendChart";
-import AddExpenseModal from "./AddExpenseModal";
+import AddExpenseModal from "../expenses/AddExpenseModal";
 import {
   buildMonthRanges,
   buildWeekRanges,
@@ -574,7 +574,6 @@ const Statistics = () => {
       .sort();
     if (keys.length === 0) return null;
     const forecastVals = keys.map((k) => Number(perDay[k]) || 0);
-    const actualVals = keys.map((k) => Number(forecastData?.actual_per_day?.[k]) || 0);
     const avg = forecastVals.reduce((a, b) => a + b, 0) / forecastVals.length;
     const ptRadius = keys.length <= 7 ? 3.5 : 1.5;
     return {
@@ -583,21 +582,10 @@ const Statistics = () => {
         labels: keys.map((k) => formatDayKey(k)),
         datasets: [
           {
-            label: "Expected spending",
+            label: "Save each day",
             data: forecastVals,
             borderColor: "#f47536",
             backgroundColor: "rgba(244,117,54,0.14)",
-            fill: true,
-            tension: 0.35,
-            pointRadius: ptRadius,
-            pointHoverRadius: 5,
-            borderWidth: 2.5,
-          },
-          {
-            label: "What you spent",
-            data: actualVals,
-            borderColor: "#ffc547",
-            backgroundColor: "rgba(255,197,71,0.12)",
             fill: true,
             tension: 0.35,
             pointRadius: ptRadius,
@@ -765,7 +753,7 @@ const Statistics = () => {
                 {trend.unit === "day"
                   ? "Daily spending"
                   : trend.unit === "week"
-                    ? "Weekly spending (Weeks 1–4)"
+                    ? "Weekly spending this month"
                     : trend.unit === "year"
                       ? "Yearly spending"
                       : "Monthly spending"}
@@ -926,18 +914,18 @@ const Statistics = () => {
         <section className="stats-card stats-forecast">
           <div className="stats-card-header">
             <div>
-              <p className="stats-eyebrow">AI forecast</p>
-              <h3>Forecast vs actual</h3>
+              <p className="stats-eyebrow">Goal</p>
+              <h3>Daily saving pace</h3>
             </div>
             {forecastGoal && (
-              <span className="stats-badge" title="The forecast is based on this goal">
+              <span className="stats-badge" title="The pace is for this goal">
                 {forecastGoal.goalName}
               </span>
             )}
           </div>
           {!forecastGoal ? (
             <div className="stats-empty stats-empty--chart stats-empty--compact">
-              <p>Create a savings goal to get an AI spending forecast.</p>
+              <p>Create a savings goal to see how much to save each day.</p>
               <Link href="/dashboard/goals" className="stats-link">
                 Go to Goals
               </Link>
@@ -945,11 +933,11 @@ const Statistics = () => {
           ) : forecastLoading ? (
             <div className="stats-empty stats-empty--chart" role="status">
               <div className="spinner" />
-              <p>Loading forecast…</p>
+              <p>Working out your saving pace…</p>
             </div>
           ) : forecastError ? (
             <div className="stats-empty stats-empty--chart stats-empty--compact" role="alert">
-              <p className="stats-error">The forecast service is unavailable right now.</p>
+              <p className="stats-error">Couldn’t work out the saving pace right now.</p>
               <button
                 type="button"
                 className="stats-add-btn"
@@ -961,8 +949,8 @@ const Statistics = () => {
           ) : !forecastChart ? (
             <p className="stats-empty stats-empty--chart stats-empty--compact">
               {mode === "overall"
-                ? "No forecast data is available yet."
-                : `No forecast points fall in this ${periodNoun}.`}
+                ? "This goal has no days left to save for."
+                : `No saving days for this goal fall in this ${periodNoun}.`}
             </p>
           ) : (
             <div className="stats-forecast-body">
@@ -1013,8 +1001,8 @@ const Statistics = () => {
                 />
               </div>
               <p className="stats-forecast-summary">
-                To stay on track, keep daily spending under{" "}
-                <strong>{formatCurrency(forecastChart.avg)}</strong>.
+                Save <strong>{formatCurrency(forecastChart.avg)}</strong> a day to reach{" "}
+                {forecastGoal.goalName} by its target date.
               </p>
             </div>
           )}
@@ -1026,8 +1014,9 @@ const Statistics = () => {
         onClose={() => setShowExpenseModal(false)}
         userId={user.uid}
         categories={categories}
+        walletBudget={wallet}
         goalId={forecastGoal?.id ?? null}
-        onSaved={() => void refreshWallet()}
+        onExpenseAdded={refreshWallet}
       />
     </div>
   );

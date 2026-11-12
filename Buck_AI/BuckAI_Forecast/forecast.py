@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 
+from shared.attitude import goal_plan
 from shared.money import ATTITUDES, SPEND_MULTIPLIER, month_bounds, peso
 
 from .model import (BACKTEST_DAYS, MIN_DAYS, MIN_EXPENSES, SIMULATIONS, WINDOWS, Expense, Income,
@@ -30,6 +31,7 @@ class History:
     wallets: list[dict[str, Any]]   # {id, name, balance, active}
     attitude: str = "Normal"
     goal: dict[str, Any] | None = None  # {name, targetAmount, savedAmount, targetDate}
+    detection: dict[str, Any] | None = None  # shared.attitude.detect_attitude for the goal
 
 
 def _m(value: float) -> float:
@@ -233,12 +235,27 @@ def _goal(h: History, observed: int, sim) -> dict[str, Any] | None:
     g = h.goal
     if not g:
         return None
+    # The whole simulated stretch, so the 30- and 60-day views give the same goal block.
+    expected_daily = float(sim.total.mean())
     remaining = _m(g["targetAmount"] - g["savedAmount"])
     target_date = g.get("targetDate")
     days_left = (date.fromisoformat(target_date) - h.today).days if target_date else None
     out: dict[str, Any] = {"name": g["name"], "remaining": remaining, "targetDate": target_date,
                            "requiredPerDay": _m(remaining / days_left) if days_left and days_left > 0 else None,
-                           "freeCashPerDay": None, "reachBy": None, "onTrack": None}
+                           "freeCashPerDay": None, "reachBy": None, "onTrack": None,
+                           "attitude": h.attitude, "attitudeReason": None, "feasible": None, "plan": None,
+                           "forecastDailySpending": _m(expected_daily), "withinPlan": None}
+    if h.detection:
+        # Spending and saving per day / week / month for the detected attitude, and
+        # whether the forecast spending fits inside it (1% slack for rounding).
+        plan = goal_plan(h.detection)
+        out.update({"attitudeReason": h.detection["reason"], "feasible": h.detection["feasible"], "plan": plan})
+        if h.detection.get("loggingGap"):
+            # Nothing logged lately: the simulation sees near-zero spending, which says
+            # nothing about the real pace, so no forecast spending and no verdict.
+            out["forecastDailySpending"] = None
+        elif plan:
+            out["withinPlan"] = expected_daily <= plan["spending"]["perDay"] * 1.01
     incomes = [i for i in h.incomes if h.today - timedelta(days=89) <= i.day <= h.today]
     if not incomes or observed < 30 or remaining <= 0:
         return out

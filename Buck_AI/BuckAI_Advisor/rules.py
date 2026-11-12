@@ -2,7 +2,7 @@
 free quota exhausted). Every number comes straight from the snapshot, so the
 fallback is always accurate, just less personal."""
 
-from .snapshot import Snapshot
+from .snapshot import Snapshot, wallet_kind
 
 def peso(amount: float) -> str:
     return f"₱{amount:,.2f}"
@@ -31,12 +31,25 @@ def wallet_advice(snapshot: Snapshot) -> str:
         return "Add a wallet so Buck can track where your spending comes from."
     if not active:
         return "Pick an active wallet on the Wallet tab so day-to-day spending comes from one place."
+    goal = snapshot.data.get("active_goal")
+    purpose = f"your {goal['name']} goal" if goal else "an emergency buffer"
+
+    def kind(w: dict) -> str:
+        return w.get("kind") or wallet_kind(w["name"])
+
+    if kind(active) == "savings":
+        # The active wallet is a savings wallet: never tell the user to spend it.
+        spend = next((w for w in others if kind(w) == "spending" and w["balance"] > 0), None)
+        keep = f"Keep {active['name']} ({peso(active['balance'])}) for {purpose}"
+        if spend:
+            return (f"{keep}, and make {spend['name']} ({peso(spend['balance'])}) your active wallet "
+                    f"on the Wallet tab so day-to-day spending comes from there.")
+        return f"{keep}, and add a separate wallet for day-to-day spending so your savings stay untouched."
+
     text = f"Spend day to day from {active['name']} ({peso(active['balance'])})."
     if others:
-        keep = others[0]
-        goal = snapshot.data.get("active_goal")
-        purpose = f"your {goal['name']} goal" if goal else "an emergency buffer"
-        text += f" Leave {keep['name']} ({peso(keep['balance'])}) untouched for {purpose}."
+        keep_w = next((w for w in others if kind(w) == "savings"), others[0])
+        text += f" Leave {keep_w['name']} ({peso(keep_w['balance'])}) untouched for {purpose}."
     return text
 
 
@@ -52,8 +65,11 @@ def rule_insight(snapshot: Snapshot) -> dict[str, str]:
     cap = plan["daily_spending_cap"]["amount"]
     typical = plan["typical_daily_spending"]["amount"]
     month = f"this month so far ({d['month']['start']} to {d['today']})"
+    period = plan["typical_daily_spending"].get("period", "last-30-day average")
+    gap = (f"You haven't logged spending since {plan['spending_logged_until']}, so these figures stop there. "
+           if plan.get("spending_logged_until") else "")
     spending_line = (
-        f"You have spent {peso(spent)} {month}, and your last-30-day average is {peso(typical)} a day. "
+        f"{gap}You have spent {peso(spent)} {month}, and your {period} is {peso(typical)} a day. "
         f"Your {d['saving_attitude']} saving attitude sets a daily cap of {peso(cap)}."
     )
 

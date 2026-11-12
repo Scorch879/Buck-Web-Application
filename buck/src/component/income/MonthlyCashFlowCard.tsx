@@ -37,7 +37,7 @@ export function MonthlyCashFlowCardSkeleton({
               <span className="skeleton-text">₱00,000</span>
             </span>
             <span className={styles.flowDelta}>
-              <span className="skeleton-text">+₱0,000 vs last mo.</span>
+              <span className="skeleton-text">₱0,000 more than last month</span>
             </span>
           </div>
         ))}

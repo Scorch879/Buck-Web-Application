@@ -30,8 +30,13 @@
   color: var(--buck-ink);
   background: var(--buck-surface);
   border: 1px solid var(--buck-line);
-  border-radius: 10px;
+  border-radius: var(--buck-card-radius);
   box-shadow: var(--buck-shadow);
+}
+
+/* Modals keep the larger modal radius. */
+.modal-content {
+  border-radius: 10px;
 }
 
 /* ---- Shared typography ---- */
@@ -462,6 +467,12 @@ html[data-buck-theme="dark"] .ai-recommendation {
   line-height: 1.6;
 }
 
+.ai-recommendation-note {
+  margin: 0.55rem 0 0;
+  color: var(--buck-muted);
+  font-size: 0.8rem;
+}
+
 .goals-bottom-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -727,6 +738,178 @@ html[data-buck-theme="dark"] .goals-segmented-btn[aria-pressed="true"] {
   width: min(220px, 100%);
 }
 
+/* ---- Deleted goals recovery section ---- */
+
+.goals-deleted-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--buck-line);
+  flex-shrink: 0;
+}
+
+.goals-deleted-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 36px;
+  padding: 0.45rem 0.7rem;
+  color: var(--buck-muted);
+  background: transparent;
+  border: 1px dashed var(--buck-line);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.goals-deleted-toggle:hover {
+  color: var(--buck-ink);
+  background: rgba(244, 117, 54, 0.06);
+  border-color: var(--buck-orange);
+}
+
+html[data-buck-theme="dark"] .goals-deleted-toggle:hover {
+  background: rgba(255, 197, 71, 0.08);
+  border-color: var(--buck-gold);
+}
+
+.goals-deleted-toggle[aria-expanded="true"] {
+  color: var(--buck-ink);
+  border-style: solid;
+  border-color: rgba(244, 117, 54, 0.45);
+}
+
+html[data-buck-theme="dark"] .goals-deleted-toggle[aria-expanded="true"] {
+  border-color: rgba(255, 197, 71, 0.45);
+}
+
+.goals-deleted-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-height: 200px;
+  padding: 0.15rem 0.05rem;
+  overflow-y: auto;
+}
+
+.goals-deleted-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+html[data-buck-theme="dark"] .goals-deleted-item {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.goals-deleted-item:hover {
+  border-color: rgba(244, 117, 54, 0.35);
+}
+
+.goals-deleted-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.goals-deleted-name {
+  overflow: hidden;
+  color: var(--buck-ink);
+  font-size: 0.86rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.goals-deleted-meta {
+  color: var(--buck-muted);
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
+.goals-restore-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0.35rem 0.8rem;
+  color: var(--buck-orange);
+  background: rgba(244, 117, 54, 0.1);
+  border: 1px solid rgba(244, 117, 54, 0.35);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.goals-restore-btn:hover:not(:disabled) {
+  color: #fff;
+  background: var(--buck-orange);
+  border-color: var(--buck-orange);
+}
+
+.goals-restore-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+html[data-buck-theme="dark"] .goals-restore-btn {
+  color: var(--buck-gold);
+  background: rgba(255, 197, 71, 0.12);
+  border-color: rgba(255, 197, 71, 0.3);
+}
+
+html[data-buck-theme="dark"] .goals-restore-btn:hover:not(:disabled) {
+  color: #241409;
+  background: var(--buck-gold);
+  border-color: var(--buck-gold);
+}
+
+/* Empty state recovery variant */
+.emptyContainer .goals-deleted-section {
+  width: 100%;
+  max-width: 760px;
+  margin-top: 1.25rem;
+  padding: 1.1rem 1.35rem;
+  background: var(--buck-surface);
+  border: 1px solid var(--buck-line);
+  border-radius: 10px;
+  box-shadow: var(--buck-shadow);
+}
+
+.emptyContainer .goals-deleted-list {
+  max-height: 320px;
+}
+
+.emptyContainer .goals-deleted-item {
+  padding: 0.75rem 1rem;
+}
+
 .goals-title {
   color: var(--buck-ink);
 }
@@ -820,6 +1003,238 @@ html[data-buck-theme="dark"] .create-goal-input {
 .create-goal-button-disabled {
   opacity: 0.65;
   cursor: not-allowed;
+}
+
+/* ---- AI-detected saving attitude and goal plan (ADR-055) ---- */
+
+.goals-ghost-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* The create dialog now holds the attitude and plan, so it scrolls inside the
+   standard modal bounds instead of growing past the screen. */
+.modal-content {
+  max-height: min(82dvh, 760px);
+  overflow-y: auto;
+}
+
+.goal-fact--wide {
+  grid-column: 1 / -1;
+}
+
+.goal-fact-note {
+  display: block;
+  margin-top: 0.1rem;
+  color: var(--buck-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.goal-facts dd.goal-fact-reason {
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.goal-attitude-chip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.goal-attitude-source {
+  color: var(--buck-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.goals-pill--attitude {
+  padding: 0.2rem 0.65rem;
+  font-size: 0.8rem;
+}
+
+.goals-pill--normal {
+  color: var(--buck-ink);
+  background: rgba(117, 109, 104, 0.16);
+}
+
+.goals-pill--moderate {
+  color: #8a6400;
+  background: rgba(255, 197, 71, 0.3);
+}
+
+html[data-buck-theme="dark"] .goals-pill--moderate {
+  color: var(--buck-gold);
+  background: rgba(255, 197, 71, 0.16);
+}
+
+.goals-pill--aggressive {
+  color: var(--buck-orange);
+  background: rgba(244, 117, 54, 0.14);
+}
+
+.goal-plan {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.goal-plan caption {
+  padding-bottom: 0.4rem;
+  color: var(--buck-ink);
+  font-size: 0.9rem;
+  font-weight: 650;
+  text-align: left;
+}
+
+.goal-plan th,
+.goal-plan td {
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--buck-line);
+}
+
+.goal-plan tbody tr:last-child th,
+.goal-plan tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.goal-plan thead th {
+  color: var(--buck-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.goal-plan tbody th {
+  color: var(--buck-muted);
+  font-weight: 600;
+  text-align: left;
+}
+
+.goal-plan tbody td {
+  color: var(--buck-ink);
+  font-weight: 650;
+}
+
+.goal-plan-note {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+/* Three amount columns must fit a 320px phone without scrolling sideways. */
+@media (max-width: 480px) {
+  .goal-plan {
+    font-size: 0.78rem;
+  }
+
+  .goal-plan th,
+  .goal-plan td {
+    padding: 0.4rem 0.25rem;
+  }
+
+  .goal-plan thead th {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .goal-plan {
+    font-size: 0.72rem;
+  }
+
+  .goal-plan th,
+  .goal-plan td {
+    padding: 0.4rem 0.15rem;
+  }
+}
+
+.create-goal-attitude {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+  text-align: left;
+}
+
+.create-goal-attitude--warning,
+.goals-forecast-attitude--warning {
+  background: rgba(255, 197, 71, 0.12);
+  border-color: rgba(255, 197, 71, 0.6);
+}
+
+.create-goal-attitude-label {
+  margin: 0;
+  color: var(--buck-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.create-goal-attitude-text {
+  margin: 0;
+  color: var(--buck-ink);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.create-goal-attitude-text--strong {
+  font-weight: 650;
+}
+
+.goals-forecast-attitude {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--buck-line);
+  border-radius: 8px;
+}
+
+.goals-forecast-attitude p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.goals-forecast-notes {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.goals-forecast-chart-block {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.goals-forecast-chart-block h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.goals-forecast-state--block {
+  height: auto;
+  min-height: 180px;
+  padding: 1rem;
+}
+
+.goals-forecast-state-title {
+  color: var(--buck-ink);
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.goals-forecast-disclaimer {
+  margin: 0;
+  color: var(--buck-muted);
+  font-size: 0.8rem;
 }
 
 /* ---- Responsive ---- */

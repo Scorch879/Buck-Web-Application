@@ -2,6 +2,8 @@
 
 import React from "react";
 import CustomSelect from "@/component/CustomSelect";
+import GettingStarted from "@/component/onboarding/GettingStarted";
+import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import "@/app/dashboard/home/style.css";
 import "./skeletons.css";
 
@@ -22,8 +24,12 @@ const LEGEND_NAMES = ["Transportation", "Entertainment", "Electronics", "Video G
  * page.tsx (and its CSS) has loaded.
  */
 export default function HomeSkeleton() {
+  const user = useOptionalDashboardUser();
   return (
     <div className="dashboard-container dashboard-skeleton" aria-busy="true" aria-label="Loading dashboard">
+      {/* 0. The first-run checklist as this browser last saw it (nothing for a
+          set-up account), so Home doesn't jump when the page takes over. */}
+      {user && <GettingStarted userId={user.uid} preview />}
       <section className="dashboard-content" aria-label="Spending overview">
         {/* 1. Category Breakdown */}
         <article className="spending-card">
@@ -116,7 +122,7 @@ export default function HomeSkeleton() {
                 ))}
               </div>
               <div className="graph-x-axis-footer">
-                <span className="graph-axis-title graph-axis-title--x">Day of the Week</span>
+                <span className="graph-axis-title graph-axis-title--x">Day of the week</span>
               </div>
             </div>
           </div>

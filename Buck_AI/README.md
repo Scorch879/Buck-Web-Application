@@ -14,7 +14,7 @@ Buck has two AIs, one per job:
 ## How the Advisor keeps advice up to date
 
 1. **Snapshot.** On each request it builds a numbers-only snapshot of the user's month from Supabase: spending, income, top categories, wallets and the active goal.
-2. **Fingerprint.** It reduces that snapshot to a fingerprint of the facts that matter. Spending is rounded into steps of 5% of the budget (at least ₱500); the fingerprint also covers top categories, goal progress, wallet, income, the month and the saving attitude.
+2. **Fingerprint.** It reduces that snapshot to a fingerprint of the facts that matter. Spending is rounded into steps of 5% of the budget (at least ₱500); the fingerprint also covers top categories, goal progress, wallet, income, the month, the week (from Monday, PH time) and the saving attitude.
 3. **Reuse.** If the newest saved advisory in `ai_advisories` has the same fingerprint, it is returned straight from the database, with no Gemini call.
 4. **Regenerate.** If the data moved, Gemini writes new advice. It is shown the previous advice and what changed, so it can acknowledge progress or adjust its targets. The new advice is saved as a new row, and older rows stay as history.
 5. **Cooldowns** (5 min after a data change, 60 s for a manual refresh) protect the free Gemini quota. During a cooldown the saved advice is returned with `stale: true`.
@@ -42,7 +42,7 @@ Every call needs `Authorization: Bearer <Supabase access token>`, the token of t
 | `GET /advisor/history` | `?limit=1..20` | Saved advisories, newest first |
 | `POST /advisor/chat` | `{ question (≤500), history? [{role, content}] (≤8) }` | `text/event-stream` events: `meta` (`ai` or `fallback`), `delta`, `error`, `done` |
 | `POST /advisor/categorize` | `{ kind: "expense" \| "income", descriptions: [1..25] }` | `{ categories: (name \| null)[] }`: only the user's own category names (Gemini is limited to an enum of them); `null` keeps the item in the fallback |
-| `POST /advisor/goal-tip` | `{ goalId }` or `{ goalName, targetAmount, attitude, targetDate? }` | `{ tip }` (two sentences; empty when unavailable) |
+| `POST /advisor/goal-tip` | `{ goalId }` or `{ goalName, targetAmount, attitude, targetDate? }` | `{ tip, source }` (two sentences, plan figures only; `source` ai, groq or rules) |
 | `GET /forecast` | `?horizon=30` or `60` | `{ id, forecast, narrative, generatedWith, explanationPending, createdAt, cached, stale, cooldownUntil }`: numbers right away; never writes |
 | `POST /forecast/explain` | `?horizon=30\|60&refresh=true\|false` | Same shape, with the Groq explanation (rules if unavailable), saved |
 | `GET /forecast/history` | `?limit=1..20` | Saved forecasts, newest first |

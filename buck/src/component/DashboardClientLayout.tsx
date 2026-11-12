@@ -177,8 +177,11 @@ function DashboardShell({ children }: { children: ReactNode }) {
     user?.email?.split("@")[0] ||
     "Buck user";
   const isHomePage = pathname?.startsWith("/dashboard/home") ?? true;
+  // A brand-new account (under a day old) is welcomed, not "welcomed back".
+  const createdAt = user?.created_at ? Date.parse(user.created_at) : NaN;
+  const isNewAccount = Number.isFinite(createdAt) && Date.now() - createdAt < 24 * 60 * 60 * 1000;
   const topbarTitle = isHomePage
-    ? `Welcome back, ${displayName}`
+    ? `${isNewAccount ? "Welcome" : "Welcome back"}, ${displayName}`
     : pageChrome.title;
   const topbarEyebrow = isHomePage ? "Home" : pageChrome.eyebrow;
 

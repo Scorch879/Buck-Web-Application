@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useDashboardUser } from "@/context/DashboardUserContext";
+import GettingStarted from "@/component/onboarding/GettingStarted";
 import {
   mergeDashboardDataCache,
   useFinancial,
@@ -778,15 +779,17 @@ export default function Dashboard() {
 
   const barXAxisTitle =
     timeframe === "week"
-      ? "Day of the Week"
+      ? "Day of the week"
       : timeframe === "month"
-      ? "Week of the Month (Weeks 1–4)"
+      ? "Week of the month"
       : allTimeGranularity === "years"
-      ? "Year (5-Year Window)"
-      : "Month (6-Month Window)";
+      ? "Year (5 years shown)"
+      : "Month (6 months shown)";
 
   return (
     <div className="dashboard-container">
+      {/* 0. First-run checklist; renders nothing once the account is set up */}
+      <GettingStarted userId={user.uid} />
       {/* 1. Category Breakdown Pie Graph & Dynamic Expenses Bar Graph */}
       <section className="dashboard-content" aria-label="Spending overview">
         <article className="spending-card" aria-label="Category spending breakdown">

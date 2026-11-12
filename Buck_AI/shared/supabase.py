@@ -122,3 +122,17 @@ class UserDb:
             raise DbError(f"Database unreachable: {exc.__class__.__name__}") from exc
         rows = self._check(response) or []
         return rows[0] if rows else {}
+
+    async def update(self, table: str, filters: dict[str, str], values: dict[str, Any]) -> int:
+        """PATCH matching rows as the user (RLS applies). Returns the number updated."""
+        try:
+            response = await get_http().patch(
+                self._url(table),
+                params=filters,
+                json=values,
+                headers=self._headers({"Prefer": "return=representation"}),
+                timeout=3,
+            )
+        except httpx.HTTPError as exc:
+            raise DbError(f"Database unreachable: {exc.__class__.__name__}") from exc
+        return len(self._check(response) or [])

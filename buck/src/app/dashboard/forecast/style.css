@@ -28,6 +28,13 @@
   font-size: 0.92rem;
 }
 
+/* Next-step links in empty states, same as Statistics' .stats-note a. */
+.forecast-empty a,
+.forecast-goal-text a {
+  color: var(--buck-orange);
+  font-weight: 700;
+}
+
 /* ---------- Story card (ADR-052): the one bold element ---------- */
 
 .forecast-story {

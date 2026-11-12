@@ -14,12 +14,15 @@ Advice lifecycle (the database is the source of truth):
 import asyncio
 import json
 import logging
+import re
 from collections.abc import AsyncIterator
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from shared import gemini, groq
+from shared.attitude import day_label, detect_attitude, goal_plan, load_inputs, save_detected
 from shared.config import get_settings
+from shared.money import peso
 from shared.safety import clean_text, limit_sentences
 from shared.supabase import DbError, UserDb
 
@@ -121,6 +124,49 @@ def _tidy_insight(out: dict[str, Any]) -> dict[str, Any] | None:
     return text if text["title"] and text["suggestion"] and text["advice"] else None
 
 
+def _numbers(value: Any) -> set[float]:
+    """Every number in the snapshot data (plan, wallets, goal, categories, totals)."""
+    if isinstance(value, bool):
+        return set()
+    if isinstance(value, (int, float)):
+        return {round(float(value), 2)}
+    if isinstance(value, dict):
+        return set().union(*map(_numbers, value.values())) if value else set()
+    if isinstance(value, list):
+        return set().union(*map(_numbers, value)) if value else set()
+    return set()
+
+
+def _checked_card(out: dict[str, Any], snapshot: Snapshot) -> dict[str, Any] | None:
+    """The tidied card when every ₱ figure in it is a figure from the snapshot data,
+    rewritten as ₱1,234.56; None when the model invented, rounded or added one up
+    (e.g. "record your next ₱1,000"), so the next writer or the rule card is used."""
+    text = _tidy_insight(out)
+    if not text:
+        return None
+    if not _card_figures_ok(text, snapshot):
+        log.warning("Advisor card quoted a ₱ figure outside the data; discarded.")
+        return None
+    for key in ("suggestion", "advice", "wallet_advice"):
+        text[key] = _peso_format(text[key]) if text[key] else text[key]
+    return text
+
+
+def _card_figures_ok(text: dict[str, Any], snapshot: Snapshot) -> bool:
+    allowed = _numbers(snapshot.data)
+    found = [float(m.replace(",", "")) for key in ("suggestion", "advice", "wallet_advice")
+             for m in _PESO_FIGURE.findall(text.get(key) or "")]
+    return all(any(abs(x - a) < 0.01 for a in allowed) for x in found)
+
+
+def _saved_card_ok(row: dict[str, Any], snapshot: Snapshot) -> bool:
+    """A saved AI card is served again only if its figures still pass the check
+    (cards saved before the check existed can hold invented amounts)."""
+    meta = row.get("metadata") or {}
+    return _card_figures_ok({"suggestion": row.get("suggestion"), "advice": row.get("advice"),
+                             "wallet_advice": meta.get("wallet_advice")}, snapshot)
+
+
 async def _write_with_ai(snapshot: Snapshot, previous: dict[str, Any] | None,
                          changed: list[str], priority: str,
                          prefer: str | None = None) -> tuple[dict[str, Any], str, str]:
@@ -132,10 +178,10 @@ async def _write_with_ai(snapshot: Snapshot, previous: dict[str, Any] | None,
         out = await gemini.generate_json(system, prompt, prompts.INSIGHT_SCHEMA, timeout_seconds=INSIGHT_TIMEOUT,
                                          attempt_seconds=INSIGHT_ATTEMPT, max_output_tokens=INSIGHT_TOKENS,
                                          prefer=prefer)
-        text = _tidy_insight(out)
+        text = _checked_card(out, snapshot)
         if text:
             return text, "gemini", gemini.answered_by.get() or get_settings().gemini_model
-        reason = "Incomplete advisory."
+        reason = "Incomplete advisory, or a ₱ figure outside the data."
     except gemini.GeminiUnavailable as exc:
         reason = str(exc)
     if not get_settings().groq_configured:
@@ -146,9 +192,9 @@ async def _write_with_ai(snapshot: Snapshot, previous: dict[str, Any] | None,
                                        timeout_seconds=INSIGHT_GROQ_TIMEOUT)
     except groq.GroqUnavailable as exc:
         raise gemini.GeminiUnavailable(f"{reason}; Groq: {exc}") from exc
-    text = _tidy_insight(out)
+    text = _checked_card(out, snapshot)
     if not text:
-        raise gemini.GeminiUnavailable(f"{reason}; Groq: incomplete advisory.")
+        raise gemini.GeminiUnavailable(f"{reason}; Groq: incomplete advisory or a ₱ figure outside the data.")
     return text, "groq", groq.answered_by.get() or get_settings().groq_models[0]
 
 
@@ -162,7 +208,11 @@ def _recent_model(saved: dict[str, Any] | None, now: datetime) -> str | None:
 async def get_insight(db: UserDb, refresh: bool = False) -> dict[str, Any]:
     snapshot = await build_snapshot(db)
     parts, fp = fingerprint_parts(snapshot), fingerprint(snapshot)
-    latest = await latest_saved(db)
+    # Keep the active goal's saved attitude current (writes only on a change).
+    latest, _ = await asyncio.gather(
+        latest_saved(db),
+        save_detected(db, snapshot.refs.get("goal_id"), snapshot.attitude, snapshot.goal_row),
+    )
     now = datetime.now(timezone.utc)
     ai_on = get_settings().gemini_configured or get_settings().groq_configured
 
@@ -172,7 +222,7 @@ async def get_insight(db: UserDb, refresh: bool = False) -> dict[str, Any]:
         still_valid = _parse_ts(latest.get("valid_until")) > now
         age = now - _parse_ts(latest.get("created_at"))
         # Rule-based advice is upgraded to AI advice once an AI is available.
-        good_enough = meta.get("generated_with") in ("gemini", "groq") or not ai_on
+        good_enough = (meta.get("generated_with") in ("gemini", "groq") and _saved_card_ok(latest, snapshot))             or not ai_on
         if not refresh and same_data and still_valid and (good_enough or age < DATA_CHANGE_COOLDOWN):
             return to_response(latest, cached=True)
         if age < (REFRESH_COOLDOWN if refresh else DATA_CHANGE_COOLDOWN):
@@ -189,7 +239,7 @@ async def get_insight(db: UserDb, refresh: bool = False) -> dict[str, Any]:
                                                                 _recent_model(latest, now))
     except gemini.GeminiUnavailable as exc:
         log.warning("Advisor insight fell back to rules: %s", exc)
-        if latest and same_data:
+        if latest and same_data and _saved_card_ok(latest, snapshot):
             return to_response(latest, cached=True)  # never replace good advice with rules for the same data
         text = {**rule_insight(snapshot), "focus": None}
 
@@ -228,13 +278,84 @@ async def get_insight(db: UserDb, refresh: bool = False) -> dict[str, Any]:
 
 # ---------------------------------------------------------------- goal tips
 
-async def goal_tip(db: UserDb, goal: dict[str, Any]) -> str:
+_PESO_FIGURE = re.compile(r"₱\s?(\d[\d,]*(?:\.\d+)?)")
+
+
+def _figures_ok(tip: str, allowed: set[float]) -> bool:
+    """True when the tip quotes at least one ₱ figure and every one is a plan figure."""
+    found = [float(m.replace(",", "")) for m in _PESO_FIGURE.findall(tip)]
+    return bool(found) and all(any(abs(x - a) < 0.01 for a in allowed) for x in found)
+
+
+def _date_label(value: str | None) -> str | None:
+    try:
+        return day_label(date.fromisoformat(value)) if value else None
+    except ValueError:
+        return None
+
+
+def _peso_format(tip: str) -> str:
+    """Write every ₱ figure as ₱1,234.56 (models sometimes drop a decimal: ₱15,600.0)."""
+    return _PESO_FIGURE.sub(lambda m: peso(float(m.group(1).replace(",", ""))), tip)
+
+
+def _plan_figures(data: dict[str, Any]) -> set[float]:
+    plan = data.get("plan") or {}
+    figures = {data["target_amount"], data["remaining_amount"]}
+    for key in ("save", "spendingLimit"):
+        figures.update((plan.get(key) or {}).values())
+    return figures
+
+
+def _tip_plan(plan: dict[str, Any]) -> dict[str, Any]:
+    """What the tip may quote. `save` is the pace the goal needs (`required`, the
+    page's "Save per day") when the user can afford it; otherwise the most they
+    can save (`saving`), and the date is tight. Never the full spare income:
+    saving ₱52,073.40 a month toward an ₱11,160 remainder is not a plan."""
+    reaches = bool(plan.get("reachesByTargetDate"))
+    return {
+        "save": plan["required"] if reaches else plan["saving"],
+        "spendingLimit": plan["spending"],
+        "reachesByTargetDate": reaches,
+        "daysToGoalAtThisPace": None if reaches else plan.get("daysToGoal"),
+    }
+
+
+def rule_goal_tip(data: dict[str, Any]) -> str:
+    """Two sentences built only from the plan, for when no model can write the tip."""
+    plan = data.get("plan")
+    if not plan:
+        return ""
+    save, spend = plan["save"], plan["spendingLimit"]
+    first = (f"Save {peso(save['perWeek'])} a week ({peso(save['perDay'])} a day) by keeping spending "
+             f"under {peso(spend['perDay'])} a day.")
+    if plan["reachesByTargetDate"]:
+        second = f"That pace reaches {data['goal']} by {data['target_date']}."
+    elif plan.get("daysToGoalAtThisPace"):
+        second = (f"At that pace {data['goal']} takes about {plan['daysToGoalAtThisPace']} days, so a later "
+                  "target date or a smaller target would fit better.")
+    else:
+        second = "Log your income so Buck can see how much is left to save."
+    return f"{first} {second}"
+
+
+async def goal_tip(db: UserDb, goal: dict[str, Any]) -> dict[str, str]:
     """Two-sentence tip for a saved goal (`goal_id`) or one being created.
-    Empty string when Gemini is unavailable; callers treat tips as optional."""
+
+    Every ₱ figure comes from the goal plan (`shared/attitude.goal_plan`), the
+    same numbers the Goals page and the Forecaster show. Gemini (then Groq)
+    only words it; an answer that quotes any other ₱ figure is thrown away.
+    When no model gives a valid tip, the rule-written tip is returned
+    (`source: "rules"`) and not stored, so a later visit asks the AI again.
+    An AI tip for a saved goal is stored on it (`goals.ai_recommendation`), so
+    the page shows it at once and a new goal never waits for Gemini."""
     today = today_ph()
-    if goal.get("goal_id"):
-        rows = await db.select("goals", {"select": "goal_name,target_amount,current_amount,target_date,attitude",
-                                         "user_id": f"eq.{db.user_id}", "id": f"eq.{goal['goal_id']}", "limit": "1"})
+    goal_id = goal.get("goal_id")
+    r: dict[str, Any] | None = None
+    if goal_id:
+        rows = await db.select("goals", {"select": "goal_name,target_amount,current_amount,target_date,attitude,"
+                                                   "attitude_basis",
+                                         "user_id": f"eq.{db.user_id}", "id": f"eq.{goal['goal_id']}", "deleted_at": "is.null", "limit": "1"})
         if not rows:
             raise LookupError("Goal not found.")
         r = rows[0]
@@ -242,26 +363,91 @@ async def goal_tip(db: UserDb, goal: dict[str, Any]) -> str:
                 "saved_amount": r.get("current_amount"), "target_date": r.get("target_date"),
                 "attitude": r.get("attitude")}
     target, saved = money(goal.get("target_amount")), money(goal.get("saved_amount"))
+    remaining = round(max(0.0, target - saved), 2)
     target_date = str(goal["target_date"])[:10] if goal.get("target_date") else None
-    try:
-        days_left = (datetime.fromisoformat(target_date).date() - today).days if target_date else None
-    except ValueError:
-        days_left = None
+    attitude = goal.get("attitude") if goal.get("attitude") in ATTITUDES else None
+    inputs = await load_inputs(db, today)
+    detection = detect_attitude(typical_daily=inputs["typical_daily"], income_daily=inputs["income_daily"],
+                                remaining=remaining, target_date=target_date, today=today, current=attitude,
+                                spending_until=inputs.get("spending_until"))
+    if goal_id:
+        # The tip quotes this plan, so the goal shows the same attitude (written only on a change).
+        await save_detected(db, goal_id, detection, r)
+    plan = goal_plan(detection)
     data = {
         "goal": clean_text(goal.get("name"), 80) or "Goal",
         "target_amount": target,
-        "remaining_amount": round(max(0.0, target - saved), 2),
-        "saving_attitude": goal.get("attitude") if goal.get("attitude") in ATTITUDES else "Normal",
-        "days_left": days_left,
-        "today": today.isoformat(),
+        "remaining_amount": remaining,
+        "saving_attitude": detection["attitude"],
+        "days_left": detection["daysLeft"],
+        "today": day_label(today),
+        "target_date": _date_label(target_date),
+        "plan": plan and _tip_plan(plan),
     }
-    try:
-        out = await gemini.generate_json(prompts.insight_system_prompt(), prompts.goal_tip_prompt(data),
-                                         prompts.GOAL_TIP_SCHEMA)
-        return limit_sentences(clean_text(out.get("tip"), 400), 2)
-    except gemini.GeminiUnavailable as exc:
-        log.warning("Advisor goal tip unavailable: %s", exc)
-        return ""
+    if not plan:  # reached, date passed or no spending logged: the reason already says it
+        return {"tip": detection["reason"], "source": "rules"}
+
+    allowed = _plan_figures(data)
+    tip, source = "", "rules"
+    system, prompt = prompts.insight_system_prompt(), prompts.goal_tip_prompt(data)
+    writers = [("ai", lambda: gemini.generate_json(system, prompt, prompts.GOAL_TIP_SCHEMA))]
+    if get_settings().groq_configured:
+        writers.append(("groq", lambda: groq.generate_json(system, prompt, prompts.GOAL_TIP_SCHEMA_STRICT,
+                                                           timeout_seconds=INSIGHT_GROQ_TIMEOUT)))
+    for name, write in writers:
+        try:
+            out = await write()
+        except (gemini.GeminiUnavailable, groq.GroqUnavailable) as exc:
+            log.warning("Goal tip from %s unavailable: %s", name, exc)
+            continue
+        text = limit_sentences(clean_text(out.get("tip"), 400), 2)
+        if _figures_ok(text, allowed):
+            tip, source = _peso_format(text), name
+            break
+        log.warning("Goal tip from %s quoted figures outside the plan; discarded.", name)
+    if not tip:
+        return {"tip": rule_goal_tip(data), "source": "rules"}
+    if goal_id:
+        try:
+            await db.update("goals", {"id": f"eq.{goal_id}", "user_id": f"eq.{db.user_id}",
+                                      "deleted_at": "is.null"}, {"ai_recommendation": tip})
+        except DbError as exc:  # the tip is still returned; saving it is best effort
+            log.warning("Could not save the goal tip: %s", exc)
+    return {"tip": tip, "source": source}
+
+
+# --------------------------------------------------------- saving attitude
+
+async def goal_attitude(db: UserDb, goal: dict[str, Any]) -> dict[str, Any]:
+    """The saving attitude a goal needs, with the plan it implies.
+
+    `{"goal_id"}`: a saved goal. The attitude is detected and saved on it.
+    `{"target_amount", "saved_amount", "target_date"}`: a goal being created
+    (nothing is saved; the web stores the attitude with the new goal).
+    """
+    today = today_ph()
+    current = None
+    goal_id = goal.get("goal_id")
+    if goal_id:
+        rows = await db.select("goals", {"select": "id,target_amount,current_amount,target_date,attitude,"
+                                                   "attitude_basis,completed",
+                                         "user_id": f"eq.{db.user_id}", "id": f"eq.{goal_id}", "deleted_at": "is.null", "limit": "1"})
+        if not rows:
+            raise LookupError("Goal not found.")
+        r = rows[0]
+        goal = {"target_amount": r.get("target_amount"), "saved_amount": r.get("current_amount"),
+                "target_date": r.get("target_date")}
+        current = r.get("attitude") if r.get("attitude") in ATTITUDES else None
+    inputs = await load_inputs(db, today)
+    remaining = max(0.0, money(goal.get("target_amount")) - money(goal.get("saved_amount")))
+    target_date = str(goal["target_date"])[:10] if goal.get("target_date") else None
+    detection = detect_attitude(typical_daily=inputs["typical_daily"], income_daily=inputs["income_daily"],
+                                remaining=remaining, target_date=target_date, today=today, current=current,
+                                spending_until=inputs.get("spending_until"))
+    if goal_id:
+        await save_detected(db, goal_id, detection, r)
+    return {**detection, "goalId": goal_id, "plan": goal_plan(detection),
+            "window": {"spendingDays": inputs["spend_days"], "incomeDays": inputs["income_days"]}}
 
 
 # --------------------------------------------------------------------- chat

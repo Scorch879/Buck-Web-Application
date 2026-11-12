@@ -2339,10 +2339,10 @@ html[data-buck-theme="dark"] .home-ai-card:hover {
 .home-ai-card-content .advisor-eyebrow {
   margin: 0;
   color: var(--buck-orange);
-  font-size: 0.74rem;
-  font-weight: 800;
+  font-size: 0.75rem;
+  font-weight: 650;
   text-transform: uppercase;
-  letter-spacing: 0.35px;
+  letter-spacing: 0.4px;
 }
 
 .home-ai-card-title {

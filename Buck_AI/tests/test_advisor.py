@@ -6,6 +6,7 @@ by patching shared.gemini and shared.groq, so these run offline with no keys.
 
 import json
 import os
+import re
 import unittest
 from datetime import datetime, timedelta, timezone
 from unittest import mock
@@ -66,7 +67,7 @@ class FakeSupabase:
             "profiles": [{"active_wallet_id": "w1"}],
             "wallets": [{"id": "w1", "name": "Cash", "budget": 20000}],
             "expenses": self.expenses,
-            "incomes": [{"amount": 25000, "source": "Salary"}],
+            "incomes": [{"amount": 25000, "source": "Salary", "received_on": TODAY.replace(day=1).isoformat()}],
             "goals": [{"id": "g1", "goal_name": "Laptop", "target_amount": 50000, "current_amount": 10000,
                        "target_date": (TODAY + timedelta(days=120)).isoformat(), "attitude": "Moderate",
                        "is_active": True, "completed": False}],
@@ -77,8 +78,9 @@ class FakeSupabase:
 
 
 GOOD = {"Authorization": "Bearer good"}
-ADVICE = {"title": "Trim Food Spending", "suggestion": "Cap Food at ₱4,000 this month.",
-          "advice": "Spend at most ₱1,000 a week on Food. Move ₱1,500 to Laptop every Friday.", "focus": "category"}
+# Every ₱ figure here is in the fake user's data (Laptop: ₱50,000 target, ₱40,000 to go).
+ADVICE = {"title": "Trim Food Spending", "suggestion": "Keep Laptop's ₱40,000 to go in view this week.",
+          "advice": "Laptop has ₱40,000.00 to go of ₱50,000.00. Cook at home on weekdays.", "focus": "category"}
 
 
 class AdvisorApiTests(unittest.IsolatedAsyncioTestCase):
@@ -168,6 +170,28 @@ class AdvisorApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertGreater(kwargs["attempt_seconds"], 8)
         self.assertGreaterEqual(kwargs["max_output_tokens"], 4096)
 
+    async def test_card_with_an_invented_figure_is_not_saved(self):
+        # "record your next ₱1,000" (seen live): ₱1,000 is in none of the user's figures.
+        self.gen.return_value = {**ADVICE, "advice": ADVICE["advice"] + " Record your next ₱1,000 of spending."}
+        r = (await self.client.get("/advisor/insight", headers=GOOD)).json()
+        self.assertEqual(r["generatedWith"], "rules")
+        self.assertNotIn("₱1,000 of", r["advice"])
+
+    async def test_saved_card_with_an_invented_figure_is_replaced(self):
+        await self.client.get("/advisor/insight", headers=GOOD)
+        # A card saved before the check existed, for the same data, quoting ₱1,000.
+        self.supa.advisories[0]["advice"] += " Record your next ₱1,000 of spending."
+        self.gen.side_effect = gemini.GeminiUnavailable("busy")
+        with mock.patch("BuckAI_Advisor.service.REFRESH_COOLDOWN", timedelta(0)):
+            r = (await self.client.get("/advisor/insight?refresh=true", headers=GOOD)).json()
+        self.assertEqual(r["generatedWith"], "rules")
+        self.assertNotIn("₱1,000", r["advice"])
+
+    async def test_card_figures_are_written_with_two_decimals(self):
+        r = (await self.client.get("/advisor/insight", headers=GOOD)).json()
+        self.assertEqual(r["generatedWith"], "gemini")
+        self.assertEqual(r["suggestion"], "Keep Laptop's ₱40,000.00 to go in view this week.")  # ₱1,234.56 form
+
     async def test_groq_writes_the_card_when_gemini_is_busy(self):
         self.gen.side_effect = gemini.GeminiUnavailable("timeout")
         self.groq.side_effect = None
@@ -253,12 +277,42 @@ class AdvisorApiTests(unittest.IsolatedAsyncioTestCase):
         r = await self.client.get("/")
         self.assertEqual(r.json(), {"service": "buck-ai", "ok": True})
 
+    async def _plan_figures(self) -> tuple[float, float, float]:
+        """Saving per week, per day and the daily spending limit, read from the rule tip
+        (built only from the goal plan) while Gemini is down."""
+        self.gen.side_effect = gemini.GeminiUnavailable("down")
+        r = (await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": "g1"})).json()
+        self.gen.side_effect = None
+        self.assertEqual(r["source"], "rules")
+        return tuple(float(x.replace(",", "")) for x in re.findall(r"₱([\d,]+\.\d\d)", r["tip"])[:3])
+
     async def test_goal_tip(self):
-        self.gen.return_value = {"tip": "Save ₱2,875.00 a week. Skip one takeout meal. Extra sentence."}
+        week, day, cap = await self._plan_figures()
+        self.gen.return_value = {"tip": f"Save ₱{week:,.2f} a week and spend under ₱{cap:,.2f} a day. "
+                                        "Skip one takeout meal. Extra sentence."}
         r = await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": "g1"})
-        self.assertEqual(r.json(), {"tip": "Save ₱2,875.00 a week. Skip one takeout meal."})
+        self.assertEqual(r.json(), {"tip": f"Save ₱{week:,.2f} a week and spend under ₱{cap:,.2f} a day. "
+                                           "Skip one takeout meal.", "source": "ai"})
+        # A figure that is not in the plan (rounded, invented) is thrown away for the rule tip.
+        self.gen.return_value = {"tip": "Save ₱2,875.00 a week. Transfer ₱3,600 every payday."}
+        r = (await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": "g1"})).json()
+        self.assertEqual(r["source"], "rules")
+        self.assertIn(f"₱{week:,.2f} a week", r["tip"])
+        self.assertNotIn("2,875", r["tip"])
         r = await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalName": "Bike"})
         self.assertEqual(r.status_code, 422)
+
+    async def test_groq_writes_the_goal_tip_when_gemini_is_busy(self):
+        week, day, cap = await self._plan_figures()
+        self.gen.side_effect = gemini.GeminiUnavailable("timeout")
+        self.groq.side_effect = None
+        self.groq.return_value = {"tip": f"Save ₱{day:,.2f} a day. Pack lunch twice a week."}
+        with mock.patch.dict(os.environ, {"GROQ_API_KEY": "test-groq"}):
+            get_settings.cache_clear()
+            r = (await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": "g1"})).json()
+        get_settings.cache_clear()
+        self.assertEqual(r, {"tip": f"Save ₱{day:,.2f} a day. Pack lunch twice a week.", "source": "groq"})
+        self.assertFalse(self.groq.await_args.args[2]["additionalProperties"])  # strict-mode ready
 
     async def test_categorize_uses_only_the_users_categories(self):
         self.gen.return_value = {"results": [
@@ -286,8 +340,9 @@ class AdvisorApiTests(unittest.IsolatedAsyncioTestCase):
 
 
 class UnitTests(unittest.TestCase):
-    def _snap(self, spent: float) -> Snapshot:
+    def _snap(self, spent: float, today: str = "2026-10-14") -> Snapshot:
         return Snapshot({
+            "today": today,
             "month": {"start": "2026-10-01"}, "saving_attitude": "Normal", "spent_this_month": spent,
             "income_this_month": 25000, "active_wallet_balance": 20000,
             "top_categories_this_month": [{"name": "Food", "amount": spent}], "active_goal": None,
@@ -296,6 +351,11 @@ class UnitTests(unittest.TestCase):
     def test_fingerprint_ignores_small_changes(self):
         self.assertEqual(fingerprint(self._snap(6000)), fingerprint(self._snap(6040)))
         self.assertNotEqual(fingerprint(self._snap(6000)), fingerprint(self._snap(9000)))
+
+    def test_new_week_writes_new_advice(self):
+        # Wed Oct 14 and Sun Oct 18 share a week; Mon Oct 19 starts a new one.
+        self.assertEqual(fingerprint(self._snap(6000, "2026-10-14")), fingerprint(self._snap(6000, "2026-10-18")))
+        self.assertNotEqual(fingerprint(self._snap(6000, "2026-10-18")), fingerprint(self._snap(6000, "2026-10-19")))
 
     def test_health_score(self):
         self.assertEqual(health_score(1000, 10000), 90)

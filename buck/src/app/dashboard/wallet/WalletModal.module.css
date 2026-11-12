@@ -8,7 +8,6 @@
   padding: clamp(1rem, 4vw, 2rem);
   background: rgba(18, 13, 10, 0.48);
   z-index: 10000;
-  backdrop-filter: blur(8px);
 }
 
 .confirmBackdrop {
@@ -24,20 +23,12 @@
   max-height: min(760px, 88dvh);
   padding: clamp(1.1rem, 3vw, 1.6rem);
   overflow: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  /* Same thin orange scrollbar as every other modal (globals.css, ADR-054). */
   color: var(--buck-ink);
   background: var(--buck-surface);
   border: 1px solid var(--buck-line);
   border-radius: 8px;
   box-shadow: var(--buck-shadow);
-}
-
-.modal::-webkit-scrollbar,
-.confirmModal::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
 }
 
 .confirmModal {

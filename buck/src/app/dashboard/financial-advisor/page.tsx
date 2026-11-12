@@ -340,7 +340,7 @@ export default function FinancialAdvisorPage() {
           <div className="advisor-hero__actions">
             {aiInsights?.createdAt ? (
               <span className="advisor-pill">
-                {aiInsights.cached ? "Cached" : "Updated"}{" "}
+                Updated{" "}
                 {new Date(aiInsights.createdAt).toLocaleDateString("en-PH", {
                   month: "short",
                   day: "numeric",

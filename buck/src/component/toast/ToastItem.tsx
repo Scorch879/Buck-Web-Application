@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
+import { DURATION, EASE_IN, SPRING } from "@/utils/motion";
 import {
   FaCheckCircle,
   FaExclamationCircle,
@@ -114,10 +115,10 @@ export default function ToastItem({ toast, onRemove }: ToastItemProps) {
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 24, scale: 0.94 }}
+      initial={{ opacity: 0, y: 16, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 16, scale: 0.92, transition: { duration: 0.18 } }}
-      transition={{ type: "spring", stiffness: 420, damping: 30 }}
+      exit={{ opacity: 0, y: 12, scale: 0.97, transition: { duration: DURATION.fast, ease: EASE_IN } }}
+      transition={SPRING}
       className={`${styles.toastNotification} ${getTypeClass(toast.type)}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}

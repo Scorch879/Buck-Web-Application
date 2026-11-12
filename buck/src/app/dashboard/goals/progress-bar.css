@@ -148,6 +148,11 @@
     transform 180ms ease;
 }
 
+.progress-add-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 html[data-buck-theme="dark"] .progress-add-btn {
   color: #241409;
   background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
@@ -166,7 +171,6 @@ html[data-buck-theme="dark"] .progress-add-btn {
   justify-content: center;
   padding: 1rem;
   background: rgba(18, 13, 10, 0.48);
-  backdrop-filter: blur(6px);
 }
 
 .modal {

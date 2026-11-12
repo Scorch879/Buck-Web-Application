@@ -104,6 +104,7 @@ export async function fetchUserFinancialContext(
     .from("goals")
     .select("id, goal_name, target_amount, current_amount, target_date, attitude, is_active, completed")
     .eq("user_id", userId)
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
   const activeGoalRow =
@@ -177,41 +178,41 @@ export function generateAdvisoryInsights(context: UserFinancialContext) {
     attitude === "Aggressive" ? 0.6 : attitude === "Moderate" ? 0.8 : 1.0;
 
   // Construct suggestion & advice
-  let title = "Monthly Budget Assessment";
-  let suggestion = "Maintain your current spending discipline to protect your wallet buffer.";
-  let advice = `You have remaining wallet room of ${formatCurrency(
+  let title = "This month's budget check";
+  let suggestion = "Keep spending the way you are now. It leaves room in your wallet.";
+  let advice = `You have ${formatCurrency(
     remainingBudget
-  )}. Allocate at least 15% towards your savings reserve before discretionary shopping.`;
+  )} left in your wallet this month. Set aside at least 15% of it as savings before buying things you don't need.`;
   let priority: "low" | "medium" | "high" | "urgent" = "medium";
 
   if (spendRatio > 0.9) {
     priority = spendRatio > 1.0 ? "urgent" : "high";
-    title = "Budget Threshold Alert";
-    suggestion = `Critical: You have utilized ${Math.round(
+    title = "Your budget is almost used up";
+    suggestion = `You've used ${Math.round(
       spendRatio * 100
-    )}% of your monthly budget. Pause all non-essential purchases immediately.`;
-    advice = `Your current burn rate exceeds sustainable limits for this period. Freeze discretionary spending on ${
+    )}% of this month's budget. Pause anything you don't need right now.`;
+    advice = `You're spending faster than this month's budget allows. Stop spending on ${
       topCategory?.name || "entertainment and leisure"
-    } to avoid deficit borrowing.`;
+    } for now so you don't run short.`;
   } else if (topCategory && topCategory.amount > spendingBase * 0.35) {
     priority = "high";
-    title = `High Expenditure on ${topCategory.name}`;
-    suggestion = `Your highest expense driver is ${topCategory.name} at ${formatCurrency(
+    title = `${topCategory.name} is taking a big share`;
+    suggestion = `${topCategory.name} is your biggest expense this month at ${formatCurrency(
       topCategory.amount
-    )}. Target a 15% reduction next week.`;
+    )}. Try to spend 15% less on it next week.`;
     const recommendedCap = Math.round(topCategory.amount * multiplier * 0.8);
-    advice = `Based on your ${attitude} saving profile, limit ${topCategory.name} spending to ${formatCurrency(
+    advice = `With your ${attitude} saving attitude, keep ${topCategory.name} spending under ${formatCurrency(
       recommendedCap
-    )} for the remainder of this cycle to ensure your primary goal stays funded.`;
+    )} for the rest of this month so there's still money for your goal.`;
   } else if (activeGoal) {
-    title = `Goal Progress: ${activeGoal.name}`;
+    title = `Goal progress: ${activeGoal.name}`;
     const needed = Math.max(0, activeGoal.targetAmount - activeGoal.currentAmount);
-    suggestion = `To hit '${activeGoal.name}', you have ${formatCurrency(
+    suggestion = `You still need ${formatCurrency(
       needed
-    )} remaining to reach your target.`;
-    advice = `Transferring ${formatCurrency(
+    )} to reach '${activeGoal.name}'.`;
+    advice = `Putting ${formatCurrency(
       Math.round((needed / 4) * multiplier)
-    )} weekly into your dedicated goal allocation will keep you on track without straining your daily living allowance.`;
+    )} per week toward this goal keeps you on track and still leaves money for daily spending.`;
   }
 
   return {
@@ -267,11 +268,11 @@ export function generateForecastInsights(context: UserFinancialContext) {
   if (projectedTotalSpending > spendingBase) {
     const deficit = projectedTotalSpending - spendingBase;
     warnings.push(
-      `Projected monthly expenditure (${formatCurrency(
+      `At this pace you'll spend about ${formatCurrency(
         projectedTotalSpending
-      )}) will exceed your ${
+      )} this month, ${formatCurrency(deficit)} more than your ${
         usesIncome ? "income this month" : "wallet budget"
-      } by ${formatCurrency(deficit)}.`
+      }.`
     );
   }
 
@@ -288,9 +289,11 @@ export function generateForecastInsights(context: UserFinancialContext) {
       const dailyNeeded = remainingGoalAmount / Math.max(1, daysToGoal);
       if (avgSpentPerDay > dailyNeeded * 3) {
         warnings.push(
-          `Current daily spend of ${formatCurrency(
+          `Spending ${formatCurrency(
             avgSpentPerDay
-          )} reduces savings speed required for '${activeGoal.name}'.`
+          )} per day makes it hard to save for '${
+            activeGoal.name
+          }', which needs about ${formatCurrency(dailyNeeded)} per day.`
         );
       }
     }
@@ -298,16 +301,18 @@ export function generateForecastInsights(context: UserFinancialContext) {
 
   const summary =
     warnings.length > 0
-      ? `Based on your average burn rate of ${formatCurrency(
+      ? `You're spending about ${formatCurrency(
           avgSpentPerDay
-        )} per day, your projected month-end spending is ${formatCurrency(
+        )} per day, which adds up to about ${formatCurrency(
           projectedTotalSpending
-        )}. Exercise cautious budgeting to prevent budget overruns.`
-      : `Your spending pace is healthy at ${formatCurrency(
+        )} by month end. Spend carefully for the rest of the month.`
+      : `Your spending is on track at about ${formatCurrency(
           avgSpentPerDay
-        )} per day. You are on track to preserve ${formatCurrency(
+        )} per day. You should have about ${formatCurrency(
           projectedSavings
-        )} in net wallet savings by month-end.`;
+        )} left from your ${
+          usesIncome ? "income this month" : "wallet budget"
+        } at month end.`;
 
   return {
     periodType: "monthly" as const,

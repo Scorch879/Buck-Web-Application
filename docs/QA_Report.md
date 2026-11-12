@@ -178,6 +178,113 @@ Branch `maintenance-branch`. UI only; no API, data or migration changes.
 
 **Verified**: `tsc`, `eslint` (0 warnings), vitest 205/205. Public pages: the pre-paint script sets `data-buck-sidebar`, global scrollbar and fade styles load, and the console shows no errors. CI runs the production build on the PR.
 
+**Signed-in check of every tab (2026-11-09)**: Home, Expenses, Wallet, Categories, Financial Advisor, Forecast, Statistics, Goals, Admin and Settings were checked with a real account in light and dark themes at 1280px and 375px. The real profile photo loads and fades in. No page scrolls sideways. Three more fixes came out of it:
+- Sidebar: on a hard load of any tab except Home, the server rendered Home as the active item and the highlight slid to the right tab after hydration. The active item now starts from the URL (`dashboardheader.tsx`).
+- Expenses at 375px: the page grid (`1fr`) and the card grid (implicit `auto` column) grew to their widest content (428px), so the category card and the Expense tracker ran off the right edge, and the page buttons overflowed. Both grids now use `minmax(0, 1fr)`, and the page buttons wrap on screens 640px or narrower.
+- Admin "Written by AI" card: 16 older cards from `meta-llama/Llama-3.3-70B-Instruct-Turbo` (an earlier provider, saved before `metadata.generated_with` existed) were counted as Gemini. Migration `202611090001_admin_telemetry_model_fallback.sql` (applied) reads the model name instead and adds `advisories_other`. The card now reads "18 Gemini · 0 Groq · 16 older models · 6 from fixed rules" (40 total), and those log rows are badged "OLDER MODEL".
+
+**Frame-rate and screen-size check (2026-11-11)**: measured signed in, with the browser pane on screen at full speed:
+- Sidebar slide 250→80px and back: about 30 frames, median 5ms per frame, worst 15–20ms, none over 33ms.
+- Wallet popover, mobile menu and Add Spending modal: open and close at a median of 5ms per frame, worst about 15ms.
+- All ten tabs at 320, 768, 1024 and 1920px, and a live resize from 1280 to 1000, 600, 375 and 1440: each change switched layout within one frame, no page scrolled sideways, and no long tasks were logged.
+
+Two fixes came out of it:
+- Profile photo "pop" on collapse: the account tray turns from a 62px row into a 140px column. Its full `layout` animation scaled the tray to bridge that, and the round photo was squashed to 70% height and stretched back. The tray and its controls now use `layout="position"` (`dashboardheader.tsx`), so they only move and nothing scales.
+- Profile photo still jumped (38px in one frame) after that fix: `toggleSidebar` set `<html data-buck-sidebar>` inside the state update, so the CSS layout changed before Framer took its "before" snapshot, and Framer saw nothing to animate. The attribute is now set in a `useLayoutEffect` after React commits. Framer now writes translate-only moves to the tray, avatar and controls in both directions.
+- Collapse still had one ~40px drop near the end of the slide: the name block's fade-out kept its space until the exit finished, then the collapsed tray shrank in one frame. The name block's `AnimatePresence` now uses `mode="popLayout"`, so it leaves the layout as soon as the exit starts. Re-measured at full frame rate (~165 frames each way, median 5 ms): the photo never moves more than 3-4px per frame in either direction and stays 36x36.
+- Modals were see-through in dark mode: `--buck-surface` is `rgba(38, 25, 18, 0.86)` there, and the backdrops blurred the page (glassmorphism). Added `--buck-surface-solid` (`#fffaf6` light, `#23170f` dark, the same colour already blended over the page) and set `--buck-surface` to it on every `[aria-modal="true"]` element. Also removed `backdrop-filter` from every modal backdrop (Expenses, Goals, Settings, Wallet, Income, delete dialog, landing legal modal). Checked: the Add Spending panel computes to `rgb(35, 23, 15)` with no filter on the panel or the scrim.
+- Two Add Spending modals: Statistics had its own copy with inline add/rename/delete of categories and one-off inline styles, while Expenses had the styled one. Statistics now uses the Expenses modal (`goalId` prop added for the forecast goal), and the old copy is deleted. Category management stays on the Categories tab: the modal shows a "Manage categories" link under the picker that closes the modal and opens that tab.
+- Scrollbars: checked every tab. Each inner scroll area (Home table, chat log, modals) uses the shared thin orange scrollbar, and the main page scroll keeps its hidden bar (ADR-054). The Wallet modal was the one modal that hid its scrollbar; it now uses the shared one.
+- No glass left in the dashboard: the sidebar, top bar, toasts and session-timeout card were translucent with an 16-18px backdrop blur. All are solid now (`#fffaf4` / `#17100c`, toasts and the session card on `--buck-surface-solid`). The sidebar used to swap from glass to solid while sliding and back afterwards; it is now solid all the time, so that colour change is gone too. Checked in dark mode: sidebar and top bar compute to `rgb(23, 16, 12)` with `backdrop-filter: none`; the rendered Wallet modal shows the 8px orange scrollbar. The landing page header, footer and legal pages are out of scope and keep their own look.
+- Label review of chart and stat text (Home, Statistics, Goals, Forecast, read from the rendered pages):
+  - Monthly cash flow: `-₱75,000 vs last mo.` is now `₱75,000 less than last month` (`more than` for increases, `Same as last month` for zero). Fits on one line at 375px and 1440px.
+  - Home bar chart axis: `Month (6-Month Window)` / `Year (5-Year Window)` are now `Month (6 months shown)` / `Year (5 years shown)`; `Week of the Month (Weeks 1–4)` is `Week of the month`. Statistics trend title `Weekly spending (Weeks 1–4)` is `Weekly spending this month`.
+  - Rule-based fallback text (`utils/aiInsightsGenerator.ts`, shown when Buck_AI is unreachable) no longer uses "burn rate", "expenditure", "deficit borrowing", "expense driver" or "net wallet savings". Same numbers, plain words. Forecast rows already saved in `ai_forecasts` keep the old sentence until they refresh (up to 7 days).
+  - Removed `component/line-graph.tsx`: unused, with a vague "Progress" series label.
+- Light mode and other sizes: sidebar and top bar compute to `rgb(255, 250, 244)` with no blur; the Add Spending panel is `rgb(255, 250, 246)` at full opacity. At 1120, 1440 and 1920 the rail goes 250 ↔ 80, the photo ends at 36x36 and no element is scaled; at 1024 and below there is no rail. Frame-rate recording was done at 1440 in dark mode only (the app window was hidden for the later runs, which stops animation frames).
+- Follow-up recordings in headless Chromium (renders frames while the app window is hidden), on a temporary uncommitted page that rendered the real dashboard shell with design-preview sample data; the page is deleted. Sidebar slide at 1120, 1440 (production build) and 1920, light and dark: ~210 frames per toggle, no frame over 15 ms, photo steps of 3px or less, photo 36x36, rail 250 <-> 80. Light-mode screenshots show a solid sidebar, top bar and Add Spending panel with no blur.
+- Open item, not an app defect: the first sidebar toggle after a page load stalls once for 45-140 ms in headless Chromium (5 of 5 fresh loads, dev and production builds); every later toggle is clean. A browser trace shows no main-thread task over 8 ms. The time is in the GPU process (`RasterDecoderImpl::DoEndRasterCHROMIUM::Flush` 93 ms with `DawnPlatformImpl::RunWorkerTask`), a one-time graphics pipeline compile when the content is first redrawn at a new width. It does not happen with the page content hidden. Still to confirm in a visible desktop browser, where compiled pipelines are cached on disk between visits.
+- Not re-read in rendered light mode: the Forecast chart legend and the Advisor and Forecast disclaimers. They need a signed-in session with Buck_AI running, and the session expired. Their wording was reviewed in source (`ForecastChart.tsx`, `forecast/page.tsx`, `AIChat.tsx`). Local note: Buck_AI's `ALLOWED_ORIGINS` only lists `http://localhost:3000`, so the web app must run on port 3000 to reach it.
+- Goals UI for the AI-detected saving attitude (ADR-055), built from Backend's hand-off: no manual attitude picker; detected attitude, reason and plan in Create Goal; attitude source and reason in goal details (skeleton updated to match, ADR-012); "Set as active" disabled for reached goals; atomic Add Progress; the forecast dialog now shows the AI Forecaster's plan instead of the plain-math chart. Uniformity fixes found on the way: the Goals page had a third one-off Add Expense dialog with inline styles (now the shared Add Spending dialog), an inline-styled error dialog (removed with the wallet check that needed it), an Add Progress dialog without `role="dialog"`/`aria-modal` (so it missed the solid modal surface), and a doubled border around the Create Goal date field.
+  - Checked signed-out with design-preview sample data in headless Chromium (temporary uncommitted page, deleted): goal details at 1440; Create Goal moving from the prompt to "Working out…" to the unreachable fallback; the forecast dialog's unavailable state; Add Spending opening above the forecast dialog; the plan table and attitude chip with sample numbers in dark at 1440 and light at 320 (no sideways scroll). typecheck, eslint (0 warnings), vitest 213/213.
+  - Not checked yet: the same screens with live Buck_AI data (detected attitude, plan numbers, 30-day chart) and the create, set-active and add-progress writes. They need a signed-in session.
+- Financial Advisor at 320px: the page grid's implicit `auto` column grew to 311px inside a 296px content area, so every card ran 3px off screen. The page grid and its responsive single columns now use `minmax(0, 1fr)`.
+
+### 📏 Measured Card Uniformity Across Tabs (2026-11-12)
+
+On every dashboard tab at 1280px, signed in, I read the computed corner radius, padding and title and eyebrow type of each outer card.
+
+| Finding | Before | After |
+|---|---|---|
+| Card corner radius | 8px on Home, Wallet, Forecast, Advisor, Admin and Settings; 10px on Expenses, Categories, Goals, Statistics and the Getting started card | 8px everywhere, via the new `--buck-card-radius` token. Modals keep their own radius. |
+| Categories card titles | weight 700 | 650, like every other card title |
+| Monthly cash flow / Income history titles | 1.25rem / 700 | `--buck-card-title-size` / 650 |
+| Home AI card eyebrows | 0.74rem / 800 | 0.75rem / 650, like every other eyebrow |
+
+Card padding still varies between tabs (15–24px). It follows each tab's density (dense tables and tiles against hero cards), so it is left as it is. The skeletons use the same classes, so they pick up the changes (ADR-012).
+
+The Goals card now labels a rule-written tip (`source: "rules"` from `POST /advisor/goal-tip`, BUG-047) "Buck's plan" instead of "AI recommendation", via `getGoalTipWithSource`.
+
+### 🔎 Signed-In Tab Review at Phone Width (2026-11-12)
+
+Every dashboard tab was checked signed in, at 404px, in dark mode. Advisor and Forecast were also checked in light mode.
+
+Fixed:
+- **Categories:** the table was 710px wide in a 346px card, and the extra width was cut off. Below 720px, Rename and Delete are icon buttons (with aria-labels, 38px hit areas) and the columns have no minimum widths. Below 560px, Entries is hidden and cells have less padding. The table now fits (344px).
+- **Getting started card:** it showed on an account that was already set up, because the Advisor step can't be detected from data. On first load, an account whose data steps are all done is treated as set up (ADR-057).
+- **Advisor and Home:** "Cached <date>" is now "Updated <date>".
+- **Goals:** the delete dialog no longer says the delete can't be undone (soft delete, ADR-056). `DangerDeleteDialog` takes an optional `warning` for deletes that can be restored.
+
+Checked and fine:
+- No sideways overflow on Home, Expenses, Wallet, Goals, Forecast, Statistics, Admin or Settings.
+- Admin's feedback list uses the shared scrollbar.
+- In light mode, the AI notes use `--buck-muted` on cream, about 4.9:1 contrast.
+- Forecast shows its AI note only when the AI wrote the text. During a logging gap the rules write it, so no note is correct.
+
+- **Statistics:** the "AI forecast / Forecast vs actual" card was mislabelled at desktop width. Its orange "Expected spending" line was the goal's required saving per day (amount left divided by days left, from `utils/goalForecast.ts`). Its "What you spent" line was always ₱0, because `actual_per_day` is never filled in. The note said "keep daily spending under ₱492.32", which is a saving target, not a spending cap. The card is now "Goal / Daily saving pace", with one line, "Save each day", and the note "Save ₱X a day to reach <goal> by its target date." The skeleton matches (ADR-012).
+
+Left for AI Integration Architecture: one Goals tip said "₱14,400 per month". The plan's required amount is ₱14,769.60 per month. The tip also suggested a separate savings account, which is not in the plan. Fixed in BUG-047: the tip now gets the goal plan and is thrown away if it quotes any other ₱ figure.
+
+### 🎞️ Motion Uniformity Sweep (2026-11-12, ADR-054)
+
+Code audit of every tab against the shared motion and modal rules:
+- No native `<select>`, `window.confirm` or `alert()` left.
+- The only `backdrop-filter` blurs are on the landing header, the legal pages and Home's empty-chart overlay. None are modals.
+- Categories used its own springs (stiffness 420–440, damping 28), which overshoot, and started at 96% scale. These were the visible "pops". They now use the shared `SPRING` and 98% scale.
+- Toasts (420/30) also overshot slightly and now use `SPRING`.
+- The other custom springs are left as they are: the goal progress fill, the chat bubble and the scroll-progress bars. They are critically damped, so they don't bounce.
+
+### 🧭 First-Run Experience Audit (2026-11-12, ADR-057)
+
+Brand-new account walkthrough of every tab:
+- Home was titled "Welcome back" and showed only empty charts.
+- Expenses, Income, Forecast and Goals said "No X yet" without a next step; only Statistics linked to one (Wallet budget).
+
+Changes:
+- Home now opens with a "Getting started" checklist whose steps tick off from the user's own data.
+- New accounts are greeted with "Welcome".
+- The Expenses, Income and Forecast empty states name the next action and link to it.
+
+Verified:
+- `npm run typecheck`, ESLint on the changed files, and `npx vitest run` (217/217).
+- The card at 0, 2 and 5 of 5 steps, in dark and light at 1100px and dark at 320px (no horizontal overflow), on a temporary harness page that was removed afterwards.
+
+Not checked yet: the live card on a fresh signed-in account (realtime tick-off, dismiss, skeleton hand-off). It needs a new account signed in.
+
+### 🎯 Goal Soft-Delete & Recovery Audit and Playwright E2E Verification (2026-11-11, ADR-056)
+
+Migration [`202611110002_soft_delete_goals.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202611110002_soft_delete_goals.sql) applied live to `glnuzqmnmzuxgujmxigx` and recorded.
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **BUG-045** | 🔴 Critical | Deleting any funded goal (`current_amount > 0`) on `/dashboard/goals` failed with Postgres exception `Cannot delete a goal that has funds allocated to it (current_amount > 0).` from `trg_check_goal_deletion` (`202606130001_strict_deletions.sql`) because [`deleteGoalRecord`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L1493) issued a hard `DELETE FROM public.goals`. Unfunded goals (`current_amount = 0`) were permanently destroyed with `expenses.goal_id` set to `NULL` and no recovery path. | **Resolved 2026-11-11 (ADR-056).** Added `public.goals.deleted_at timestamptz`, check `goals_active_not_deleted`, updated `goals_activation()`, `set_active_goal()`, `add_goal_progress()`, `save_goal_attitude()`, and `get_admin_telemetry()`. Converted `deleteGoalRecord` to a soft-delete `UPDATE` (`deleted_at = now(), is_active = false`), added `listDeletedGoals` and `restoreGoalRecord` / `restoreGoal`, filtered `deleted_at IS NULL` across `Buck_AI` (`snapshot.py`, `tools.py`, `service.py`, `history.py`), `aiInsightsGenerator.ts`, and `mcp/buckData.ts`, and added the collapsible **Deleted goals** recovery section on `/dashboard/goals`. |
+
+**Verified**:
+- `npm run typecheck` (0 errors), `npm run lint` (0 errors, 0 warnings, ADR-044), `npm test` in `buck/` (19 files, 217/217 passed including new `deleteGoalRecord` and `restoreGoalRecord` unit tests in [`goalData.test.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/goalData.test.ts#L114-L230)), and `Buck_AI` unittest/pytest (117/117 passed).
+- **Playwright Browser E2E Verification** on `http://localhost:3000/dashboard/goals` (signed in as `swifter879@gmail.com`):
+  1. **Funded Inactive Goal (`Ergonomic Workstation Setup`, `₱11,880 of ₱18,000`)**: 3-step `DangerDeleteDialog` (slide → "I understand, continue" → type exact goal name → Delete) succeeded with toast `"Ergonomic Workstation Setup" moved to deleted goals. You can restore it anytime.`; DB row verified `deleted_at IS NOT NULL`, `is_active = false`, `current_amount = 11880`; goal appeared in sidebar **Deleted goals (`1`)** and restored via 1-click **Restore** (`deleted_at = null`, `current_amount = 11880`).
+  2. **Funded Active Goal (`Emergency Buffer (3 Months)`, `₱19,552.50 of ₱24,750`, `ACTIVE`)**: Soft-deleted via `DangerDeleteDialog` (`deleted_at IS NOT NULL`, `is_active = false`); restored when no other active goal was active and automatically re-promoted to `is_active = true` by `goals_activation()`.
+
 ### 🎨 Admin Dashboard UI Review (2026-11-03, PR #245 follow-up)
 
 UI only; the API route, migrations, `supabaseData.ts` and `FinancialContext` types are unchanged.
@@ -769,6 +876,74 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
   - Found while testing: for a new user the day-by-day noise averaged out over a month (P90/P10 ≈ 1.28), so the "rough guess" band was barely wider than a settled user's. Each simulated path now also gets one level for the whole stretch when history is thin.
   - Follow-up (2026-11-09, found signed in on production after #258): the goal date was Dec 11 on the 30-day view and Dec 12 on the 60-day view, because goal timing averaged spending over the chosen horizon. It now always uses the full 60-day simulation, so both views give the same `goal`.
 - **Verification**: `python -m unittest` 91/91, including new tests that the 30- and 60-day views give identical `month`, `goal`, `restOfMonthTarget`, window, category month totals and first-30-day running totals across three synthetic users, and that a Friday + Sunday spender is not called a weekend spender. On production (signed in, 2026-11-09) both views show ₱439.62 for the month and ₱451,150.98 left over, and the habit reads "Fridays and Sundays". The test account's real data, run through the follow-up code, gives the goal date Dec 12 in both views.
+
+#### BUG-042: [RESOLVED 2026-11-09] Advisor Said to Spend the Savings Wallet, Rounded Weeks Down and Kept Last Week's Advice
+- **Location**: [`Buck_AI/BuckAI_Advisor/snapshot.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/snapshot.py) (`wallet_kind`), [`rules.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/rules.py) (`wallet_advice`), [`prompts.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/prompts.py), [`plan.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/plan.py), [`fingerprint.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/fingerprint.py)
+- **Impact** (found signed in on production 2026-11-09):
+  - The active wallet was "Emergency & Savings Fund". The prompt said the active wallet is the day-to-day one, so the card read "Use your Emergency & Savings Fund for day-to-day active spending, while keeping your Main Spending Wallet untouched for savings", which is the wrong way round. The rule fallback had the same rule.
+  - `weeks_to_goal_at_recommended` used `round()`, so ₱53,662.50 at ₱3,756.37 a week (14.3 weeks) read "finish in 14 weeks".
+  - The fingerprint had no date, so advice saved on Thursday Nov 6 was still served on Monday Nov 9 with "Nov 1–6" and "the remaining 24 days of November", next to a live "This week: since Mon, Nov 9" card.
+- **Fix**:
+  - Each wallet in the snapshot has a `kind` (`savings` when its name says save/savings/emergency/ipon/reserve/buffer/goal/fund, else `spending`). The prompt and the fallback never say to spend a savings wallet; when it is the active one, they say to keep it for the goal and make a spending wallet active on the Wallet tab.
+  - Weeks to the goal are rounded up.
+  - The fingerprint includes the week (Monday, PH time), so the "this week" step is rewritten at most once a week, plus whenever the data moves materially.
+- **Verification**: `python -m unittest` 94/94, with new tests for the production wallet set, the 14.3 → 15 weeks case, and a Sunday → Monday fingerprint change.
+
+#### BUG-043: [RESOLVED 2026-11-11] Goals: Attitude Picked by Hand, Active Goal Could Vanish, Progress Could Be Lost
+- **Location**: [`utils/supabaseData.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts) (`setOnlyGoalActiveRecord`, `updateGoalProgress`), [`component/goals.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/goals.tsx), [`Buck_AI/BuckAI_Advisor/snapshot.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/snapshot.py), [`Buck_AI/BuckAI_Forecast/history.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/history.py), `goals` table
+- **Impact**:
+  - The saving attitude was a dropdown on Create Goal. Nothing checked it against the user's spending, so an Aggressive goal could need no cut and a Normal one could be out of reach.
+  - Switching the active goal was two requests (deactivate all, then activate one). If the second failed, the user had no active goal.
+  - Add Progress wrote a total computed in the browser, so two quick saves could lose one. A completed goal stayed active.
+  - When no goal was active, the Advisor and Forecaster quietly planned for the newest unfinished goal instead.
+  - The Goals page's "AI forecast" was plain math (`utils/goalForecast.ts`), not the AI Forecaster.
+- **Fix** (ADR-055):
+  - The Advisor detects the attitude (`Buck_AI/shared/attitude.py`, `POST /advisor/attitude`) and saves it on the goal; the Forecaster returns `forecast.goal.plan` (spending and saving per day, week and month).
+  - Migration `202611110001_goal_attitude_and_activation.sql`: `set_active_goal()` and `add_goal_progress()` run in one transaction; a completed goal is never active; a user's goal is made active when they have none; `goals.attitude` is required and checked.
+  - Both AIs plan only for the goal the user set active.
+  - The Goals page UI (detected attitude instead of a dropdown, the Forecaster's plan in the forecast dialog) is handed to Buck | Frontend.
+- **Verification**: rolled-back SQL scenario as a real user (switch, add, finish, auto-activate, bad input, other users' goals invisible); `python -m unittest` 111/111 with 17 new attitude and API tests; `vitest` with 8 new goal-data tests.
+
+#### BUG-046: [RESOLVED 2026-11-12] Goals: Creating Waited on Gemini; Forecast Called a Logging Gap "Within Plan"
+- **Found by**: browser end-to-end run of the Goals page on localhost (2026-11-11), signed in, live Buck_AI.
+- **Impact**:
+  - `createGoal` (`component/goals.tsx`) awaited the Advisor's Gemini goal tip before inserting the row. With Gemini busy this took about 20 s with no feedback, so the goal looked unsaved.
+  - The goal tip was never stored by id: the page asked Gemini again on every goal selection, so "AI recommendation" sat on "Loading…".
+  - During a logging gap the Forecaster simulated near-zero spending and the dialog said "Forecast spending is ₱47.21 per day, within your plan".
+- **Fix**:
+  - `createGoal` inserts first, then requests the tip with `{ goalId }`; `POST /advisor/goal-tip` with a goal id now stores the tip on the goal (`goals.ai_recommendation`, as the user under RLS; new `UserDb.update`).
+  - `forecast.goal.forecastDailySpending` and `withinPlan` are null when the detection has `loggingGap` (the page already hides the line).
+- **Verification**: `python -m unittest` 119/119 (tip stored by id, not for previews, nothing stored when Gemini is down; no verdict during a gap); `vitest` 218/218 (`createGoal` resolves while the tip never arrives).
+- **Page fixes (Buck | Frontend, `ac9f9af`)**: a stored `aiRecommendation` shows at once and `getGoalTip({ goalId })` runs only when none is stored (effect keyed on the goal id and stored tip); `onGoalCreated` upserts by id (`upsertGoal`), so a new goal is no longer listed twice; "+ Add Progress" is disabled on a reached goal ("This goal is already reached.").
+
+#### BUG-047: [RESOLVED 2026-11-12] Goals: AI Tip Invented Its Own Figures and Was Empty When Gemini Was Busy
+- **Found by**: live Gemini run of the goal-tip prompt (2026-11-12) and Buck | Frontend's signed-in review (Emergency Buffer tip "₱14,400 per month" against the plan's ₱14,769.60).
+- **Impact**:
+  - `POST /advisor/goal-tip` sent Gemini only the target, the amount left, the attitude and the days left, never the goal plan. Gemini worked out its own amounts ("₱242.00 per week", "₱35.00 daily", "approximately ₱1,000.00 per month") and added transfers that are not in the plan, which breaks the rule that every ₱ figure comes from the plan.
+  - With the first Gemini models hung (40 s timeouts, 503s on 2026-11-12) the 20 s budget ran out, and the goal tip, unlike the advice card, had no Groq or rule fallback, so a new goal had no recommendation at all.
+  - The prompt had no target date, so a model wrote "the target date of 2026-11-12 is tight" (today's date). Figures sometimes came back with one decimal ("₱15,600.0").
+  - `updateGoal` (`component/goals.tsx`, no caller yet) still awaited a preview tip that treated saved progress as ₱0, and stored it.
+- **Fix** (`Buck_AI/BuckAI_Advisor/service.py` `goal_tip`, `prompts.goal_tip_prompt`):
+  - The tip is built on `shared/attitude.goal_plan`, the same plan the Goals page and the Forecaster show (saving and spending limit per day, week and month, days to goal, whether the target date is reached). The prompt also gets the target date as "Jan 9, 2027".
+  - Gemini, then Groq (when `GROQ_API_KEY` is set), only words it. A tip with no ₱ figure, or any ₱ figure that is not a plan figure, is discarded. Accepted figures are rewritten as ₱1,234.56.
+  - When no model gives a valid tip, the rule-written tip (built only from the plan) is returned with `source: "rules"` and not stored, so a later visit asks the AI again. Response: `{ tip, source: "ai" | "groq" | "rules" }`.
+  - `updateGoal` saves with an empty tip and then requests it by goal id, like `createGoal`.
+- **Verification**: `python -m unittest` 122/122 (plan figures in the prompt, invented and rounded figures discarded, Groq fallback, rule tip not stored, two-decimal figures); `vitest` goal-data 13/13; `tsc` and `eslint` clean. Live Gemini on three plans: every tip quoted exact plan figures, and the tight date was named correctly.
+- **Follow-up (same day, live check)**: the first version quoted `plan.saving`, which is all spare income ("save ₱52,073.40 per month" toward an ₱11,160 remainder), while the page's "Save per day" showed ₱80.29. The tip now quotes `plan.required` when the user can afford it, and `plan.saving` with "the date is tight" when they can't. A tip for a saved goal also saves the attitude it used (`save_detected`), so the page no longer shows a stale attitude. The two tips written by the drafts were cleared and regenerated. Live: Emergency Buffer "₱492.32 per day" and Ergonomic Workstation Setup "₱2,408.70 per month" (₱80.29 × 30), both matching the page; 125/125 tests.
+- **Advisor card (fixed the same day)**: the card's text was not checked figure by figure the way the tip is. One live card added "record your next ₱1,000", which is not in the data. Now:
+  - `_checked_card` discards a Gemini or Groq card that quotes any ₱ figure missing from the snapshot data, and writes accepted figures as ₱1,234.56.
+  - A saved card is served again only if its figures still pass the check (`_saved_card_ok`), so cards saved before this check are replaced.
+  - The prompt says the habit change has no amount.
+  - Live: Gemini's card was discarded twice for an invented figure, and the rule card (gap stated, plan figures only) replaced the saved "₱1,000" card. 128/128 tests.
+
+#### BUG-048: [RESOLVED 2026-11-12] Advisor: a Logging Gap Read as ₱0.00 a Day
+- **Found by**: Buck | Frontend's signed-in review of `/dashboard/financial-advisor`. The account last logged spending on 2026-10-11 (32 days earlier).
+- **Impact**: `BuckAI_Advisor/plan.py` took typical daily spending as the last 30 days ÷ 30, counted from today. During the gap that was ₱0.00. The card said "keeping everyday spending near ₱0.00 per day" and "your typical daily spending of ₱0.00 based on the last 30 days". The goal attitude and the Forecaster already treated the gap as missing data (`6422c00`), so the Advisor card disagreed with the Goals page.
+- **Fix**:
+  - `snapshot.py` computes `attitude_inputs` once and passes its window to `build_plan`, so the plan and the goal attitude use the same usual spending. During a gap the 30 days end at the last logged expense; a newer user is averaged over the days logged (at least 7).
+  - The plan gains `spending_logged_until` and `typical_daily_spending.period` (e.g. "average over the 30 days up to Oct 11, 2026 (nothing logged since)").
+  - The prompt tells Gemini to say once that nothing is logged since that day and never to call recent spending ₱0. The rule-written card says the same.
+- **Verification**: `python -m unittest` 124/124. New tests: the gap basis and a new user's average in `test_plan`; in the full-stack gap test the Advisor card uses ₱200.00 a day, as the Goals page and the Forecaster do, says logging stopped, and has no "₱0.00 a day".
 
 ---
 
