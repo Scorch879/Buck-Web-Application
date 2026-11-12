@@ -12,8 +12,10 @@ at once.
 """
 
 import math
+from datetime import date
 from typing import Any
 
+from shared.attitude import day_label
 from shared.money import SAVE_MULTIPLIER, SPEND_MULTIPLIER, peso  # noqa: F401  (re-exported)
 
 
@@ -30,17 +32,29 @@ def build_plan(
     days_in_month: int,
     days_remaining_in_month: int,
     goal: dict[str, Any] | None,
+    spend_days: int = 30,
+    spending_until: str | None = None,
 ) -> dict[str, Any]:
-    typical_daily = _round(spent_last_30_days / 30)
+    """`spent_last_30_days`, `spend_days` and `spending_until` come from
+    `shared/attitude.attitude_inputs`, the same usual spending the goal attitude
+    uses: when nothing has been logged for 7+ days the window ends at the last
+    logged expense, so a logging gap is not read as ₱0 a day."""
+    typical_daily = _round(spent_last_30_days / spend_days) if spend_days else 0.0
     spend_mult = SPEND_MULTIPLIER.get(attitude, 1.0)
     save_mult = SAVE_MULTIPLIER.get(attitude, 1.0)
     daily_cap = _round(typical_daily * spend_mult)
+    until = day_label(date.fromisoformat(spending_until)) if spending_until else None
+    if until:
+        period = f"average over the {spend_days} days up to {until} (nothing logged since)"
+        basis = (f"expenses in the {spend_days} days up to {until}, the last logged expense "
+                 f"({peso(spent_last_30_days)}) ÷ {spend_days}")
+    else:
+        period = f"last-{spend_days}-day average"
+        basis = f"last {spend_days} days of expenses ({peso(spent_last_30_days)}) ÷ {spend_days}"
 
     plan: dict[str, Any] = {
-        "typical_daily_spending": {
-            "amount": typical_daily,
-            "basis": f"last 30 days of expenses ({peso(spent_last_30_days)}) ÷ 30",
-        },
+        "spending_logged_until": until,
+        "typical_daily_spending": {"amount": typical_daily, "period": period, "basis": basis},
         "daily_spending_cap": {
             "amount": daily_cap,
             "basis": f"typical daily spending × {spend_mult:.2f} ({attitude} attitude)",

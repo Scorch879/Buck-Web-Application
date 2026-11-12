@@ -71,6 +71,9 @@ Use the numbers in financial_data.plan exactly; do not compute your own targets.
 "basis" that says which period and data it comes from: name that period whenever you use the figure
 (for example "this month so far (Oct 1–16)", "your last-30-day average", "per week until <target date>").
 Never tell the user to move the whole remaining goal amount at once.
+If plan.spending_logged_until is set, the user hasn't logged spending since that day: say so once, plainly,
+and use plan.typical_daily_spending.period for the average (it stops at that day). Never call recent
+spending ₱0 or praise it as low.
 
 Write the user's advisory card:
 - title: at most 6 words.

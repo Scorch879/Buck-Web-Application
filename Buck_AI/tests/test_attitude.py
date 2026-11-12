@@ -294,6 +294,11 @@ class AttitudeApiTests(unittest.IsolatedAsyncioTestCase):
         # The simulation sees the gap as ~0 spending: no forecast figure and no verdict.
         self.assertIsNone(forecast["forecastDailySpending"])
         self.assertIsNone(forecast["withinPlan"])
+        # The Advisor card (rule-written here) uses the same 200 a day, not ₱0.00, and says logging stopped.
+        card = (await self.client.get("/advisor/insight?refresh=true", headers=GOOD)).json()
+        self.assertIn(f"haven't logged spending since {quiet.strftime('%b')}", card["advice"])
+        self.assertIn("is ₱200.00 a day", card["advice"])
+        self.assertNotIn("₱0.00 a day", card["advice"] + card["suggestion"])
 
     async def test_goal_tip_for_a_saved_goal_is_stored_on_it(self):
         tip = "Set aside ₱700.00 a week. Move it on payday."

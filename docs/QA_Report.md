@@ -914,6 +914,16 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
   - When no model gives a valid tip, the rule-written tip (built only from the plan) is returned with `source: "rules"` and not stored, so a later visit asks the AI again. Response: `{ tip, source: "ai" | "groq" | "rules" }`.
   - `updateGoal` saves with an empty tip and then requests it by goal id, like `createGoal`.
 - **Verification**: `python -m unittest` 122/122 (plan figures in the prompt, invented and rounded figures discarded, Groq fallback, rule tip not stored, two-decimal figures); `vitest` goal-data 13/13; `tsc` and `eslint` clean. Live Gemini on three plans: every tip quoted exact plan figures, and the tight date was named correctly.
+- **Stored data**: the one tip saved by an early draft of this fix (Emergency Buffer, "₱52073.4 … ₱29837.1") was rewritten in place to "₱52,073.40 … ₱29,837.10"; both are plan figures.
+
+#### BUG-048: [RESOLVED 2026-11-12] Advisor: a Logging Gap Read as ₱0.00 a Day
+- **Found by**: Buck | Frontend's signed-in review of `/dashboard/financial-advisor`. The account last logged spending on 2026-10-11 (32 days earlier).
+- **Impact**: `BuckAI_Advisor/plan.py` took typical daily spending as the last 30 days ÷ 30, counted from today. During the gap that was ₱0.00. The card said "keeping everyday spending near ₱0.00 per day" and "your typical daily spending of ₱0.00 based on the last 30 days". The goal attitude and the Forecaster already treated the gap as missing data (`6422c00`), so the Advisor card disagreed with the Goals page.
+- **Fix**:
+  - `snapshot.py` computes `attitude_inputs` once and passes its window to `build_plan`, so the plan and the goal attitude use the same usual spending. During a gap the 30 days end at the last logged expense; a newer user is averaged over the days logged (at least 7).
+  - The plan gains `spending_logged_until` and `typical_daily_spending.period` (e.g. "average over the 30 days up to Oct 11, 2026 (nothing logged since)").
+  - The prompt tells Gemini to say once that nothing is logged since that day and never to call recent spending ₱0. The rule-written card says the same.
+- **Verification**: `python -m unittest` 124/124. New tests: the gap basis and a new user's average in `test_plan`; in the full-stack gap test the Advisor card uses ₱200.00 a day, as the Goals page and the Forecaster do, says logging stopped, and has no "₱0.00 a day".
 
 ---
 

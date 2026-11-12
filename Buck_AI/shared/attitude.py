@@ -68,6 +68,7 @@ def attitude_inputs(expenses: Iterable[tuple[date, float]], incomes: Iterable[tu
     income = sum(a for d, a in earned if 0 <= (end - d).days < income_days)
     return {
         "typical_daily": round(last30 / spend_days, 2) if spent else 0.0,
+        "spent_in_window": round(last30, 2),
         "income_daily": round(income / income_days, 2) if income > 0 else None,
         "spend_days": spend_days,
         "income_days": income_days if income > 0 else None,

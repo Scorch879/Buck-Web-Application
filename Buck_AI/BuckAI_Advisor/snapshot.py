@@ -143,6 +143,9 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
     income = (round(sum(a for d, a in income_days if d >= month_start), 2)
               if income_rows is not None else None)
 
+    # Usual spending and income, shared by the plan and the goal attitude (logging gaps handled).
+    inputs = attitude_inputs(spend_days, income_days, today)
+
     # Active goal: only the one the user set active (one per user, kept by the database).
     goal_row = next((g for g in goal_rows if g.get("is_active") and not g.get("completed")), None)
     goal = None
@@ -161,7 +164,6 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
             "days_left": days_left,
         }
         # The Advisor detects the saving attitude the goal needs (shared/attitude.py).
-        inputs = attitude_inputs(spend_days, income_days, today)
         detection = detect_attitude(
             typical_daily=inputs["typical_daily"], income_daily=inputs["income_daily"],
             remaining=goal["remaining"], target_date=target_date, today=today,
@@ -196,7 +198,9 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
         "active_goal": goal,
         "plan": build_plan(
             attitude=attitude,
-            spent_last_30_days=last30,
+            spent_last_30_days=inputs["spent_in_window"],
+            spend_days=inputs["spend_days"],
+            spending_until=inputs["spending_until"],
             income_this_month=income,
             active_wallet_balance=active_balance,
             days_in_month=days_total,
