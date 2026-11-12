@@ -21,7 +21,7 @@
   color: var(--buck-ink);
   background: var(--buck-surface);
   border: 1px solid var(--buck-line);
-  border-radius: 10px;
+  border-radius: var(--buck-card-radius);
   box-shadow: var(--buck-shadow);
 }
 
@@ -38,7 +38,7 @@
 .cat-card h3 {
   margin: 0.12rem 0 0;
   color: var(--buck-ink);
-  font-weight: 700;
+  font-weight: 650;
   line-height: 1.25;
 }
 

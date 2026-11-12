@@ -68,6 +68,7 @@ def attitude_inputs(expenses: Iterable[tuple[date, float]], incomes: Iterable[tu
     income = sum(a for d, a in earned if 0 <= (end - d).days < income_days)
     return {
         "typical_daily": round(last30 / spend_days, 2) if spent else 0.0,
+        "spent_in_window": round(last30, 2),
         "income_daily": round(income / income_days, 2) if income > 0 else None,
         "spend_days": spend_days,
         "income_days": income_days if income > 0 else None,
@@ -95,7 +96,7 @@ def _periods(per_day: float) -> dict[str, float]:
     return {"perDay": _m(per_day), "perWeek": _m(per_day * WEEK), "perMonth": _m(per_day * MONTH)}
 
 
-def _day_label(day: date) -> str:
+def day_label(day: date) -> str:
     return day.strftime("%b %d, %Y").replace(" 0", " ")
 
 
@@ -112,7 +113,7 @@ def detect_attitude(*, typical_daily: float, income_daily: float | None, remaini
     result["loggingGap"] = bool(spending_until)
     result["spendingUntil"] = spending_until
     if spending_until and result.get("requiredSavingPerDay") is not None:
-        since = _day_label(date.fromisoformat(spending_until))
+        since = day_label(date.fromisoformat(spending_until))
         result["reason"] = (f"You haven't logged spending since {since}, so this uses your figures up to then. "
                             + result["reason"])
     return result
@@ -149,7 +150,7 @@ def _detect(typical_daily: float, income_daily: float | None, remaining: float, 
     cut = 1 - allowance / typical_daily
     attitude = _choose(cut, current)
     feasible = cut <= MAX_FEASIBLE_CUT
-    by = _day_label(date.fromisoformat(target_date[:10]))
+    by = day_label(date.fromisoformat(target_date[:10]))
     if cut <= 0:
         reason = (f"Your usual spending of {peso(typical_daily)} a day already leaves room to save "
                   f"{peso(required)} a day, so no cut is needed.")

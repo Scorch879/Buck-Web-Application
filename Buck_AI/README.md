@@ -42,7 +42,7 @@ Every call needs `Authorization: Bearer <Supabase access token>`, the token of t
 | `GET /advisor/history` | `?limit=1..20` | Saved advisories, newest first |
 | `POST /advisor/chat` | `{ question (≤500), history? [{role, content}] (≤8) }` | `text/event-stream` events: `meta` (`ai` or `fallback`), `delta`, `error`, `done` |
 | `POST /advisor/categorize` | `{ kind: "expense" \| "income", descriptions: [1..25] }` | `{ categories: (name \| null)[] }`: only the user's own category names (Gemini is limited to an enum of them); `null` keeps the item in the fallback |
-| `POST /advisor/goal-tip` | `{ goalId }` or `{ goalName, targetAmount, attitude, targetDate? }` | `{ tip }` (two sentences; empty when unavailable) |
+| `POST /advisor/goal-tip` | `{ goalId }` or `{ goalName, targetAmount, attitude, targetDate? }` | `{ tip, source }` (two sentences, plan figures only; `source` ai, groq or rules) |
 | `GET /forecast` | `?horizon=30` or `60` | `{ id, forecast, narrative, generatedWith, explanationPending, createdAt, cached, stale, cooldownUntil }`: numbers right away; never writes |
 | `POST /forecast/explain` | `?horizon=30\|60&refresh=true\|false` | Same shape, with the Groq explanation (rules if unavailable), saved |
 | `GET /forecast/history` | `?limit=1..20` | Saved forecasts, newest first |

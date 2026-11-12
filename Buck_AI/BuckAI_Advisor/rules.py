@@ -65,8 +65,11 @@ def rule_insight(snapshot: Snapshot) -> dict[str, str]:
     cap = plan["daily_spending_cap"]["amount"]
     typical = plan["typical_daily_spending"]["amount"]
     month = f"this month so far ({d['month']['start']} to {d['today']})"
+    period = plan["typical_daily_spending"].get("period", "last-30-day average")
+    gap = (f"You haven't logged spending since {plan['spending_logged_until']}, so these figures stop there. "
+           if plan.get("spending_logged_until") else "")
     spending_line = (
-        f"You have spent {peso(spent)} {month}, and your last-30-day average is {peso(typical)} a day. "
+        f"{gap}You have spent {peso(spent)} {month}, and your {period} is {peso(typical)} a day. "
         f"Your {d['saving_attitude']} saving attitude sets a daily cap of {peso(cap)}."
     )
 

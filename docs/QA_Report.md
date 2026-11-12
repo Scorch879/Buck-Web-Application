@@ -210,6 +210,21 @@ Two fixes came out of it:
   - Not checked yet: the same screens with live Buck_AI data (detected attitude, plan numbers, 30-day chart) and the create, set-active and add-progress writes. They need a signed-in session.
 - Financial Advisor at 320px: the page grid's implicit `auto` column grew to 311px inside a 296px content area, so every card ran 3px off screen. The page grid and its responsive single columns now use `minmax(0, 1fr)`.
 
+### 📏 Measured Card Uniformity Across Tabs (2026-11-12)
+
+On every dashboard tab at 1280px, signed in, I read the computed corner radius, padding and title and eyebrow type of each outer card.
+
+| Finding | Before | After |
+|---|---|---|
+| Card corner radius | 8px on Home, Wallet, Forecast, Advisor, Admin and Settings; 10px on Expenses, Categories, Goals, Statistics and the Getting started card | 8px everywhere, via the new `--buck-card-radius` token. Modals keep their own radius. |
+| Categories card titles | weight 700 | 650, like every other card title |
+| Monthly cash flow / Income history titles | 1.25rem / 700 | `--buck-card-title-size` / 650 |
+| Home AI card eyebrows | 0.74rem / 800 | 0.75rem / 650, like every other eyebrow |
+
+Card padding still varies between tabs (15–24px). It follows each tab's density (dense tables and tiles against hero cards), so it is left as it is. The skeletons use the same classes, so they pick up the changes (ADR-012).
+
+The Goals card now labels a rule-written tip (`source: "rules"` from `POST /advisor/goal-tip`, BUG-047) "Buck's plan" instead of "AI recommendation", via `getGoalTipWithSource`.
+
 ### 🔎 Signed-In Tab Review at Phone Width (2026-11-12)
 
 Every dashboard tab was checked signed in, at 404px, in dark mode. Advisor and Forecast were also checked in light mode.
@@ -228,7 +243,7 @@ Checked and fine:
 
 - **Statistics:** the "AI forecast / Forecast vs actual" card was mislabelled at desktop width. Its orange "Expected spending" line was the goal's required saving per day (amount left divided by days left, from `utils/goalForecast.ts`). Its "What you spent" line was always ₱0, because `actual_per_day` is never filled in. The note said "keep daily spending under ₱492.32", which is a saving target, not a spending cap. The card is now "Goal / Daily saving pace", with one line, "Save each day", and the note "Save ₱X a day to reach <goal> by its target date." The skeleton matches (ADR-012).
 
-Left for AI Integration Architecture: one Goals tip said "₱14,400 per month". The plan's required amount is ₱14,769.60 per month. The tip also suggested a separate savings account, which is not in the plan.
+Left for AI Integration Architecture: one Goals tip said "₱14,400 per month". The plan's required amount is ₱14,769.60 per month. The tip also suggested a separate savings account, which is not in the plan. Fixed in BUG-047: the tip now gets the goal plan and is thrown away if it quotes any other ₱ figure.
 
 ### 🎞️ Motion Uniformity Sweep (2026-11-12, ADR-054)
 
@@ -900,6 +915,31 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
   - `forecast.goal.forecastDailySpending` and `withinPlan` are null when the detection has `loggingGap` (the page already hides the line).
 - **Verification**: `python -m unittest` 119/119 (tip stored by id, not for previews, nothing stored when Gemini is down; no verdict during a gap); `vitest` 218/218 (`createGoal` resolves while the tip never arrives).
 - **Page fixes (Buck | Frontend, `ac9f9af`)**: a stored `aiRecommendation` shows at once and `getGoalTip({ goalId })` runs only when none is stored (effect keyed on the goal id and stored tip); `onGoalCreated` upserts by id (`upsertGoal`), so a new goal is no longer listed twice; "+ Add Progress" is disabled on a reached goal ("This goal is already reached.").
+
+#### BUG-047: [RESOLVED 2026-11-12] Goals: AI Tip Invented Its Own Figures and Was Empty When Gemini Was Busy
+- **Found by**: live Gemini run of the goal-tip prompt (2026-11-12) and Buck | Frontend's signed-in review (Emergency Buffer tip "₱14,400 per month" against the plan's ₱14,769.60).
+- **Impact**:
+  - `POST /advisor/goal-tip` sent Gemini only the target, the amount left, the attitude and the days left, never the goal plan. Gemini worked out its own amounts ("₱242.00 per week", "₱35.00 daily", "approximately ₱1,000.00 per month") and added transfers that are not in the plan, which breaks the rule that every ₱ figure comes from the plan.
+  - With the first Gemini models hung (40 s timeouts, 503s on 2026-11-12) the 20 s budget ran out, and the goal tip, unlike the advice card, had no Groq or rule fallback, so a new goal had no recommendation at all.
+  - The prompt had no target date, so a model wrote "the target date of 2026-11-12 is tight" (today's date). Figures sometimes came back with one decimal ("₱15,600.0").
+  - `updateGoal` (`component/goals.tsx`, no caller yet) still awaited a preview tip that treated saved progress as ₱0, and stored it.
+- **Fix** (`Buck_AI/BuckAI_Advisor/service.py` `goal_tip`, `prompts.goal_tip_prompt`):
+  - The tip is built on `shared/attitude.goal_plan`, the same plan the Goals page and the Forecaster show (saving and spending limit per day, week and month, days to goal, whether the target date is reached). The prompt also gets the target date as "Jan 9, 2027".
+  - Gemini, then Groq (when `GROQ_API_KEY` is set), only words it. A tip with no ₱ figure, or any ₱ figure that is not a plan figure, is discarded. Accepted figures are rewritten as ₱1,234.56.
+  - When no model gives a valid tip, the rule-written tip (built only from the plan) is returned with `source: "rules"` and not stored, so a later visit asks the AI again. Response: `{ tip, source: "ai" | "groq" | "rules" }`.
+  - `updateGoal` saves with an empty tip and then requests it by goal id, like `createGoal`.
+- **Verification**: `python -m unittest` 122/122 (plan figures in the prompt, invented and rounded figures discarded, Groq fallback, rule tip not stored, two-decimal figures); `vitest` goal-data 13/13; `tsc` and `eslint` clean. Live Gemini on three plans: every tip quoted exact plan figures, and the tight date was named correctly.
+- **Follow-up (same day, live check)**: the first version quoted `plan.saving`, which is all spare income ("save ₱52,073.40 per month" toward an ₱11,160 remainder), while the page's "Save per day" showed ₱80.29. The tip now quotes `plan.required` when the user can afford it, and `plan.saving` with "the date is tight" when they can't. A tip for a saved goal also saves the attitude it used (`save_detected`), so the page no longer shows a stale attitude. The two tips written by the drafts were cleared and regenerated. Live: Emergency Buffer "₱492.32 per day" and Ergonomic Workstation Setup "₱2,408.70 per month" (₱80.29 × 30), both matching the page; 125/125 tests.
+- **Still open**: the Advisor card's own text is not checked figure by figure the way the tip is. One live card added "record your next ₱1,000", which is not a plan figure.
+
+#### BUG-048: [RESOLVED 2026-11-12] Advisor: a Logging Gap Read as ₱0.00 a Day
+- **Found by**: Buck | Frontend's signed-in review of `/dashboard/financial-advisor`. The account last logged spending on 2026-10-11 (32 days earlier).
+- **Impact**: `BuckAI_Advisor/plan.py` took typical daily spending as the last 30 days ÷ 30, counted from today. During the gap that was ₱0.00. The card said "keeping everyday spending near ₱0.00 per day" and "your typical daily spending of ₱0.00 based on the last 30 days". The goal attitude and the Forecaster already treated the gap as missing data (`6422c00`), so the Advisor card disagreed with the Goals page.
+- **Fix**:
+  - `snapshot.py` computes `attitude_inputs` once and passes its window to `build_plan`, so the plan and the goal attitude use the same usual spending. During a gap the 30 days end at the last logged expense; a newer user is averaged over the days logged (at least 7).
+  - The plan gains `spending_logged_until` and `typical_daily_spending.period` (e.g. "average over the 30 days up to Oct 11, 2026 (nothing logged since)").
+  - The prompt tells Gemini to say once that nothing is logged since that day and never to call recent spending ₱0. The rule-written card says the same.
+- **Verification**: `python -m unittest` 124/124. New tests: the gap basis and a new user's average in `test_plan`; in the full-stack gap test the Advisor card uses ₱200.00 a day, as the Goals page and the Forecaster do, says logging stopped, and has no "₱0.00 a day".
 
 ---
 

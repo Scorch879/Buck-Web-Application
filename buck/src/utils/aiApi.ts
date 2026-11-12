@@ -40,23 +40,39 @@ export async function suggestCategory(kind: CategorizeKind, description: string)
 
 /**
  * Two-sentence Advisor tip for a saved goal (`{ goalId }`) or a goal being
- * created. Empty string when no tip is available (tips are optional).
+ * created. Every ₱ figure in it is from the goal plan. When no AI model gives a
+ * valid tip, Buck_AI sends the rule-written tip (`source: "rules"`) and does not
+ * store it. Empty string when Buck_AI can't be reached (tips are optional).
  */
-export async function getGoalTip(
-  goal: { goalId: string } | { goalName: string; targetAmount: number | string; attitude: string; targetDate?: string }
-): Promise<string> {
+type GoalTipRequest =
+  | { goalId: string }
+  | { goalName: string; targetAmount: number | string; attitude: string; targetDate?: string };
+
+/** Who wrote a goal tip: an AI model, or Buck's rules from the goal plan. */
+export type GoalTipSource = "ai" | "groq" | "rules";
+
+/** The tip with its source, so the UI can label a rule-written tip honestly. */
+export async function getGoalTipWithSource(
+  goal: GoalTipRequest
+): Promise<{ tip: string; source: GoalTipSource | null }> {
   try {
     const body =
       "goalId" in goal
         ? goal
         : { ...goal, targetAmount: Number(goal.targetAmount), targetDate: goal.targetDate || undefined };
     const response = await buckAiFetch("/advisor/goal-tip", { method: "POST", body: JSON.stringify(body) });
-    if (!response.ok) return "";
-    const data: { tip?: unknown } = await response.json();
-    return typeof data.tip === "string" ? data.tip : "";
+    if (!response.ok) return { tip: "", source: null };
+    const data: { tip?: unknown; source?: unknown } = await response.json();
+    const source =
+      data.source === "ai" || data.source === "groq" || data.source === "rules" ? data.source : null;
+    return { tip: typeof data.tip === "string" ? data.tip : "", source };
   } catch {
-    return "";
+    return { tip: "", source: null };
   }
+}
+
+export async function getGoalTip(goal: GoalTipRequest): Promise<string> {
+  return (await getGoalTipWithSource(goal)).tip;
 }
 
 /**

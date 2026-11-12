@@ -191,8 +191,8 @@ html[data-buck-theme="dark"] .primaryBtn {
 
 .listTitle {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: var(--buck-card-title-size);
+  font-weight: 650;
   color: var(--buck-ink);
 }
 

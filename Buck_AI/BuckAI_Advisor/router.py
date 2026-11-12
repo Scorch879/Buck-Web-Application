@@ -108,7 +108,7 @@ async def goal_tip(body: GoalTipInput, user: AuthUser = Depends(current_user)):
               "attitude": body.attitude, "target_date": body.target_date}
     )
     try:
-        return {"tip": await service.goal_tip(_db(user), goal)}
+        return await service.goal_tip(_db(user), goal)
     except LookupError:
         raise HTTPException(404, "Goal not found.")
     except DbError:
