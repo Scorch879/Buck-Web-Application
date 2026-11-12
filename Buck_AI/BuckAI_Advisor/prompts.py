@@ -114,9 +114,9 @@ GOAL_TIP_SCHEMA_STRICT = {**GOAL_TIP_SCHEMA, "additionalProperties": False}
 def goal_tip_prompt(goal: dict[str, Any]) -> str:
     return f"""{fence("financial_data", goal)}
 Write exactly two sentences for this goal.
-1. How much to save, quoting one figure from financial_data.plan.saving exactly as given (perDay, perWeek or
+1. How much to save, quoting one figure from financial_data.plan.save exactly as given (perDay, perWeek or
    perMonth; pick the period that fits days_left) and naming that period, plus the matching spending limit from
-   financial_data.plan.spending for the same period.
+   financial_data.plan.spendingLimit for the same period.
 2. One practical way to do it.
 The plan is already scaled by the saving attitude. Use no other peso figure: do not round, add up or invent
 amounts, transfers or accounts. If plan.reachesByTargetDate is false, say the date is tight instead of

@@ -301,7 +301,10 @@ class AttitudeApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("₱0.00 a day", card["advice"] + card["suggestion"])
 
     async def test_goal_tip_for_a_saved_goal_is_stored_on_it(self):
-        tip = "Set aside ₱700.00 a week. Move it on payday."
+        plan = (await self.client.post("/advisor/attitude", headers=GOOD, json={"goalId": GOAL_ID})).json()["plan"]
+        self.supa.saved.clear()
+        self.supa.goal["attitude_basis"] = None
+        tip = f"Set aside ₱{plan['saving']['perWeek']:,.2f} a week. Move it on payday."
         with mock.patch.object(gemini, "generate_json", mock.AsyncMock(return_value={"tip": tip})):
             r = await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": GOAL_ID})
             self.assertEqual(r.json()["tip"], tip)
@@ -309,6 +312,8 @@ class AttitudeApiTests(unittest.IsolatedAsyncioTestCase):
             table, filters, values = self.supa.patched[0]
             self.assertEqual((table, values), ("goals", {"ai_recommendation": tip}))
             self.assertEqual((filters["id"], filters["deleted_at"]), (f"eq.{GOAL_ID}", "is.null"))
+            # The attitude the tip's plan uses is saved on the goal, so the page shows the same one.
+            self.assertEqual([(x["p_goal_id"], x["p_attitude"]) for x in self.supa.saved], [(GOAL_ID, "Aggressive")])
             # A tip for a goal still being created is not stored anywhere.
             await self.client.post("/advisor/goal-tip", headers=GOOD,
                                    json={"goalName": "Bike", "targetAmount": 5000, "attitude": "Normal"})
@@ -329,11 +334,32 @@ class AttitudeApiTests(unittest.IsolatedAsyncioTestCase):
         with mock.patch.object(gemini, "generate_json", gen):
             r = (await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": GOAL_ID})).json()
         sent = json.loads(gen.await_args.args[1].split("<financial_data>")[1].split("</financial_data>")[0])
-        self.assertEqual(sent["plan"]["saving"], plan["saving"])
-        self.assertEqual(sent["plan"]["spending"], plan["spending"])
+        # Out of reach by the date: the most the user can save, and the date is tight.
+        self.assertFalse(plan["reachesByTargetDate"])
+        self.assertEqual(sent["plan"]["save"], plan["saving"])
+        self.assertEqual(sent["plan"]["spendingLimit"], plan["spending"])
+        self.assertEqual(sent["plan"]["daysToGoalAtThisPace"], plan["daysToGoal"])
         self.assertEqual(r["source"], "rules")  # ₱1.00 is not a plan figure
         self.assertEqual(self.supa.patched, [])
         self.assertRegex(sent["target_date"], r"^[A-Z][a-z]{2} \d{1,2}, \d{4}$")  # e.g. "Jan 9, 2027", not today
+
+    async def test_reachable_goal_tip_quotes_the_pace_the_goal_needs(self):
+        # 1,000 left over 90 days: the goal needs ₱11.11 a day, far less than the user can spare.
+        self.supa.goal.update(target_amount=2000, current_amount=1000)
+        plan = (await self.client.post("/advisor/attitude", headers=GOOD, json={"goalId": GOAL_ID})).json()["plan"]
+        self.assertTrue(plan["reachesByTargetDate"])
+        self.assertLess(plan["required"]["perDay"], plan["saving"]["perDay"])
+        spare = f"Save ₱{plan['saving']['perMonth']:,.2f} a month. Skip coffee."  # all spare income: not a plan
+        gen = mock.AsyncMock(return_value={"tip": spare})
+        with mock.patch.object(gemini, "generate_json", gen):
+            r = (await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": GOAL_ID})).json()
+        sent = json.loads(gen.await_args.args[1].split("<financial_data>")[1].split("</financial_data>")[0])
+        self.assertEqual(sent["plan"]["save"], plan["required"])
+        self.assertIsNone(sent["plan"]["daysToGoalAtThisPace"])
+        self.assertEqual(r["source"], "rules")
+        self.assertTrue(r["tip"].startswith(f"Save ₱{plan['required']['perWeek']:,.2f} a week "
+                                            f"(₱{plan['required']['perDay']:,.2f} a day)"), r["tip"])
+        self.assertIn("reaches Laptop by", r["tip"])
 
     async def test_goal_tip_figures_are_written_with_two_decimals(self):
         plan = (await self.client.post("/advisor/attitude", headers=GOOD, json={"goalId": GOAL_ID})).json()["plan"]

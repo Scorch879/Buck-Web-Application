@@ -259,9 +259,23 @@ def _peso_format(tip: str) -> str:
 def _plan_figures(data: dict[str, Any]) -> set[float]:
     plan = data.get("plan") or {}
     figures = {data["target_amount"], data["remaining_amount"]}
-    for key in ("saving", "spending", "required"):
+    for key in ("save", "spendingLimit"):
         figures.update((plan.get(key) or {}).values())
     return figures
+
+
+def _tip_plan(plan: dict[str, Any]) -> dict[str, Any]:
+    """What the tip may quote. `save` is the pace the goal needs (`required`, the
+    page's "Save per day") when the user can afford it; otherwise the most they
+    can save (`saving`), and the date is tight. Never the full spare income:
+    saving ₱52,073.40 a month toward an ₱11,160 remainder is not a plan."""
+    reaches = bool(plan.get("reachesByTargetDate"))
+    return {
+        "save": plan["required"] if reaches else plan["saving"],
+        "spendingLimit": plan["spending"],
+        "reachesByTargetDate": reaches,
+        "daysToGoalAtThisPace": None if reaches else plan.get("daysToGoal"),
+    }
 
 
 def rule_goal_tip(data: dict[str, Any]) -> str:
@@ -269,14 +283,14 @@ def rule_goal_tip(data: dict[str, Any]) -> str:
     plan = data.get("plan")
     if not plan:
         return ""
-    save, spend = plan["saving"], plan["spending"]
+    save, spend = plan["save"], plan["spendingLimit"]
     first = (f"Save {peso(save['perWeek'])} a week ({peso(save['perDay'])} a day) by keeping spending "
              f"under {peso(spend['perDay'])} a day.")
-    if plan.get("reachesByTargetDate"):
-        second = f"At that pace you reach {data['goal']} in about {plan['daysToGoal']} days, before your target date."
-    elif plan.get("daysToGoal"):
-        second = (f"At that pace {data['goal']} takes about {plan['daysToGoal']} days, so a later target date "
-                  "or a smaller target would fit better.")
+    if plan["reachesByTargetDate"]:
+        second = f"That pace reaches {data['goal']} by {data['target_date']}."
+    elif plan.get("daysToGoalAtThisPace"):
+        second = (f"At that pace {data['goal']} takes about {plan['daysToGoalAtThisPace']} days, so a later "
+                  "target date or a smaller target would fit better.")
     else:
         second = "Log your income so Buck can see how much is left to save."
     return f"{first} {second}"
@@ -294,8 +308,10 @@ async def goal_tip(db: UserDb, goal: dict[str, Any]) -> dict[str, str]:
     the page shows it at once and a new goal never waits for Gemini."""
     today = today_ph()
     goal_id = goal.get("goal_id")
+    r: dict[str, Any] | None = None
     if goal_id:
-        rows = await db.select("goals", {"select": "goal_name,target_amount,current_amount,target_date,attitude",
+        rows = await db.select("goals", {"select": "goal_name,target_amount,current_amount,target_date,attitude,"
+                                                   "attitude_basis",
                                          "user_id": f"eq.{db.user_id}", "id": f"eq.{goal['goal_id']}", "deleted_at": "is.null", "limit": "1"})
         if not rows:
             raise LookupError("Goal not found.")
@@ -311,6 +327,9 @@ async def goal_tip(db: UserDb, goal: dict[str, Any]) -> dict[str, str]:
     detection = detect_attitude(typical_daily=inputs["typical_daily"], income_daily=inputs["income_daily"],
                                 remaining=remaining, target_date=target_date, today=today, current=attitude,
                                 spending_until=inputs.get("spending_until"))
+    if goal_id:
+        # The tip quotes this plan, so the goal shows the same attitude (written only on a change).
+        await save_detected(db, goal_id, detection, r)
     plan = goal_plan(detection)
     data = {
         "goal": clean_text(goal.get("name"), 80) or "Goal",
@@ -320,8 +339,7 @@ async def goal_tip(db: UserDb, goal: dict[str, Any]) -> dict[str, str]:
         "days_left": detection["daysLeft"],
         "today": day_label(today),
         "target_date": _date_label(target_date),
-        "plan": plan and {k: plan[k] for k in ("saving", "spending", "required", "daysToGoal",
-                                                 "reachesByTargetDate")},
+        "plan": plan and _tip_plan(plan),
     }
     if not plan:  # reached, date passed or no spending logged: the reason already says it
         return {"tip": detection["reason"], "source": "rules"}
