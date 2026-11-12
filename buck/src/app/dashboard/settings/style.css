@@ -1984,7 +1984,7 @@ html[data-buck-theme="dark"] .wallet-row--active {
 
 .wallet-row-title .settings-wallet-budget {
   font-size: 0.98rem;
-  font-weight: 700;
+  font-weight: 650;
   color: var(--buck-orange);
   white-space: nowrap;
   flex-shrink: 0;
