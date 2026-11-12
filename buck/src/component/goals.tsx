@@ -32,20 +32,18 @@ export async function createGoal(
   try {
     const detected = await detectGoalAttitude({ targetAmount, targetDate });
     const chosen: SavingAttitude = detected?.attitude ?? (isSavingAttitude(attitude) ? attitude : "Normal");
-    const aiRecommendation = await getGoalTip({
-      goalName,
-      targetAmount,
-      attitude: chosen,
-      targetDate,
-    });
+    // Saved without a tip: the Advisor's two-sentence tip comes from Gemini, which can
+    // take many seconds when busy. Buck_AI writes it onto the goal
+    // (`goals.ai_recommendation`) once ready, so creating never waits for it.
     const goal = await createGoalRecord(
       goalName,
       targetAmount,
       chosen,
       targetDate,
-      aiRecommendation,
+      "",
       detected ? basisOf(detected) : null
     );
+    void getGoalTip({ goalId: goal.id });
 
     return { success: true, goal, attitude: detected };
   } catch (error) {

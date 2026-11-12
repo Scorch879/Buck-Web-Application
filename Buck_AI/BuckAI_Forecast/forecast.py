@@ -250,7 +250,11 @@ def _goal(h: History, observed: int, sim) -> dict[str, Any] | None:
         # whether the forecast spending fits inside it (1% slack for rounding).
         plan = goal_plan(h.detection)
         out.update({"attitudeReason": h.detection["reason"], "feasible": h.detection["feasible"], "plan": plan})
-        if plan:
+        if h.detection.get("loggingGap"):
+            # Nothing logged lately: the simulation sees near-zero spending, which says
+            # nothing about the real pace, so no forecast spending and no verdict.
+            out["forecastDailySpending"] = None
+        elif plan:
             out["withinPlan"] = expected_daily <= plan["spending"]["perDay"] * 1.01
     incomes = [i for i in h.incomes if h.today - timedelta(days=89) <= i.day <= h.today]
     if not incomes or observed < 30 or remaining <= 0:

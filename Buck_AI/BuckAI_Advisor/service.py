@@ -235,9 +235,12 @@ async def get_insight(db: UserDb, refresh: bool = False) -> dict[str, Any]:
 
 async def goal_tip(db: UserDb, goal: dict[str, Any]) -> str:
     """Two-sentence tip for a saved goal (`goal_id`) or one being created.
-    Empty string when Gemini is unavailable; callers treat tips as optional."""
+    Empty string when Gemini is unavailable; callers treat tips as optional.
+    A tip for a saved goal is also stored on it (`goals.ai_recommendation`), so
+    the page can show it at once and a new goal never waits for Gemini."""
     today = today_ph()
-    if goal.get("goal_id"):
+    goal_id = goal.get("goal_id")
+    if goal_id:
         rows = await db.select("goals", {"select": "goal_name,target_amount,current_amount,target_date,attitude",
                                          "user_id": f"eq.{db.user_id}", "id": f"eq.{goal['goal_id']}", "deleted_at": "is.null", "limit": "1"})
         if not rows:
@@ -263,10 +266,17 @@ async def goal_tip(db: UserDb, goal: dict[str, Any]) -> str:
     try:
         out = await gemini.generate_json(prompts.insight_system_prompt(), prompts.goal_tip_prompt(data),
                                          prompts.GOAL_TIP_SCHEMA)
-        return limit_sentences(clean_text(out.get("tip"), 400), 2)
+        tip = limit_sentences(clean_text(out.get("tip"), 400), 2)
     except gemini.GeminiUnavailable as exc:
         log.warning("Advisor goal tip unavailable: %s", exc)
         return ""
+    if goal_id and tip:
+        try:
+            await db.update("goals", {"id": f"eq.{goal_id}", "user_id": f"eq.{db.user_id}",
+                                      "deleted_at": "is.null"}, {"ai_recommendation": tip})
+        except DbError as exc:  # the tip is still returned; saving it is best effort
+            log.warning("Could not save the goal tip: %s", exc)
+    return tip
 
 
 # --------------------------------------------------------- saving attitude

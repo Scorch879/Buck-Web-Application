@@ -25,6 +25,7 @@ vi.mock("@/utils/buckAi", () => ({
   buckAiError: vi.fn(),
 }));
 
+import { createGoal } from "@/component/goals";
 import { detectGoalAttitude } from "./aiApi";
 import {
   addGoalProgressRecord,
@@ -227,5 +228,45 @@ describe("restoreGoalRecord", () => {
     });
 
     await expect(restoreGoalRecord(goalId)).rejects.toThrow("Goal restore failed");
+  });
+});
+
+describe("createGoal", () => {
+  it("saves the goal without waiting for the Gemini tip, then asks for it by id", async () => {
+    const detected = {
+      attitude: "Moderate",
+      goalId: null,
+      plan: null,
+      window: { spendingDays: 30, incomeDays: 30 },
+      reason: "Spend about 10% less.",
+      feasible: true,
+    };
+    buckAiFetch.mockImplementation((path: string) =>
+      path === "/advisor/attitude"
+        ? Promise.resolve(new Response(JSON.stringify(detected), { status: 200 }))
+        : new Promise(() => {}) // the tip never arrives: creating must not wait for it
+    );
+    const insert = vi.fn().mockReturnThis();
+    const select = vi.fn().mockReturnThis();
+    const single = vi.fn().mockResolvedValue({
+      data: {
+        id: goalId, goal_name: "Bike", target_amount: "5000.00", current_amount: "0.00",
+        target_date: "2027-02-01", created_at: "2026-11-12T00:00:00.000Z", attitude: "Moderate",
+        attitude_basis: null, attitude_detected_at: null, is_active: true, completed: false,
+        ai_recommendation: "", ai_recommended_budget: null, deleted_at: null,
+      },
+      error: null,
+    });
+    from.mockReturnValue({ insert, select, single });
+
+    const result = await createGoal("Bike", "5000", "", "2027-02-01");
+
+    expect(result.success).toBe(true);
+    expect(result.goal?.id).toBe(goalId);
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ attitude: "Moderate", ai_recommendation: "", is_active: false })
+    );
+    const tipCall = buckAiFetch.mock.calls.find(([path]) => path === "/advisor/goal-tip");
+    expect(JSON.parse(tipCall?.[1].body)).toEqual({ goalId });
   });
 });

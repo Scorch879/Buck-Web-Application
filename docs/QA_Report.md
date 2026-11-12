@@ -869,6 +869,18 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
   - The Goals page UI (detected attitude instead of a dropdown, the Forecaster's plan in the forecast dialog) is handed to Buck | Frontend.
 - **Verification**: rolled-back SQL scenario as a real user (switch, add, finish, auto-activate, bad input, other users' goals invisible); `python -m unittest` 111/111 with 17 new attitude and API tests; `vitest` with 8 new goal-data tests.
 
+#### BUG-046: [RESOLVED 2026-11-12] Goals: Creating Waited on Gemini; Forecast Called a Logging Gap "Within Plan"
+- **Found by**: browser end-to-end run of the Goals page on localhost (2026-11-11), signed in, live Buck_AI.
+- **Impact**:
+  - `createGoal` (`component/goals.tsx`) awaited the Advisor's Gemini goal tip before inserting the row. With Gemini busy this took about 20 s with no feedback, so the goal looked unsaved.
+  - The goal tip was never stored by id: the page asked Gemini again on every goal selection, so "AI recommendation" sat on "Loading…".
+  - During a logging gap the Forecaster simulated near-zero spending and the dialog said "Forecast spending is ₱47.21 per day, within your plan".
+- **Fix**:
+  - `createGoal` inserts first, then requests the tip with `{ goalId }`; `POST /advisor/goal-tip` with a goal id now stores the tip on the goal (`goals.ai_recommendation`, as the user under RLS; new `UserDb.update`).
+  - `forecast.goal.forecastDailySpending` and `withinPlan` are null when the detection has `loggingGap` (the page already hides the line).
+- **Verification**: `python -m unittest` 119/119 (tip stored by id, not for previews, nothing stored when Gemini is down; no verdict during a gap); `vitest` 218/218 (`createGoal` resolves while the tip never arrives).
+- **Open (Buck | Frontend)**: show the stored `aiRecommendation` at once instead of re-asking Gemini on every selection; a new goal is listed twice until reload (the 1 s `onGoalCreated` append races the cache sync); Add Progress stays enabled on a completed goal.
+
 ---
 
 ## 3. Security & Compliance Audit Matrix
