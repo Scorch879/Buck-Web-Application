@@ -172,6 +172,7 @@ GOOD = {"Authorization": "Bearer good"}
 class FakeSupabase:
     def __init__(self):
         self.saved: list[dict] = []
+        self.patched: list[tuple[str, dict, dict]] = []
         self.goal = {"id": GOAL_ID, "goal_name": "Laptop", "target_amount": 10000, "current_amount": 1000,
                      "target_date": (NOW + timedelta(days=90)).isoformat(), "attitude": "Normal",
                      "attitude_basis": None, "is_active": True, "completed": False}
@@ -186,6 +187,9 @@ class FakeSupabase:
         if table == "save_goal_attitude":
             self.saved.append(json.loads(request.content))
             return httpx.Response(200, json=True)
+        if request.method == "PATCH":
+            self.patched.append((table, dict(request.url.params), json.loads(request.content)))
+            return httpx.Response(200, json=[{"id": GOAL_ID}])
         if request.method == "POST":
             row = {**json.loads(request.content), "id": "row-1", "created_at": "2026-11-11T00:00:00+00:00"}
             return httpx.Response(201, json=[row])
@@ -287,6 +291,28 @@ class AttitudeApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(forecast["plan"]["spending"], advisor["plan"]["spending"])
         self.assertEqual(forecast["plan"]["saving"], advisor["plan"]["saving"])
         self.assertTrue(all(s["p_basis"]["loggingGap"] for s in self.supa.saved))
+        # The simulation sees the gap as ~0 spending: no forecast figure and no verdict.
+        self.assertIsNone(forecast["forecastDailySpending"])
+        self.assertIsNone(forecast["withinPlan"])
+
+    async def test_goal_tip_for_a_saved_goal_is_stored_on_it(self):
+        tip = "Set aside ₱700.00 a week. Move it on payday."
+        with mock.patch.object(gemini, "generate_json", mock.AsyncMock(return_value={"tip": tip})):
+            r = await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": GOAL_ID})
+            self.assertEqual(r.json()["tip"], tip)
+            self.assertEqual(len(self.supa.patched), 1)
+            table, filters, values = self.supa.patched[0]
+            self.assertEqual((table, values), ("goals", {"ai_recommendation": tip}))
+            self.assertEqual((filters["id"], filters["deleted_at"]), (f"eq.{GOAL_ID}", "is.null"))
+            # A tip for a goal still being created is not stored anywhere.
+            await self.client.post("/advisor/goal-tip", headers=GOOD,
+                                   json={"goalName": "Bike", "targetAmount": 5000, "attitude": "Normal"})
+            self.assertEqual(len(self.supa.patched), 1)
+
+    async def test_goal_tip_unavailable_stores_nothing(self):
+        r = await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": GOAL_ID})
+        self.assertEqual(r.json()["tip"], "")
+        self.assertEqual(self.supa.patched, [])
 
     async def test_inactive_goal_is_not_planned(self):
         self.supa.goal["is_active"] = False

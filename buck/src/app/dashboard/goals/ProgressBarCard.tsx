@@ -41,6 +41,8 @@ const ProgressBarCard: React.FC<ProgressBarCardProps> = ({ goal, onAddProgress }
   const targetAmount = Math.max(1, goal.targetAmount || 1);
   const progressPercentage = Math.min(Math.max(0, (currentAmount / targetAmount) * 100), 100);
   const remainingAmount = Math.max(goal.targetAmount - currentAmount, 0);
+  // The database refuses progress on a reached goal (P0002), so don't offer it.
+  const isReached = Boolean(goal.completed) || currentAmount >= goal.targetAmount;
 
   // Vertical position calculation:
   // At 0%: Y = 148 (below bottom)
@@ -164,6 +166,8 @@ const ProgressBarCard: React.FC<ProgressBarCardProps> = ({ goal, onAddProgress }
             type="button"
             className="progress-add-btn"
             onClick={() => onAddProgress(goal)}
+            disabled={isReached}
+            title={isReached ? "This goal is already reached." : undefined}
           >
             + Add Progress
           </button>
