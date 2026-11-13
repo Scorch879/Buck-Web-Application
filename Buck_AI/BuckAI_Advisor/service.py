@@ -294,9 +294,15 @@ def _date_label(value: str | None) -> str | None:
         return None
 
 
+# Models copy the plan keys ("perMonth") or capitalise them ("per Month").
+_PERIOD_WORD = re.compile(r"\bper\s?(Day|Week|Month)\b")
+
+
 def _peso_format(tip: str) -> str:
-    """Write every ₱ figure as ₱1,234.56 (models sometimes drop a decimal: ₱15,600.0)."""
-    return _PESO_FIGURE.sub(lambda m: peso(float(m.group(1).replace(",", ""))), tip)
+    """Write every ₱ figure as ₱1,234.56 (models sometimes drop a decimal: ₱15,600.0)
+    and every period as plain "per day / week / month"."""
+    tip = _PESO_FIGURE.sub(lambda m: peso(float(m.group(1).replace(",", ""))), tip)
+    return _PERIOD_WORD.sub(lambda m: f"per {m.group(1).lower()}", tip)
 
 
 def _plan_figures(data: dict[str, Any]) -> set[float]:

@@ -1009,9 +1009,21 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
 - **Impact**: `BuckAI_Advisor/plan.py` took typical daily spending as the last 30 days ÷ 30, counted from today. During the gap that was ₱0.00. The card said "keeping everyday spending near ₱0.00 per day" and "your typical daily spending of ₱0.00 based on the last 30 days". The goal attitude and the Forecaster already treated the gap as missing data (`6422c00`), so the Advisor card disagreed with the Goals page.
 - **Fix**:
   - `snapshot.py` computes `attitude_inputs` once and passes its window to `build_plan`, so the plan and the goal attitude use the same usual spending. During a gap the 30 days end at the last logged expense; a newer user is averaged over the days logged (at least 7).
-  - The plan gains `spending_logged_until` and `typical_daily_spending.period` (e.g. "average over the 30 days up to Oct 11, 2026 (nothing logged since)").
+  - The plan gains `spending_logged_until` and `typical_daily_spending.period` (e.g. "average for the 30 days up to Oct 11, 2026").
   - The prompt tells Gemini to say once that nothing is logged since that day and never to call recent spending ₱0. The rule-written card says the same.
 - **Verification**: `python -m unittest` 124/124. New tests: the gap basis and a new user's average in `test_plan`; in the full-stack gap test the Advisor card uses ₱200.00 a day, as the Goals page and the Forecaster do, says logging stopped, and has no "₱0.00 a day".
+
+#### BUG-049: [RESOLVED 2026-11-12] Advisor and Goals Page Disagreed by ₱0.02 a Week; Period Wording
+- **Found by**: Buck | Backend's production check after release #262 (`12e7eb7`), signed in as the seed account on production Buck_AI.
+- **Impact**:
+  - The Advisor card said "save ₱3,446.22 per week". The Goals page and the goal plan said ₱3,446.24 (₱492.32 a day × 7). `plan.py` computed remaining ÷ days × 7 in one step, while `shared/attitude.py` rounds per day first.
+  - Gemini wrote "during the average over the 30 days up to Oct 11, 2026 (nothing logged since)", because the period label did not read as a phrase.
+  - A goal tip said "₱2,408.70 per Month" (the model copied the plan key).
+- **Fix**:
+  - `plan.py` rounds the required pace per day, then × 7, like the Goals page.
+  - The gap period is now "average for the 30 days up to Oct 11, 2026", and the prompt shows how to use it ("your average for the 30 days up to Oct 11, 2026 was ₱X a day").
+  - `_peso_format` writes every period as "per day / week / month" (it covers "per Month" and "perMonth").
+- **Verification**: `python -m unittest` 130/130. New tests: the live case (₱53,662.50 over 109 days gives ₱3,446.24 a week) and lower-case periods in a goal tip.
 
 ---
 
