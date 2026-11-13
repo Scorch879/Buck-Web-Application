@@ -267,8 +267,8 @@ html[data-buck-theme="dark"] .goals-card.selected {
   border: 1px solid var(--buck-line);
   border-radius: 8px;
   font: inherit;
-  font-size: 0.88rem;
-  font-weight: 700;
+  font-size: 0.86rem;
+  font-weight: 600;
   cursor: pointer;
   transition:
     background 160ms ease,

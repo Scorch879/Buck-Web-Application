@@ -296,8 +296,11 @@ html[data-buck-theme="dark"] .cat-rename input {
 }
 
 .cat-search input {
+  /* Toolbar search: same 38px / 0.84rem box as the other tabs. */
+  min-height: 38px;
   padding-left: 2.25rem;
   padding-right: 2.1rem;
+  font-size: 0.84rem;
 }
 
 .cat-search input:focus,

@@ -405,13 +405,15 @@ html[data-buck-theme="dark"] .settings-section--danger {
 .settings-form-input,
 .settings-form textarea {
   width: 100%;
+  /* Same form field as Expenses, Goals and Income: 42px, 0.92rem. */
+  min-height: 42px;
   padding: 0.62rem 0.85rem;
   color: var(--buck-ink);
   background: rgba(255, 250, 244, 0.74);
-  border: 1px solid rgba(244, 117, 54, 0.28);
+  border: 1px solid var(--buck-line);
   border-radius: 8px;
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   font-weight: 400;
   outline: none;
   transition:
