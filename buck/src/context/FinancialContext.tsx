@@ -129,7 +129,6 @@ export type AdminOverviewTelemetry = {
     advisories_other: number;
     /** Advice written by any AI model: everything that is not fixed rules. */
     advisories_ai: number;
-    avg_health_score: number;
     forecasts_total: number;
     forecasts_active: number;
     usage_24h: {

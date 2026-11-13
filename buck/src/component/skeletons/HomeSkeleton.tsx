@@ -259,7 +259,6 @@ export default function HomeSkeleton() {
           </div>
           <div className="home-ai-header-actions">
             <span className="home-ai-link-btn skeleton-text">View Full Advisor →</span>
-            <span className="advisor-score home-ai-score skeleton-circle" />
           </div>
         </div>
         <div className="home-ai-grid">
