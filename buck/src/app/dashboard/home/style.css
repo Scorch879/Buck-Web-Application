@@ -929,7 +929,7 @@ html[data-buck-theme="dark"] .graph-granularity-btn--active {
 .graph-axis-title {
   color: var(--buck-muted);
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 650;
   letter-spacing: 0.45px;
   text-transform: uppercase;
   user-select: none;

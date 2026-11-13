@@ -369,6 +369,14 @@ class AttitudeApiTests(unittest.IsolatedAsyncioTestCase):
             r = (await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": GOAL_ID})).json()
         self.assertEqual(r, {"tip": f"Save ₱{week:,.2f} a week. Skip coffee.", "source": "ai"})
 
+    async def test_goal_tip_periods_are_written_in_lower_case(self):
+        plan = (await self.client.post("/advisor/attitude", headers=GOOD, json={"goalId": GOAL_ID})).json()["plan"]
+        month, limit = plan["saving"]["perMonth"], plan["spending"]["perMonth"]
+        tip = f"Save ₱{month:,.2f} per Month and spend under ₱{limit:,.2f} perMonth. Skip coffee."
+        with mock.patch.object(gemini, "generate_json", mock.AsyncMock(return_value={"tip": tip})):
+            r = (await self.client.post("/advisor/goal-tip", headers=GOOD, json={"goalId": GOAL_ID})).json()
+        self.assertEqual(r["tip"], f"Save ₱{month:,.2f} per month and spend under ₱{limit:,.2f} per month. Skip coffee.")
+
     async def test_inactive_goal_is_not_planned(self):
         self.supa.goal["is_active"] = False
         r = await self.client.get("/forecast?horizon=30", headers=GOOD)

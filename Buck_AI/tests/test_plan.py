@@ -33,9 +33,14 @@ class PlanTests(unittest.TestCase):
         p = plan(spent_last_30_days=6000, spend_days=30, spending_until="2026-10-11")
         self.assertEqual(p["typical_daily_spending"]["amount"], 200.0)  # not 0 because of the gap
         self.assertEqual(p["spending_logged_until"], "Oct 11, 2026")
-        self.assertIn("up to Oct 11, 2026", p["typical_daily_spending"]["period"])
+        self.assertEqual(p["typical_daily_spending"]["period"], "average for the 30 days up to Oct 11, 2026")
         self.assertIn("÷ 30", p["typical_daily_spending"]["basis"])
         self.assertIsNone(plan()["spending_logged_until"])
+
+    def test_weekly_goal_pace_matches_the_goals_page(self):
+        # Live case: ₱53,662.50 over 109 days is ₱492.32 a day; the Goals page shows ₱492.32 × 7.
+        goal = {**GOAL, "days_left": 109, "target_date": "2027-03-01"}
+        self.assertEqual(plan(goal=goal)["goal_pace"]["required_per_week"], 3446.24)  # not 3,446.22
 
     def test_new_user_is_averaged_over_the_days_logged(self):
         p = plan(spent_last_30_days=1400, spend_days=7)

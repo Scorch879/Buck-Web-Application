@@ -45,7 +45,7 @@ def build_plan(
     daily_cap = _round(typical_daily * spend_mult)
     until = day_label(date.fromisoformat(spending_until)) if spending_until else None
     if until:
-        period = f"average over the {spend_days} days up to {until} (nothing logged since)"
+        period = f"average for the {spend_days} days up to {until}"
         basis = (f"expenses in the {spend_days} days up to {until}, the last logged expense "
                  f"({peso(spent_last_30_days)}) ÷ {spend_days}")
     else:
@@ -81,8 +81,9 @@ def build_plan(
     if goal and goal.get("remaining", 0) > 0:
         days_left = goal.get("days_left")
         if days_left and days_left > 0:
-            required_week = _round(goal["remaining"] / days_left * 7)
-            required_basis = f"remaining {peso(goal['remaining'])} ÷ {days_left} days to {goal['target_date']} × 7"
+            # Per day first, then × 7: the same weekly figure the Goals page shows (shared.attitude).
+            required_week = _round(_round(goal["remaining"] / days_left) * 7)
+            required_basis = f"remaining {peso(goal['remaining'])} ÷ {days_left} days to {goal['target_date']}, × 7"
         else:
             required_week = None
             required_basis = "no future target date set"

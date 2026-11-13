@@ -450,7 +450,7 @@ html[data-buck-theme="dark"] .cat-ai-tooltip {
   margin: 0.2rem 0 0;
   color: var(--buck-ink);
   font-size: 0.92rem;
-  font-weight: 700;
+  font-weight: 650;
 }
 
 .cat-ai-tooltip-total {
@@ -742,7 +742,7 @@ html[data-buck-theme="dark"] .cat-entries-popover {
 
 .cat-entries-popover-title {
   font-size: 0.86rem;
-  font-weight: 700;
+  font-weight: 650;
   color: var(--buck-ink);
 }
 

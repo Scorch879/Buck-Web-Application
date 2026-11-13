@@ -210,6 +210,74 @@ Two fixes came out of it:
   - Not checked yet: the same screens with live Buck_AI data (detected attitude, plan numbers, 30-day chart) and the create, set-active and add-progress writes. They need a signed-in session.
 - Financial Advisor at 320px: the page grid's implicit `auto` column grew to 311px inside a 296px content area, so every card ran 3px off screen. The page grid and its responsive single columns now use `minmax(0, 1fr)`.
 
+### 🧭 UI/UX Principles Pass: Motion, Scrollbars, Labels (2026-11-12)
+
+The principles this pass checks against, and how Buck meets each one:
+
+| Principle | Rule in Buck | Where it lives |
+|---|---|---|
+| Consistency (same thing looks and moves the same everywhere) | One card radius (`--buck-card-radius`, 8px) and one title weight (650). One set of motion presets: `SPRING`, `DURATION` and `EASE_OUT` / `EASE_IN`. One Buck-orange scrollbar. | `globals.css`, `utils/motion.ts` (ADR-054) |
+| Motion explains change, never decorates | Entrances rise and fade, and none starts below 97% scale, so nothing "pops". The sidebar state is set before the first paint, so it never slides on load. Profile pictures fade in (`FadeInImage`). | `app/layout.tsx`, `component/FadeInImage.tsx` |
+| Respect the user's settings | `MotionConfig reducedMotion="user"` turns movement off for people who ask for less motion. | `component/MotionProvider.tsx` |
+| Feedback matches the action | Press feedback (`whileTap`) stays a short squeeze. Exits are quicker than entrances (ease-in, `DURATION.fast`). | `utils/motion.ts` |
+| Plain, sourced labels | Every AI text says where it comes from and that it might be inaccurate. Chart captions name their source, for example "Dashed line: your weekly budget. That's {wallet} split across 4 weeks." | Advisor, Forecast, Goals tip and modal, AI chat, Statistics |
+| No layout shift | Skeletons share their screens' classes, so the radius and weight changes reach them too (ADR-012). | `component/skeletons/` |
+
+**Static audit of every tab's CSS and TSX after the motion sweep (PR #273):**
+- The only scrollbar override outside `globals.css` is `.dashboard-main`. Its scrollbar is hidden on purpose, because the page scrolls as a whole.
+- No CSS keyframe scales below 0.9. Framer entrances on dashboard tabs now use the presets.
+- Fixed in this pass:
+  - Admin KPI and service cards: corner radius 12px → `--buck-card-radius`.
+  - Categories tooltip and popover titles, Home chart axis titles and the Wallet budget figure: weight 700 → 650.
+- Left as is:
+  - The "Buck" wordmark at 900, because it is the logo.
+  - The Add Income modal subtitle, because it is not a card.
+- The Goals AI tip gained the source note "This comes from your goal plan and expenses. AI might be inaccurate, so treat it as a guide." (PR #274).
+
+The signed-in visual pass of every tab, the sidebar slide and the profile picture fade-in waits for a fresh sign-in, because the session timed out after 30 minutes idle.
+
+### ✅ Signed-In Live Verification After the Motion Sweep (2026-11-12)
+
+I read computed styles on every dashboard tab at 1280px, signed in, after PRs #272–#275.
+
+| Tab | Outer cards | Card titles (h2/h3) | Overflowing scroll areas | Sideways scroll | AI note |
+|---|---|---|---|---|---|
+| Home | 8px (spending, graph, summary, interpretation) | 650 ×6 | none | no | — (Buck_AI not running locally) |
+| Expenses | 8px (KPI, expenses) | 650 ×5 | none | no | — |
+| Wallet | 8px | 650 ×3 | none | no | — |
+| Categories | 8px | 650 | none | no | — |
+| Goals | 8px (GoalsCard, progress) | 650 ×4 | none | no | "This comes from your goal plan and expenses. AI might be inaccurate…" |
+| Statistics | 8px (stats, flow) | 650 ×7 | none | no | Captions name their source: "Weekly budget ₱93,085.77 = ¼ of your active wallet (₱372,343.09)." and "Save ₱492.32 a day to reach Emergency Buffer (3 Months) by its target date." |
+| Forecast | 8px (forecast-story) | 650 | none | no | None shown: the text was rule-written because of the logging gap, as designed |
+| Financial Advisor | 8px | 650 ×6 | none | no | "This comes from your Buck expenses. AI might be inaccurate, so check the amounts…" |
+| Settings | 8px | 650 for card titles, 600 for the smaller subsections (Avatar, Display information, Security summary), one step down by design | none | no | — |
+| Admin | 8px (KPI and service cards, after PR #275) | 650 for card titles, 600 for feedback list rows | `admin-feedback-list` (global gold thumb) | no | — |
+
+**Sidebar.**
+- I reloaded with `buck:sidebar-collapsed=true`. The inline `<head>` script set `data-buck-sidebar=collapsed` before React ran, and the sidebar loaded at its collapsed 79px width with the button reading "Expand sidebar", so it never slides on load.
+- The slide itself uses `SPRING` (`dashboardheader.tsx`). It uses `INSTANT` until the sidebar is ready.
+- Expanding saved `false` and set the button to "Collapse sidebar".
+
+**Profile picture.**
+- At desktop width the avatar is `buck-fade-img is-loaded` with opacity 1. The fade-in is a 0.24s ease-out from opacity 0, with no scale.
+- At phone width, the avatar inside the closed menu stays at opacity 0 until the menu opens. That is expected: CSS animations do not run in hidden subtrees.
+
+**Limits of this check.**
+- The browser pane was hidden, so it drew no frames, and the slide's timing could not be recorded frame by frame. Earlier QA entries hold the recordings.
+- In development, Next.js's dev-tools badge sits over the sidebar's expand button at the bottom left. It does not exist in production builds.
+
+**Sidebar slide curve (frame by frame, from framer-motion's own solver).** The rail width runs `animate(railWidth, 80 | 250, SPRING)` (`dashboardheader.tsx`). I sampled framer-motion's `spring()` with the same settings (stiffness 380, damping 34, mass 0.8) at 60 fps.
+
+| ms | 0 | 50 | 100 | 150 | 200 | 250 | 300 | 350 | 400 |
+|---|---|---|---|---|---|---|---|---|---|
+| Collapse (px) | 250.0 | 198.8 | 139.4 | 105.7 | 90.1 | 83.7 | 81.3 | 80.4 | 80.1 |
+| Expand (px) | 80.0 | 131.2 | 190.6 | 224.3 | 239.9 | 246.3 | 248.7 | 249.6 | 249.9 |
+
+- The damping ratio is 0.975 (just under critical), and the rail overshoots by 0.00px, so there is no bounce.
+- The rail settles to within 0.5px in about 350ms.
+- The largest single-frame step is 22.8px, in the first frames. Every later frame moves less, which is the ease-out a slide should have.
+- The profile photo glides with the rail rather than jumping, because `<html data-buck-sidebar>` flips in `useLayoutEffect` after Framer takes its "before" snapshot.
+
 ### 📏 Measured Card Uniformity Across Tabs (2026-11-12)
 
 On every dashboard tab at 1280px, signed in, I read the computed corner radius, padding and title and eyebrow type of each outer card.
@@ -941,9 +1009,21 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
 - **Impact**: `BuckAI_Advisor/plan.py` took typical daily spending as the last 30 days ÷ 30, counted from today. During the gap that was ₱0.00. The card said "keeping everyday spending near ₱0.00 per day" and "your typical daily spending of ₱0.00 based on the last 30 days". The goal attitude and the Forecaster already treated the gap as missing data (`6422c00`), so the Advisor card disagreed with the Goals page.
 - **Fix**:
   - `snapshot.py` computes `attitude_inputs` once and passes its window to `build_plan`, so the plan and the goal attitude use the same usual spending. During a gap the 30 days end at the last logged expense; a newer user is averaged over the days logged (at least 7).
-  - The plan gains `spending_logged_until` and `typical_daily_spending.period` (e.g. "average over the 30 days up to Oct 11, 2026 (nothing logged since)").
+  - The plan gains `spending_logged_until` and `typical_daily_spending.period` (e.g. "average for the 30 days up to Oct 11, 2026").
   - The prompt tells Gemini to say once that nothing is logged since that day and never to call recent spending ₱0. The rule-written card says the same.
 - **Verification**: `python -m unittest` 124/124. New tests: the gap basis and a new user's average in `test_plan`; in the full-stack gap test the Advisor card uses ₱200.00 a day, as the Goals page and the Forecaster do, says logging stopped, and has no "₱0.00 a day".
+
+#### BUG-049: [RESOLVED 2026-11-12] Advisor and Goals Page Disagreed by ₱0.02 a Week; Period Wording
+- **Found by**: Buck | Backend's production check after release #262 (`12e7eb7`), signed in as the seed account on production Buck_AI.
+- **Impact**:
+  - The Advisor card said "save ₱3,446.22 per week". The Goals page and the goal plan said ₱3,446.24 (₱492.32 a day × 7). `plan.py` computed remaining ÷ days × 7 in one step, while `shared/attitude.py` rounds per day first.
+  - Gemini wrote "during the average over the 30 days up to Oct 11, 2026 (nothing logged since)", because the period label did not read as a phrase.
+  - A goal tip said "₱2,408.70 per Month" (the model copied the plan key).
+- **Fix**:
+  - `plan.py` rounds the required pace per day, then × 7, like the Goals page.
+  - The gap period is now "average for the 30 days up to Oct 11, 2026", and the prompt shows how to use it ("your average for the 30 days up to Oct 11, 2026 was ₱X a day").
+  - `_peso_format` writes every period as "per day / week / month" (it covers "per Month" and "perMonth").
+- **Verification**: `python -m unittest` 130/130. New tests: the live case (₱53,662.50 over 109 days gives ₱3,446.24 a week) and lower-case periods in a goal tip.
 
 ---
 
