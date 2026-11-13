@@ -500,6 +500,167 @@ html[data-buck-theme="dark"] .ai-bubble__badge {
   border: 0;
 }
 
+/* ---- Panel: Messenger layout ----------------------------------------------
+   One surface, no card inside the window: a header bar, the conversation
+   running edge to edge, and a composer bar with a pill input. */
+
+.advisor-chat--panel {
+  gap: 0;
+  padding: 0;
+}
+
+.advisor-chat--panel .advisor-chat__head {
+  gap: 0.6rem;
+  padding: 0.65rem 0.75rem 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--buck-line);
+}
+
+.advisor-chat--panel .advisor-chat__icon {
+  width: 36px;
+  height: 36px;
+  color: #fff;
+  background: var(--buck-orange);
+  border: 0;
+  border-radius: 50%;
+}
+
+.advisor-chat--panel .advisor-chat__eyebrow {
+  font-size: 0.7rem;
+}
+
+.advisor-chat--panel .advisor-chat__head h3 {
+  font-size: 0.98rem;
+}
+
+.advisor-chat--panel .advisor-chat__minimize {
+  width: 36px;
+  height: 36px;
+  border-color: transparent;
+  border-radius: 50%;
+}
+
+.advisor-chat--panel .advisor-chat__log {
+  gap: 0.4rem;
+  padding: 0.85rem 0.85rem 0.6rem;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.advisor-chat--panel .advisor-chat__msg {
+  padding: 0.5rem 0.8rem;
+  border-radius: 18px;
+}
+
+.advisor-chat--panel .advisor-chat__msg--user {
+  border-bottom-right-radius: 5px;
+}
+
+.advisor-chat--panel .advisor-chat__msg--bot {
+  background: rgba(244, 117, 54, 0.08);
+  border: 0;
+  border-bottom-left-radius: 5px;
+}
+
+html[data-buck-theme="dark"] .advisor-chat--panel .advisor-chat__msg--bot {
+  background: rgba(255, 241, 216, 0.08);
+}
+
+.advisor-chat--panel .advisor-chat__form {
+  padding: 0.6rem 0.75rem 0.45rem;
+  border-top: 1px solid var(--buck-line);
+}
+
+.advisor-chat--panel .advisor-chat__form textarea {
+  padding: 0.6rem 0.95rem;
+  border-radius: 22px;
+}
+
+.advisor-chat--panel .advisor-chat__disclaimer {
+  padding: 0 0.85rem 0.6rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+/* The send button is exactly as tall as the input beside it. */
+.advisor-chat__form {
+  align-items: stretch;
+}
+
+.advisor-chat__send {
+  height: auto;
+  min-height: 44px;
+  align-self: stretch;
+}
+
+.advisor-chat--panel .advisor-chat__send {
+  border-radius: 22px;
+}
+
+/* Resize handle: the panel's free top corner (away from the bubble). */
+.ai-chat-panel__resize {
+  position: absolute;
+  top: 0;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  touch-action: none;
+}
+
+.ai-chat-panel[data-side="right"] .ai-chat-panel__resize {
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.ai-chat-panel[data-side="left"] .ai-chat-panel__resize {
+  right: 0;
+  cursor: nesw-resize;
+}
+
+/* A small corner grip, drawn with two strokes. */
+.ai-chat-panel__resize::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  width: 9px;
+  height: 9px;
+  border-top: 2px solid var(--buck-muted);
+  opacity: 0.55;
+  transition: opacity 160ms ease, border-color 160ms ease;
+}
+
+.ai-chat-panel[data-side="right"] .ai-chat-panel__resize::before {
+  left: 6px;
+  border-left: 2px solid var(--buck-muted);
+  border-top-left-radius: 4px;
+}
+
+.ai-chat-panel[data-side="left"] .ai-chat-panel__resize::before {
+  right: 6px;
+  border-right: 2px solid var(--buck-muted);
+  border-top-right-radius: 4px;
+}
+
+.ai-chat-panel__resize:hover::before,
+.ai-chat-panel__resize:focus-visible::before,
+.ai-chat-panel--resizing .ai-chat-panel__resize::before {
+  opacity: 1;
+  border-color: var(--buck-orange);
+}
+
+.ai-chat-panel__resize:focus-visible {
+  outline: 2px solid var(--buck-orange);
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+
+.ai-chat-panel--resizing {
+  user-select: none;
+}
+
 @media (max-width: 560px) {
   .advisor-chat__log {
     height: 300px;
