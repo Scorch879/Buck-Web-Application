@@ -2158,7 +2158,40 @@ html[data-buck-theme="dark"] .summary-filter-back-btn {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+}
+
+/* The space under the header lives inside the collapsible body, so it
+   closes with the body instead of jumping at the end. */
+.home-ai-body > .home-ai-grid {
+  padding-top: 1.25rem;
+}
+
+.home-ai-toggle-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  color: var(--buck-orange);
+  background: rgba(244, 117, 54, 0.1);
+  border: 1px solid rgba(244, 117, 54, 0.28);
+  border-radius: 8px;
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.home-ai-toggle-btn:hover {
+  background: rgba(244, 117, 54, 0.18);
+  border-color: var(--buck-orange);
+}
+
+.home-ai-toggle-btn:focus-visible {
+  outline: 2px solid var(--buck-orange);
+  outline-offset: 2px;
+}
+
+.home-ai-toggle-icon {
+  display: inline-grid;
+  place-items: center;
 }
 
 .home-ai-header {

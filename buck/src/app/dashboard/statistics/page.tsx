@@ -40,6 +40,7 @@ import BudgetDonut, { getBudgetLevel } from "./BudgetDonut";
 import CategoryBreakdown, { type CategoryTotal } from "./CategoryBreakdown";
 import SpendingTrendChart from "./SpendingTrendChart";
 import AddExpenseModal from "../expenses/AddExpenseModal";
+import NewUserGuide from "@/component/onboarding/NewUserGuide";
 import {
   buildMonthRanges,
   buildWeekRanges,
@@ -620,11 +621,20 @@ const Statistics = () => {
           ? `Dashed line: your yearly budget. That's ${walletLabel} × 12 months.`
           : `Dashed line: your monthly budget. That's ${walletLabel}.`;
 
+  // Nothing logged yet: one welcome card instead of a page of empty charts.
+  const isNewUser = expenses.length === 0;
+
   return (
     <div className="stats-page">
+      {isNewUser && (
+        <NewUserGuide message="Your charts appear here once you log your first expense. Here's a short guide to begin your journey with Buck." />
+      )}
+
       {/* Monthly cash flow (income vs expenses), same formulas as the mobile app */}
       <MonthlyCashFlowCard cashFlow={cashFlow} />
 
+      {!isNewUser && (
+      <>
       {/* Period toolbar: every card below follows this selection */}
       <header className="stats-card stats-toolbar">
         <div className="stats-heading">
@@ -1008,6 +1018,8 @@ const Statistics = () => {
           )}
         </section>
       </div>
+      </>
+      )}
 
       <AddExpenseModal
         open={showExpenseModal}

@@ -12,6 +12,7 @@ import {
 import InfoTip from "@/component/InfoTip";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useDashboardUser } from "@/context/DashboardUserContext";
+import NewUserGuide from "@/component/onboarding/NewUserGuide";
 import {
   mergeDashboardDataCache,
   useFinancial,
@@ -325,6 +326,10 @@ export default function FinancialAdvisorPage() {
   return (
     <div className="advisor-page">
       {error ? <div className="advisor-message">{error}</div> : null}
+
+      {expenses.length === 0 && (
+        <NewUserGuide message="Advice gets sharper once Buck knows what you spend. Here's a short guide to begin your journey." />
+      )}
 
       <section className="advisor-hero">
         <div className="advisor-hero__copy">
