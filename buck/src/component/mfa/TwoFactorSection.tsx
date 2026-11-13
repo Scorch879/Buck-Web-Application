@@ -336,7 +336,7 @@ export default function TwoFactorSection({ autoStartEnroll = false, onAutoStartH
             <div className="settings-modal-heading">
               <div>
                 <p className="settings-eyebrow">Two-factor authentication</p>
-                <h2 id="settings-2fa-regen-title">
+                <h2 id="settings-2fa-regen-title" className="buck-modal-title">
                   {regenCodes.length > 0 ? "Save your new backup codes" : "Regenerate backup codes"}
                 </h2>
                 <p>
@@ -366,14 +366,24 @@ export default function TwoFactorSection({ autoStartEnroll = false, onAutoStartH
                 onDone={closeRegen}
               />
             ) : (
-              <button
-                type="button"
-                className="settings-button settings-button--primary"
-                onClick={() => void createNewCodes()}
-                disabled={regenBusy}
-              >
-                {regenBusy ? "Creating..." : "Create new codes"}
-              </button>
+              <div className="buck-modal-actions">
+                <button
+                  type="button"
+                  className="buck-modal-btn buck-modal-btn--secondary"
+                  onClick={closeRegen}
+                  disabled={regenBusy}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="settings-button settings-button--primary buck-modal-btn buck-modal-btn--primary"
+                  onClick={() => void createNewCodes()}
+                  disabled={regenBusy}
+                >
+                  {regenBusy ? "Creating..." : "Create new codes"}
+                </button>
+              </div>
             )}
           </section>
         </div>

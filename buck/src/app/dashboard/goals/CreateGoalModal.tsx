@@ -99,37 +99,44 @@ const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreate
         <button type="button" className="modal-close" onClick={onClose} aria-label="Close dialog">
           <span aria-hidden="true">×</span>
         </button>
-        <h2 className="create-goal-title">Create a new goal</h2>
+        <h2 className="create-goal-title buck-modal-title">Create a new goal</h2>
         {success && <div className="create-goal-success">Goal created</div>}
-        <form onSubmit={handleGoalCreate} className="create-goal-form">
-          <input
-            id="goalName"
-            type="text"
-            placeholder="Goal name"
-            aria-label="Goal name"
-            value={form.goalName}
-            onChange={handleChange}
-            required
-            className="create-goal-input"
-          />
-          <input
-            id="targetAmount"
-            type="number"
-            placeholder="Target amount (₱)"
-            aria-label="Target amount in pesos"
-            value={form.targetAmount}
-            onChange={handleChange}
-            required
-            min={1}
-            className="create-goal-input"
-          />
-          <CustomDatePicker
-            id="targetDate"
-            placeholder="Target date"
-            value={form.targetDate}
-            onChange={(val) => setForm((prev) => ({ ...prev, targetDate: val }))}
-            required
-          />
+        <form onSubmit={handleGoalCreate} className="create-goal-form buck-modal-form">
+          <label className="buck-modal-field">
+            <span>Goal name</span>
+            <input
+              id="goalName"
+              type="text"
+              placeholder="Emergency fund, new laptop..."
+              value={form.goalName}
+              onChange={handleChange}
+              required
+              className="create-goal-input"
+            />
+          </label>
+          <label className="buck-modal-field">
+            <span>Target amount (PHP)</span>
+            <input
+              id="targetAmount"
+              type="number"
+              placeholder="0.00"
+              value={form.targetAmount}
+              onChange={handleChange}
+              required
+              min={1}
+              className="create-goal-input"
+            />
+          </label>
+          <label className="buck-modal-field">
+            <span>Target date</span>
+            <CustomDatePicker
+              id="targetDate"
+              placeholder="Pick a date"
+              value={form.targetDate}
+              onChange={(val) => setForm((prev) => ({ ...prev, targetDate: val }))}
+              required
+            />
+          </label>
 
           <div
             className={`create-goal-attitude${outOfReach ? " create-goal-attitude--warning" : ""}`}
@@ -168,13 +175,23 @@ const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreate
             )}
           </div>
 
-          <button
-            type="submit"
-            className={`nav-button create-goal-button${submitting ? " create-goal-button-disabled" : ""}`}
-            disabled={submitting}
-          >
-            {submitting ? "Creating..." : "Create goal"}
-          </button>
+          <div className="buck-modal-actions">
+            <button
+              type="button"
+              className="buck-modal-btn buck-modal-btn--secondary"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="buck-modal-btn buck-modal-btn--primary"
+              disabled={submitting}
+            >
+              {submitting ? "Creating..." : "Create goal"}
+            </button>
+          </div>
         </form>
       </motion.div>
     </motion.div>

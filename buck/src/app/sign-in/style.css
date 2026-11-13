@@ -699,9 +699,39 @@ html[data-buck-theme="light"] .SI-Background .error-message {
   }
 }
 
+/* Phones and tablets: a fixed background repaints badly on mobile browsers. */
+@media (max-width: 980px) {
+  .SI-Background,
+  html[data-buck-theme] .SI-Background {
+    background-attachment: scroll;
+  }
+}
+
+/* Small phones: the heading keeps shrinking with the screen, and the card
+   gives the form a little more room. */
 @media (max-width: 420px) {
+  .SI-Page {
+    width: calc(100% - 20px);
+  }
+
   .SI-HeroCopy h1 {
-    font-size: 1.95rem;
+    font-size: clamp(1.4rem, 7.5vw, 1.75rem);
+  }
+
+  .SI-Container {
+    padding: 0.95rem;
+  }
+}
+
+/* Wide but short screens (phones held sideways, small laptop windows):
+   start at the top so the form is never cut off above the fold. */
+@media (max-height: 560px) and (min-width: 681px) {
+  .SI-Page {
+    align-items: start;
+  }
+
+  .SI-Story {
+    min-height: auto;
   }
 }
 

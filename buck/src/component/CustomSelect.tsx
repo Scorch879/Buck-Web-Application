@@ -72,7 +72,7 @@ export default function CustomSelect({
         aria-expanded={isOpen}
         aria-haspopup="listbox"
         aria-controls={listboxId}
-        className={`${styles.trigger} ${isOpen ? styles.open : ""}`}
+        className={`${styles.trigger} buck-field-control ${isOpen ? styles.open : ""}`}
         onClick={() => !disabled && setIsOpen(!isOpen)}
         tabIndex={disabled ? -1 : 0}
         onKeyDown={(e) => {

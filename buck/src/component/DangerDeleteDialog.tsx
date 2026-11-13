@@ -120,7 +120,7 @@ export default function DangerDeleteDialog({
                 <FaExclamationTriangle />
               </span>
               <div className={styles.headerText}>
-                <h3 id={titleId}>{verb} {itemType}</h3>
+                <h3 id={titleId} className="buck-modal-title">{verb} {itemType}</h3>
                 <p className={styles.itemName} title={itemName}>
                   {itemName}
                 </p>

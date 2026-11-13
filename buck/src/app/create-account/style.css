@@ -487,9 +487,7 @@ html[data-buck-theme="dark"] .CA-Background {
 
 .CA-PasswordHint {
   min-height: 1.2em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .CA-ConfirmHint {
@@ -808,9 +806,39 @@ html[data-buck-theme="light"] .CA-Background .error-message {
   }
 }
 
+/* Phones and tablets: a fixed background repaints badly on mobile browsers. */
+@media (max-width: 980px) {
+  .CA-Background,
+  html[data-buck-theme] .CA-Background {
+    background-attachment: scroll;
+  }
+}
+
+/* Small phones: the heading keeps shrinking with the screen, and the card
+   gives the form a little more room. */
 @media (max-width: 420px) {
+  .CA-Page {
+    width: calc(100% - 20px);
+  }
+
   .CA-HeroCopy h1 {
-    font-size: 1.95rem;
+    font-size: clamp(1.4rem, 7.5vw, 1.75rem);
+  }
+
+  .CA-Container {
+    padding: 0.95rem;
+  }
+}
+
+/* Wide but short screens (phones held sideways, small laptop windows):
+   start at the top so the form is never cut off above the fold. */
+@media (max-height: 560px) and (min-width: 681px) {
+  .CA-Page {
+    align-items: start;
+  }
+
+  .CA-Story {
+    min-height: auto;
   }
 }
 

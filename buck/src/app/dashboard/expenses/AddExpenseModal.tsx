@@ -183,7 +183,7 @@ export default function AddExpenseModal({
             <div className="expenses-modal-header">
               <div>
                 <p className="expenses-eyebrow">New Expense</p>
-                <h2 id="add-expense-modal-title">Add Spending</h2>
+                <h2 id="add-expense-modal-title" className="buck-modal-title">Add Spending</h2>
               </div>
               <button
                 type="button"
@@ -205,9 +205,9 @@ export default function AddExpenseModal({
             )}
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="expenses-modal-form">
+            <form onSubmit={handleSubmit} className="expenses-modal-form buck-modal-form">
               {/* Amount */}
-              <label>
+              <label className="buck-modal-field">
                 <span>Amount (PHP)</span>
                 <input
                   type="text"
@@ -269,7 +269,7 @@ export default function AddExpenseModal({
               {/* Category. Adding, renaming and deleting live on the Categories
                   tab; the modal only picks one. */}
               <div className="expenses-modal-category">
-                <label>
+                <label className="buck-modal-field">
                   <span>Category</span>
                   <CustomSelect
                     value={categoryName}
@@ -293,7 +293,7 @@ export default function AddExpenseModal({
               </div>
 
               {/* Date */}
-              <label>
+              <label className="buck-modal-field">
                 <span>Date</span>
                 <CustomDatePicker
                   value={spentOn}
@@ -302,7 +302,7 @@ export default function AddExpenseModal({
               </label>
 
               {/* Description */}
-              <label>
+              <label className="buck-modal-field">
                 <span>Description</span>
                 <input
                   type="text"
@@ -314,10 +314,10 @@ export default function AddExpenseModal({
               </label>
 
               {/* Footer Actions */}
-              <div className="expenses-modal-footer">
+              <div className="expenses-modal-footer buck-modal-actions">
                 <button
                   type="button"
-                  className="expenses-modal-cancel-btn"
+                  className="expenses-modal-cancel-btn buck-modal-btn buck-modal-btn--secondary"
                   onClick={onClose}
                   disabled={saving}
                 >
@@ -325,7 +325,7 @@ export default function AddExpenseModal({
                 </button>
                 <motion.button
                   type="submit"
-                  className="expenses-modal-submit-btn"
+                  className="expenses-modal-submit-btn buck-modal-btn buck-modal-btn--primary"
                   disabled={saving}
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.98 }}
