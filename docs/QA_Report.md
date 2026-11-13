@@ -1038,6 +1038,10 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
   - The gap period is now "average for the 30 days up to Oct 11, 2026", and the prompt shows how to use it ("your average for the 30 days up to Oct 11, 2026 was ₱X a day").
   - `_peso_format` writes every period as "per day / week / month" (it covers "per Month" and "perMonth").
 - **Verification**: `python -m unittest` 130/130. New tests: the live case (₱53,662.50 over 109 days gives ₱3,446.24 a week) and lower-case periods in a goal tip.
+- **Follow-up (2026-11-13, production check after release #279)**: the weekly figures matched on production (₱3,478.16 on the Advisor card and on the Goals forecast panel), but Gemini still wrote "₱994.57 for the average for the 30 days up to Oct 11, 2026" and "by 2027-03-01".
+  - The period is now a plain span of days ("the 30 days up to Oct 11, 2026", or "the last 30 days"). The prompt says "you spent ₱X a day on average over <period>", and the rule card says "your average for <period>".
+  - `_peso_format` writes ISO dates in AI cards and goal tips as "Mar 1, 2027".
+  - Live (local Buck_AI with real Gemini): "You spent ₱994.57 a day on average over the 30 days up to Oct 11, 2026 … To reach your goal by Mar 1, 2027 … ₱3,478.16 per week". 131/131 tests.
 
 ---
 

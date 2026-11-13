@@ -296,13 +296,20 @@ def _date_label(value: str | None) -> str | None:
 
 # Models copy the plan keys ("perMonth") or capitalise them ("per Month").
 _PERIOD_WORD = re.compile(r"\bper\s?(Day|Week|Month)\b")
+# Models copy ISO dates from the data ("by 2027-03-01").
+_ISO_DATE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
+
+
+def _readable_date(match: re.Match) -> str:
+    return _date_label(match.group(1)) or match.group(1)
 
 
 def _peso_format(tip: str) -> str:
-    """Write every ₱ figure as ₱1,234.56 (models sometimes drop a decimal: ₱15,600.0)
-    and every period as plain "per day / week / month"."""
+    """Write every ₱ figure as ₱1,234.56 (models sometimes drop a decimal: ₱15,600.0),
+    every period as plain "per day / week / month" and every date as "Mar 1, 2027"."""
     tip = _PESO_FIGURE.sub(lambda m: peso(float(m.group(1).replace(",", ""))), tip)
-    return _PERIOD_WORD.sub(lambda m: f"per {m.group(1).lower()}", tip)
+    tip = _PERIOD_WORD.sub(lambda m: f"per {m.group(1).lower()}", tip)
+    return _ISO_DATE.sub(_readable_date, tip)
 
 
 def _plan_figures(data: dict[str, Any]) -> set[float]:

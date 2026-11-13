@@ -192,6 +192,12 @@ class AdvisorApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(r["generatedWith"], "gemini")
         self.assertEqual(r["suggestion"], "Keep Laptop's ₱40,000.00 to go in view this week.")  # ₱1,234.56 form
 
+    async def test_card_dates_are_written_for_people(self):
+        self.gen.return_value = {**ADVICE, "advice": ADVICE["advice"] + " Finish by 2027-03-01."}
+        r = (await self.client.get("/advisor/insight", headers=GOOD)).json()
+        self.assertEqual(r["generatedWith"], "gemini")
+        self.assertTrue(r["advice"].endswith("Finish by Mar 1, 2027."), r["advice"])
+
     async def test_groq_writes_the_card_when_gemini_is_busy(self):
         self.gen.side_effect = gemini.GeminiUnavailable("timeout")
         self.groq.side_effect = None
