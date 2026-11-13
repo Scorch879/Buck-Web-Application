@@ -61,14 +61,11 @@
     transform 200ms ease;
 }
 
-.expenses-kpi-card:hover {
-  border-color: rgba(244, 117, 54, 0.42);
-  box-shadow: 0 16px 36px rgba(255, 122, 51, 0.12);
-  transform: translateY(-2px);
-}
-
-html[data-buck-theme="dark"] .expenses-kpi-card:hover {
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.32);
+.expenses-kpi-card:hover,
+.expenses-card:hover,
+.expenses-card:focus-within {
+  border-color: var(--buck-card-hover-border);
+  box-shadow: var(--buck-card-hover-shadow);
 }
 
 /* Subtle top glow bar on hover */
