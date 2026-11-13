@@ -607,6 +607,12 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
     width: 80px;
   }
 
+  /* Before React is ready the <html> attribute (set before first paint)
+     drives the compact layout. After that, the header's own --collapsed
+     class does, because it changes in the same render Framer measures for
+     its layout glides. Keyed on the attribute, which flips a step later,
+     the profile tray changed after the snapshot and twitched for a frame. */
+
   /* Until the header has synced its state, hide the labels a collapsed rail
      would not show (they exit instantly once React takes over). */
   html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .nav-button-label,
@@ -617,24 +623,28 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
 
   /* Same side padding as the open rail, so switching layouts never widens
      the content while the width springs shut (the icons stay put). */
-  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-header-inner {
+  html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .dashboard-header-inner,
+  .dashboard-header.dashboard-header--collapsed .dashboard-header-inner {
     padding-top: 0.85rem;
     padding-bottom: 0.85rem;
   }
 
-  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-brand {
+  html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .dashboard-brand,
+  .dashboard-header.dashboard-header--collapsed .dashboard-brand {
     justify-content: center;
     gap: 0;
     padding: 0.25rem;
     width: 100%;
   }
 
-  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-mascot {
+  html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .dashboard-mascot,
+  .dashboard-header.dashboard-header--collapsed .dashboard-mascot {
     width: 46px;
     height: 46px;
   }
 
-  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-mascot-img {
+  html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .dashboard-mascot-img,
+  .dashboard-header.dashboard-header--collapsed .dashboard-mascot-img {
     top: 9px;
     width: 36px;
     height: 52px;
@@ -643,23 +653,27 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
 
   /* Left-aligned, not centred: the icon keeps its x while the rail
      narrows, and the pill shrinks to a square instead of snapping. */
-  html[data-buck-sidebar="collapsed"] .dashboard-header .nav-button {
+  html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .nav-button,
+  .dashboard-header.dashboard-header--collapsed .nav-button {
     gap: 0;
     width: 46px;
     min-height: 44px;
     padding: 0.5rem 0.8rem;
   }
 
-  html[data-buck-sidebar="collapsed"] .dashboard-header .nav-button-icon {
+  html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .nav-button-icon,
+  .dashboard-header.dashboard-header--collapsed .nav-button-icon {
     font-size: 1.08rem;
   }
 
-  html[data-buck-sidebar="collapsed"] .dashboard-header .nav-button::after {
+  html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .nav-button::after,
+  .dashboard-header.dashboard-header--collapsed .nav-button::after {
     left: 0.55rem;
     right: 0.55rem;
   }
 
-  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-account-tray {
+  html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .dashboard-account-tray,
+  .dashboard-header.dashboard-header--collapsed .dashboard-account-tray {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -668,7 +682,8 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
     padding: 0.7rem 0.35rem;
   }
 
-  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-account-controls {
+  html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .dashboard-account-controls,
+  .dashboard-header.dashboard-header--collapsed .dashboard-account-controls {
     flex-direction: column;
     gap: 0.38rem;
   }
