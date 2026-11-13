@@ -37,7 +37,7 @@ export const ADVISOR_CHAT_COPY = {
   eyebrow: "Ask the AI Advisor",
   title: "Questions about your money",
   intro: "Ask about your spending, budget or goals. The Advisor answers from your real Buck data and the advice it saved for you.",
-  placeholder: "e.g. Can I afford a ₱3,000 purchase this week?",
+  placeholder: "e.g. Can I afford ₱3,000 this week?",
   suggestions: [
     "Where is most of my money going this month?",
     "What should I cut back on first?",

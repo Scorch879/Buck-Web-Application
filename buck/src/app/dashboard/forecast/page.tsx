@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import NewUserGuide from "@/component/onboarding/NewUserGuide";
 import type { IconType } from "react-icons";
 import {
   FaBullseye,
@@ -67,6 +68,9 @@ export default function ForecastPage() {
 
   const byHorizon = dashboardCache.userId === user.uid ? dashboardCache.forecastByHorizon : undefined;
   const insights = byHorizon?.[horizon] ?? null;
+  // Only once the expense list is known to be empty, so it never flashes.
+  const isNewUser =
+    dashboardCache.userId === user.uid && dashboardCache.expenses?.length === 0;
 
   const store = useCallback(
     (h: ForecastHorizon, next: AIForecastInsights) => {
@@ -194,6 +198,10 @@ export default function ForecastPage() {
   return (
     <div className="forecast-page">
       {error && <div className="settings-message settings-message--error">{error}</div>}
+
+      {isNewUser && (
+        <NewUserGuide message="Buck forecasts from what you spend, so it needs a few expenses first. Here's a short guide to begin your journey." />
+      )}
 
       {forecast && insights?.narrative ? (
         <RichForecast

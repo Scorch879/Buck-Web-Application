@@ -1,10 +1,23 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import Link from "next/link";
-import { FaLightbulb, FaReceipt, FaArrowRight } from "react-icons/fa";
+import { AnimatePresence, motion } from "framer-motion";
+import { FaLightbulb, FaReceipt, FaArrowRight, FaChevronDown } from "react-icons/fa";
+import { SPRING } from "@/utils/motion";
 import { fetchAIAdvisorInsights, type AIAdvisorInsights } from "@/utils/advisorApi";
 import { mergeDashboardDataCache, useFinancial } from "@/context/FinancialContext";
+
+const COLLAPSED_KEY = "buck:home-advisor-collapsed";
+
+/** Whether this browser last left the Home Advisor card minimized. */
+export function readAdvisorCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 interface AIAdvisorPlaceholderCardProps {
   userId?: string;
@@ -23,6 +36,24 @@ export default function AIAdvisorPlaceholderCard({
   const [loadingAi, setLoadingAi] = useState(
     () => !userCache.aiInsights && Boolean(userId)
   );
+  const [collapsed, setCollapsed] = useState(false);
+
+  // Read before paint so a minimized card never flashes open.
+  useLayoutEffect(() => {
+    setCollapsed(readAdvisorCollapsed());
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(COLLAPSED_KEY, next ? "1" : "0");
+      } catch {
+        // Blocked storage: the choice lasts for this visit only.
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!userId) {
@@ -65,7 +96,7 @@ export default function AIAdvisorPlaceholderCard({
 
   return (
     <article
-      className="interpretation-card ai-advisor-card"
+      className={`interpretation-card ai-advisor-card${collapsed ? " is-collapsed" : ""}`}
       aria-label="AI Financial Advisor overview and recommendations"
     >
       <div className="home-ai-header">
@@ -98,9 +129,38 @@ export default function AIAdvisorPlaceholderCard({
           >
             View Full Advisor <FaArrowRight aria-hidden="true" />
           </Link>
+          <button
+            type="button"
+            className="home-ai-toggle-btn"
+            onClick={toggleCollapsed}
+            aria-expanded={!collapsed}
+            aria-controls="home-ai-body"
+            aria-label={collapsed ? "Expand the Advisor card" : "Minimize the Advisor card"}
+            title={collapsed ? "Expand" : "Minimize"}
+          >
+            <motion.span
+              className="home-ai-toggle-icon"
+              animate={{ rotate: collapsed ? 0 : 180 }}
+              transition={SPRING}
+              aria-hidden="true"
+            >
+              <FaChevronDown />
+            </motion.span>
+          </button>
         </div>
       </div>
 
+      <AnimatePresence initial={false}>
+        {!collapsed && (
+          <motion.div
+            id="home-ai-body"
+            key="home-ai-body"
+            className="home-ai-body"
+            initial={{ height: 0, opacity: 0, overflow: "hidden" }}
+            animate={{ height: "auto", opacity: 1, transitionEnd: { overflow: "visible" } }}
+            exit={{ height: 0, opacity: 0, overflow: "hidden" }}
+            transition={SPRING}
+          >
       <div className="home-ai-grid">
         <section className="home-ai-card">
           <div className="home-ai-card-icon-wrap">
@@ -141,6 +201,9 @@ export default function AIAdvisorPlaceholderCard({
           </div>
         </section>
       </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </article>
   );
 }
