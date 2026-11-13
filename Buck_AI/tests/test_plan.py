@@ -33,7 +33,7 @@ class PlanTests(unittest.TestCase):
         p = plan(spent_last_30_days=6000, spend_days=30, spending_until="2026-10-11")
         self.assertEqual(p["typical_daily_spending"]["amount"], 200.0)  # not 0 because of the gap
         self.assertEqual(p["spending_logged_until"], "Oct 11, 2026")
-        self.assertEqual(p["typical_daily_spending"]["period"], "average for the 30 days up to Oct 11, 2026")
+        self.assertEqual(p["typical_daily_spending"]["period"], "the 30 days up to Oct 11, 2026")
         self.assertIn("÷ 30", p["typical_daily_spending"]["basis"])
         self.assertIsNone(plan()["spending_logged_until"])
 
@@ -45,7 +45,7 @@ class PlanTests(unittest.TestCase):
     def test_new_user_is_averaged_over_the_days_logged(self):
         p = plan(spent_last_30_days=1400, spend_days=7)
         self.assertEqual(p["typical_daily_spending"]["amount"], 200.0)
-        self.assertEqual(p["typical_daily_spending"]["period"], "last-7-day average")
+        self.assertEqual(p["typical_daily_spending"]["period"], "the last 7 days")
 
     def test_goal_pace_is_capped_by_what_is_affordable(self):
         # Income 20,000; cap 400/day x 31 = 12,400 -> 7,600 spare/month -> 1,716.13/week.
@@ -96,7 +96,7 @@ class RuleFallbackTests(unittest.TestCase):
         out = rule_insight(snapshot())
         self.assertIn("this week", out["suggestion"])
         self.assertNotIn("53,662.50", out["suggestion"])  # never "move everything now"
-        self.assertIn("last-30-day average", out["advice"])
+        self.assertIn("your average for the last 30 days is", out["advice"])
         self.assertIn("2026-10-01", out["advice"])  # the period is named
 
     def test_wallet_advice_names_real_wallets(self):

@@ -236,6 +236,20 @@ The principles this pass checks against, and how Buck meets each one:
 
 The signed-in visual pass of every tab, the sidebar slide and the profile picture fade-in waits for a fresh sign-in, because the session timed out after 30 minutes idle.
 
+### 👁️ On-Screen Checks: Statistics, Chart Tooltip, Scrollbars (2026-11-13)
+
+These checks used screenshots of the signed-in page at 1280×800.
+
+- **Statistics.**
+  - Cards, eyebrows and titles match the other tabs.
+  - The Daily saving pace chart reads "Save ₱496.88 a day to reach Emergency Buffer (3 Months) by its target date."
+  - Hovering a point shows the tooltip "Nov 14 · Save each day: ₱496.88" on a dark card with the orange series swatch.
+- **Scrollbars side by side.** To make the AI chat log scroll, I added placeholder lines to it in the page only, without sending them. I then compared it with Admin's feedback list.
+  - Both show the same thin gold thumb on a clear track.
+  - Both compute `::-webkit-scrollbar` width 8px, thumb `rgba(255, 197, 71, 0.28)` (`--buck-scroll-thumb`) and radius 999px.
+- **AI chat panel.** It opens from the bubble, and its footer reads "This comes from your Buck expenses, written by Google Gemini. AI might be inaccurate, so check the amounts before acting. It isn't licensed financial advice."
+- **Sidebar slide on the page.** I could not record it frame by frame on the page. The desktop window kept losing focus, which throttles the pane to 1–2 fps (`document.hasFocus()` false), so only the endpoints were captured: 250px ↔ 80px, with the avatar staying in place and at opacity 1. The curve between those endpoints is the sampled `SPRING` curve above (no overshoot, settles in about 350ms).
+
 ### ✅ Signed-In Live Verification After the Motion Sweep (2026-11-12)
 
 I read computed styles on every dashboard tab at 1280px, signed in, after PRs #272–#275.
@@ -1024,6 +1038,10 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
   - The gap period is now "average for the 30 days up to Oct 11, 2026", and the prompt shows how to use it ("your average for the 30 days up to Oct 11, 2026 was ₱X a day").
   - `_peso_format` writes every period as "per day / week / month" (it covers "per Month" and "perMonth").
 - **Verification**: `python -m unittest` 130/130. New tests: the live case (₱53,662.50 over 109 days gives ₱3,446.24 a week) and lower-case periods in a goal tip.
+- **Follow-up (2026-11-13, production check after release #279)**: the weekly figures matched on production (₱3,478.16 on the Advisor card and on the Goals forecast panel), but Gemini still wrote "₱994.57 for the average for the 30 days up to Oct 11, 2026" and "by 2027-03-01".
+  - The period is now a plain span of days ("the 30 days up to Oct 11, 2026", or "the last 30 days"). The prompt says "you spent ₱X a day on average over <period>", and the rule card says "your average for <period>".
+  - `_peso_format` writes ISO dates in AI cards and goal tips as "Mar 1, 2027".
+  - Live (local Buck_AI with real Gemini): "You spent ₱994.57 a day on average over the 30 days up to Oct 11, 2026 … To reach your goal by Mar 1, 2027 … ₱3,478.16 per week". 131/131 tests.
 
 ---
 

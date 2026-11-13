@@ -45,11 +45,11 @@ def build_plan(
     daily_cap = _round(typical_daily * spend_mult)
     until = day_label(date.fromisoformat(spending_until)) if spending_until else None
     if until:
-        period = f"average for the {spend_days} days up to {until}"
+        period = f"the {spend_days} days up to {until}"
         basis = (f"expenses in the {spend_days} days up to {until}, the last logged expense "
                  f"({peso(spent_last_30_days)}) ÷ {spend_days}")
     else:
-        period = f"last-{spend_days}-day average"
+        period = f"the last {spend_days} days"
         basis = f"last {spend_days} days of expenses ({peso(spent_last_30_days)}) ÷ {spend_days}"
 
     plan: dict[str, Any] = {
