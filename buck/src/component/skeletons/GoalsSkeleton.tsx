@@ -35,6 +35,7 @@ export default function GoalsSkeleton() {
             <div key={goal.name} className={`goals-card${i === 0 ? " selected" : ""}`}>
               <span className="goals-card-top">
                 <span className="goals-card-name"><span className="skeleton-text">{goal.name}</span></span>
+                {i === 0 && <span className="goals-pill goals-pill--active skeleton-text">Active</span>}
               </span>
               <span className="goals-card-track">
                 <span className="skeleton-line" style={{ width: `${goal.pct}%` }} />
@@ -121,6 +122,7 @@ export default function GoalsSkeleton() {
         <div className="goal-expenses">
           <div className="goal-expenses-header">
             <h3><span className="skeleton-text">Linked expenses</span></h3>
+            <span className="goals-count-badge skeleton-text">3</span>
           </div>
           <ul className="goal-expenses-list">
             {Array.from({ length: 3 }, (_, i) => (
