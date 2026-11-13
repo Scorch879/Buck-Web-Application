@@ -352,7 +352,8 @@ html[data-buck-theme="dark"] .dashboard-scroll-indicator {
     background 180ms ease,
     border-color 180ms ease,
     box-shadow 180ms ease,
-    color 180ms ease;
+    color 180ms ease,
+    width 300ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .nav-button:disabled {
@@ -614,9 +615,11 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
     display: none;
   }
 
+  /* Same side padding as the open rail, so switching layouts never widens
+     the content while the width springs shut (the icons stay put). */
   html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-header-inner {
-    padding: 0.85rem 0.45rem;
-    align-items: center;
+    padding-top: 0.85rem;
+    padding-bottom: 0.85rem;
   }
 
   html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-brand {
@@ -637,17 +640,14 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
     height: 52px;
   }
 
-  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-nav {
-    align-items: center;
-  }
 
+  /* Left-aligned, not centred: the icon keeps its x while the rail
+     narrows, and the pill shrinks to a square instead of snapping. */
   html[data-buck-sidebar="collapsed"] .dashboard-header .nav-button {
-    justify-content: center;
     gap: 0;
     width: 46px;
     min-height: 44px;
-    padding: 0.5rem;
-    margin: 0 auto;
+    padding: 0.5rem 0.8rem;
   }
 
   html[data-buck-sidebar="collapsed"] .dashboard-header .nav-button-icon {
@@ -665,8 +665,6 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
     align-items: center;
     justify-content: center;
     gap: 0.45rem;
-    width: calc(100% + 0.9rem);
-    margin: 0 -0.45rem -0.85rem;
     padding: 0.7rem 0.35rem;
   }
 
