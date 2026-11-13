@@ -121,17 +121,9 @@
 .summary-card:hover,
 .interpretation-card:hover,
 .summary-item:hover {
-  border-color: rgba(244, 117, 54, 0.48);
-  box-shadow: 0 22px 48px rgba(94, 59, 34, 0.14);
+  border-color: var(--buck-card-hover-border);
+  box-shadow: var(--buck-card-hover-shadow);
   transform: none;
-}
-
-html[data-buck-theme="dark"] .spending-card:hover,
-html[data-buck-theme="dark"] .graph-card:hover,
-html[data-buck-theme="dark"] .summary-card:hover,
-html[data-buck-theme="dark"] .interpretation-card:hover,
-html[data-buck-theme="dark"] .summary-item:hover {
-  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.32);
 }
 
 .spending-card:hover::before,
@@ -2329,13 +2321,8 @@ html[data-buck-theme="dark"] .home-ai-card {
 }
 
 .home-ai-card:hover {
-  border-color: rgba(244, 117, 54, 0.44);
-  box-shadow: 0 12px 28px rgba(94, 59, 34, 0.1);
-  transform: translateY(-2px);
-}
-
-html[data-buck-theme="dark"] .home-ai-card:hover {
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  border-color: var(--buck-card-hover-border);
+  box-shadow: var(--buck-card-hover-shadow);
 }
 
 .home-ai-card-icon-wrap {

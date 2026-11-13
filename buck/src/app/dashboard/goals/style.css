@@ -151,7 +151,7 @@ html[data-buck-theme="dark"] .goals-pill--completed {
 }
 
 .goals-card:hover:not(.selected) {
-  border-color: rgba(244, 117, 54, 0.45);
+  border-color: var(--buck-card-hover-border);
 }
 
 .goals-card:focus-visible {

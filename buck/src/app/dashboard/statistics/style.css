@@ -29,6 +29,40 @@
   border: 1px solid var(--buck-line);
   border-radius: var(--buck-card-radius);
   box-shadow: var(--buck-shadow);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+/* Same hover as every other tab's cards: orange edge, deeper shadow and the
+   top accent bar. No lift, so the charts never move under the cursor. */
+.stats-card::before {
+  position: absolute;
+  top: 0;
+  left: 1rem;
+  right: 1rem;
+  height: 3px;
+  content: "";
+  background: linear-gradient(90deg, var(--buck-orange), var(--buck-coral));
+  border-radius: 0 0 8px 8px;
+  opacity: 0;
+  transform: scaleX(0.72);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+  pointer-events: none;
+}
+
+.stats-card:hover,
+.stats-card:focus-within {
+  border-color: var(--buck-card-hover-border);
+  box-shadow: var(--buck-card-hover-shadow);
+}
+
+.stats-card:hover::before,
+.stats-card:focus-within::before {
+  opacity: 1;
+  transform: scaleX(1);
 }
 
 /* ---- Shared card typography ---- */

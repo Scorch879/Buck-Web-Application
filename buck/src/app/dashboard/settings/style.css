@@ -439,35 +439,18 @@ html[data-buck-theme="dark"] .settings-form textarea {
 }
 
 .settings-hero:hover,
-.settings-hero:focus-within {
-  border-color: rgba(244, 117, 54, 0.48);
-  box-shadow: 0 22px 48px rgba(94, 59, 34, 0.14);
-  transform: translateY(-3px);
-}
-
+.settings-hero:focus-within,
 .settings-card:hover,
 .settings-card:focus-within {
-  border-color: rgba(244, 117, 54, 0.38);
-  box-shadow: 0 16px 36px rgba(255, 122, 51, 0.12);
-  transform: translateY(-2px);
-}
-
-html[data-buck-theme="dark"] .settings-hero:hover,
-html[data-buck-theme="dark"] .settings-hero:focus-within {
-  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.32);
-}
-
-html[data-buck-theme="dark"] .settings-card:hover,
-html[data-buck-theme="dark"] .settings-card:focus-within {
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
+  border-color: var(--buck-card-hover-border);
+  box-shadow: var(--buck-card-hover-shadow);
 }
 
 .settings-account-card:hover,
 .settings-account-card:focus-within {
   background: rgba(255, 197, 71, 0.18);
-  border-color: rgba(244, 117, 54, 0.42);
-  box-shadow: 0 16px 32px rgba(255, 122, 51, 0.14);
-  transform: translateY(-2px);
+  border-color: var(--buck-card-hover-border);
+  box-shadow: var(--buck-card-hover-shadow);
 }
 
 .settings-account-card:hover::before,

@@ -233,13 +233,8 @@ html[data-buck-theme="dark"] .advisor-eyebrow--gold {
 
 .advisor-card:hover,
 .advisor-card:focus-within {
-  border-color: rgba(244, 117, 54, 0.44);
-  box-shadow: 0 22px 48px rgba(94, 59, 34, 0.14);
-}
-
-html[data-buck-theme="dark"] .advisor-card:hover,
-html[data-buck-theme="dark"] .advisor-card:focus-within {
-  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.32);
+  border-color: var(--buck-card-hover-border);
+  box-shadow: var(--buck-card-hover-shadow);
 }
 
 .advisor-card:hover::before,
