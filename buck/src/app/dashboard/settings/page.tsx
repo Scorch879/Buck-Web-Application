@@ -1346,7 +1346,7 @@ export default function SettingsPage() {
             <div className="settings-modal-heading">
               <div>
                 <p className="settings-eyebrow">Email security</p>
-                <h2 id="settings-email-modal-title">Change email address</h2>
+                <h2 id="settings-email-modal-title" className="buck-modal-title">Change email address</h2>
                 <p>
                   Buck will send a confirmation email before this change is
                   applied.
@@ -1364,10 +1364,10 @@ export default function SettingsPage() {
             </div>
 
             <form
-              className="settings-form settings-modal-form"
+              className="settings-form settings-modal-form buck-modal-form"
               onSubmit={handleEmailSubmit}
             >
-              <div className="settings-field">
+              <div className="settings-field buck-modal-field">
                 <label htmlFor="settings-email">New email address</label>
                 <input
                   id="settings-email"
@@ -1377,7 +1377,7 @@ export default function SettingsPage() {
                   disabled={isBusy}
                 />
               </div>
-              <div className="settings-field">
+              <div className="settings-field buck-modal-field">
                 <label htmlFor="settings-email-password">
                   Current password
                 </label>
@@ -1394,13 +1394,23 @@ export default function SettingsPage() {
                   Forgot current password?
                 </a>
               </div>
-              <button
-                className="settings-button settings-button--primary"
-                type="submit"
-                disabled={isBusy}
-              >
-                {savingEmail ? "Sending confirmation..." : "Send confirmation"}
-              </button>
+              <div className="buck-modal-actions">
+                <button
+                  className="buck-modal-btn buck-modal-btn--secondary"
+                  type="button"
+                  onClick={closeEmailModal}
+                  disabled={savingEmail}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="settings-button settings-button--primary buck-modal-btn buck-modal-btn--primary"
+                  type="submit"
+                  disabled={isBusy}
+                >
+                  {savingEmail ? "Sending confirmation..." : "Send confirmation"}
+                </button>
+              </div>
             </form>
           </section>
         </div>
@@ -1425,7 +1435,7 @@ export default function SettingsPage() {
             <div className="settings-modal-heading">
               <div>
                 <p className="settings-eyebrow">Password security</p>
-                <h2 id="settings-password-modal-title">Change password</h2>
+                <h2 id="settings-password-modal-title" className="buck-modal-title">Change password</h2>
                 <p>
                   Enter your current password first, then choose a stronger new
                   password.
@@ -1443,10 +1453,10 @@ export default function SettingsPage() {
             </div>
 
             <form
-              className="settings-form settings-modal-form"
+              className="settings-form settings-modal-form buck-modal-form"
               onSubmit={handlePasswordSubmit}
             >
-              <div className="settings-field">
+              <div className="settings-field buck-modal-field">
                 <label htmlFor="settings-current-password">
                   Current password
                 </label>
@@ -1464,7 +1474,7 @@ export default function SettingsPage() {
                   Forgot current password?
                 </a>
               </div>
-              <div className="settings-field">
+              <div className="settings-field buck-modal-field">
                 <label htmlFor="settings-new-password">New password</label>
                 <input
                   id="settings-new-password"
@@ -1475,7 +1485,7 @@ export default function SettingsPage() {
                   disabled={isBusy}
                 />
               </div>
-              <div className="settings-field">
+              <div className="settings-field buck-modal-field">
                 <label htmlFor="settings-confirm-password">
                   Confirm password
                 </label>
@@ -1520,13 +1530,23 @@ export default function SettingsPage() {
                   {passwordConfirmMessage}
                 </p>
               ) : null}
-              <button
-                className="settings-button settings-button--primary"
-                type="submit"
-                disabled={isBusy}
-              >
-                {savingPassword ? "Updating..." : "Update password"}
-              </button>
+              <div className="buck-modal-actions">
+                <button
+                  className="buck-modal-btn buck-modal-btn--secondary"
+                  type="button"
+                  onClick={closePasswordModal}
+                  disabled={savingPassword}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="settings-button settings-button--primary buck-modal-btn buck-modal-btn--primary"
+                  type="submit"
+                  disabled={isBusy}
+                >
+                  {savingPassword ? "Updating..." : "Update password"}
+                </button>
+              </div>
             </form>
           </section>
         </div>

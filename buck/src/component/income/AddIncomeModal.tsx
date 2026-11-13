@@ -158,8 +158,8 @@ export default function AddIncomeModal({
         onClick={(event) => event.stopPropagation()}
         {...panelMotion}
       >
-        <h2 className={styles.title}>Add Income</h2>
-        <p className={styles.subtitle}>
+        <h2 className={`${styles.title} buck-modal-title`}>Add income</h2>
+        <p className={`${styles.subtitle} buck-modal-subtitle`}>
           {wallet
             ? `Credits ${wallet.name} (${formatCurrency(wallet.budget)})`
             : walletLoading
@@ -172,15 +172,19 @@ export default function AddIncomeModal({
             <div className={styles.notice}>
               Create or select a wallet first to add income.
             </div>
-            <div className={styles.actions}>
-              <button type="button" className={styles.secondaryBtn} onClick={onClose}>
+            <div className={`${styles.actions} buck-modal-actions`}>
+              <button
+                type="button"
+                className={`${styles.secondaryBtn} buck-modal-btn buck-modal-btn--secondary`}
+                onClick={onClose}
+              >
                 Close
               </button>
             </div>
           </>
         ) : (
-          <form className={styles.form} onSubmit={handleSubmit} noValidate>
-            <label className={styles.field}>
+          <form className={`${styles.form} buck-modal-form`} onSubmit={handleSubmit} noValidate>
+            <label className={`${styles.field} buck-modal-field`}>
               Amount (PHP)
               <input
                 className={styles.input}
@@ -196,7 +200,7 @@ export default function AddIncomeModal({
               />
             </label>
 
-            <div className={styles.field}>
+            <div className={`${styles.field} buck-modal-field`}>
               Category
               <CustomSelect
                 value={source}
@@ -208,12 +212,12 @@ export default function AddIncomeModal({
               />
             </div>
 
-            <div className={styles.field}>
+            <div className={`${styles.field} buck-modal-field`}>
               Date
               <CustomDatePicker value={date} onChange={setDate} max={today} required />
             </div>
 
-            <label className={styles.field}>
+            <label className={`${styles.field} buck-modal-field`}>
               Description (optional)
               <input
                 className={styles.input}
@@ -227,16 +231,20 @@ export default function AddIncomeModal({
 
             {error && <div className={styles.error}>{error}</div>}
 
-            <div className={styles.actions}>
-              <button type="button" className={styles.secondaryBtn} onClick={onClose}>
+            <div className={`${styles.actions} buck-modal-actions`}>
+              <button
+                type="button"
+                className={`${styles.secondaryBtn} buck-modal-btn buck-modal-btn--secondary`}
+                onClick={onClose}
+              >
                 Cancel
               </button>
               <button
                 type="submit"
-                className={styles.primaryBtn}
+                className={`${styles.primaryBtn} buck-modal-btn buck-modal-btn--primary`}
                 disabled={saving || walletLoading}
               >
-                {saving ? "Adding..." : "Add Income"}
+                {saving ? "Adding..." : "Add income"}
               </button>
             </div>
           </form>

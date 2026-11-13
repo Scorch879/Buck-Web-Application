@@ -3170,3 +3170,126 @@ html[data-buck-theme="dark"] .session-timeout-actions button:last-child {
 [aria-modal="true"] {
   --buck-surface: var(--buck-surface-solid);
 }
+
+/* One type and spacing scale for every modal. Each dialog keeps its own
+   layout, but titles, field labels, text boxes and buttons share these
+   values. Rules are scoped to [aria-modal="true"] so they outrank the
+   per-page and CSS-module classes. */
+[aria-modal="true"] .buck-modal-title {
+  margin: 0;
+  color: var(--buck-ink);
+  font-size: 1.3rem;
+  font-weight: 650;
+  line-height: 1.25;
+  text-align: left;
+}
+
+[aria-modal="true"] .buck-modal-subtitle {
+  margin: 0;
+  color: var(--buck-muted);
+  font-size: 0.9rem;
+  font-weight: 400;
+  line-height: 1.45;
+  text-align: left;
+}
+
+[aria-modal="true"] .buck-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin: 0;
+}
+
+[aria-modal="true"] .buck-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  color: var(--buck-ink);
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+/* Fields built as <div><label>…</label><input/></div> take the same label type. */
+[aria-modal="true"] .buck-modal-field > label {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+/* Text inside a text box is never bold. */
+[aria-modal="true"] :is(input:not([type="checkbox"], [type="radio"], [type="range"]), textarea),
+[aria-modal="true"] .buck-field-control {
+  font-size: 0.92rem;
+  font-weight: 400;
+}
+
+[aria-modal="true"] :is(input, textarea)::placeholder {
+  font-weight: 400;
+}
+
+[aria-modal="true"] .buck-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+}
+
+/* Size and type only; colour comes from a variant or the dialog itself
+   (the red delete buttons keep theirs). */
+[aria-modal="true"] .buck-modal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-width: 0;
+  min-height: 42px;
+  margin: 0;
+  padding: 0.6rem 1.15rem;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 650;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+[aria-modal="true"] .buck-modal-btn--primary {
+  color: #241409;
+  background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
+  border: 0;
+  box-shadow: none;
+}
+
+[aria-modal="true"] .buck-modal-btn--primary:hover:not(:disabled) {
+  box-shadow: 0 10px 24px rgba(244, 117, 54, 0.28);
+}
+
+[aria-modal="true"] .buck-modal-btn--secondary {
+  color: var(--buck-ink);
+  background: transparent;
+  border: 1px solid var(--buck-line);
+  box-shadow: none;
+}
+
+[aria-modal="true"] .buck-modal-btn--secondary:hover:not(:disabled) {
+  background: rgba(244, 117, 54, 0.08);
+  border-color: rgba(244, 117, 54, 0.45);
+}
+
+[aria-modal="true"] .buck-modal-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (max-width: 480px) {
+  [aria-modal="true"] .buck-modal-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+}

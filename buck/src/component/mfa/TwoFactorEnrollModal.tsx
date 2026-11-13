@@ -233,7 +233,7 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
               Two-factor authentication · Step {step === "name" ? 1 : step === "scan" ? 2 : 3} of{" "}
               {isFirstFactor ? 3 : 2}
             </p>
-            <h2 id="settings-2fa-modal-title">
+            <h2 id="settings-2fa-modal-title" className="buck-modal-title">
               {step === "name"
                 ? isFirstFactor
                   ? "Turn on two-factor"
@@ -264,8 +264,8 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
         </div>
 
         {step === "name" ? (
-          <form className="settings-form settings-modal-form" onSubmit={(event) => void startEnroll(event)} noValidate>
-            <div className="settings-field">
+          <form className="settings-form settings-modal-form buck-modal-form" onSubmit={(event) => void startEnroll(event)} noValidate>
+            <div className="settings-field buck-modal-field">
               <label htmlFor="settings-2fa-name">App name</label>
               <input
                 ref={nameRef}
@@ -290,9 +290,23 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
                 </p>
               ) : null}
             </div>
-            <button className="settings-button settings-button--primary" type="submit" disabled={busy}>
-              {busy ? "Starting..." : "Continue"}
-            </button>
+            <div className="buck-modal-actions">
+              <button
+                className="buck-modal-btn buck-modal-btn--secondary"
+                type="button"
+                onClick={onClose}
+                disabled={!canClose}
+              >
+                Cancel
+              </button>
+              <button
+                className="settings-button settings-button--primary buck-modal-btn buck-modal-btn--primary"
+                type="submit"
+                disabled={busy}
+              >
+                {busy ? "Starting..." : "Continue"}
+              </button>
+            </div>
           </form>
         ) : null}
 
@@ -303,14 +317,14 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
               <img src={enroll.qrCode} alt="QR code to add Buck to your authenticator app" width={184} height={184} />
             </div>
             <form
-              className="settings-form settings-mfa-scan-form"
+              className="settings-form settings-mfa-scan-form buck-modal-form"
               onSubmit={(event) => {
                 event.preventDefault();
                 void verify(code);
               }}
               noValidate
             >
-              <div className="settings-field">
+              <div className="settings-field buck-modal-field">
                 <span className="settings-mfa-label" id="settings-2fa-secret-label">
                   Can&apos;t scan? Type this setup key
                 </span>
@@ -327,7 +341,7 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
                   </button>
                 </div>
               </div>
-              <div className="settings-field">
+              <div className="settings-field buck-modal-field">
                 <label htmlFor="settings-2fa-code">6-digit code</label>
                 <TotpCodeInput
                   ref={codeRef}
@@ -349,9 +363,15 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
                   </p>
                 ) : null}
               </div>
-              <button className="settings-button settings-button--primary" type="submit" disabled={busy}>
-                {busy ? "Checking..." : "Verify and turn on"}
-              </button>
+              <div className="buck-modal-actions">
+                <button
+                  className="settings-button settings-button--primary buck-modal-btn buck-modal-btn--primary"
+                  type="submit"
+                  disabled={busy}
+                >
+                  {busy ? "Checking..." : "Verify and turn on"}
+                </button>
+              </div>
             </form>
           </div>
         ) : null}
