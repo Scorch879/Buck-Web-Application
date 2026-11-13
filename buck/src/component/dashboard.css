@@ -159,6 +159,9 @@ html[data-buck-theme="dark"] .dashboard-mascot {
   width: 100%;
   gap: 0.75rem;
   min-height: 84px;
+  /* .dashboard-main is a flex column: without this, long pages squeezed the
+     bar back to 84px after it wrapped, and the wallet pill spilled out. */
+  flex-shrink: 0;
   /* Equal top/bottom padding keeps the title block and wallet pill centred;
      ~18px each side gives the title room instead of filling the bar. */
   padding: clamp(0.95rem, 1.4vw, 1.15rem) clamp(0.75rem, 1.5vw, 1rem);
@@ -242,9 +245,11 @@ html[data-buck-theme="dark"] .dashboard-topbar--welcome {
     font-size: 0.9rem;
     line-height: 1.45;
     text-align: right;
-    white-space: nowrap;
+    /* Wraps to a second line instead of cutting off with "...". */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
 }
 
