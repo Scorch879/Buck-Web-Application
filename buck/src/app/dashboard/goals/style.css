@@ -856,7 +856,7 @@ html[data-buck-theme="dark"] .goals-deleted-item {
   color: var(--buck-orange);
   background: rgba(244, 117, 54, 0.1);
   border: 1px solid rgba(244, 117, 54, 0.35);
-  border-radius: 6px;
+  border-radius: 8px;
   font: inherit;
   font-size: 0.8rem;
   font-weight: 700;
@@ -1112,6 +1112,8 @@ html[data-buck-theme="dark"] .goals-pill--moderate {
   color: var(--buck-muted);
   font-weight: 600;
   text-align: left;
+  /* "Per week" and "Per month" stay on one line like "Per day" */
+  white-space: nowrap;
 }
 
 .goal-plan tbody td {
@@ -1144,6 +1146,11 @@ html[data-buck-theme="dark"] .goals-pill--moderate {
 @media (max-width: 360px) {
   .goal-plan {
     font-size: 0.72rem;
+  }
+
+  /* At 320px the row labels may wrap again so the amounts still fit */
+  .goal-plan tbody th {
+    white-space: normal;
   }
 
   .goal-plan th,
