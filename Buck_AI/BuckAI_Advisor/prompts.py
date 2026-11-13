@@ -69,11 +69,12 @@ The rule engine rates this situation "{rule_priority}" priority.
 
 Use the numbers in financial_data.plan exactly; do not compute your own targets. Each plan figure has a
 "basis" that says which period and data it comes from: name that period whenever you use the figure
-(for example "this month so far (Oct 1–16)", "your last-30-day average", "per week until <target date>").
+(for example "this month so far (Oct 1–16)", "your average for the last 30 days", "per week until Mar 1, 2027").
+Write dates like "Mar 1, 2027", never "2027-03-01".
 Never tell the user to move the whole remaining goal amount at once.
-If plan.spending_logged_until is set, the user hasn't logged spending since that day: say so once, plainly,
-and name the average with plan.typical_daily_spending.period, as in "your average for the 30 days up to
-Oct 11, 2026 was ₱X a day" (it stops at that day). Never call recent spending ₱0 or praise it as low.
+If plan.spending_logged_until is set, the user hasn't logged spending since that day: say so once, plainly.
+plan.typical_daily_spending.period is a span of days: write "you spent ₱X a day on average over <period>"
+(it stops at that day). Never call recent spending ₱0 or praise it as low.
 
 Write the user's advisory card:
 - title: at most 6 words.
