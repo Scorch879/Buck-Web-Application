@@ -352,8 +352,7 @@ html[data-buck-theme="dark"] .dashboard-scroll-indicator {
     background 180ms ease,
     border-color 180ms ease,
     box-shadow 180ms ease,
-    color 180ms ease,
-    width 300ms cubic-bezier(0.22, 1, 0.36, 1);
+    color 180ms ease;
 }
 
 .nav-button:disabled {
@@ -651,12 +650,12 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
   }
 
 
-  /* Left-aligned, not centred: the icon keeps its x while the rail
-     narrows, and the pill shrinks to a square instead of snapping. */
+  /* Full width of the rail's content box (about 48px once it lands), so the
+     pill shrinks with the rail and the labels never stick out past it. The
+     icon keeps the open rail's left padding, so its x never moves. */
   html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .nav-button,
   .dashboard-header.dashboard-header--collapsed .nav-button {
     gap: 0;
-    width: 46px;
     min-height: 44px;
     padding: 0.5rem 0.8rem;
   }

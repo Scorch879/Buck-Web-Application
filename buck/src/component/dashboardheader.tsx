@@ -24,7 +24,7 @@ import FadeInImage from "@/component/FadeInImage";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial } from "@/context/FinancialContext";
 import { useToast } from "@/component/toast";
-import { INSTANT, LABEL_TRANSITION, SPRING, popoverMotion } from "@/utils/motion";
+import { INSTANT, LABEL_EXIT, LABEL_TRANSITION, SPRING, popoverMotion } from "@/utils/motion";
 import { signOutUser } from "./authentication";
 import "./dashboard.css";
 
@@ -168,6 +168,8 @@ export default function DashboardHeader({
   const railCollapsed = sidebarCollapsed && isDesktop;
   const sidebarTransition = sidebarReady ? SPRING : INSTANT;
   const labelTransition = sidebarReady ? LABEL_TRANSITION : INSTANT;
+  // Labels leave faster than the rail closes, so no text lingers in it.
+  const labelExit = sidebarReady ? LABEL_EXIT : INSTANT;
 
   useEffect(() => {
     if (!mounted || !isDesktop) return;
@@ -299,7 +301,7 @@ export default function DashboardHeader({
                   className="nav-button-label"
                   initial={{ opacity: 0, width: 0, x: -6 }}
                   animate={{ opacity: 1, width: "auto", x: 0 }}
-                  exit={{ opacity: 0, width: 0, x: -6 }}
+                  exit={{ opacity: 0, width: 0, x: -6, transition: labelExit }}
                   transition={labelTransition}
                 >
                   {item.label}
@@ -350,7 +352,7 @@ export default function DashboardHeader({
                 className="dashboard-brand-copy"
                 initial={{ opacity: 0, width: 0, x: -8 }}
                 animate={{ opacity: 1, width: "auto", x: 0 }}
-                exit={{ opacity: 0, width: 0, x: -8 }}
+                exit={{ opacity: 0, width: 0, x: -8, transition: labelExit }}
                 transition={labelTransition}
               >
                 <span className="dashboard-title">Buck</span>
@@ -404,7 +406,7 @@ export default function DashboardHeader({
                   className="dashboard-account-copy"
                   initial={{ opacity: 0, width: 0, x: -8 }}
                   animate={{ opacity: 1, width: "auto", x: 0 }}
-                  exit={{ opacity: 0, width: 0, x: -8 }}
+                  exit={{ opacity: 0, width: 0, x: -8, transition: labelExit }}
                   transition={labelTransition}
                 >
                   <strong>{displayName}</strong>
