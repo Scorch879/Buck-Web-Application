@@ -361,16 +361,6 @@ export default function FinancialAdvisorPage() {
               {refreshingAi ? "Analyzing..." : "Refresh Advice"}
             </button>
           </div>
-
-          <div className="advisor-score">
-            <span>Health Score</span>
-            <strong>
-              {aiInsights?.financialHealthScore !== null &&
-              aiInsights?.financialHealthScore !== undefined
-                ? `${aiInsights.financialHealthScore}`
-                : `${goalProgress}%`}
-            </strong>
-          </div>
         </div>
       </section>
 

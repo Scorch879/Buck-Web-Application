@@ -98,19 +98,6 @@ export default function AIAdvisorPlaceholderCard({
           >
             View Full Advisor <FaArrowRight aria-hidden="true" />
           </Link>
-
-          <div
-            className="advisor-score home-ai-score"
-            aria-label="Financial health score"
-          >
-            <span>Health Score</span>
-            <strong>
-              {aiInsights?.financialHealthScore !== null &&
-              aiInsights?.financialHealthScore !== undefined
-                ? `${aiInsights.financialHealthScore}`
-                : "—"}
-            </strong>
-          </div>
         </div>
       </div>
 
