@@ -235,14 +235,14 @@ html[data-buck-theme="dark"] .goals-card.selected {
   align-items: center;
   justify-content: center;
   min-height: 40px;
-  padding: 0.6rem 1rem;
+  padding: 0 1rem;
   color: #241409;
   background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
   border: 0;
   border-radius: 8px;
   font: inherit;
-  font-size: 0.9rem;
-  font-weight: 800;
+  font-size: 0.86rem;
+  font-weight: 600;
   text-align: center;
   cursor: pointer;
 }

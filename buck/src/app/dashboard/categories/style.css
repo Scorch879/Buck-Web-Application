@@ -140,10 +140,11 @@ html[data-buck-theme="dark"] .cat-segmented-btn[aria-selected="true"] {
   justify-content: center;
   gap: 0.5rem;
   min-height: 40px;
-  padding: 0 1.05rem;
-  color: #ffffff;
-  background: linear-gradient(135deg, var(--buck-orange) 0%, #e05e1f 100%);
-  border: 1px solid rgba(244, 117, 54, 0.45);
+  padding: 0 1rem;
+  /* Same primary button as Settings, Wallet, Goals and Expenses. */
+  color: #241409;
+  background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
+  border: 0;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(244, 117, 54, 0.22);
   font: inherit;
@@ -154,10 +155,6 @@ html[data-buck-theme="dark"] .cat-segmented-btn[aria-selected="true"] {
   transition: box-shadow 160ms ease, opacity 160ms ease;
 }
 
-html[data-buck-theme="dark"] .cat-primary-btn {
-  color: #241409;
-  background: linear-gradient(135deg, #ffc547 0%, var(--buck-orange) 100%);
-}
 
 .cat-primary-btn:disabled {
   opacity: 0.52;

@@ -646,15 +646,15 @@ html[data-buck-theme="dark"] .stats-swatch--limit {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  min-height: 32px;
-  padding: 0 0.75rem;
+  min-height: 36px;
+  padding: 0 0.85rem;
   color: var(--buck-orange);
   background: rgba(244, 117, 54, 0.08);
   border: 1px solid rgba(244, 117, 54, 0.35);
   border-radius: 8px;
   font: inherit;
-  font-size: 0.8rem;
-  font-weight: 650;
+  font-size: 0.84rem;
+  font-weight: 600;
   cursor: pointer;
   transition: background 160ms ease;
 }

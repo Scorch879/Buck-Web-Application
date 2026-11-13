@@ -1014,6 +1014,9 @@ const Statistics = () => {
                 Save <strong>{formatCurrency(forecastChart.avg)}</strong> a day to reach{" "}
                 {forecastGoal.goalName} by its target date.
               </p>
+              <p className="stats-chart-caption">
+                This comes from your goal&apos;s amount left and days left. It&apos;s plain math, not AI.
+              </p>
             </div>
           )}
         </section>
