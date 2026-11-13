@@ -48,7 +48,7 @@ export default function GoalPlanTable({
         <tr>
           <td />
           <th scope="col">Spend up to</th>
-          <th scope="col">Save</th>
+          <th scope="col">You could save</th>
           {showRequired && <th scope="col">Needed for your date</th>}
         </tr>
       </thead>
