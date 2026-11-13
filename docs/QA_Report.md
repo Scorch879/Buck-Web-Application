@@ -236,6 +236,20 @@ The principles this pass checks against, and how Buck meets each one:
 
 The signed-in visual pass of every tab, the sidebar slide and the profile picture fade-in waits for a fresh sign-in, because the session timed out after 30 minutes idle.
 
+### 👁️ On-Screen Checks: Statistics, Chart Tooltip, Scrollbars (2026-11-13)
+
+These checks used screenshots of the signed-in page at 1280×800.
+
+- **Statistics.**
+  - Cards, eyebrows and titles match the other tabs.
+  - The Daily saving pace chart reads "Save ₱496.88 a day to reach Emergency Buffer (3 Months) by its target date."
+  - Hovering a point shows the tooltip "Nov 14 · Save each day: ₱496.88" on a dark card with the orange series swatch.
+- **Scrollbars side by side.** To make the AI chat log scroll, I added placeholder lines to it in the page only, without sending them. I then compared it with Admin's feedback list.
+  - Both show the same thin gold thumb on a clear track.
+  - Both compute `::-webkit-scrollbar` width 8px, thumb `rgba(255, 197, 71, 0.28)` (`--buck-scroll-thumb`) and radius 999px.
+- **AI chat panel.** It opens from the bubble, and its footer reads "This comes from your Buck expenses, written by Google Gemini. AI might be inaccurate, so check the amounts before acting. It isn't licensed financial advice."
+- **Sidebar slide on the page.** I could not record it frame by frame on the page. The desktop window kept losing focus, which throttles the pane to 1–2 fps (`document.hasFocus()` false), so only the endpoints were captured: 250px ↔ 80px, with the avatar staying in place and at opacity 1. The curve between those endpoints is the sampled `SPRING` curve above (no overshoot, settles in about 350ms).
+
 ### ✅ Signed-In Live Verification After the Motion Sweep (2026-11-12)
 
 I read computed styles on every dashboard tab at 1280px, signed in, after PRs #272–#275.
