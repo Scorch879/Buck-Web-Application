@@ -32,6 +32,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.7",
+    "@playwright/test": "^1.65.1",
     "@types/chart.js": "^2.9.41",
     "@types/node": "^22.20.5",
     "@types/react": "^19",
