@@ -183,11 +183,19 @@ export type DashboardDataCache = {
   updatedAt?: number;
 };
 
+export type UserTableName =
+  | "expenses"
+  | "incomes"
+  | "goals"
+  | "categories"
+  | "wallets"
+  | "profile";
+
 interface FinancialContextType {
-  totalSaved: number;
-  setTotalSaved: (value: number) => void;
   dashboardCache: DashboardDataCache;
   setDashboardCache: React.Dispatch<React.SetStateAction<DashboardDataCache>>;
+  tableErrors: Partial<Record<UserTableName, string>>;
+  refreshTable: (table: UserTableName) => Promise<void>;
 }
 
 export function mergeDashboardDataCache(
@@ -196,6 +204,15 @@ export function mergeDashboardDataCache(
   patch: Omit<DashboardDataCache, "userId" | "updatedAt">
 ) {
   const scopedCurrent = current.userId === userId ? current : {};
+
+  if (
+    current.userId === userId &&
+    (Object.keys(patch) as Array<keyof typeof patch>).every((key) =>
+      Object.is(current[key], patch[key])
+    )
+  ) {
+    return current;
+  }
 
   return {
     ...scopedCurrent,
@@ -206,9 +223,9 @@ export function mergeDashboardDataCache(
 }
 
 export const FinancialContext = createContext<FinancialContextType>({
-  totalSaved: 0,
-  setTotalSaved: () => {},
   dashboardCache: {},
   setDashboardCache: () => {},
+  tableErrors: {},
+  refreshTable: async () => {},
 });
 export const useFinancial = () => useContext(FinancialContext);

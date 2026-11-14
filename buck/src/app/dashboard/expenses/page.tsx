@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   FaTrash,
@@ -13,20 +13,12 @@ import {
 } from "react-icons/fa";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useDashboardUser } from "@/context/DashboardUserContext";
-import {
-  mergeDashboardDataCache,
-  useFinancial,
-} from "@/context/FinancialContext";
+import { useFinancial } from "@/context/FinancialContext";
+import { useUserTable } from "@/hooks/useUserTable";
 import { formatCurrency, toNumber } from "@/utils/formatters";
 import {
   deleteExpenseAndRestoreWallet,
-  ensureDefaultCategories,
-  getActiveWallet,
-  listExpenses,
-  subscribeUserTable,
-  type BuckCategory,
   type BuckExpense,
-  type BuckWallet,
 } from "@/utils/supabaseData";
 import "./style.css";
 import { useToast } from "@/component/toast/ToastContext";
@@ -104,35 +96,45 @@ function getPaginationPages(
 export default function ExpensesPage() {
   const { user } = useDashboardUser();
   const { toast } = useToast();
-  const { dashboardCache, setDashboardCache } = useFinancial();
-  const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
-  const hasInitialExpensesData = Boolean(
-    userCache.categories &&
-      userCache.expenses &&
-      userCache.activeWalletBudget !== undefined
-  );
-  const [categories, setCategories] = useState<BuckCategory[]>(
-    () => userCache.categories ?? []
-  );
-  const [expenses, setExpenses] = useState<BuckExpense[]>(
-    () => userCache.expenses ?? []
-  );
-  const [walletBudget, setWalletBudget] = useState(
-    () => userCache.activeWalletBudget ?? 0
-  );
-  const [activeWallet, setActiveWallet] = useState<BuckWallet | null>(null);
+  const { dashboardCache } = useFinancial();
+  const {
+    data: categoriesData,
+    loading: loadingCategories,
+    error: categoriesError,
+  } = useUserTable("categories");
+  const {
+    data: expensesData,
+    loading: loadingExpenses,
+    error: expensesError,
+    refresh: refreshExpenses,
+  } = useUserTable("expenses");
+  const {
+    data: walletsData,
+    loading: loadingWallets,
+    error: walletsError,
+    refresh: refreshWallets,
+  } = useUserTable("wallets");
 
-  const [loading, setLoading] = useState(() => !hasInitialExpensesData);
+  const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
+  const categories = useMemo(() => categoriesData ?? [], [categoriesData]);
+  const expenses = useMemo(() => expensesData ?? [], [expensesData]);
+  const activeWallet = useMemo(() => {
+    if (!walletsData || !userCache.activeWalletId) return null;
+    return (
+      walletsData.find((w) => !w.deletedAt && w.id === userCache.activeWalletId) ?? null
+    );
+  }, [userCache.activeWalletId, walletsData]);
+  const walletBudget = activeWallet?.budget ?? userCache.activeWalletBudget ?? 0;
+
+  const loading = loadingCategories || loadingExpenses || loadingWallets;
   const [saving, setSaving] = useState(false);
   // Expense awaiting the three-step delete confirmation (ADR-041).
   const [pendingDeleteExpense, setPendingDeleteExpense] = useState<BuckExpense | null>(null);
-  const [error, setError] = useState("");
-  const hadInitialExpensesData = useRef(hasInitialExpensesData);
+  const [actionError, setActionError] = useState("");
+  const error = actionError || categoriesError || expensesError || walletsError || "";
 
-  // Modal overlay state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  // Filter & Search states
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("newest");
@@ -159,97 +161,9 @@ export default function ExpensesPage() {
   };
 
   const handlePageChange = (newPage: number) => {
-    setPageDirection(newPage > currentPage ? 1 : -1);
+    setPageDirection(newPage > safeCurrentPage ? 1 : -1);
     setCurrentPage(newPage);
   };
-
-  useEffect(() => {
-    let active = true;
-
-    const loadCategories = async () => {
-      const nextCategories = await ensureDefaultCategories(user.uid);
-
-      if (!active) {
-        return;
-      }
-
-      setCategories(nextCategories);
-      setDashboardCache((currentCache) =>
-        mergeDashboardDataCache(currentCache, user.uid, {
-          categories: nextCategories,
-        })
-      );
-    };
-
-    const loadExpenses = async () => {
-      const nextExpenses = await listExpenses(user.uid);
-
-      if (!active) {
-        return;
-      }
-
-      setExpenses(nextExpenses);
-      setDashboardCache((currentCache) =>
-        mergeDashboardDataCache(currentCache, user.uid, {
-          expenses: nextExpenses,
-        })
-      );
-    };
-
-    const loadWallet = async () => {
-      const nextActiveWallet = await getActiveWallet(user.uid);
-      const nextWalletBudget = nextActiveWallet?.budget ?? 0;
-
-      if (!active) {
-        return;
-      }
-
-      setActiveWallet(nextActiveWallet);
-      setWalletBudget(nextWalletBudget);
-      setDashboardCache((currentCache) =>
-        mergeDashboardDataCache(currentCache, user.uid, {
-          activeWalletBudget: nextWalletBudget,
-        })
-      );
-    };
-
-    const loadData = async () => {
-      if (!hadInitialExpensesData.current) {
-        setLoading(true);
-      }
-
-      try {
-        await Promise.all([loadCategories(), loadExpenses(), loadWallet()]);
-      } catch (nextError) {
-        setError(
-          nextError instanceof Error
-            ? nextError.message
-            : "Could not load expenses."
-        );
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void loadData();
-
-    const unsubscribeExpenses = subscribeUserTable(
-      "expenses",
-      user.uid,
-      () => void loadExpenses()
-    );
-    const unsubscribeWallets = subscribeUserTable("wallets", user.uid, () => {
-      void loadWallet();
-    });
-
-    return () => {
-      active = false;
-      unsubscribeExpenses();
-      unsubscribeWallets();
-    };
-  }, [setDashboardCache, user.uid]);
 
   const totalTracked = useMemo(
     () => expenses.reduce((sum, expense) => sum + toNumber(expense.amount), 0),
@@ -298,27 +212,8 @@ export default function ExpensesPage() {
   const endIndex = Math.min(startIndex + PAGE_SIZE, totalItems);
   const displayedExpenses = filteredExpenses.slice(startIndex, endIndex);
 
-  // Keep state in sync when the last item on the final page is deleted.
-  useEffect(() => {
-    if (currentPage !== safeCurrentPage) setCurrentPage(safeCurrentPage);
-  }, [currentPage, safeCurrentPage]);
-
   const handleExpenseAdded = async () => {
-    const [nextExpenses, nextActiveWallet] = await Promise.all([
-      listExpenses(user.uid),
-      getActiveWallet(user.uid),
-    ]);
-    const nextWalletBudget = nextActiveWallet?.budget ?? 0;
-
-    setExpenses(nextExpenses);
-    setActiveWallet(nextActiveWallet);
-    setWalletBudget(nextWalletBudget);
-    setDashboardCache((currentCache) =>
-      mergeDashboardDataCache(currentCache, user.uid, {
-        expenses: nextExpenses,
-        activeWalletBudget: nextWalletBudget,
-      })
-    );
+    await Promise.all([refreshExpenses(), refreshWallets()]);
   };
 
   const handleDeleteExpense = async (expense: BuckExpense) => {
@@ -327,28 +222,14 @@ export default function ExpensesPage() {
     }
 
     setSaving(true);
-    setError("");
+    setActionError("");
 
     try {
       await deleteExpenseAndRestoreWallet(user.uid, expense.id, expense.amount);
-      const [nextExpenses, nextActiveWallet] = await Promise.all([
-        listExpenses(user.uid),
-        getActiveWallet(user.uid),
-      ]);
-      const nextWalletBudget = nextActiveWallet?.budget ?? 0;
-
-      setExpenses(nextExpenses);
-      setActiveWallet(nextActiveWallet);
-      setWalletBudget(nextWalletBudget);
-      setDashboardCache((currentCache) =>
-        mergeDashboardDataCache(currentCache, user.uid, {
-          expenses: nextExpenses,
-          activeWalletBudget: nextWalletBudget,
-        })
-      );
+      await Promise.all([refreshExpenses(), refreshWallets()]);
       toast("Expense deleted successfully", "success");
     } catch (nextError) {
-      setError(
+      setActionError(
         nextError instanceof Error
           ? nextError.message
           : "Could not remove expense."

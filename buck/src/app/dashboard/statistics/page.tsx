@@ -1,6 +1,6 @@
 "use client";
 import { computeGoalForecast } from "@/utils/goalForecast";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { FaChevronLeft, FaChevronRight, FaPlus } from "react-icons/fa";
 import "./style.css";
@@ -9,6 +9,7 @@ import { useDashboardUser } from "@/context/DashboardUserContext";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import { buckChartColors, buckTooltip } from "@/utils/chartTheme";
 import { useIncomes } from "@/hooks/useIncomes";
+import { useUserTable } from "@/hooks/useUserTable";
 import MonthlyCashFlowCard from "@/component/income/MonthlyCashFlowCard";
 import {
   Chart as ChartJS,
@@ -21,21 +22,9 @@ import {
   Legend,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
-import {
-  mergeDashboardDataCache,
-  useFinancial,
-} from "@/context/FinancialContext";
+import { useFinancial } from "@/context/FinancialContext";
 import { formatCurrency } from "@/utils/formatters";
-import {
-  ensureDefaultCategories,
-  getActiveWallet,
-  listExpenses,
-  listGoals,
-  subscribeUserTable,
-  type BuckCategory,
-  type BuckExpense,
-  type BuckGoal,
-} from "@/utils/supabaseData";
+import type { BuckExpense } from "@/utils/supabaseData";
 import BudgetDonut, { getBudgetLevel } from "./BudgetDonut";
 import CategoryBreakdown, { type CategoryTotal } from "./CategoryBreakdown";
 import SpendingTrendChart from "./SpendingTrendChart";
@@ -90,33 +79,36 @@ const sumAmounts = (items: BuckExpense[]) =>
 
 const Statistics = () => {
   const { user } = useDashboardUser();
-  const { dashboardCache, setDashboardCache } = useFinancial();
-  const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
-  const hasInitialStatisticsData = Boolean(
-    userCache.categories &&
-      userCache.expenses &&
-      userCache.activeWalletBudget !== undefined
-  );
-  const hasInitialGoalsData = Boolean(userCache.goals);
+  const { dashboardCache } = useFinancial();
   const isDarkTheme = useAuthPageTheme();
   const { text: chartTextColor, grid: chartGridColor } = buckChartColors(isDarkTheme);
 
-  const [goals, setGoals] = useState<BuckGoal[]>(() => userCache.goals ?? []);
-  const [loadingGoals, setLoadingGoals] = useState(() => !hasInitialGoalsData);
-  const [loadingStatisticsData, setLoadingStatisticsData] = useState(
-    () => !hasInitialStatisticsData
+  const { data: goalsData, loading: loadingGoals } = useUserTable("goals");
+  const { data: categoriesData, loading: loadingCategories } = useUserTable("categories");
+  const {
+    data: expensesData,
+    loading: loadingExpenses,
+    refresh: refreshExpenses,
+  } = useUserTable("expenses");
+  const {
+    data: walletsData,
+    loading: loadingWallets,
+    refresh: refreshWallets,
+  } = useUserTable("wallets");
+
+  const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
+  const goals = useMemo(() => goalsData ?? [], [goalsData]);
+  const categories = useMemo(
+    () => [...(categoriesData ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
+    [categoriesData]
   );
-  const [categories, setCategories] = useState<BuckCategory[]>(
-    () => userCache.categories ?? []
-  );
-  const [expenses, setExpenses] = useState<BuckExpense[]>(
-    () => userCache.expenses ?? []
-  );
-  const [wallet, setWallet] = useState<number>(
-    () => userCache.activeWalletBudget ?? 0
-  );
-  const hadInitialStatisticsData = useRef(hasInitialStatisticsData);
-  const hadInitialGoalsData = useRef(hasInitialGoalsData);
+  const expenses = useMemo(() => expensesData ?? [], [expensesData]);
+  const activeWallet = useMemo(() => {
+    if (!walletsData || !userCache.activeWalletId) return null;
+    return walletsData.find((w) => !w.deletedAt && w.id === userCache.activeWalletId) ?? null;
+  }, [userCache.activeWalletId, walletsData]);
+  const wallet = activeWallet?.budget ?? userCache.activeWalletBudget ?? 0;
+  const loadingStatisticsData = loadingCategories || loadingExpenses || loadingWallets;
   const { cashFlow } = useIncomes(user.uid, expenses);
 
   const [mode, setMode] = useState<Mode>("week");
@@ -128,142 +120,9 @@ const Statistics = () => {
   const [overallPageOffset, setOverallPageOffset] = useState(0);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
 
-  const [forecastData, setForecastData] = useState<ForecastResponse | null>(null);
-  const [forecastLoading, setForecastLoading] = useState(false);
-  const [forecastError, setForecastError] = useState("");
-  // Bumped by the Retry button to re-run the forecast request.
-  const [forecastAttempt, setForecastAttempt] = useState(0);
-
   const refreshWallet = async () => {
-    const activeWallet = await getActiveWallet(user.uid);
-    const nextWalletBudget = activeWallet?.budget ?? 0;
-    setWallet(nextWalletBudget);
-    setDashboardCache((currentCache) =>
-      mergeDashboardDataCache(currentCache, user.uid, {
-        activeWalletBudget: nextWalletBudget,
-      })
-    );
+    await Promise.all([refreshExpenses(), refreshWallets()]);
   };
-
-  // --- Fetch categories, expenses, and wallet on load ---
-  useEffect(() => {
-    if (!user) return;
-    let active = true;
-
-    const fetchCategories = async () => {
-      const cats = await ensureDefaultCategories(user.uid);
-
-      if (active) {
-        const nextCategories = [...cats].sort((a, b) =>
-          a.name.localeCompare(b.name)
-        );
-        setCategories(nextCategories);
-        setDashboardCache((currentCache) =>
-          mergeDashboardDataCache(currentCache, user.uid, {
-            categories: nextCategories,
-          })
-        );
-      }
-    };
-    const fetchExpenses = async () => {
-      const nextExpenses = await listExpenses(user.uid);
-
-      if (active) {
-        setExpenses(nextExpenses);
-        setDashboardCache((currentCache) =>
-          mergeDashboardDataCache(currentCache, user.uid, {
-            expenses: nextExpenses,
-          })
-        );
-      }
-    };
-    const fetchWallet = async () => {
-      const activeWallet = await getActiveWallet(user.uid);
-
-      if (active) {
-        const nextWalletBudget = activeWallet?.budget ?? 0;
-        setWallet(nextWalletBudget);
-        setDashboardCache((currentCache) =>
-          mergeDashboardDataCache(currentCache, user.uid, {
-            activeWalletBudget: nextWalletBudget,
-          })
-        );
-      }
-    };
-
-    const fetchInitialStatisticsData = async () => {
-      if (!hadInitialStatisticsData.current) {
-        setLoadingStatisticsData(true);
-      }
-
-      try {
-        await Promise.all([fetchCategories(), fetchExpenses(), fetchWallet()]);
-      } catch (error) {
-        console.error("Failed to load statistics:", error);
-      } finally {
-        if (active) {
-          setLoadingStatisticsData(false);
-        }
-      }
-    };
-
-    void fetchInitialStatisticsData();
-
-    const unsubCategories = subscribeUserTable(
-      "categories",
-      user.uid,
-      () => void fetchCategories()
-    );
-    const unsubExpenses = subscribeUserTable(
-      "expenses",
-      user.uid,
-      () => void fetchExpenses()
-    );
-    const unsubWallets = subscribeUserTable("wallets", user.uid, () => {
-      void fetchWallet();
-    });
-
-    return () => {
-      active = false;
-      unsubCategories();
-      unsubExpenses();
-      unsubWallets();
-    };
-    // Keyed on user.uid: the user object itself is not referentially stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setDashboardCache, user.uid]);
-
-  useEffect(() => {
-    const fetchGoals = async () => {
-      try {
-        const nextGoals = await listGoals(user.uid);
-        setGoals(nextGoals);
-        setDashboardCache((currentCache) =>
-          mergeDashboardDataCache(currentCache, user.uid, {
-            goals: nextGoals,
-          })
-        );
-      } catch (error) {
-        console.error("Failed to load goals:", error);
-      } finally {
-        setLoadingGoals(false);
-      }
-    };
-
-    if (!hadInitialGoalsData.current) {
-      setLoadingGoals(true);
-    }
-
-    void fetchGoals();
-
-    const unsubscribeGoals = subscribeUserTable("goals", user.uid, () => {
-      void fetchGoals();
-    });
-
-    return () => {
-      unsubscribeGoals();
-    };
-  }, [setDashboardCache, user.uid]);
 
   // --- Calendar ranges: earliest expense/goal up to today ---
   const todayKey = toDayKey(new Date());
@@ -530,42 +389,11 @@ const Statistics = () => {
     [periodExpenses]
   );
 
-  // --- AI forecast for the active goal (falls back to the first goal) ---
   const forecastGoal = goals.find((g) => g.isActive) ?? goals[0];
-  const forecastGoalKey = forecastGoal
-    ? `${forecastGoal.id}|${forecastGoal.targetAmount}|${forecastGoal.targetDate ?? ""}|${forecastGoal.attitude ?? ""}`
-    : "";
-
-  useEffect(() => {
-    if (!forecastGoal) {
-      setForecastData(null);
-      return;
-    }
-    let cancelled = false;
-    setForecastLoading(true);
-    setForecastError("");
-    setForecastData(null);
-
-    const fetchForecast = async () => {
-      try {
-        const data: ForecastResponse = computeGoalForecast(forecastGoal);
-        if (!cancelled) setForecastData(data);
-      } catch (err) {
-        if (!cancelled) {
-          setForecastError(err instanceof Error ? err.message : "Unknown error");
-        }
-      } finally {
-        if (!cancelled) setForecastLoading(false);
-      }
-    };
-
-    void fetchForecast();
-    return () => {
-      cancelled = true;
-    };
-    // forecastGoalKey covers every goal field the request sends.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [forecastGoalKey, forecastAttempt, user.uid]);
+  const forecastData = useMemo<ForecastResponse | null>(
+    () => (forecastGoal ? computeGoalForecast(forecastGoal) : null),
+    [forecastGoal]
+  );
 
   const forecastChart = useMemo(() => {
     const perDay = forecastData?.forecast_per_day;
@@ -939,22 +767,6 @@ const Statistics = () => {
               <Link href="/dashboard/goals" className="stats-link">
                 Go to Goals
               </Link>
-            </div>
-          ) : forecastLoading ? (
-            <div className="stats-empty stats-empty--chart" role="status">
-              <div className="spinner" />
-              <p>Working out your saving pace…</p>
-            </div>
-          ) : forecastError ? (
-            <div className="stats-empty stats-empty--chart stats-empty--compact" role="alert">
-              <p className="stats-error">Couldn’t work out the saving pace right now.</p>
-              <button
-                type="button"
-                className="stats-add-btn"
-                onClick={() => setForecastAttempt((n) => n + 1)}
-              >
-                Try again
-              </button>
             </div>
           ) : !forecastChart ? (
             <p className="stats-empty stats-empty--chart stats-empty--compact">

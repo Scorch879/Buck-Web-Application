@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FaBullseye,
   FaCommentDots,
@@ -17,17 +17,9 @@ import {
   mergeDashboardDataCache,
   useFinancial,
 } from "@/context/FinancialContext";
+import { useUserTable } from "@/hooks/useUserTable";
 import { toNumber } from "@/utils/formatters";
-import {
-  getActiveWalletId,
-  listExpenses,
-  listGoals,
-  listWallets,
-  subscribeUserTable,
-  type BuckExpense,
-  type BuckGoal,
-  type BuckWallet,
-} from "@/utils/supabaseData";
+import type { BuckExpense, BuckGoal } from "@/utils/supabaseData";
 import { fetchAIAdvisorInsights, type AIAdvisorInsights } from "@/utils/advisorApi";
 import { useToast } from "@/component/toast";
 import "./style.css";
@@ -91,26 +83,36 @@ export default function FinancialAdvisorPage() {
   const { user } = useDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
   const { toast } = useToast();
+  const {
+    data: expensesData,
+    loading: loadingExpenses,
+    error: expensesError,
+  } = useUserTable("expenses");
+  const {
+    data: goalsData,
+    loading: loadingGoals,
+    error: goalsError,
+  } = useUserTable("goals");
+  const {
+    data: walletsData,
+    loading: loadingWallets,
+    error: walletsError,
+  } = useUserTable("wallets");
+
   const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
-  const hasInitialAdvisorData = Boolean(
-    userCache.expenses &&
-      userCache.goals &&
-      userCache.activeWalletBudget !== undefined
+  const expenses = useMemo(() => expensesData ?? [], [expensesData]);
+  const goals = useMemo(() => goalsData ?? [], [goalsData]);
+  const wallets = useMemo(
+    () => (walletsData ?? []).filter((w) => !w.deletedAt),
+    [walletsData]
   );
-  const [expenses, setExpenses] = useState<BuckExpense[]>(
-    () => userCache.expenses ?? []
-  );
-  const [goals, setGoals] = useState<BuckGoal[]>(() => userCache.goals ?? []);
-  const [walletBudget, setWalletBudget] = useState(
-    () => userCache.activeWalletBudget ?? 0
-  );
-  const [wallets, setWallets] = useState<BuckWallet[]>(
-    () => (userCache.wallets ?? []).filter((w) => !w.deletedAt)
-  );
-  const [activeWalletId, setActiveWalletId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(() => !hasInitialAdvisorData);
-  const [error, setError] = useState("");
-  const hadInitialAdvisorData = useRef(hasInitialAdvisorData);
+  const activeWalletId = userCache.activeWalletId ?? null;
+  const walletBudget =
+    wallets.find((w) => w.id === activeWalletId)?.budget ??
+    userCache.activeWalletBudget ??
+    0;
+  const loading = loadingExpenses || loadingGoals || loadingWallets;
+  const error = expensesError || goalsError || walletsError || "";
 
   const [aiInsights, setAiInsights] = useState<AIAdvisorInsights | null>(
     () => userCache.aiInsights ?? null
@@ -118,139 +120,41 @@ export default function FinancialAdvisorPage() {
   const [loadingAi, setLoadingAi] = useState(() => !userCache.aiInsights);
   const [refreshingAi, setRefreshingAi] = useState(false);
 
-  const loadAI = async (forceRefresh = false) => {
-    if (forceRefresh) {
-      setRefreshingAi(true);
-    } else {
-      if (!userCache.aiInsights) {
-        setLoadingAi(true);
-      }
-    }
-    try {
-      const insights = await fetchAIAdvisorInsights({
-        userId: user.uid,
-        forceRefresh,
-      });
-      setAiInsights(insights);
-      setDashboardCache((currentCache) =>
-        mergeDashboardDataCache(currentCache, user.uid, {
-          aiInsights: insights,
-        })
-      );
+  const loadAI = useCallback(
+    async (forceRefresh = false) => {
       if (forceRefresh) {
-        toast("Refreshed AI advisory insights.", "success");
+        setRefreshingAi(true);
       }
-    } catch (err) {
-      console.error("Failed to fetch AI insights:", err);
-      if (forceRefresh) {
-        toast("Could not refresh AI insights.", "error");
+      try {
+        const insights = await fetchAIAdvisorInsights({
+          userId: user.uid,
+          forceRefresh,
+        });
+        setAiInsights(insights);
+        setDashboardCache((currentCache) =>
+          mergeDashboardDataCache(currentCache, user.uid, {
+            aiInsights: insights,
+          })
+        );
+        if (forceRefresh) {
+          toast("Refreshed AI advisory insights.", "success");
+        }
+      } catch (err) {
+        console.error("Failed to fetch AI insights:", err);
+        if (forceRefresh) {
+          toast("Could not refresh AI insights.", "error");
+        }
+      } finally {
+        setLoadingAi(false);
+        setRefreshingAi(false);
       }
-    } finally {
-      setLoadingAi(false);
-      setRefreshingAi(false);
-    }
-  };
+    },
+    [setDashboardCache, toast, user.uid]
+  );
 
   useEffect(() => {
-    let active = true;
-
-    const loadExpenses = async () => {
-      const nextExpenses = await listExpenses(user.uid);
-
-      if (!active) {
-        return;
-      }
-
-      setExpenses(nextExpenses);
-      setDashboardCache((currentCache) =>
-        mergeDashboardDataCache(currentCache, user.uid, {
-          expenses: nextExpenses,
-        })
-      );
-    };
-
-    const loadGoals = async () => {
-      const nextGoals = await listGoals(user.uid);
-
-      if (!active) {
-        return;
-      }
-
-      setGoals(nextGoals);
-      setDashboardCache((currentCache) =>
-        mergeDashboardDataCache(currentCache, user.uid, {
-          goals: nextGoals,
-        })
-      );
-    };
-
-    const loadWallet = async () => {
-      const [allWallets, nextActiveId] = await Promise.all([
-        listWallets(user.uid),
-        getActiveWalletId(user.uid),
-      ]);
-      const liveWallets = allWallets.filter((w) => !w.deletedAt);
-      const nextWalletBudget =
-        liveWallets.find((w) => w.id === nextActiveId)?.budget ?? 0;
-
-      if (!active) {
-        return;
-      }
-
-      setWallets(liveWallets);
-      setActiveWalletId(nextActiveId);
-      setWalletBudget(nextWalletBudget);
-      setDashboardCache((currentCache) =>
-        mergeDashboardDataCache(currentCache, user.uid, {
-          activeWalletBudget: nextWalletBudget,
-        })
-      );
-    };
-
-    const loadData = async () => {
-      if (!hadInitialAdvisorData.current) {
-        setLoading(true);
-      }
-
-      try {
-        await Promise.all([loadExpenses(), loadGoals(), loadWallet()]);
-      } catch (nextError) {
-        setError(
-          nextError instanceof Error
-            ? nextError.message
-            : "Could not load advisor notes."
-        );
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void loadData();
     void loadAI(false);
-
-    const unsubscribeExpenses = subscribeUserTable(
-      "expenses",
-      user.uid,
-      () => void loadExpenses()
-    );
-    const unsubscribeGoals = subscribeUserTable("goals", user.uid, () =>
-      void loadGoals()
-    );
-    const unsubscribeWallets = subscribeUserTable("wallets", user.uid, () => {
-      void loadWallet();
-    });
-
-    return () => {
-      active = false;
-      unsubscribeExpenses();
-      unsubscribeGoals();
-      unsubscribeWallets();
-    };
-    // Subscribe once per user; loadAI is recreated every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setDashboardCache, user.uid]);
+  }, [loadAI]);
 
   const activeGoal = useMemo(
     () => goals.find((goal) => goal.isActive && !goal.completed) ?? goals[0],

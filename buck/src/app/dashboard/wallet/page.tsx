@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial, mergeDashboardDataCache } from "@/context/FinancialContext";
 import { useToast } from "@/component/toast/ToastContext";
@@ -8,14 +8,11 @@ import AddIncomeModal from "@/component/income/AddIncomeModal";
 import IncomeList from "@/component/income/IncomeList";
 import MonthlyCashFlowCard from "@/component/income/MonthlyCashFlowCard";
 import { useIncomes } from "@/hooks/useIncomes";
+import { useUserTable } from "@/hooks/useUserTable";
 import { formatCurrency } from "@/utils/formatters";
 import {
   deleteWallet,
-  getActiveWalletId,
-  listExpenses,
-  listWallets,
   setActiveWallet,
-  subscribeUserTable,
   updateWallet,
   type BuckWallet,
 } from "@/utils/supabaseData";
@@ -202,15 +199,20 @@ export default function WalletPage() {
   const user = useOptionalDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
   const { toast } = useToast();
+  const {
+    data: walletsData,
+    loading,
+    error: walletsError,
+    refresh: refreshWallets,
+  } = useUserTable("wallets");
+  const { data: expensesData } = useUserTable("expenses");
+
   const userCache = user && dashboardCache.userId === user.uid ? dashboardCache : {};
+  const wallets = useMemo(() => walletsData ?? [], [walletsData]);
+  const activeWalletId = userCache.activeWalletId ?? null;
 
-  const hasInitialData = Boolean(userCache.wallets && userCache.activeWalletId !== undefined);
-  const hadInitialData = useRef(hasInitialData);
-
-  const [wallets, setWallets] = useState<BuckWallet[]>(() => userCache.wallets ?? []);
-  const [loading, setLoading] = useState(() => !hasInitialData);
-  const [error, setError] = useState("");
-  const [activeWalletId, setActiveWalletId] = useState<string | null>(() => userCache.activeWalletId ?? null);
+  const [actionError, setActionError] = useState("");
+  const error = actionError || walletsError || "";
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editBudget, setEditBudget] = useState("");
@@ -223,7 +225,7 @@ export default function WalletPage() {
     tracked: incomeTracked,
     cashFlow,
     refresh: refreshIncomes,
-  } = useIncomes(user?.uid ?? "", userCache.expenses ?? []);
+  } = useIncomes(user?.uid ?? "", expensesData ?? []);
   const [incomeModalOpen, setIncomeModalOpen] = useState(false);
   const [view, setView] = useState<"wallets" | "income">("wallets");
   // /dashboard/wallet?view=income opens on Income (the Home checklist links here).
@@ -234,7 +236,6 @@ export default function WalletPage() {
   }, []);
   const [incomeSearchQuery, setIncomeSearchQuery] = useState("");
 
-  // Search, Filter & Pagination States
   const [activeSearchQuery, setActiveSearchQuery] = useState("");
   const [activeSort, setActiveSort] = useState("Highest Budget");
   const [activePage, setActivePage] = useState(1);
@@ -242,62 +243,21 @@ export default function WalletPage() {
   const [historyFilter, setHistoryFilter] = useState("All");
   const [historyPage, setHistoryPage] = useState(1);
 
-  useEffect(() => {
+  const handleActiveSearchChange = (value: string) => {
+    setActiveSearchQuery(value);
     setActivePage(1);
-  }, [activeSearchQuery, activeSort]);
-
-  useEffect(() => {
-    setHistoryPage(1);
-  }, [historySearchQuery, historyFilter]);
-
-  const fetchWallets = async () => {
-    if (!user) return;
-    if (!hadInitialData.current && wallets.length === 0) setLoading(true);
-
-    try {
-      const walletsArr = await listWallets(user.uid);
-      setWallets(walletsArr);
-
-      const activeWalletsList = walletsArr.filter((w) => !w.deletedAt);
-      // On a first visit the active id may not be loaded yet (fetchActiveWallet
-      // runs alongside). Look it up instead of treating it as "no active
-      // wallet", which wrote a 0 budget into the shared cache and zeroed the
-      // top-bar wallet pill.
-      let newActiveId = activeWalletId ?? (await getActiveWalletId(user.uid));
-      if (newActiveId !== activeWalletId) setActiveWalletId(newActiveId);
-
-      if (activeWalletsList.length === 1 && !newActiveId) {
-        newActiveId = activeWalletsList[0].id;
-        await setActiveWallet(user.uid, newActiveId);
-        setActiveWalletId(newActiveId);
-      }
-
-      const activeWallet = walletsArr.find((w) => w.id === newActiveId && !w.deletedAt);
-
-      setDashboardCache((current) =>
-        mergeDashboardDataCache(current, user.uid, {
-          wallets: walletsArr,
-          ...(newActiveId ? { activeWalletId: newActiveId } : {}),
-          ...(activeWallet ? { activeWalletBudget: activeWallet.budget } : { activeWalletBudget: 0 }),
-        })
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load wallets.");
-      toast("Failed to load wallets", "error");
-    } finally {
-      setLoading(false);
-    }
   };
-
-  const fetchActiveWallet = async () => {
-    if (!user) return;
-    try {
-      const id = await getActiveWalletId(user.uid);
-      setActiveWalletId(id);
-      setDashboardCache((current) => mergeDashboardDataCache(current, user.uid, { activeWalletId: id }));
-    } catch (err) {
-      console.error(err);
-    }
+  const handleActiveSortChange = (value: string) => {
+    setActiveSort(value);
+    setActivePage(1);
+  };
+  const handleHistorySearchChange = (value: string) => {
+    setHistorySearchQuery(value);
+    setHistoryPage(1);
+  };
+  const handleHistoryFilterChange = (value: string) => {
+    setHistoryFilter(value);
+    setHistoryPage(1);
   };
 
   const handleDelete = async (id: string) => {
@@ -306,15 +266,14 @@ export default function WalletPage() {
       await deleteWallet(user.uid, id);
       if (activeWalletId === id) {
         await setActiveWallet(user.uid, null);
-        setActiveWalletId(null);
         setDashboardCache((current) =>
           mergeDashboardDataCache(current, user.uid, { activeWalletId: null, activeWalletBudget: 0 })
         );
       }
       toast("Wallet deleted successfully", "success");
-      fetchWallets();
+      void refreshWallets();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete wallet.");
+      setActionError(err instanceof Error ? err.message : "Failed to delete wallet.");
       toast("Failed to delete wallet", "error");
     }
   };
@@ -329,7 +288,7 @@ export default function WalletPage() {
     if (!user || savingEditId) return;
     const parsedBudget = parseBudgetInput(editBudget);
     if (!editName.trim() || !editBudget.trim() || isNaN(parsedBudget) || parsedBudget <= 0) {
-      setError("Please enter a valid name and a budget greater than 0.");
+      setActionError("Please enter a valid name and a budget greater than 0.");
       toast("Please enter a valid name and a budget greater than 0.", "error");
       return;
     }
@@ -343,13 +302,13 @@ export default function WalletPage() {
       setEditId(null);
       setEditName("");
       setEditBudget("");
-      setError("");
-      await fetchWallets();
+      setActionError("");
+      await refreshWallets();
       toast.dismiss(loadingToastId);
       toast("Wallet updated successfully", "success");
     } catch (err) {
       toast.dismiss(loadingToastId);
-      setError(err instanceof Error ? err.message : "Failed to update wallet.");
+      setActionError(err instanceof Error ? err.message : "Failed to update wallet.");
       toast("Failed to update wallet", "error");
     } finally {
       setSavingEditId(null);
@@ -360,54 +319,13 @@ export default function WalletPage() {
     setEditId(null);
     setEditName("");
     setEditBudget("");
-    setError("");
+    setActionError("");
   };
-
-  // Cash-flow KPI needs expenses; load them when Wallet is the first tab visited.
-  useEffect(() => {
-    if (!user) return;
-    const uid = user.uid;
-    const fetchExpenses = async () => {
-      try {
-        const nextExpenses = await listExpenses(uid);
-        setDashboardCache((current) =>
-          mergeDashboardDataCache(current, uid, { expenses: nextExpenses })
-        );
-      } catch (err) {
-        console.error("Failed to load expenses:", err);
-      }
-    };
-    void fetchExpenses();
-    return subscribeUserTable("expenses", uid, () => void fetchExpenses());
-  }, [setDashboardCache, user]);
-
-  useEffect(() => {
-    if (!user) return;
-    fetchWallets();
-    fetchActiveWallet();
-
-    const unsubscribeWallets = subscribeUserTable("wallets", user.uid, () => {
-      fetchWallets();
-    });
-
-    const unsubscribeProfile = subscribeUserTable("profiles", user.uid, () => {
-      fetchActiveWallet();
-    });
-
-    return () => {
-      unsubscribeWallets();
-      unsubscribeProfile();
-    };
-    // Subscribe once per user; the fetch helpers are recreated every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
 
   const handleSetActive = async (id: string) => {
     if (!user) return;
     try {
       await setActiveWallet(user.uid, id);
-      setActiveWalletId(id);
-
       const newActiveWallet = wallets.find((w) => w.id === id);
       setDashboardCache((current) =>
         mergeDashboardDataCache(current, user.uid, {
@@ -598,14 +516,14 @@ export default function WalletPage() {
                       className="wallet-search-input"
                       placeholder="Search wallets..."
                       value={activeSearchQuery}
-                      onChange={(e) => setActiveSearchQuery(e.target.value)}
+                      onChange={(e) => handleActiveSearchChange(e.target.value)}
                       aria-label="Search wallets"
                     />
                     {activeSearchQuery && (
                       <button
                         type="button"
                         className="wallet-search-clear-btn"
-                        onClick={() => setActiveSearchQuery("")}
+                        onClick={() => handleActiveSearchChange("")}
                         aria-label="Clear search"
                       >
                         <FaTimes aria-hidden="true" />
@@ -617,7 +535,7 @@ export default function WalletPage() {
                     <CustomSelect
                       fit
                       value={activeSort}
-                      onChange={(val) => setActiveSort(val)}
+                      onChange={(val) => handleActiveSortChange(val)}
                       options={[
                         { value: "Highest Budget", label: "Highest Budget" },
                         { value: "Lowest Budget", label: "Lowest Budget" },
@@ -816,14 +734,14 @@ export default function WalletPage() {
                       className="wallet-search-input"
                       placeholder="Search history..."
                       value={historySearchQuery}
-                      onChange={(e) => setHistorySearchQuery(e.target.value)}
+                      onChange={(e) => handleHistorySearchChange(e.target.value)}
                       aria-label="Search wallet history"
                     />
                     {historySearchQuery && (
                       <button
                         type="button"
                         className="wallet-search-clear-btn"
-                        onClick={() => setHistorySearchQuery("")}
+                        onClick={() => handleHistorySearchChange("")}
                         aria-label="Clear search"
                       >
                         <FaTimes aria-hidden="true" />
@@ -835,7 +753,7 @@ export default function WalletPage() {
                     <CustomSelect
                       fit
                       value={historyFilter}
-                      onChange={(val) => setHistoryFilter(val)}
+                      onChange={(val) => handleHistoryFilterChange(val)}
                       options={[
                         { value: "All", label: "All" },
                         { value: "Active Only", label: "Active Only" },
@@ -956,7 +874,7 @@ export default function WalletPage() {
                   onAdd={() => setIncomeModalOpen(true)}
                   onChanged={() => {
                     void refreshIncomes();
-                    void fetchWallets();
+                    void refreshWallets();
                   }}
                 />
               )}
@@ -972,7 +890,7 @@ export default function WalletPage() {
           onClose={() => setIncomeModalOpen(false)}
           onSaved={() => {
             void refreshIncomes();
-            void fetchWallets();
+            void refreshWallets();
           }}
         />
       )}
