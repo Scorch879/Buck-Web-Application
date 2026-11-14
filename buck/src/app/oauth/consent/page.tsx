@@ -13,6 +13,7 @@ import {
   FaRedo,
   FaShieldAlt,
 } from "react-icons/fa";
+import FadeInImage from "@/component/FadeInImage";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import { createMfaVerifyPath } from "@/utils/mfa/assurance";
 import type { ConsentDetails, ConsentRedirect } from "@/utils/oauthApps";
@@ -67,8 +68,9 @@ function AppLogo({ name, logoUrl }: { name: string; logoUrl: string | null }) {
   }
 
   return (
-    // Buck's own logo proxy (ADR-051). A plain <img>: next/image would add its own optimiser hop.
-    <img
+    // Buck's own logo proxy (ADR-051). A plain <img> (no next/image optimiser
+    // hop) that fades in once loaded instead of popping in (ADR-054).
+    <FadeInImage
       className="OC-Logo"
       src={src}
       alt=""

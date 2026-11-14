@@ -28,7 +28,6 @@ export async function fetchUserFinancialContext(
 ): Promise<UserFinancialContext> {
   const adminClient = createSupabaseAdminClient();
 
-  // 1. Get active wallet
   const { data: profile } = await adminClient
     .from("profiles")
     .select("active_wallet_id")
@@ -47,14 +46,12 @@ export async function fetchUserFinancialContext(
     }
   }
 
-  // 2. Determine current calendar month boundaries
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   const periodStart = startOfMonth.toISOString().slice(0, 10);
   const periodEnd = endOfMonth.toISOString().slice(0, 10);
 
-  // 3. Fetch expenses for the current month
   const { data: expensesData } = await adminClient
     .from("expenses")
     .select("amount, category_name, spent_on")
@@ -80,8 +77,7 @@ export async function fetchUserFinancialContext(
     }
   }
 
-  // 3b. Fetch this month's income (same period as expenses). A missing
-  // incomes table means income is simply not tracked yet.
+  // A missing incomes table means income is simply not tracked yet.
   let monthIncome = 0;
   let incomeTracked = true;
   const { data: incomesData, error: incomesError } = await adminClient
@@ -99,7 +95,6 @@ export async function fetchUserFinancialContext(
     }
   }
 
-  // 4. Fetch active goal
   const { data: goalsData } = await adminClient
     .from("goals")
     .select("id, goal_name, target_amount, current_amount, target_date, attitude, is_active, completed")
@@ -147,91 +142,6 @@ export function getSpendingBase(context: UserFinancialContext) {
     : context.activeWalletBudget;
 }
 
-export function generateAdvisoryInsights(context: UserFinancialContext) {
-  const {
-    activeWalletBudget,
-    totalSpentThisPeriod,
-    topCategory,
-    activeGoal,
-  } = context;
-  const spendingBase = getSpendingBase(context);
-
-  // Calculate financial health score (0 - 100)
-  const remainingBudget = Math.max(0, activeWalletBudget - totalSpentThisPeriod);
-  const spendRatio =
-    spendingBase > 0 ? totalSpentThisPeriod / spendingBase : 0.5;
-
-  let healthScore = 75;
-  if (spendRatio < 0.5) {
-    healthScore = 90;
-  } else if (spendRatio < 0.8) {
-    healthScore = 78;
-  } else if (spendRatio <= 1.0) {
-    healthScore = 62;
-  } else {
-    healthScore = Math.max(20, Math.round(50 - (spendRatio - 1.0) * 40));
-  }
-
-  // Multiplier from attitude
-  const attitude = activeGoal?.attitude || "Normal";
-  const multiplier =
-    attitude === "Aggressive" ? 0.6 : attitude === "Moderate" ? 0.8 : 1.0;
-
-  // Construct suggestion & advice
-  let title = "This month's budget check";
-  let suggestion = "Keep spending the way you are now. It leaves room in your wallet.";
-  let advice = `You have ${formatCurrency(
-    remainingBudget
-  )} left in your wallet this month. Set aside at least 15% of it as savings before buying things you don't need.`;
-  let priority: "low" | "medium" | "high" | "urgent" = "medium";
-
-  if (spendRatio > 0.9) {
-    priority = spendRatio > 1.0 ? "urgent" : "high";
-    title = "Your budget is almost used up";
-    suggestion = `You've used ${Math.round(
-      spendRatio * 100
-    )}% of this month's budget. Pause anything you don't need right now.`;
-    advice = `You're spending faster than this month's budget allows. Stop spending on ${
-      topCategory?.name || "entertainment and leisure"
-    } for now so you don't run short.`;
-  } else if (topCategory && topCategory.amount > spendingBase * 0.35) {
-    priority = "high";
-    title = `${topCategory.name} is taking a big share`;
-    suggestion = `${topCategory.name} is your biggest expense this month at ${formatCurrency(
-      topCategory.amount
-    )}. Try to spend 15% less on it next week.`;
-    const recommendedCap = Math.round(topCategory.amount * multiplier * 0.8);
-    advice = `With your ${attitude} saving attitude, keep ${topCategory.name} spending under ${formatCurrency(
-      recommendedCap
-    )} for the rest of this month so there's still money for your goal.`;
-  } else if (activeGoal) {
-    title = `Goal progress: ${activeGoal.name}`;
-    const needed = Math.max(0, activeGoal.targetAmount - activeGoal.currentAmount);
-    suggestion = `You still need ${formatCurrency(
-      needed
-    )} to reach '${activeGoal.name}'.`;
-    advice = `Putting ${formatCurrency(
-      Math.round((needed / 4) * multiplier)
-    )} per week toward this goal keeps you on track and still leaves money for daily spending.`;
-  }
-
-  return {
-    title,
-    suggestion,
-    advice,
-    financialHealthScore: healthScore,
-    priority,
-    metadata: {
-      spendRatio,
-      multiplier,
-      topCategory: topCategory?.name ?? null,
-      remainingBudget,
-      monthIncome: context.monthIncome,
-      incomeTracked: context.incomeTracked,
-    },
-  };
-}
-
 export function generateForecastInsights(context: UserFinancialContext) {
   const { totalSpentThisPeriod, periodStart, periodEnd, activeGoal } = context;
   const spendingBase = getSpendingBase(context);
@@ -254,13 +164,11 @@ export function generateForecastInsights(context: UserFinancialContext) {
   );
   const projectedSavings = Math.max(0, spendingBase - projectedTotalSpending);
 
-  // Daily forecast distribution
   const dailyForecast: Record<string, number> = {};
   for (let i = 0; i < totalDays; i++) {
     const d = new Date(start);
     d.setDate(d.getDate() + i);
     const dateStr = d.toISOString().slice(0, 10);
-    // Baseline projected daily expense
     dailyForecast[dateStr] = Math.round(avgSpentPerDay || spendingBase / totalDays);
   }
 

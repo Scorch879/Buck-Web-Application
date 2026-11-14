@@ -15,10 +15,6 @@ export function formatCurrency(value: number | string | null | undefined) {
   return `\u20B1${formatter.format(cents / 100)}`;
 }
 
-export function formatDateRange(start: string, end: string) {
-  return `${start} - ${end}`;
-}
-
 export function toNumber(value: unknown) {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? numericValue : 0;
@@ -30,6 +26,22 @@ export function parseMoneyInput(value: string): number | null {
   if (!/^\d{1,12}(\.\d{1,2})?$/.test(trimmed)) return null;
   const parsed = Number(trimmed);
   return parsed > 0 ? parsed : null;
+}
+
+/** Strips non-numeric characters from a wallet budget input while keeping one decimal point. */
+export function sanitizeBudgetInput(raw: string): string {
+  const cleaned = raw.replace(/[^0-9.,]/g, "");
+  const firstDot = cleaned.indexOf(".");
+  if (firstDot === -1) return cleaned;
+  return (
+    cleaned.slice(0, firstDot + 1) +
+    cleaned.slice(firstDot + 1).replace(/\./g, "")
+  );
+}
+
+/** Parses a formatted wallet budget string (allowing commas) using numeric(14,2) validation. */
+export function parseBudgetInput(raw: string): number | null {
+  return parseMoneyInput(raw.replace(/,/g, ""));
 }
 
 /** Adds two PHP amounts in integer centavos to avoid float drift. */

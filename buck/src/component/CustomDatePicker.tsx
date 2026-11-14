@@ -4,6 +4,9 @@ import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { popoverMotion } from "@/utils/motion";
 import { FaCalendarAlt, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { useClickOutside } from "@/hooks/useClickOutside";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { toLocalDateString } from "@/utils/cashFlow";
 import styles from "./CustomDatePicker.module.css";
 
 interface CustomDatePickerProps {
@@ -37,8 +40,8 @@ export default function CustomDatePicker({
 }: CustomDatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  
-  // currentView determines which month/year is being displayed in the popover
+  const close = () => setIsOpen(false);
+
   const [currentView, setCurrentView] = useState(() => {
     if (value) {
       const [y, m, day] = value.split("-").map(Number);
@@ -57,18 +60,8 @@ export default function CustomDatePicker({
     }
   }, [isOpen, value]);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  useClickOutside(containerRef, isOpen, close);
+  useEscapeKey(isOpen, close);
 
   const handlePrevMonth = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -118,24 +111,21 @@ export default function CustomDatePicker({
 
   const renderDays = () => {
     const days = [];
-    
-    // Empty slots for days before the 1st
+    const todayIso = toLocalDateString(new Date());
+
     for (let i = 0; i < firstDayIndex; i++) {
       days.push(<div key={`empty-${i}`} className={styles.emptyDay}></div>);
     }
 
-    // Actual days
     for (let i = 1; i <= daysInMonth; i++) {
       const currentIso = `${year}-${pad(month + 1)}-${pad(i)}`;
-      
+
       const isSelected = value === currentIso;
-      
-      // Check min/max bounds
+
       let isDisabled = false;
       if (min && currentIso < min) isDisabled = true;
       if (max && currentIso > max) isDisabled = true;
 
-      const todayIso = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
       const isToday = currentIso === todayIso;
 
       days.push(
@@ -153,16 +143,15 @@ export default function CustomDatePicker({
         </button>
       );
     }
-    
+
     return days;
   };
 
-  // Format display value safely
   let displayValue = "";
   if (value) {
     const [y, m, d] = value.split("-");
     if (y && m && d) {
-      displayValue = `${m}/${d}/${y}`; // mm/dd/yyyy format
+      displayValue = `${m}/${d}/${y}`;
     }
   }
 

@@ -136,6 +136,10 @@ export default function GettingStarted({
   // card is simply there.
   const [slideIn, setSlideIn] = useState(false);
   const savedRef = useRef<Saved | null>(null);
+  // Opened from a "New to Buck?" link (?guide=1): show the list even if it
+  // was hidden or the account looks set up.
+  const forcedRef = useRef(false);
+  const cardRef = useRef<HTMLDivElement | null>(null);
 
   const apply = useCallback((next: Saved) => {
     savedRef.current = next;
@@ -144,11 +148,21 @@ export default function GettingStarted({
   }, []);
 
   useLayoutEffect(() => {
-    const remembered = readSaved(userId);
+    let remembered = readSaved(userId);
+    if (!preview && new URLSearchParams(window.location.search).get("guide") === "1") {
+      forcedRef.current = true;
+      if (remembered) {
+        remembered = { ...remembered, state: "open" };
+        // Saved at once, so a re-run of this effect reads the reopened list.
+        writeSaved(remembered);
+      }
+      // Drop the flag so a reload or the Back button doesn't reopen it.
+      window.history.replaceState(window.history.state, "", window.location.pathname);
+    }
     savedRef.current = remembered;
     setSaved(remembered);
     setRestored(true);
-  }, [userId]);
+  }, [preview, userId]);
 
   useEffect(() => {
     if (preview || !restored) return;
@@ -167,7 +181,7 @@ export default function GettingStarted({
         const dataDone = next.ids
           .filter((id) => id !== "advisor")
           .every((id) => next.done.includes(id));
-        if (dataDone && !previous) {
+        if (dataDone && !previous && !forcedRef.current) {
           // An account that was already set up: never show the checklist.
           apply({ ...next, state: "finished" });
           return;
@@ -190,6 +204,13 @@ export default function GettingStarted({
   }, [apply, preview, restored, userId]);
 
   const visible = Boolean(saved && saved.state === "open" && saved.ids.length > 0);
+
+  // Bring the list into view when a guide link opened it.
+  useEffect(() => {
+    if (!visible || !forcedRef.current) return;
+    forcedRef.current = false;
+    cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [visible]);
 
   const handleHide = () => {
     if (!saved) return;
@@ -215,6 +236,7 @@ export default function GettingStarted({
       {visible && saved && (
         <motion.div
           key="getting-started"
+          ref={cardRef}
           // Clipped only while the height animates, so the card keeps its shadow.
           initial={slideIn ? { height: 0, opacity: 0, overflow: "hidden" } : false}
           animate={{ height: "auto", opacity: 1, transitionEnd: { overflow: "visible" } }}

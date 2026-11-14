@@ -72,7 +72,3 @@ export function getEmailValidationMessage(email: string) {
 
   return "";
 }
-
-export function isValidEmailAddress(email: string) {
-  return getEmailValidationMessage(email) === "";
-}

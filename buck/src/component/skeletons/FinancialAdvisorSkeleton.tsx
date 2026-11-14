@@ -22,7 +22,7 @@ const STAT_CARDS = [
 export default function FinancialAdvisorSkeleton() {
   return (
     <div className="advisor-page dashboard-skeleton" aria-busy="true" aria-label="Loading financial advisor">
-      {/* Hero: eyebrow + title + lead | (updated pill + refresh button) + health score */}
+      {/* Hero: eyebrow + title + lead | (updated pill + refresh button) */}
       <section className="advisor-hero">
         <div className="advisor-hero__copy">
           <p className="advisor-eyebrow">
@@ -40,7 +40,6 @@ export default function FinancialAdvisorSkeleton() {
             <span className="skeleton-pill" style={{ width: 132, height: 28, borderRadius: 999 }} />
             <span className="skeleton-button" style={{ width: 150, height: 40, borderRadius: 10 }} />
           </div>
-          <span className="skeleton-circle advisor-score" style={{ borderRadius: "50%" }} />
         </div>
       </section>
 

@@ -151,7 +151,7 @@ html[data-buck-theme="dark"] .goals-pill--completed {
 }
 
 .goals-card:hover:not(.selected) {
-  border-color: rgba(244, 117, 54, 0.45);
+  border-color: var(--buck-card-hover-border);
 }
 
 .goals-card:focus-visible {
@@ -235,14 +235,14 @@ html[data-buck-theme="dark"] .goals-card.selected {
   align-items: center;
   justify-content: center;
   min-height: 40px;
-  padding: 0.6rem 1rem;
+  padding: 0 1rem;
   color: #241409;
   background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
   border: 0;
   border-radius: 8px;
   font: inherit;
-  font-size: 0.9rem;
-  font-weight: 800;
+  font-size: 0.86rem;
+  font-weight: 600;
   text-align: center;
   cursor: pointer;
 }
@@ -267,8 +267,8 @@ html[data-buck-theme="dark"] .goals-card.selected {
   border: 1px solid var(--buck-line);
   border-radius: 8px;
   font: inherit;
-  font-size: 0.88rem;
-  font-weight: 700;
+  font-size: 0.86rem;
+  font-weight: 600;
   cursor: pointer;
   transition:
     background 160ms ease,
@@ -637,11 +637,17 @@ html[data-buck-theme="dark"] .goals-forecast-modal {
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.goals-segmented-btn:hover {
+  color: var(--buck-ink);
 }
 
 .goals-segmented-btn[aria-pressed="true"] {
   color: #fff;
   background: var(--buck-orange);
+  box-shadow: 0 4px 10px rgba(244, 117, 54, 0.25);
 }
 
 html[data-buck-theme="dark"] .goals-segmented-btn[aria-pressed="true"] {
@@ -931,9 +937,15 @@ html[data-buck-theme="dark"] .goals-restore-btn:hover:not(:disabled) {
   position: relative;
   display: flex;
   flex-direction: column;
-  width: min(500px, 92vw);
-  padding: clamp(1.25rem, 4vw, 2rem);
-  text-align: center;
+  gap: 1rem;
+  width: min(520px, 94vw);
+  padding: clamp(1.2rem, 3vw, 1.6rem);
+  text-align: left;
+}
+
+/* Keep the title clear of the close button in the corner. */
+.modal-content .create-goal-title {
+  padding-right: 2.5rem;
 }
 
 .modal-close {
@@ -976,13 +988,13 @@ html[data-buck-theme="dark"] .goals-restore-btn:hover:not(:disabled) {
 }
 
 .create-goal-input {
-  min-height: 44px;
-  padding: 0.74rem 0.9rem;
+  min-height: 42px;
+  padding: 0.62rem 0.82rem;
   color: var(--buck-ink);
   background: rgba(255, 250, 244, 0.72);
-  border: 1px solid rgba(244, 117, 54, 0.32);
+  border: 1px solid var(--buck-line);
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: 0.92rem;
   outline: none;
 }
 

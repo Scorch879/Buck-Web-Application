@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { FaPlug, FaRedo, FaUnlink } from "react-icons/fa";
 import DangerDeleteDialog from "@/component/DangerDeleteDialog";
+import FadeInImage from "@/component/FadeInImage";
 import { useToast } from "@/component/toast";
 import {
   describeScope,
@@ -46,8 +47,9 @@ function ConnectedAppLogo({ name, logoUrl }: { name: string; logoUrl: string | n
   }
 
   return (
-    // Buck's own logo proxy (ADR-051). A plain <img>: next/image would add its own optimiser hop.
-    <img
+    // Buck's own logo proxy (ADR-051). A plain <img> (no next/image optimiser
+    // hop) that fades in once loaded instead of popping in (ADR-054).
+    <FadeInImage
       className="settings-connected-logo"
       src={src}
       alt=""

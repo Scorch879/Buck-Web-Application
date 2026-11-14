@@ -405,13 +405,15 @@ html[data-buck-theme="dark"] .settings-section--danger {
 .settings-form-input,
 .settings-form textarea {
   width: 100%;
+  /* Same form field as Expenses, Goals and Income: 42px, 0.92rem. */
+  min-height: 42px;
   padding: 0.62rem 0.85rem;
   color: var(--buck-ink);
   background: rgba(255, 250, 244, 0.74);
-  border: 1px solid rgba(244, 117, 54, 0.28);
+  border: 1px solid var(--buck-line);
   border-radius: 8px;
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   font-weight: 400;
   outline: none;
   transition:
@@ -439,35 +441,18 @@ html[data-buck-theme="dark"] .settings-form textarea {
 }
 
 .settings-hero:hover,
-.settings-hero:focus-within {
-  border-color: rgba(244, 117, 54, 0.48);
-  box-shadow: 0 22px 48px rgba(94, 59, 34, 0.14);
-  transform: translateY(-3px);
-}
-
+.settings-hero:focus-within,
 .settings-card:hover,
 .settings-card:focus-within {
-  border-color: rgba(244, 117, 54, 0.38);
-  box-shadow: 0 16px 36px rgba(255, 122, 51, 0.12);
-  transform: translateY(-2px);
-}
-
-html[data-buck-theme="dark"] .settings-hero:hover,
-html[data-buck-theme="dark"] .settings-hero:focus-within {
-  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.32);
-}
-
-html[data-buck-theme="dark"] .settings-card:hover,
-html[data-buck-theme="dark"] .settings-card:focus-within {
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
+  border-color: var(--buck-card-hover-border);
+  box-shadow: var(--buck-card-hover-shadow);
 }
 
 .settings-account-card:hover,
 .settings-account-card:focus-within {
   background: rgba(255, 197, 71, 0.18);
-  border-color: rgba(244, 117, 54, 0.42);
-  box-shadow: 0 16px 32px rgba(255, 122, 51, 0.14);
-  transform: translateY(-2px);
+  border-color: var(--buck-card-hover-border);
+  box-shadow: var(--buck-card-hover-shadow);
 }
 
 .settings-account-card:hover::before,
@@ -901,7 +886,7 @@ html[data-buck-theme="dark"] .settings-confirm-hint--match {
   place-items: center;
   padding: 1rem;
   background: rgba(36, 20, 9, 0.48);
-  animation: settings-modal-backdrop-in 180ms ease both;
+  /* Enter and exit come from Framer Motion (backdropMotion, ADR-054). */
 }
 
 html[data-buck-theme="dark"] .settings-modal-backdrop {
@@ -920,7 +905,7 @@ html[data-buck-theme="dark"] .settings-modal-backdrop {
   box-shadow:
     0 30px 70px rgba(36, 20, 9, 0.22),
     0 0 0 1px rgba(255, 197, 71, 0.08) inset;
-  animation: settings-modal-in 220ms ease both;
+  /* Enter and exit come from Framer Motion (panelMotion, ADR-054). */
 }
 
 html[data-buck-theme="dark"] .settings-modal {
@@ -1013,28 +998,6 @@ html[data-buck-theme="dark"] .settings-modal {
 
 .settings-modal-form .settings-button {
   margin-top: 0.18rem;
-}
-
-@keyframes settings-modal-backdrop-in {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes settings-modal-in {
-  from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.96);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
 }
 
 @keyframes settings-message-pop {

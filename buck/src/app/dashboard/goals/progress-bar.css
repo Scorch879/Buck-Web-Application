@@ -186,22 +186,15 @@ html[data-buck-theme="dark"] .progress-add-btn {
   box-shadow: var(--buck-shadow);
 }
 
-.modal h3 {
-  margin: 0;
-  color: var(--buck-orange);
-  font-size: 1.25rem;
-  font-weight: 650;
-  text-align: center;
-}
-
 .modal input[type="number"] {
   width: 100%;
-  padding: 0.72rem 0.85rem;
+  min-height: 42px;
+  padding: 0.62rem 0.82rem;
   color: var(--buck-ink);
   background: rgba(255, 250, 244, 0.72);
-  border: 1px solid rgba(244, 117, 54, 0.32);
+  border: 1px solid var(--buck-line);
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: 0.92rem;
   outline: none;
   transition:
     border-color 180ms ease,
@@ -217,71 +210,6 @@ html[data-buck-theme="dark"] .modal input[type="number"] {
   box-shadow: 0 0 0 3px rgba(244, 117, 54, 0.18);
 }
 
-/* Primary modal button */
-.addProgress-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 42px;
-  padding: 0.66rem 1rem;
-  color: #241409;
-  background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
-  border: 0;
-  border-radius: 8px;
-  font-weight: 900;
-  cursor: pointer;
-  transition:
-    box-shadow 180ms ease,
-    transform 180ms ease,
-    opacity 180ms ease;
-}
-
-html[data-buck-theme="dark"] .addProgress-btn {
-  color: #241409;
-  background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
-}
-
-.addProgress-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.65;
-}
-
-/* Cancel button inside modal (last-child) */
-.ProgressModal-btns {
-  display: flex;
-  justify-content: center;
-  gap: 0.7rem;
-}
-
-.ProgressModal-cancel-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 42px;
-  padding: 0.66rem 1rem;
-  color: var(--buck-muted);
-  background: rgba(255, 240, 200, 0.45);
-  border: 1px solid var(--buck-line);
-  border-radius: 8px;
-  font-weight: 850;
-  cursor: pointer;
-  transition:
-    background 180ms ease,
-    border-color 180ms ease,
-    transform 180ms ease;
-}
-
-html[data-buck-theme="dark"] .ProgressModal-cancel-btn {
-  background: rgba(255, 197, 71, 0.1);
-  color: var(--buck-ink);
-}
-
-.ProgressModal-cancel-btn:hover {
-  background: rgba(255, 197, 71, 0.2);
-  border-color: rgba(244, 117, 54, 0.38);
-  transform: translateY(-1px);
-}
-
 @media (max-width: 520px) {
   .progress-ring-layout {
     flex-direction: column;
@@ -291,11 +219,6 @@ html[data-buck-theme="dark"] .ProgressModal-cancel-btn {
 
   .progress-stats {
     align-items: center;
-  }
-
-  .ProgressModal-btns {
-    flex-direction: column;
-    align-items: stretch;
   }
 }
 /* ============================================================

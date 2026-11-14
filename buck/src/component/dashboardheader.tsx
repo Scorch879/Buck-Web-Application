@@ -3,69 +3,38 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { AnimatePresence, animate, motion, useMotionValue } from "framer-motion";
+import {
+  AnimatePresence,
+  type MotionStyle,
+  animate,
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+} from "framer-motion";
 import {
   FaAngleDoubleLeft,
   FaBars,
-  FaBullseye,
-  FaChartArea,
-  FaChartLine,
-  FaCog,
-  FaHome,
-  FaReceipt,
-  FaRobot,
   FaSignOutAlt,
-  FaTags,
   FaTimes,
-  FaWallet,
 } from "react-icons/fa";
 import WalletModal from "@/app/dashboard/wallet/WalletModal";
 import FadeInImage from "@/component/FadeInImage";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial } from "@/context/FinancialContext";
 import { useToast } from "@/component/toast";
-import { INSTANT, LABEL_TRANSITION, SPRING, popoverMotion } from "@/utils/motion";
+import {
+  DASHBOARD_ROUTES,
+  getDashboardDisplayName,
+  type DashboardNavId,
+  type DashboardRoute,
+} from "@/utils/dashboardRoutes";
+import { INSTANT, LABEL_EXIT, LABEL_TRANSITION, SPRING, popoverMotion } from "@/utils/motion";
 import { signOutUser } from "./authentication";
 import "./dashboard.css";
 
 const SIDEBAR_STORAGE_KEY = "buck:sidebar-collapsed";
 const DESKTOP_QUERY = "(min-width: 1025px)";
-
-const dashboardNavItems = [
-  { id: "home", label: "Home", href: "/dashboard/home", icon: FaHome },
-  {
-    id: "expenses",
-    label: "Expenses",
-    href: "/dashboard/expenses",
-    icon: FaReceipt,
-  },
-  { id: "wallet", label: "Wallet", href: "/dashboard/wallet", icon: FaWallet },
-  { id: "categories", label: "Categories", href: "/dashboard/categories", icon: FaTags },
-  {
-    id: "advisor",
-    label: "Financial Advisor",
-    href: "/dashboard/financial-advisor",
-    icon: FaRobot,
-  },
-  {
-    id: "forecast",
-    label: "Forecast",
-    href: "/dashboard/forecast",
-    icon: FaChartArea,
-  },
-  {
-    id: "statistics",
-    label: "Statistics",
-    href: "/dashboard/statistics",
-    icon: FaChartLine,
-  },
-  { id: "goals", label: "Goals", href: "/dashboard/goals", icon: FaBullseye },
-  { id: "admin", label: "Admin", href: "/dashboard/admin", icon: FaRobot, adminOnly: true },
-  { id: "settings", label: "Settings", href: "/dashboard/settings", icon: FaCog },
-] as const;
-
-type DashboardNavId = (typeof dashboardNavItems)[number]["id"];
-type DashboardNavItem = (typeof dashboardNavItems)[number];
 
 type DashboardHeaderProps = {
   initialActiveNav?: DashboardNavId;
@@ -93,9 +62,7 @@ export default function DashboardHeader({
 }: DashboardHeaderProps) {
   const pathname = usePathname();
   const currentNav: DashboardNavId =
-    dashboardNavItems.find(
-      (item) => "href" in item && pathname?.startsWith(item.href)
-    )?.id ?? initialActiveNav;
+    DASHBOARD_ROUTES.find((item) => pathname?.startsWith(item.href))?.id ?? initialActiveNav;
   // Start on the route's own item so a hard load of /dashboard/goals never
   // paints Home as active first and then slides the highlight across.
   const [activeNav, setActiveNav] = useState<DashboardNavId>(currentNav);
@@ -116,16 +83,17 @@ export default function DashboardHeader({
   // after a page load snap: <html data-buck-sidebar> flips first and the CSS
   // width is already at the target before the animation starts.
   const railWidth = useMotionValue(250);
+  // Normalized 0 (expanded) -> 1 (collapsed) progress locked to railWidth so
+  // every spatial transform and the account tray resize on the exact same
+  // SPRING curve with zero CSS/layout-snapshot desync.
+  const collapseProgress = useTransform(railWidth, [250, 80], [0, 1]);
+  const prefersReducedMotion = useReducedMotion();
   const router = useRouter();
   const user = useOptionalDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
   const { toast } = useToast();
   const userCache = dashboardCache.userId === user?.uid ? dashboardCache : {};
-  const displayName =
-    userCache.profile?.username ||
-    user?.displayName ||
-    user?.email?.split("@")[0] ||
-    "Buck user";
+  const displayName = getDashboardDisplayName(userCache, user);
   const accountSubtitle = user?.email || "Signed in";
 
   const avatarSource = userCache.profile?.avatarPath
@@ -166,23 +134,30 @@ export default function DashboardHeader({
 
   // The rail only collapses on desktop; the mobile bar always shows the brand.
   const railCollapsed = sidebarCollapsed && isDesktop;
-  const sidebarTransition = sidebarReady ? SPRING : INSTANT;
-  const labelTransition = sidebarReady ? LABEL_TRANSITION : INSTANT;
+  const shouldAnimate = sidebarReady && !prefersReducedMotion;
+  const labelTransition = shouldAnimate ? LABEL_TRANSITION : INSTANT;
+  // Labels leave faster than the rail closes, so no text lingers in it.
+  const labelExit = shouldAnimate ? LABEL_EXIT : INSTANT;
 
   useEffect(() => {
     if (!mounted || !isDesktop) return;
     const target = railCollapsed ? 80 : 250;
-    if (!sidebarReady) {
+    if (!shouldAnimate) {
       railWidth.set(target);
       setSidebarAnimating(false);
       return;
     }
+    if (railWidth.get() === target) {
+      setSidebarAnimating(false);
+      return;
+    }
+    setSidebarAnimating(true);
     const controls = animate(railWidth, target, {
       ...SPRING,
       onComplete: () => setSidebarAnimating(false),
     });
     return () => controls.stop();
-  }, [mounted, isDesktop, railCollapsed, sidebarReady, railWidth]);
+  }, [mounted, isDesktop, railCollapsed, shouldAnimate, railWidth]);
 
   // Flip <html data-buck-sidebar> after React commits, not inside the state
   // update. The collapsed tray layout is CSS keyed on that attribute; setting
@@ -208,10 +183,8 @@ export default function DashboardHeader({
   };
 
   useEffect(() => {
-    dashboardNavItems.forEach((item) => {
-      if ("href" in item) {
-        router.prefetch(item.href);
-      }
+    DASHBOARD_ROUTES.forEach((item) => {
+      router.prefetch(item.href);
     });
   }, [router]);
 
@@ -232,13 +205,9 @@ export default function DashboardHeader({
     };
   }, []);
 
-  const navigateTo = (item: DashboardNavItem) => {
+  const navigateTo = (item: DashboardRoute) => {
     setActiveNav(item.id);
     setMenuOpen(false);
-
-    if (!("href" in item)) {
-      return;
-    }
 
     if (pathname?.startsWith(item.href)) {
       return;
@@ -266,8 +235,8 @@ export default function DashboardHeader({
   };
 
   const renderNavItems = (isMobile = false) =>
-    dashboardNavItems
-      .filter((item) => !("adminOnly" in item && item.adminOnly) || user?.isAdmin)
+    DASHBOARD_ROUTES
+      .filter((item) => !item.adminOnly || user?.isAdmin)
       .map((item) => {
         const Icon = item.icon;
         const showLabel = isMobile || !railCollapsed;
@@ -280,16 +249,8 @@ export default function DashboardHeader({
             title={!isMobile && railCollapsed ? item.label : undefined}
             aria-label={item.label}
             onClick={() => navigateTo(item)}
-            onFocus={() => {
-              if ("href" in item) {
-                router.prefetch(item.href);
-              }
-            }}
-            onMouseEnter={() => {
-              if ("href" in item) {
-                router.prefetch(item.href);
-              }
-            }}
+            onFocus={() => router.prefetch(item.href)}
+            onMouseEnter={() => router.prefetch(item.href)}
           >
             <Icon aria-hidden="true" className="nav-button-icon" />
             <AnimatePresence initial={false}>
@@ -297,9 +258,9 @@ export default function DashboardHeader({
                 <motion.span
                   key="nav-label"
                   className="nav-button-label"
-                  initial={{ opacity: 0, width: 0, x: -6 }}
-                  animate={{ opacity: 1, width: "auto", x: 0 }}
-                  exit={{ opacity: 0, width: 0, x: -6 }}
+                  initial={{ opacity: 0, x: -6 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -6, transition: labelExit }}
                   transition={labelTransition}
                 >
                   {item.label}
@@ -319,17 +280,26 @@ export default function DashboardHeader({
       }`}
       // No inline width until mounted: before that, CSS sizes the rail from
       // <html data-buck-sidebar>, set before first paint by the root layout.
-      style={mounted && isDesktop ? { width: railWidth } : undefined}
+      style={
+        mounted && isDesktop
+          ? ({
+              width: railWidth,
+              "--buck-collapse": collapseProgress,
+            } as MotionStyle)
+          : undefined
+      }
     >
       <div className="dashboard-header-inner">
         <button
           className="dashboard-brand"
           type="button"
-          onClick={() => navigateTo(dashboardNavItems[0])}
+          onClick={() => navigateTo(DASHBOARD_ROUTES[0])}
           aria-label="Go to dashboard home"
           title={railCollapsed ? "Buck — Go to dashboard home" : undefined}
         >
-          <motion.span layout="position" transition={sidebarTransition} className="dashboard-mascot">
+          {/* Driven by --buck-collapse in CSS (dashboard.css) so the mascot
+              glides on the exact same SPRING curve as railWidth. */}
+          <span className="dashboard-mascot">
             <Image
               src="/BuckMascot.png"
               alt=""
@@ -342,15 +312,15 @@ export default function DashboardHeader({
                 playQuack();
               }}
             />
-          </motion.span>
+          </span>
           <AnimatePresence initial={false}>
             {!railCollapsed && (
               <motion.span
                 key="brand-copy"
                 className="dashboard-brand-copy"
-                initial={{ opacity: 0, width: 0, x: -8 }}
-                animate={{ opacity: 1, width: "auto", x: 0 }}
-                exit={{ opacity: 0, width: 0, x: -8 }}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -8, transition: labelExit }}
                 transition={labelTransition}
               >
                 <span className="dashboard-title">Buck</span>
@@ -365,21 +335,15 @@ export default function DashboardHeader({
         </nav>
 
         <div className="dashboard-header-actions">
-          {/* layout="position", not layout: the tray turns from a 62px row into
-              a 140px column when the rail collapses. A full layout animation
-              scales the tray to bridge that, which squashed and stretched the
-              round profile photo (a visible "pop"). The tray is transparent,
-              so only its children need to move; nothing here scales now. */}
-          <motion.div
-            layout="position"
-            transition={sidebarTransition}
+          {/* Desktop tray positions and height are driven in CSS from
+              --buck-collapse (derived from railWidth) so the border, avatar,
+              copy, and collapse button move on one curve with no layout-flip snap. */}
+          <div
             className="dashboard-account-tray"
             role="group"
             aria-label="Profile and sidebar controls"
           >
-            <motion.span
-              layout="position"
-              transition={sidebarTransition}
+            <span
               className="dashboard-account-avatar"
               aria-hidden="true"
               title={railCollapsed ? `${displayName} (${accountSubtitle})` : undefined}
@@ -392,19 +356,15 @@ export default function DashboardHeader({
                   referrerPolicy="no-referrer"
                 />
               ) : null}
-            </motion.span>
-            {/* popLayout: the name block leaves the layout as soon as its exit
-                starts. Otherwise it held its space until the fade ended, then
-                the collapsed tray shrank and the photo dropped ~40px in one
-                frame at the end of the slide. */}
-            <AnimatePresence initial={false} mode="popLayout">
+            </span>
+            <AnimatePresence initial={false}>
               {!railCollapsed && (
                 <motion.span
                   key="account-copy"
                   className="dashboard-account-copy"
-                  initial={{ opacity: 0, width: 0, x: -8 }}
-                  animate={{ opacity: 1, width: "auto", x: 0 }}
-                  exit={{ opacity: 0, width: 0, x: -8 }}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8, transition: labelExit }}
                   transition={labelTransition}
                 >
                   <strong>{displayName}</strong>
@@ -412,11 +372,7 @@ export default function DashboardHeader({
                 </motion.span>
               )}
             </AnimatePresence>
-            <motion.div
-              layout="position"
-              transition={sidebarTransition}
-              className="dashboard-account-controls"
-            >
+            <div className="dashboard-account-controls">
               <button
                 type="button"
                 className="dashboard-tray-btn dashboard-tray-btn--collapse"
@@ -425,17 +381,12 @@ export default function DashboardHeader({
                 aria-label={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                 title={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
-                <motion.span
-                  className="dashboard-collapse-icon"
-                  initial={false}
-                  animate={{ rotate: railCollapsed ? 180 : 0 }}
-                  transition={sidebarTransition}
-                >
+                <span className="dashboard-collapse-icon">
                   <FaAngleDoubleLeft aria-hidden="true" />
-                </motion.span>
+                </span>
               </button>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         </div>
 
         <button

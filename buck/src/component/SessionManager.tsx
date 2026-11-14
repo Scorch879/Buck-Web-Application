@@ -3,15 +3,27 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
-import { signOutUser } from "@/component/authentication";
+import {
+  SESSION_FORCE_SIGN_OUT_KEY,
+  SESSION_LAST_ACTIVITY_KEY,
+  getClientIdleTimeoutMs,
+  getPositiveNumber,
+  readStoredTimestamp,
+  removeStoredValue,
+  signOutUser,
+  writeStoredValue,
+} from "@/component/authentication";
 import { isSupabaseConfigured, supabase } from "@/utils/supabase";
 
-const LAST_ACTIVITY_KEY = "buck-session-last-activity";
-const FORCE_SIGN_OUT_KEY = "buck-session-force-signout";
 const SESSION_CHANNEL = "buck-session";
-const DEFAULT_IDLE_TIMEOUT_MINUTES = 30;
 const DEFAULT_WARNING_SECONDS = 60;
 const ACTIVITY_WRITE_THROTTLE_MS = 15_000;
+const PASSIVE_ACTIVITY_EVENTS = [
+  "pointerdown",
+  "mousemove",
+  "scroll",
+  "touchstart",
+] as const;
 
 type SessionBroadcastMessage =
   | { type: "activity"; timestamp: number }
@@ -35,25 +47,6 @@ function getSessionBroadcastMessage(value: unknown) {
   return null;
 }
 
-function getPositiveNumber(value: string | undefined, fallback: number) {
-  const parsed = Number(value);
-
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return fallback;
-  }
-
-  return parsed;
-}
-
-function getIdleTimeoutMs() {
-  const minutes = getPositiveNumber(
-    process.env.NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_MINUTES,
-    DEFAULT_IDLE_TIMEOUT_MINUTES
-  );
-
-  return minutes * 60 * 1000;
-}
-
 function getWarningMs(timeoutMs: number) {
   const seconds = getPositiveNumber(
     process.env.NEXT_PUBLIC_SESSION_WARNING_SECONDS,
@@ -64,37 +57,9 @@ function getWarningMs(timeoutMs: number) {
   return Math.min(requestedMs, Math.max(timeoutMs - 1000, 0));
 }
 
-function readStoredTimestamp(key: string) {
-  try {
-    const value = window.localStorage.getItem(key);
-    const parsed = value ? Number(value) : 0;
-
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-  } catch {
-    return 0;
-  }
-}
-
-function writeStoredValue(key: string, value: string) {
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    // Storage can be unavailable in strict privacy modes. Timers still protect
-    // the current tab.
-  }
-}
-
-function removeStoredValue(key: string) {
-  try {
-    window.localStorage.removeItem(key);
-  } catch {
-    // Ignore storage cleanup failures for browsers with restricted storage.
-  }
-}
-
 export default function SessionManager() {
   const router = useRouter();
-  const timeoutMs = getIdleTimeoutMs();
+  const timeoutMs = getClientIdleTimeoutMs();
   const warningMs = getWarningMs(timeoutMs);
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -128,7 +93,7 @@ export default function SessionManager() {
   }, []);
 
   const readLastActivity = useCallback(() => {
-    const storedActivity = readStoredTimestamp(LAST_ACTIVITY_KEY);
+    const storedActivity = readStoredTimestamp(SESSION_LAST_ACTIVITY_KEY);
 
     return storedActivity || lastActivityRef.current || Date.now();
   }, []);
@@ -158,11 +123,11 @@ export default function SessionManager() {
       setShowWarning(false);
       setSecondsLeft(0);
       clearTimers();
-      removeStoredValue(LAST_ACTIVITY_KEY);
+      removeStoredValue(SESSION_LAST_ACTIVITY_KEY);
 
       if (notifyTabs) {
         const timestamp = String(Date.now());
-        writeStoredValue(FORCE_SIGN_OUT_KEY, timestamp);
+        writeStoredValue(SESSION_FORCE_SIGN_OUT_KEY, timestamp);
         publishSessionMessage({ type: "signout", timestamp: Number(timestamp) });
       }
 
@@ -261,7 +226,7 @@ export default function SessionManager() {
 
       lastActivityRef.current = now;
       lastWriteRef.current = now;
-      writeStoredValue(LAST_ACTIVITY_KEY, String(now));
+      writeStoredValue(SESSION_LAST_ACTIVITY_KEY, String(now));
       publishSessionMessage({ type: "activity", timestamp: now });
       setShowWarning(false);
       setSecondsLeft(0);
@@ -288,7 +253,7 @@ export default function SessionManager() {
       isFreshSignIn = false
     ) => {
       const now = Date.now();
-      const storedActivity = readStoredTimestamp(LAST_ACTIVITY_KEY);
+      const storedActivity = readStoredTimestamp(SESSION_LAST_ACTIVITY_KEY);
       const lastSignInMs = session?.user?.last_sign_in_at
         ? Date.parse(session.user.last_sign_in_at)
         : Number.NaN;
@@ -308,8 +273,8 @@ export default function SessionManager() {
       setIsAuthenticated(true);
 
       if (shouldResetActivity) {
-        writeStoredValue(LAST_ACTIVITY_KEY, String(now));
-        removeStoredValue(FORCE_SIGN_OUT_KEY);
+        writeStoredValue(SESSION_LAST_ACTIVITY_KEY, String(now));
+        removeStoredValue(SESSION_FORCE_SIGN_OUT_KEY);
       }
 
       if (now - activityTimestamp >= timeoutMs) {
@@ -328,7 +293,7 @@ export default function SessionManager() {
       setShowWarning(false);
       setSecondsLeft(0);
       clearTimers();
-      removeStoredValue(LAST_ACTIVITY_KEY);
+      removeStoredValue(SESSION_LAST_ACTIVITY_KEY);
     };
 
     void supabase.auth.getSession().then(({ data }) => {
@@ -372,11 +337,11 @@ export default function SessionManager() {
       }
     };
     const handleStorage = (event: StorageEvent) => {
-      if (event.key === FORCE_SIGN_OUT_KEY && event.newValue) {
+      if (event.key === SESSION_FORCE_SIGN_OUT_KEY && event.newValue) {
         void signOutForInactivity(false);
       }
 
-      if (event.key === LAST_ACTIVITY_KEY && event.newValue) {
+      if (event.key === SESSION_LAST_ACTIVITY_KEY && event.newValue) {
         const timestamp = Number(event.newValue);
 
         if (Number.isFinite(timestamp) && timestamp > 0) {
@@ -388,10 +353,9 @@ export default function SessionManager() {
       }
     };
 
-    window.addEventListener("pointerdown", handleActivity, { passive: true });
-    window.addEventListener("mousemove", handleActivity, { passive: true });
-    window.addEventListener("scroll", handleActivity, { passive: true });
-    window.addEventListener("touchstart", handleActivity, { passive: true });
+    PASSIVE_ACTIVITY_EVENTS.forEach((eventName) => {
+      window.addEventListener(eventName, handleActivity, { passive: true });
+    });
     window.addEventListener("keydown", handleActivity);
     window.addEventListener("storage", handleStorage);
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -418,10 +382,9 @@ export default function SessionManager() {
     }
 
     return () => {
-      window.removeEventListener("pointerdown", handleActivity);
-      window.removeEventListener("mousemove", handleActivity);
-      window.removeEventListener("scroll", handleActivity);
-      window.removeEventListener("touchstart", handleActivity);
+      PASSIVE_ACTIVITY_EVENTS.forEach((eventName) => {
+        window.removeEventListener(eventName, handleActivity);
+      });
       window.removeEventListener("keydown", handleActivity);
       window.removeEventListener("storage", handleStorage);
       document.removeEventListener("visibilitychange", handleVisibilityChange);

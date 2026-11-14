@@ -2,15 +2,17 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { backdropMotion, panelMotion } from "@/utils/motion";
 import CustomDatePicker from "@/component/CustomDatePicker";
 import CustomSelect from "@/component/CustomSelect";
 import { useToast } from "@/component/toast/ToastContext";
 import { useFinancial } from "@/context/FinancialContext";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { refreshWalletCache } from "@/hooks/useIncomes";
+import { useIsClient } from "@/hooks/useIsClient";
 import { toLocalDateString } from "@/utils/cashFlow";
-import { formatCurrency } from "@/utils/formatters";
+import { formatCurrency, parseMoneyInput } from "@/utils/formatters";
 import {
   addIncome,
   getActiveWallet,
@@ -33,7 +35,7 @@ export default function AddIncomeModal({
 }) {
   const { toast } = useToast();
   const { setDashboardCache } = useFinancial();
-  const [portalReady, setPortalReady] = useState(false);
+  const isClient = useIsClient();
   const [wallet, setWallet] = useState<BuckWallet | null>(null);
   const [walletLoading, setWalletLoading] = useState(true);
   const [amount, setAmount] = useState("");
@@ -46,9 +48,7 @@ export default function AddIncomeModal({
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    setPortalReady(true);
-  }, []);
+  useEscapeKey(open && !saving, onClose);
 
   useEffect(() => {
     if (!open) return;
@@ -106,9 +106,9 @@ export default function AddIncomeModal({
       return;
     }
 
-    const value = Number(amount);
-    if (!amount.trim() || !Number.isFinite(value) || value <= 0) {
-      setError("Enter an amount greater than 0.");
+    const value = parseMoneyInput(amount);
+    if (value === null) {
+      setError("Enter an amount greater than 0 with up to 2 decimals (e.g. 125.50).");
       return;
     }
     if (!source) {
@@ -142,24 +142,26 @@ export default function AddIncomeModal({
     }
   };
 
-  if (!open || !portalReady) return null;
+  if (!isClient) return null;
 
   return createPortal(
-    <motion.div
-      className={styles.backdrop}
-      onClick={onClose}
-      {...backdropMotion}
-    >
-      <motion.div
-        className={styles.modal}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Add income"
-        onClick={(event) => event.stopPropagation()}
-        {...panelMotion}
-      >
-        <h2 className={styles.title}>Add Income</h2>
-        <p className={styles.subtitle}>
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className={styles.backdrop}
+          onClick={onClose}
+          {...backdropMotion}
+        >
+          <motion.div
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Add income"
+            onClick={(event) => event.stopPropagation()}
+            {...panelMotion}
+          >
+        <h2 className={`${styles.title} buck-modal-title`}>Add income</h2>
+        <p className={`${styles.subtitle} buck-modal-subtitle`}>
           {wallet
             ? `Credits ${wallet.name} (${formatCurrency(wallet.budget)})`
             : walletLoading
@@ -172,15 +174,19 @@ export default function AddIncomeModal({
             <div className={styles.notice}>
               Create or select a wallet first to add income.
             </div>
-            <div className={styles.actions}>
-              <button type="button" className={styles.secondaryBtn} onClick={onClose}>
+            <div className={`${styles.actions} buck-modal-actions`}>
+              <button
+                type="button"
+                className={`${styles.secondaryBtn} buck-modal-btn buck-modal-btn--secondary`}
+                onClick={onClose}
+              >
                 Close
               </button>
             </div>
           </>
         ) : (
-          <form className={styles.form} onSubmit={handleSubmit} noValidate>
-            <label className={styles.field}>
+          <form className={`${styles.form} buck-modal-form`} onSubmit={handleSubmit} noValidate>
+            <label className={`${styles.field} buck-modal-field`}>
               Amount (PHP)
               <input
                 className={styles.input}
@@ -196,7 +202,7 @@ export default function AddIncomeModal({
               />
             </label>
 
-            <div className={styles.field}>
+            <div className={`${styles.field} buck-modal-field`}>
               Category
               <CustomSelect
                 value={source}
@@ -208,12 +214,12 @@ export default function AddIncomeModal({
               />
             </div>
 
-            <div className={styles.field}>
+            <div className={`${styles.field} buck-modal-field`}>
               Date
               <CustomDatePicker value={date} onChange={setDate} max={today} required />
             </div>
 
-            <label className={styles.field}>
+            <label className={`${styles.field} buck-modal-field`}>
               Description (optional)
               <input
                 className={styles.input}
@@ -227,22 +233,28 @@ export default function AddIncomeModal({
 
             {error && <div className={styles.error}>{error}</div>}
 
-            <div className={styles.actions}>
-              <button type="button" className={styles.secondaryBtn} onClick={onClose}>
+            <div className={`${styles.actions} buck-modal-actions`}>
+              <button
+                type="button"
+                className={`${styles.secondaryBtn} buck-modal-btn buck-modal-btn--secondary`}
+                onClick={onClose}
+              >
                 Cancel
               </button>
               <button
                 type="submit"
-                className={styles.primaryBtn}
+                className={`${styles.primaryBtn} buck-modal-btn buck-modal-btn--primary`}
                 disabled={saving || walletLoading}
               >
-                {saving ? "Adding..." : "Add Income"}
+                {saving ? "Adding..." : "Add income"}
               </button>
             </div>
           </form>
         )}
-      </motion.div>
-    </motion.div>,
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
     document.body
   );
 }

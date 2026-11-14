@@ -14,8 +14,9 @@
   background: rgba(255, 250, 244, 0.72);
   border: 1px solid var(--buck-line);
   border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 850;
+  /* A text box: regular weight, same size as the other modal fields. */
+  font-size: 0.92rem;
+  font-weight: 400;
   cursor: pointer;
   outline: none;
   transition:
@@ -36,7 +37,7 @@ html[data-buck-theme="dark"] .inputBox {
 
 .placeholder {
   color: var(--buck-muted);
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .icon {
@@ -74,7 +75,7 @@ html[data-buck-theme="dark"] .popover {
 }
 
 .currentMonth {
-  font-weight: 850;
+  font-weight: 650;
   font-size: 1.05rem;
   color: var(--buck-ink);
 }
@@ -102,7 +103,7 @@ html[data-buck-theme="dark"] .popover {
   grid-template-columns: repeat(7, 1fr);
   text-align: center;
   font-size: 0.75rem;
-  font-weight: 850;
+  font-weight: 600;
   color: var(--buck-muted);
   margin-bottom: 0.25rem;
 }
@@ -123,7 +124,7 @@ html[data-buck-theme="dark"] .popover {
   border-radius: 6px;
   padding: 0.4rem 0;
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--buck-ink);
   cursor: pointer;
   transition: all 150ms ease;
@@ -144,14 +145,14 @@ html[data-buck-theme="dark"] .popover {
 
 .todayDay {
   color: var(--buck-orange);
-  font-weight: 850;
+  font-weight: 600;
   border-color: rgba(244, 117, 54, 0.4);
 }
 
 .selectedDay {
   background: linear-gradient(135deg, var(--buck-yellow), var(--buck-orange)) !important;
   color: #fffaf4 !important;
-  font-weight: 850;
+  font-weight: 600;
   box-shadow: 0 4px 12px rgba(244, 117, 54, 0.3);
 }
 
@@ -171,7 +172,7 @@ html[data-buck-theme="dark"] .selectedDay {
   background: transparent;
   border: none;
   color: var(--buck-muted);
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   font-size: 0.85rem;
   padding: 0.25rem 0.5rem;
@@ -192,7 +193,7 @@ html[data-buck-theme="dark"] .footerButton:hover {
   background: transparent;
   border: none;
   color: var(--buck-orange);
-  font-weight: 850;
+  font-weight: 650;
   cursor: pointer;
   font-size: 0.85rem;
   padding: 0.25rem 0.5rem;

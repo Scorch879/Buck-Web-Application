@@ -61,14 +61,11 @@
     transform 200ms ease;
 }
 
-.expenses-kpi-card:hover {
-  border-color: rgba(244, 117, 54, 0.42);
-  box-shadow: 0 16px 36px rgba(255, 122, 51, 0.12);
-  transform: translateY(-2px);
-}
-
-html[data-buck-theme="dark"] .expenses-kpi-card:hover {
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.32);
+.expenses-kpi-card:hover,
+.expenses-card:hover,
+.expenses-card:focus-within {
+  border-color: var(--buck-card-hover-border);
+  box-shadow: var(--buck-card-hover-shadow);
 }
 
 /* Subtle top glow bar on hover */
@@ -913,12 +910,13 @@ html[data-buck-theme="dark"] .expenses-list-count-badge {
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  padding: 0.48rem 0.95rem;
-  min-height: 38px;
-  font-size: 0.82rem;
-  font-weight: 750;
-  color: #ffffff;
-  background: linear-gradient(135deg, var(--buck-orange), var(--buck-coral));
+  padding: 0 1rem;
+  min-height: 40px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  /* Same primary button as Settings, Wallet, Goals and Categories. */
+  color: #241409;
+  background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -934,7 +932,6 @@ html[data-buck-theme="dark"] .expenses-list-count-badge {
 .expenses-add-trigger-btn:hover {
   box-shadow: 0 4px 16px rgba(244, 117, 54, 0.42);
   filter: brightness(1.05);
-  transform: translateY(-1px);
 }
 
 .expenses-add-trigger-btn:active {

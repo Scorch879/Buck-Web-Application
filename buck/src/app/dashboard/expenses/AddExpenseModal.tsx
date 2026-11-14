@@ -9,6 +9,8 @@ import { FaPlus, FaTimes, FaExclamationTriangle } from "react-icons/fa";
 import CustomSelect from "@/component/CustomSelect";
 import CustomDatePicker from "@/component/CustomDatePicker";
 import { useToast } from "@/component/toast/ToastContext";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useIsClient } from "@/hooks/useIsClient";
 import { toLocalDateString } from "@/utils/cashFlow";
 import { addMoney, formatCurrency, parseMoneyInput } from "@/utils/formatters";
 import {
@@ -42,7 +44,7 @@ export default function AddExpenseModal({
   goalId = null,
 }: AddExpenseModalProps) {
   const { toast } = useToast();
-  const [portalReady, setPortalReady] = useState(false);
+  const isClient = useIsClient();
 
   const [amount, setAmount] = useState("");
   const [categoryName, setCategoryName] = useState("");
@@ -54,9 +56,7 @@ export default function AddExpenseModal({
   const amountInputRef = useRef<HTMLInputElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
-  useEffect(() => {
-    setPortalReady(true);
-  }, []);
+  useEscapeKey(open && !saving, onClose);
 
   // Reset fields only on the closed -> open transition so background category
   // refreshes never wipe what the user is typing.
@@ -91,18 +91,6 @@ export default function AddExpenseModal({
       document.body.style.overflow = prevOverflow;
     };
   }, [open]);
-
-  // Escape key handler
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !saving) {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, saving, onClose]);
 
   const numAmount = parseMoneyInput(amount) ?? 0;
   const isOverBudget =
@@ -156,7 +144,7 @@ export default function AddExpenseModal({
     }
   };
 
-  if (!portalReady) return null;
+  if (!isClient) return null;
 
   return createPortal(
     <AnimatePresence>
@@ -183,7 +171,7 @@ export default function AddExpenseModal({
             <div className="expenses-modal-header">
               <div>
                 <p className="expenses-eyebrow">New Expense</p>
-                <h2 id="add-expense-modal-title">Add Spending</h2>
+                <h2 id="add-expense-modal-title" className="buck-modal-title">Add Spending</h2>
               </div>
               <button
                 type="button"
@@ -205,9 +193,9 @@ export default function AddExpenseModal({
             )}
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="expenses-modal-form">
+            <form onSubmit={handleSubmit} className="expenses-modal-form buck-modal-form">
               {/* Amount */}
-              <label>
+              <label className="buck-modal-field">
                 <span>Amount (PHP)</span>
                 <input
                   type="text"
@@ -269,7 +257,7 @@ export default function AddExpenseModal({
               {/* Category. Adding, renaming and deleting live on the Categories
                   tab; the modal only picks one. */}
               <div className="expenses-modal-category">
-                <label>
+                <label className="buck-modal-field">
                   <span>Category</span>
                   <CustomSelect
                     value={categoryName}
@@ -293,7 +281,7 @@ export default function AddExpenseModal({
               </div>
 
               {/* Date */}
-              <label>
+              <label className="buck-modal-field">
                 <span>Date</span>
                 <CustomDatePicker
                   value={spentOn}
@@ -302,7 +290,7 @@ export default function AddExpenseModal({
               </label>
 
               {/* Description */}
-              <label>
+              <label className="buck-modal-field">
                 <span>Description</span>
                 <input
                   type="text"
@@ -314,10 +302,10 @@ export default function AddExpenseModal({
               </label>
 
               {/* Footer Actions */}
-              <div className="expenses-modal-footer">
+              <div className="expenses-modal-footer buck-modal-actions">
                 <button
                   type="button"
-                  className="expenses-modal-cancel-btn"
+                  className="expenses-modal-cancel-btn buck-modal-btn buck-modal-btn--secondary"
                   onClick={onClose}
                   disabled={saving}
                 >
@@ -325,7 +313,7 @@ export default function AddExpenseModal({
                 </button>
                 <motion.button
                   type="submit"
-                  className="expenses-modal-submit-btn"
+                  className="expenses-modal-submit-btn buck-modal-btn buck-modal-btn--primary"
                   disabled={saving}
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.98 }}

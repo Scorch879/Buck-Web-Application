@@ -26,6 +26,11 @@
 }
 
 .dashboard-header {
+  /* Side padding of the rail and account tray; collapsed offsets are worked
+     out from them, so keep them in step. */
+  --buck-rail-pad: clamp(0.85rem, 1.5vw, 1.15rem);
+  --buck-tray-pad-x: clamp(0.75rem, 1.3vw, 1rem);
+  --buck-collapse: 0;
   z-index: 100;
   width: 250px;
   height: 100%;
@@ -46,7 +51,7 @@ html[data-buck-theme="dark"] .dashboard-header {
 
 .dashboard-header-inner {
   height: 100%;
-  padding: clamp(0.85rem, 1.5vw, 1.15rem);
+  padding: var(--buck-rail-pad);
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -119,6 +124,7 @@ html[data-buck-theme="dark"] .dashboard-mascot {
 
 .dashboard-brand-copy {
   display: grid;
+  flex-shrink: 0;
   min-width: 0;
   gap: 0.08rem;
   padding-top: 0.2rem;
@@ -159,6 +165,9 @@ html[data-buck-theme="dark"] .dashboard-mascot {
   width: 100%;
   gap: 0.75rem;
   min-height: 84px;
+  /* .dashboard-main is a flex column: without this, long pages squeezed the
+     bar back to 84px after it wrapped, and the wallet pill spilled out. */
+  flex-shrink: 0;
   /* Equal top/bottom padding keeps the title block and wallet pill centred;
      ~18px each side gives the title room instead of filling the bar. */
   padding: clamp(0.95rem, 1.4vw, 1.15rem) clamp(0.75rem, 1.5vw, 1rem);
@@ -242,9 +251,11 @@ html[data-buck-theme="dark"] .dashboard-topbar--welcome {
     font-size: 0.9rem;
     line-height: 1.45;
     text-align: right;
-    white-space: nowrap;
+    /* Wraps to a second line instead of cutting off with "...". */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
 }
 
@@ -337,8 +348,10 @@ html[data-buck-theme="dark"] .dashboard-scroll-indicator {
   gap: 0.45rem;
   width: 100%;
   min-width: 0;
+  height: 40px;
   min-height: 40px;
   padding: 0.5rem 0.8rem;
+  line-height: 1.2;
   overflow: hidden;
   color: var(--buck-muted);
   background: transparent;
@@ -406,9 +419,11 @@ html[data-buck-theme="dark"] .nav-button.active {
   font-size: 1rem;
 }
 
+/* Labels keep their full width and are clipped by the button (and the rail)
+   as it narrows. They used to shrink with an ellipsis, so the browser
+   re-cut the text on every frame of the slide ("Financial Adv…", "Fin…"). */
 .nav-button-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex-shrink: 0;
   white-space: nowrap;
 }
 
@@ -418,10 +433,10 @@ html[data-buck-theme="dark"] .nav-button.active {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.55rem;
-  width: calc(100% + 2 * clamp(0.85rem, 1.5vw, 1.15rem));
-  margin: 0 calc(-1 * clamp(0.85rem, 1.5vw, 1.15rem)) calc(-1 * clamp(0.85rem, 1.5vw, 1.15rem));
+  width: calc(100% + 2 * var(--buck-rail-pad));
+  margin: 0 calc(-1 * var(--buck-rail-pad)) calc(-1 * var(--buck-rail-pad));
   min-height: 58px;
-  padding: 0.78rem clamp(0.75rem, 1.3vw, 1rem);
+  padding: 0.78rem var(--buck-tray-pad-x);
   color: var(--buck-ink);
   background: transparent;
   border: none;
@@ -606,6 +621,14 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
     width: 80px;
   }
 
+  /* Before React is ready the <html> attribute (set before first paint)
+     drives the compact layout. Once mounted, Framer Motion sets --buck-collapse
+     from railWidth (0 -> 1) on every frame of the SPRING animation so all
+     transforms, indicator insets, and the account tray resize in lockstep. */
+  html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) {
+    --buck-collapse: 1;
+  }
+
   /* Until the header has synced its state, hide the labels a collapsed rail
      would not show (they exit instantly once React takes over). */
   html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .nav-button-label,
@@ -614,65 +637,86 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
     display: none;
   }
 
-  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-header-inner {
-    padding: 0.85rem 0.45rem;
-    align-items: center;
+  .dashboard-header.dashboard-header--animating {
+    will-change: width;
   }
 
-  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-brand {
-    justify-content: center;
-    gap: 0;
-    padding: 0.25rem;
-    width: 100%;
+  .dashboard-header.dashboard-header--animating .dashboard-mascot,
+  .dashboard-header.dashboard-header--animating .nav-button-icon,
+  .dashboard-header.dashboard-header--animating .dashboard-collapse-icon {
+    will-change: transform;
   }
 
-  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-mascot {
-    width: 46px;
-    height: 46px;
+  /* .dashboard-header-inner keeps the open rail's padding on every side,
+     so switching layouts never widens or shifts the content. */
+
+  /* Brand stays left-aligned and the mascot slides on --buck-collapse to the
+     centre of the 80px rail (79px inside the border). */
+  .dashboard-header .dashboard-mascot {
+    transform: translateX(
+      calc(var(--buck-collapse, 0) * ((79px - 52px) / 2 - var(--buck-rail-pad) - 0.42rem))
+    );
   }
 
-  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-mascot-img {
-    top: 9px;
-    width: 36px;
-    height: 52px;
+  /* Nav buttons keep their open gap and height so fading labels never jump
+     or clip; the icon glides smoothly to the centre of the 80px rail's pill,
+     and the underline insets tighten in lockstep with the narrowing rail. */
+  .dashboard-header .nav-button-icon {
+    transform: translateX(
+      calc(var(--buck-collapse, 0) * ((79px - 2 * var(--buck-rail-pad) - 1rem) / 2 - 1px - 0.8rem))
+    );
   }
 
-  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-nav {
-    align-items: center;
+  .dashboard-header .nav-button::after {
+    left: calc(0.7rem - var(--buck-collapse, 0) * 0.15rem);
+    right: calc(0.7rem - var(--buck-collapse, 0) * 0.15rem);
   }
 
-  html[data-buck-sidebar="collapsed"] .dashboard-header .nav-button {
-    justify-content: center;
-    gap: 0;
-    width: 46px;
-    min-height: 44px;
-    padding: 0.5rem;
-    margin: 0 auto;
+  .dashboard-header .dashboard-collapse-icon {
+    transform: rotate(calc(var(--buck-collapse, 0) * 180deg));
   }
 
-  html[data-buck-sidebar="collapsed"] .dashboard-header .nav-button-icon {
-    font-size: 1.08rem;
+  /* Name and e-mail are cut to the open rail's column width (249px inside
+     the border, minus tray padding, the 36px photo, the 32px button and two
+     gaps). The column itself still narrows with the rail and clips them, but
+     the ellipsis no longer moves while the rail slides open. */
+  .dashboard-header-actions .dashboard-account-copy strong,
+  .dashboard-header-actions .dashboard-account-copy span {
+    width: calc(249px - 2 * var(--buck-tray-pad-x) - 68px - 1.1rem);
   }
 
-  html[data-buck-sidebar="collapsed"] .dashboard-header .nav-button::after {
-    left: 0.55rem;
-    right: 0.55rem;
+  /* Account tray animates its height and child coordinates directly from
+     --buck-collapse instead of flipping grid <-> flex column + layout="position",
+     so the top border never snaps 38px and the button never clips or wobbles. */
+  .dashboard-header-actions .dashboard-account-tray {
+    display: block;
+    padding: 0;
+    min-height: 0;
+    height: calc(62px + var(--buck-collapse, 0) * 38px);
   }
 
-  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-account-tray {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.45rem;
-    width: calc(100% + 0.9rem);
-    margin: 0 -0.45rem -0.85rem;
-    padding: 0.7rem 0.35rem;
+  .dashboard-header-actions .dashboard-account-avatar {
+    position: absolute;
+    z-index: 2;
+    top: calc(12.5px - var(--buck-collapse, 0) * 0.5px);
+    left: calc(var(--buck-tray-pad-x) + var(--buck-collapse, 0) * (21.5px - var(--buck-tray-pad-x)));
   }
 
-  html[data-buck-sidebar="collapsed"] .dashboard-header .dashboard-account-controls {
-    flex-direction: column;
-    gap: 0.38rem;
+  .dashboard-header-actions .dashboard-account-copy {
+    position: absolute;
+    z-index: 1;
+    top: 12.5px;
+    left: calc(var(--buck-tray-pad-x) + 36px + 0.55rem);
+    right: calc(var(--buck-tray-pad-x) + 32px + 0.55rem);
+    height: 36px;
+    align-content: center;
+  }
+
+  .dashboard-header-actions .dashboard-account-controls {
+    position: absolute;
+    z-index: 2;
+    top: calc(14.5px + var(--buck-collapse, 0) * (55px - 14.5px));
+    right: calc(var(--buck-tray-pad-x) + var(--buck-collapse, 0) * (23.5px - var(--buck-tray-pad-x)));
   }
 }
 
