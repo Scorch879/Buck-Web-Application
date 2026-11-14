@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useId } from "react";
+import React, { useState, useRef, useId } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { popoverMotion } from "@/utils/motion";
 import { FaChevronDown } from "react-icons/fa";
+import { useClickOutside } from "@/hooks/useClickOutside";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
 import styles from "./CustomSelect.module.css";
 
 export type SelectOption = {
@@ -42,19 +44,10 @@ export default function CustomSelect({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const listboxId = useId();
+  const close = () => setIsOpen(false);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  useClickOutside(containerRef, isOpen, close);
+  useEscapeKey(isOpen, close);
 
   const selectedOption =
     options.find((opt) => opt.value === value) || options[0];
@@ -80,9 +73,6 @@ export default function CustomSelect({
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
             setIsOpen(!isOpen);
-          } else if (e.key === "Escape" && isOpen) {
-            e.preventDefault();
-            setIsOpen(false);
           }
         }}
       >

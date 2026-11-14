@@ -7,6 +7,8 @@
  * scaled by the saving-attitude savings multiplier (1.0 / 1.15 / 1.30).
  */
 
+import { toLocalDateString } from "@/utils/cashFlow";
+
 const DAY_MS = 86_400_000;
 const MAX_HORIZON_DAYS = 3650;
 const SAVINGS_MULTIPLIER: Record<string, number> = { Normal: 1, Moderate: 1.15, Aggressive: 1.3 };
@@ -23,7 +25,6 @@ export interface GoalForecast {
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
-const dayKey = (d: Date) => d.toISOString().slice(0, 10);
 const peso = (n: number) =>
   `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -33,7 +34,7 @@ export function computeGoalForecast(
 ): GoalForecast {
   const saved = round2(Math.max(0, goal.currentAmount));
   const remaining = round2(Math.max(0, goal.targetAmount - goal.currentAmount));
-  const start = new Date(`${dayKey(today)}T00:00:00Z`);
+  const start = new Date(`${toLocalDateString(today)}T00:00:00Z`);
   const target = goal.targetDate ? new Date(`${goal.targetDate.slice(0, 10)}T00:00:00Z`) : null;
   const daysLeft =
     target && !Number.isNaN(target.getTime())
@@ -58,7 +59,8 @@ export function computeGoalForecast(
   const perDay = round2(remaining / daysLeft);
   const forecast_per_day: Record<string, number> = {};
   for (let i = 0; i < daysLeft; i++) {
-    forecast_per_day[dayKey(new Date(start.getTime() + i * DAY_MS))] = perDay;
+    const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+    forecast_per_day[toLocalDateString(day)] = perDay;
   }
 
   const period: "week" | "month" = daysLeft < 60 ? "week" : "month";

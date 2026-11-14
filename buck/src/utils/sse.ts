@@ -30,7 +30,3 @@ export function createSseParser(onData: (data: string) => void) {
     },
   };
 }
-
-export function encodeSseEvent(payload: unknown) {
-  return `data: ${JSON.stringify(payload)}\n\n`;
-}

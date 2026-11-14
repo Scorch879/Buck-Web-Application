@@ -28,4 +28,11 @@ describe("computeGoalForecast", () => {
     expect(past.forecast_per_day).toEqual({});
     expect(past.ai_recommended_budget).toBeNull();
   });
+
+  it("uses the local calendar day when today is at local midnight", () => {
+    const localMidnight = new Date(2026, 9, 14, 0, 0, 0);
+    const f = computeGoalForecast({ ...goal, targetDate: "2026-10-16" }, localMidnight);
+    expect(f.days_left).toBe(2);
+    expect(Object.keys(f.forecast_per_day)).toEqual(["2026-10-14", "2026-10-15"]);
+  });
 });

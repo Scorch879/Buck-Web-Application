@@ -1,20 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
 import {
+  getSupabaseAdminEnv,
   isSupabaseAdminConfigured,
-  supabaseServiceRoleKey,
-  supabaseUrl,
 } from "@/utils/supabaseConfig";
 
 export { isSupabaseAdminConfigured };
 
 export function createSupabaseAdminClient() {
-  if (!isSupabaseAdminConfigured) {
-    throw new Error(
-      "Supabase admin actions are not configured. Add SUPABASE_SERVICE_ROLE_KEY to the server environment."
-    );
-  }
+  const { url, serviceRoleKey } = getSupabaseAdminEnv();
 
-  return createClient(supabaseUrl!, supabaseServiceRoleKey!, {
+  return createClient(url, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

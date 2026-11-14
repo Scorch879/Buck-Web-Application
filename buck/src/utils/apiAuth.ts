@@ -11,16 +11,6 @@ export type RequestAuth = {
   mfa: MfaState;
 };
 
-/**
- * Resolves the authenticated user id from the SSR session cookie only.
- * Never accept a user id from the request body: route handlers use the
- * service-role client, which bypasses RLS.
- */
-export async function getSessionUserId(): Promise<string | null> {
-  const auth = await getSessionAuth();
-  return auth?.mfa.satisfied ? auth.user.id : null;
-}
-
 /** Returns the token from `Authorization: Bearer <token>`, or null. */
 export function readBearerToken(header: string | null) {
   const match = /^Bearer\s+(\S+)\s*$/i.exec(header ?? "");

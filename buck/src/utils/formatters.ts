@@ -15,10 +15,6 @@ export function formatCurrency(value: number | string | null | undefined) {
   return `\u20B1${formatter.format(cents / 100)}`;
 }
 
-export function formatDateRange(start: string, end: string) {
-  return `${start} - ${end}`;
-}
-
 export function toNumber(value: unknown) {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? numericValue : 0;
