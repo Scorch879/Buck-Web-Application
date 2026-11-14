@@ -593,72 +593,76 @@ export default function CategoriesPage() {
 
             {canEdit && (
               <div className="cat-add-slot">
-                {isAddOpen ? (
-                  <motion.form
-                    key="add-form"
-                    className="cat-add-inline"
-                    onSubmit={handleAdd}
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={SPRING}
-                  >
-                    <input
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                      placeholder={`New ${noun} category...`}
-                      aria-label={`New ${noun} category name`}
-                      maxLength={40}
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === "Escape") {
+                <AnimatePresence mode="wait" initial={false}>
+                  {isAddOpen ? (
+                    <motion.form
+                      key="add-form"
+                      className="cat-add-inline"
+                      onSubmit={handleAdd}
+                      initial={{ opacity: 0, scale: 0.98 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.98 }}
+                      transition={SPRING}
+                    >
+                      <input
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        placeholder={`New ${noun} category...`}
+                        aria-label={`New ${noun} category name`}
+                        maxLength={40}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            setIsAddOpen(false);
+                            setNewName("");
+                          }
+                        }}
+                      />
+                      <motion.button
+                        type="submit"
+                        className="cat-primary-btn cat-add-submit-btn"
+                        disabled={!newName.trim() || adding}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.97 }}
+                      >
+                        {adding ? (
+                          <FaSpinner aria-hidden="true" className="cat-spin" />
+                        ) : (
+                          <FaCheck aria-hidden="true" />
+                        )}{" "}
+                        {adding ? "Adding…" : "Save"}
+                      </motion.button>
+                      <motion.button
+                        type="button"
+                        className="cat-icon-btn"
+                        aria-label="Cancel adding category"
+                        onClick={() => {
                           setIsAddOpen(false);
                           setNewName("");
-                        }
-                      }}
-                    />
+                        }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <FaTimes aria-hidden="true" />
+                      </motion.button>
+                    </motion.form>
+                  ) : (
                     <motion.button
-                      type="submit"
-                      className="cat-primary-btn cat-add-submit-btn"
-                      disabled={!newName.trim() || adding}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.97 }}
-                    >
-                      {adding ? (
-                        <FaSpinner aria-hidden="true" className="cat-spin" />
-                      ) : (
-                        <FaCheck aria-hidden="true" />
-                      )}{" "}
-                      {adding ? "Adding…" : "Save"}
-                    </motion.button>
-                    <motion.button
+                      key="add-trigger"
                       type="button"
-                      className="cat-icon-btn"
-                      aria-label="Cancel adding category"
-                      onClick={() => {
-                        setIsAddOpen(false);
-                        setNewName("");
-                      }}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      className="cat-secondary-btn cat-add-trigger-btn"
+                      onClick={() => setIsAddOpen(true)}
+                      initial={{ opacity: 0, scale: 0.98 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.98 }}
+                      whileHover={{ scale: 1.02, y: -1 }}
+                      whileTap={{ scale: 0.97 }}
+                      transition={SPRING}
                     >
-                      <FaTimes aria-hidden="true" />
+                      <FaPlus aria-hidden="true" /> Add {nounCapitalized} Category
                     </motion.button>
-                  </motion.form>
-                ) : (
-                  <motion.button
-                    key="add-trigger"
-                    type="button"
-                    className="cat-secondary-btn cat-add-trigger-btn"
-                    onClick={() => setIsAddOpen(true)}
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    whileHover={{ scale: 1.02, y: -1 }}
-                    whileTap={{ scale: 0.97 }}
-                    transition={SPRING}
-                  >
-                    <FaPlus aria-hidden="true" /> Add {nounCapitalized} Category
-                  </motion.button>
-                )}
+                  )}
+                </AnimatePresence>
               </div>
             )}
 
@@ -857,88 +861,95 @@ export default function CategoriesPage() {
                             )}
                           </button>
 
-                          {isHoveredEntries && (
-                            <motion.div
-                              className={`cat-entries-popover ${
-                                openPopoverDown
-                                  ? "cat-entries-popover--down"
-                                  : "cat-entries-popover--up"
-                              }`}
-                              role="tooltip"
-                              initial={{
-                                opacity: 0,
-                                y: openPopoverDown ? -6 : 6,
-                                scale: 0.98,
-                              }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              transition={SPRING}
-                            >
-                              <div className="cat-entries-popover-head">
-                                <span className="cat-entries-popover-title">
-                                  {row.category.name}
-                                </span>
-                                <span className="cat-entries-popover-badge">
-                                  {row.entries}{" "}
-                                  {row.entries === 1 ? "entry" : "entries"}
-                                </span>
-                              </div>
+                          <AnimatePresence>
+                            {isHoveredEntries && (
+                              <motion.div
+                                className={`cat-entries-popover ${
+                                  openPopoverDown
+                                    ? "cat-entries-popover--down"
+                                    : "cat-entries-popover--up"
+                                }`}
+                                role="tooltip"
+                                initial={{
+                                  opacity: 0,
+                                  y: openPopoverDown ? -6 : 6,
+                                  scale: 0.98,
+                                }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{
+                                  opacity: 0,
+                                  y: openPopoverDown ? -4 : 4,
+                                  scale: 0.98,
+                                }}
+                                transition={SPRING}
+                              >
+                                <div className="cat-entries-popover-head">
+                                  <span className="cat-entries-popover-title">
+                                    {row.category.name}
+                                  </span>
+                                  <span className="cat-entries-popover-badge">
+                                    {row.entries}{" "}
+                                    {row.entries === 1 ? "entry" : "entries"}
+                                  </span>
+                                </div>
 
-                              {row.entries > 0 ? (
-                                <>
-                                  <div className="cat-entries-popover-stats">
-                                    <span>
-                                      Total:{" "}
-                                      <strong>
-                                        {formatCurrency(row.total)}
-                                      </strong>
-                                    </span>
-                                    <span>
-                                      Max:{" "}
-                                      <strong>{formatCurrency(row.max)}</strong>
-                                    </span>
-                                  </div>
-                                  <ul className="cat-entries-popover-list">
-                                    {row.recentEntries.map((item) => (
-                                      <li
-                                        key={item.id}
-                                        className="cat-entries-popover-item"
-                                      >
-                                        <div className="cat-entries-popover-item-info">
-                                          <span className="cat-entries-popover-item-desc">
-                                            {item.description}
-                                          </span>
-                                          {item.date && (
-                                            <span className="cat-entries-popover-item-date">
-                                              {item.date}
+                                {row.entries > 0 ? (
+                                  <>
+                                    <div className="cat-entries-popover-stats">
+                                      <span>
+                                        Total:{" "}
+                                        <strong>
+                                          {formatCurrency(row.total)}
+                                        </strong>
+                                      </span>
+                                      <span>
+                                        Max:{" "}
+                                        <strong>{formatCurrency(row.max)}</strong>
+                                      </span>
+                                    </div>
+                                    <ul className="cat-entries-popover-list">
+                                      {row.recentEntries.map((item) => (
+                                        <li
+                                          key={item.id}
+                                          className="cat-entries-popover-item"
+                                        >
+                                          <div className="cat-entries-popover-item-info">
+                                            <span className="cat-entries-popover-item-desc">
+                                              {item.description}
                                             </span>
-                                          )}
-                                        </div>
-                                        <span className="cat-entries-popover-item-amt">
-                                          {formatCurrency(item.amount)}
-                                        </span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                  {row.entries > row.recentEntries.length && (
-                                    <p className="cat-entries-popover-more">
-                                      +{row.entries - row.recentEntries.length}{" "}
-                                      more{" "}
-                                      {row.entries - row.recentEntries.length ===
-                                      1
-                                        ? "entry"
-                                        : "entries"}{" "}
-                                      in {row.category.name}
-                                    </p>
-                                  )}
-                                </>
-                              ) : (
-                                <p className="cat-entries-popover-empty">
-                                  No {noun} entries recorded in this category
-                                  yet.
-                                </p>
-                              )}
-                            </motion.div>
-                          )}
+                                            {item.date && (
+                                              <span className="cat-entries-popover-item-date">
+                                                {item.date}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <span className="cat-entries-popover-item-amt">
+                                            {formatCurrency(item.amount)}
+                                          </span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                    {row.entries > row.recentEntries.length && (
+                                      <p className="cat-entries-popover-more">
+                                        +{row.entries - row.recentEntries.length}{" "}
+                                        more{" "}
+                                        {row.entries - row.recentEntries.length ===
+                                        1
+                                          ? "entry"
+                                          : "entries"}{" "}
+                                        in {row.category.name}
+                                      </p>
+                                    )}
+                                  </>
+                                ) : (
+                                  <p className="cat-entries-popover-empty">
+                                    No {noun} entries recorded in this category
+                                    yet.
+                                  </p>
+                                )}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </div>
                       </td>
 

@@ -144,6 +144,7 @@ body::-webkit-scrollbar {
   background-clip: padding-box;
   border: 2px solid transparent;
   border-radius: 999px;
+  transition: background-color 160ms ease;
 }
 
 *::-webkit-scrollbar-thumb:hover,
@@ -155,6 +156,17 @@ body::-webkit-scrollbar {
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--buck-scroll-thumb) transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .buck-fade-img.is-loaded,
+  .spinner {
+    animation: none;
   }
 }
 
@@ -2063,8 +2075,6 @@ main {
   width: 100%;
   max-height: min(82dvh, 760px);
   overflow-y: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
   padding: clamp(1.25rem, 4vw, 2.4rem);
   color: var(--buck-ink);
   background:
@@ -2072,12 +2082,6 @@ main {
   border: 1px solid rgba(120, 92, 70, 0.22);
   border-radius: 8px;
   box-shadow: 0 28px 80px rgba(47, 27, 14, 0.28);
-}
-
-.legal-modal-card::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
 }
 
 .landing-page--dark .legal-modal-card {

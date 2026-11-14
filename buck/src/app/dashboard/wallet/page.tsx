@@ -33,7 +33,7 @@ import {
   FaChevronRight,
   FaSpinner,
 } from "react-icons/fa";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { DURATION, EASE_OUT } from "@/utils/motion";
 import "../settings/style.css";
 import WalletModal from "./WalletModal";
@@ -994,11 +994,7 @@ export default function WalletPage() {
           setConfirmDeleteId(null);
         }}
       />
-      <AnimatePresence>
-        {isModalOpen && (
-          <WalletModal open={isModalOpen} onClose={() => setIsModalOpen(false)} />
-        )}
-      </AnimatePresence>
+      <WalletModal open={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 }

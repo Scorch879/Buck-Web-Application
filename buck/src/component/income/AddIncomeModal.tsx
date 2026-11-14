@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { backdropMotion, panelMotion } from "@/utils/motion";
 import CustomDatePicker from "@/component/CustomDatePicker";
 import CustomSelect from "@/component/CustomSelect";
@@ -142,22 +142,24 @@ export default function AddIncomeModal({
     }
   };
 
-  if (!open || !portalReady) return null;
+  if (!portalReady) return null;
 
   return createPortal(
-    <motion.div
-      className={styles.backdrop}
-      onClick={onClose}
-      {...backdropMotion}
-    >
-      <motion.div
-        className={styles.modal}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Add income"
-        onClick={(event) => event.stopPropagation()}
-        {...panelMotion}
-      >
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className={styles.backdrop}
+          onClick={onClose}
+          {...backdropMotion}
+        >
+          <motion.div
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Add income"
+            onClick={(event) => event.stopPropagation()}
+            {...panelMotion}
+          >
         <h2 className={`${styles.title} buck-modal-title`}>Add income</h2>
         <p className={`${styles.subtitle} buck-modal-subtitle`}>
           {wallet
@@ -249,8 +251,10 @@ export default function AddIncomeModal({
             </div>
           </form>
         )}
-      </motion.div>
-    </motion.div>,
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
     document.body
   );
 }

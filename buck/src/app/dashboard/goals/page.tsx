@@ -968,20 +968,23 @@ const GoalsPage = () => {
       </div>
 
       {/* Forecast dialog: the AI Forecaster's plan for this goal (ADR-055) */}
-      {forecastModalOpen && selectedGoal && (
-        <div
-          className="modal-backdrop"
-          role="presentation"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setForecastModalOpen(false);
-          }}
-        >
-          <div
-            className="goals-forecast-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="goals-forecast-title"
+      <AnimatePresence>
+        {forecastModalOpen && selectedGoal && (
+          <motion.div
+            className="modal-backdrop"
+            role="presentation"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setForecastModalOpen(false);
+            }}
+            {...backdropMotion}
           >
+            <motion.div
+              className="goals-forecast-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="goals-forecast-title"
+              {...panelMotion}
+            >
             <div className="goals-modal-header">
               <div>
                 <p className="goals-eyebrow">AI Forecaster</p>
@@ -1132,9 +1135,10 @@ const GoalsPage = () => {
                 + Add expense
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        </motion.div>
+        )}
+      </AnimatePresence>
       {/* Add Spending (opened from the forecast dialog): the shared dialog,
           linked to this goal. */}
       <AddExpenseModal

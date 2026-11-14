@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import styles from "./WalletModal.module.css";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { backdropMotion, panelMotion } from "@/utils/motion";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial } from "@/context/FinancialContext";
@@ -242,22 +242,25 @@ export default function WalletModal({
     ...activeWallets.filter((w) => w.id !== activeWalletId),
   ];
 
-  if (!open || !portalReady) return null;
+  if (!portalReady) return null;
 
   return createPortal(
-    <motion.div 
-      className={styles.backdrop} 
-      onClick={onClose}
-      {...backdropMotion}
-    >
-      <motion.div 
-        className={styles.modal} 
-        role="dialog"
-        aria-modal="true"
-        aria-label="Manage wallets"
-        onClick={(e) => e.stopPropagation()}
-        {...panelMotion}
-      >
+    <>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className={styles.backdrop}
+            onClick={onClose}
+            {...backdropMotion}
+          >
+            <motion.div
+              className={styles.modal}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Manage wallets"
+              onClick={(e) => e.stopPropagation()}
+              {...panelMotion}
+            >
         <h2 className={`${styles.title} buck-modal-title`}>Wallets</h2>
         <p className={`${styles.totalBudget} buck-modal-subtitle`}>
           Total budget: <span>{formatCurrency(totalBudget)}</span>
@@ -385,7 +388,10 @@ export default function WalletModal({
             Close
           </button>
         </div>
-      </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <DangerDeleteDialog
         open={Boolean(confirmDeleteId)}
         itemType="wallet"
@@ -396,7 +402,7 @@ export default function WalletModal({
           if (confirmDeleteId) await handleDelete(confirmDeleteId);
         }}
       />
-    </motion.div>,
+    </>,
     document.body
   );
 }
