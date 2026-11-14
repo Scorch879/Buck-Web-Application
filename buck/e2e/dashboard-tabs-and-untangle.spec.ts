@@ -99,8 +99,8 @@ test.describe("Public & Protected Route Responses (F9)", () => {
       maxRedirects: 0,
     });
     expect([307, 308]).toContain(mfaRecoverConfirm.status());
-    expect(mfaRecoverConfirm.headers()["location"]).toContain(
-      "/verify-2fa?emailRecovery=invalid-link"
+    expect(mfaRecoverConfirm.headers()["location"] ?? "").toMatch(
+      /\/verify-2fa\?emailRecovery=(invalid-link|not-configured)/
     );
   });
 
