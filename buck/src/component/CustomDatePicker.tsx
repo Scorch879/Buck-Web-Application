@@ -73,10 +73,10 @@ export default function CustomDatePicker({
     setCurrentView(new Date(currentView.getFullYear(), currentView.getMonth() + 1, 1));
   };
 
-  const pad = (n: number) => n.toString().padStart(2, "0");
-
   const handleDateSelect = (day: number) => {
-    const currentIso = `${currentView.getFullYear()}-${pad(currentView.getMonth() + 1)}-${pad(day)}`;
+    const currentIso = toLocalDateString(
+      new Date(currentView.getFullYear(), currentView.getMonth(), day)
+    );
     onChange(currentIso);
     setIsOpen(false);
   };
@@ -90,7 +90,7 @@ export default function CustomDatePicker({
   const handleToday = (e: React.MouseEvent) => {
     e.stopPropagation();
     const today = new Date();
-    const currentIso = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+    const currentIso = toLocalDateString(today);
     onChange(currentIso);
     setCurrentView(new Date(today.getFullYear(), today.getMonth(), 1));
     setIsOpen(false);
@@ -118,7 +118,7 @@ export default function CustomDatePicker({
     }
 
     for (let i = 1; i <= daysInMonth; i++) {
-      const currentIso = `${year}-${pad(month + 1)}-${pad(i)}`;
+      const currentIso = toLocalDateString(new Date(year, month, i));
 
       const isSelected = value === currentIso;
 

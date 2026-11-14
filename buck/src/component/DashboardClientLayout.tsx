@@ -14,6 +14,7 @@ import FinancialProvider from "@/context/FinancialProvider";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import { FaWallet } from "react-icons/fa";
 import type { BuckUser } from "@/utils/authUser";
+import { formatCurrency } from "@/utils/formatters";
 import {
   getDashboardDisplayName,
   getDashboardPageChrome,
@@ -95,10 +96,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
               <FaWallet aria-hidden="true" />
               <strong>Wallet</strong>
               <span suppressHydrationWarning>
-                {new Intl.NumberFormat("en-PH", {
-                  style: "currency",
-                  currency: "PHP",
-                }).format(userCache.activeWalletBudget || 0)}
+                {formatCurrency(userCache.activeWalletBudget || 0)}
               </span>
             </button>
           </div>

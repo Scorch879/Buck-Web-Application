@@ -5,6 +5,7 @@ import { FaFingerprint, FaPen, FaPlus, FaRedo, FaTrash } from "react-icons/fa";
 import type { PasskeyListItem } from "@supabase/supabase-js";
 import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import { useToast } from "@/component/toast";
+import { formatMediumDateTime } from "@/utils/formatters";
 import { describeAuthError } from "@/utils/mfa/client";
 import { supabase } from "@/utils/supabase";
 import "@/component/skeletons/skeletons.css";
@@ -26,15 +27,6 @@ function isUserCancel(error: unknown) {
   const name = error && typeof error === "object" && "name" in error ? String(error.name) : "";
   const message = describeAuthError(error, "");
   return name === "NotAllowedError" || name === "AbortError" || /cancel|not allowed|timed out/i.test(message);
-}
-
-function formatDate(value: string | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
 }
 
 function passkeyLabel(passkey: PasskeyListItem, index: number) {
@@ -241,8 +233,8 @@ export default function PasskeysSection() {
         <ul className="settings-mfa-list" aria-label="Passkeys">
           {passkeys.map((passkey, index) => {
             const label = passkeyLabel(passkey, index);
-            const added = formatDate(passkey.created_at);
-            const lastUsed = formatDate(passkey.last_used_at);
+            const added = formatMediumDateTime(passkey.created_at, false);
+            const lastUsed = formatMediumDateTime(passkey.last_used_at, false);
             const isRenaming = renamingId === passkey.id;
 
             return (

@@ -140,8 +140,8 @@ export default function FinancialSummaryTable({
   const displayedItems = filteredItems.slice(startIndex, endIndex);
 
   // Custom select options adhering to Buck design system
-  const filterOptions: SelectOption[] = useMemo(() => {
-    const opts: SelectOption[] = [
+  const filterOptions: SelectOption<SummaryFilterOption>[] = useMemo(() => {
+    const opts: SelectOption<SummaryFilterOption>[] = [
       { value: "all", label: `All Categories (${items.length})` },
     ];
     if (selectedCategory) {
@@ -157,7 +157,7 @@ export default function FinancialSummaryTable({
     return opts;
   }, [items.length, selectedCategory]);
 
-  const sortOptions: SelectOption[] = useMemo(
+  const sortOptions: SelectOption<SummarySortOption>[] = useMemo(
     () => [
       { value: "highest", label: "Highest Amount" },
       { value: "lowest", label: "Lowest Amount" },
@@ -329,7 +329,7 @@ export default function FinancialSummaryTable({
           <CustomSelect
             fit
             value={filterBy}
-            onChange={(val) => setFilterBy(val as SummaryFilterOption)}
+            onChange={setFilterBy}
             options={filterOptions}
             icon={<FaFilter aria-hidden="true" />}
             size="sm"
@@ -339,7 +339,7 @@ export default function FinancialSummaryTable({
           <CustomSelect
             fit
             value={sortBy}
-            onChange={(val) => setSortBy(val as SummarySortOption)}
+            onChange={setSortBy}
             options={sortOptions}
             icon={<FaSortAmountDown aria-hidden="true" />}
             size="sm"

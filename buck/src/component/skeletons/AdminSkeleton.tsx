@@ -4,23 +4,10 @@ import React from "react";
 import CustomSelect from "@/component/CustomSelect";
 import "@/app/dashboard/settings/style.css";
 import "@/app/dashboard/admin/style.css";
+import { IconPlaceholder } from "./SkeletonPrimitives";
 import "./skeletons.css";
 
 const noop = () => {};
-
-function IconPlaceholder() {
-  return (
-    <span
-      className="skeleton-avatar"
-      style={{
-        display: "inline-block",
-        width: "1em",
-        height: "1em",
-        borderRadius: 4,
-      }}
-    />
-  );
-}
 
 /**
  * 1:1 High-Fidelity SuperAdmin Tab Skeleton (default "User Feedback" tab)

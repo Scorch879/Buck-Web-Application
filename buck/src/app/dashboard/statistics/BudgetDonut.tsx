@@ -3,28 +3,17 @@ import React from "react";
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip } from "chart.js";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
+import {
+  BUDGET_LEVEL_COLORS,
+  getBudgetLevel,
+  type BudgetLevel,
+} from "@/utils/categoryUtils";
 import { buckTooltip } from "@/utils/chartTheme";
 import { formatCurrency } from "@/utils/formatters";
 
 ChartJS.register(ArcElement, Tooltip);
 
-export type BudgetLevel = "safe" | "caution" | "critical" | "none";
-
-// SRS 3.7: amber at 80% of budget, crimson at 100%.
-export function getBudgetLevel(spent: number, budget: number): BudgetLevel {
-  if (budget <= 0) return "none";
-  const ratio = spent / budget;
-  if (ratio >= 1) return "critical";
-  if (ratio >= 0.8) return "caution";
-  return "safe";
-}
-
-const LEVEL_COLORS: Record<BudgetLevel, string> = {
-  safe: "#f47536",
-  caution: "#f59e0b",
-  critical: "#ff3838",
-  none: "#f47536",
-};
+export { getBudgetLevel, type BudgetLevel };
 
 interface BudgetDonutProps {
   spent: number;
@@ -46,7 +35,7 @@ export default function BudgetDonut({ spent, budget }: BudgetDonutProps) {
     datasets: [
       {
         data: values,
-        backgroundColor: [spent > 0 ? LEVEL_COLORS[level] : trackColor, trackColor],
+        backgroundColor: [spent > 0 ? BUDGET_LEVEL_COLORS[level] : trackColor, trackColor],
         borderWidth: 0,
         hoverOffset: 4,
       },

@@ -1,5 +1,5 @@
 "use client";
-import { computeGoalForecast } from "@/utils/goalForecast";
+import { computeGoalForecast, type GoalForecast } from "@/utils/goalForecast";
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { FaChevronLeft, FaChevronRight, FaPlus } from "react-icons/fa";
@@ -25,7 +25,8 @@ import { Line } from "react-chartjs-2";
 import { useFinancial } from "@/context/FinancialContext";
 import { formatCurrency } from "@/utils/formatters";
 import type { BuckExpense } from "@/utils/supabaseData";
-import BudgetDonut, { getBudgetLevel } from "./BudgetDonut";
+import { getBudgetLevel } from "@/utils/categoryUtils";
+import BudgetDonut from "./BudgetDonut";
 import CategoryBreakdown, { type CategoryTotal } from "./CategoryBreakdown";
 import SpendingTrendChart from "./SpendingTrendChart";
 import AddExpenseModal from "../expenses/AddExpenseModal";
@@ -55,11 +56,6 @@ ChartJS.register(
 );
 
 type Mode = "week" | "month" | "overall";
-
-type ForecastResponse = {
-  forecast_per_day?: Record<string, number>;
-  actual_per_day?: Record<string, number>;
-};
 
 const MODES: { value: Mode; label: string }[] = [
   { value: "week", label: "Weekly" },
@@ -390,7 +386,7 @@ const Statistics = () => {
   );
 
   const forecastGoal = goals.find((g) => g.isActive) ?? goals[0];
-  const forecastData = useMemo<ForecastResponse | null>(
+  const forecastData = useMemo<GoalForecast | null>(
     () => (forecastGoal ? computeGoalForecast(forecastGoal) : null),
     [forecastGoal]
   );

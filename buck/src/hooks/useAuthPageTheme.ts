@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
+import type { PointerPosition as Point } from "@/hooks/usePointerGradient";
 
 type LandingTheme = "dark" | "light";
 
-export type PointerPosition = {
-  x: number;
-  y: number;
-} | null;
+export type PointerPosition = Point | null;
 
 const LANDING_THEME_STORAGE_KEY = "buck-landing-theme";
 const DARK_AUTH_BUTTON = "linear-gradient(135deg, #f47536 0%, #ff8d3d 100%)";
@@ -13,7 +11,7 @@ const LIGHT_AUTH_BUTTON = "linear-gradient(135deg, #f47536 0%, #ff3838 100%)";
 const DARK_PAGE_BACKGROUND = "#120d0a";
 const LIGHT_PAGE_BACKGROUND = "#fff1d8";
 
-export const getStoredLandingTheme = (): LandingTheme | null => {
+const getStoredLandingTheme = (): LandingTheme | null => {
   if (typeof window === "undefined") {
     return null;
   }

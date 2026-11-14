@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { FaPlus, FaSort, FaSortDown, FaSortUp, FaTrash } from "react-icons/fa";
 import { useToast } from "@/component/toast/ToastContext";
 import { useFinancial } from "@/context/FinancialContext";
-import { refreshWalletCache } from "@/hooks/useIncomes";
 import { parseLocalDate } from "@/utils/cashFlow";
 import { formatCurrency } from "@/utils/formatters";
 import { deleteIncome, type BuckIncome } from "@/utils/supabaseData";
@@ -115,7 +114,7 @@ export default function IncomeList({
   wallets?: IncomeWalletRef[];
 }) {
   const { toast } = useToast();
-  const { setDashboardCache } = useFinancial();
+  const { refreshTable } = useFinancial();
   const [pendingDelete, setPendingDelete] = useState<BuckIncome | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("date");
@@ -168,7 +167,7 @@ export default function IncomeList({
 
     try {
       await deleteIncome(userId, pendingDelete.id);
-      await refreshWalletCache(userId, setDashboardCache);
+      await refreshTable("wallets");
       toast("Income deleted", "success");
       setPendingDelete(null);
       onChanged();

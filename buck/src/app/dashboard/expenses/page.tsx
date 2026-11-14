@@ -8,8 +8,6 @@ import {
   FaTimes,
   FaPlus,
   FaSortAmountDown,
-  FaChevronLeft,
-  FaChevronRight,
 } from "react-icons/fa";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useDashboardUser } from "@/context/DashboardUserContext";
@@ -23,6 +21,7 @@ import {
 import "./style.css";
 import { useToast } from "@/component/toast/ToastContext";
 import CustomSelect, { type SelectOption } from "@/component/CustomSelect";
+import Pagination, { type PaginationClassNames } from "@/component/Pagination";
 import ExpenseKPICards from "./ExpenseKPICards";
 import ExpenseCategoryVisualizer from "./ExpenseCategoryVisualizer";
 import { getCategoryTheme } from "./categoryUtils";
@@ -33,12 +32,26 @@ const PAGE_SIZE = 8;
 
 type SortKey = "newest" | "oldest" | "highest" | "lowest";
 
-const SORT_OPTIONS: SelectOption[] = [
+const SORT_OPTIONS: SelectOption<SortKey>[] = [
   { value: "newest", label: "Newest first" },
   { value: "oldest", label: "Oldest first" },
   { value: "highest", label: "Highest amount" },
   { value: "lowest", label: "Lowest amount" },
 ];
+
+const EXPENSES_PAGINATION_CLASSES: PaginationClassNames = {
+  root: "expenses-pagination",
+  spacer: "expenses-pagination-spacer",
+  nav: "expenses-pagination-nav",
+  navButton: "expenses-page-btn expenses-page-btn--nav",
+  numbers: "expenses-page-numbers",
+  pageButton: "expenses-page-btn",
+  activePageButton: "expenses-page-btn--active",
+  ellipsis: "expenses-page-ellipsis",
+  info: "expenses-pagination-info",
+  infoFull: "expenses-pagination-info-full",
+  infoShort: "expenses-pagination-info-short",
+};
 
 const PAGE_VARIANTS = {
   enter: (direction: number) => ({
@@ -57,41 +70,6 @@ const PAGE_VARIANTS = {
     opacity: 0,
   }),
 };
-
-function getPaginationPages(
-  current: number,
-  total: number
-): (number | "ellipsis-start" | "ellipsis-end")[] {
-  if (total <= 7) {
-    return Array.from({ length: total }, (_, i) => i + 1);
-  }
-
-  if (current <= 4) {
-    return [1, 2, 3, 4, 5, "ellipsis-end", total];
-  }
-
-  if (current >= total - 3) {
-    return [
-      1,
-      "ellipsis-start",
-      total - 4,
-      total - 3,
-      total - 2,
-      total - 1,
-      total,
-    ];
-  }
-
-  return [
-    1,
-    "ellipsis-start",
-    current - 1,
-    current,
-    current + 1,
-    "ellipsis-end",
-    total,
-  ];
-}
 
 export default function ExpensesPage() {
   const { user } = useDashboardUser();
@@ -316,9 +294,7 @@ export default function ExpensesPage() {
             <CustomSelect
               fit
               value={sortBy}
-              onChange={(val) =>
-                handleSortChange(val as SortKey)
-              }
+              onChange={handleSortChange}
               options={SORT_OPTIONS}
               icon={<FaSortAmountDown aria-hidden="true" />}
               size="sm"
@@ -409,86 +385,16 @@ export default function ExpensesPage() {
 
             {/* Centered Pagination Controls with Right-Aligned Showing Info */}
             {totalPages > 1 && (
-              <div
-                className="expenses-pagination"
-                role="navigation"
-                aria-label="Expense tracker pagination"
-              >
-                <div className="expenses-pagination-spacer" aria-hidden="true" />
-
-                <div className="expenses-pagination-nav">
-                  <button
-                    type="button"
-                    className="expenses-page-btn expenses-page-btn--nav"
-                    onClick={() =>
-                      handlePageChange(Math.max(1, safeCurrentPage - 1))
-                    }
-                    disabled={safeCurrentPage <= 1}
-                    aria-label="Previous page"
-                    title="Previous page"
-                  >
-                    <FaChevronLeft aria-hidden="true" />
-                    <span>Prev</span>
-                  </button>
-
-                  <div className="expenses-page-numbers">
-                    {getPaginationPages(safeCurrentPage, totalPages).map(
-                      (p) => {
-                        if (typeof p === "string") {
-                          return (
-                            <span
-                              key={p}
-                              className="expenses-page-ellipsis"
-                              aria-hidden="true"
-                            >
-                              …
-                            </span>
-                          );
-                        }
-
-                        const isActive = p === safeCurrentPage;
-                        return (
-                          <button
-                            key={p}
-                            type="button"
-                            className={`expenses-page-btn ${
-                              isActive ? "expenses-page-btn--active" : ""
-                            }`}
-                            onClick={() => handlePageChange(p)}
-                            aria-label={`Page ${p}`}
-                            aria-current={isActive ? "page" : undefined}
-                          >
-                            {p}
-                          </button>
-                        );
-                      }
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    className="expenses-page-btn expenses-page-btn--nav"
-                    onClick={() =>
-                      handlePageChange(Math.min(totalPages, safeCurrentPage + 1))
-                    }
-                    disabled={safeCurrentPage >= totalPages}
-                    aria-label="Next page"
-                    title="Next page"
-                  >
-                    <span>Next</span>
-                    <FaChevronRight aria-hidden="true" />
-                  </button>
-                </div>
-
-                <div className="expenses-pagination-info">
-                  <span className="expenses-pagination-info-full">
-                    Showing <strong>{startIndex + 1}</strong>–<strong>{endIndex}</strong> of <strong>{totalItems}</strong>
-                  </span>
-                  <span className="expenses-pagination-info-short">
-                    <strong>{startIndex + 1}</strong>–<strong>{endIndex}</strong> of <strong>{totalItems}</strong>
-                  </span>
-                </div>
-              </div>
+              <Pagination
+                currentPage={safeCurrentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={handlePageChange}
+                ariaLabel="Expense tracker pagination"
+                classNames={EXPENSES_PAGINATION_CLASSES}
+              />
             )}
           </>
         ) : (

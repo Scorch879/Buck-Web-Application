@@ -22,7 +22,12 @@ import { useFinancial } from "@/context/FinancialContext";
 import { getAdminFeedback } from "@/utils/supabaseData";
 import "@/app/dashboard/settings/style.css";
 import "./style.css";
-import CustomSelect from "@/component/CustomSelect";
+import CustomSelect, { type SelectOption } from "@/component/CustomSelect";
+
+const ADMIN_SORT_ORDER_OPTIONS: SelectOption<"newest" | "oldest">[] = [
+  { value: "newest", label: "Newest First" },
+  { value: "oldest", label: "Oldest First" },
+];
 
 type AdminTabId = "feedback" | "buck-ai" | "health" | "supabase" | "vercel";
 
@@ -672,13 +677,8 @@ export default function AdminPage() {
                   <CustomSelect
                     fit
                     value={sortOrder}
-                    onChange={(val) =>
-                      setSortOrder(val as "newest" | "oldest")
-                    }
-                    options={[
-                      { value: "newest", label: "Newest First" },
-                      { value: "oldest", label: "Oldest First" },
-                    ]}
+                    onChange={setSortOrder}
+                    options={ADMIN_SORT_ORDER_OPTIONS}
                     className="admin-filter-select"
                   />
                 </div>
@@ -1063,13 +1063,8 @@ export default function AdminPage() {
                         <CustomSelect
                           fit
                           value={sortOrder}
-                          onChange={(val) =>
-                            setSortOrder(val as "newest" | "oldest")
-                          }
-                          options={[
-                            { value: "newest", label: "Newest First" },
-                            { value: "oldest", label: "Oldest First" },
-                          ]}
+                          onChange={setSortOrder}
+                          options={ADMIN_SORT_ORDER_OPTIONS}
                           className="admin-filter-select"
                         />
                       </div>
@@ -1422,13 +1417,8 @@ export default function AdminPage() {
                         <CustomSelect
                           fit
                           value={sortOrder}
-                          onChange={(val) =>
-                            setSortOrder(val as "newest" | "oldest")
-                          }
-                          options={[
-                            { value: "newest", label: "Newest First" },
-                            { value: "oldest", label: "Oldest First" },
-                          ]}
+                          onChange={setSortOrder}
+                          options={ADMIN_SORT_ORDER_OPTIONS}
                           className="admin-filter-select"
                         />
                       </div>
@@ -1497,13 +1487,8 @@ export default function AdminPage() {
                   <CustomSelect
                     fit
                     value={sortOrder}
-                    onChange={(val) =>
-                      setSortOrder(val as "newest" | "oldest")
-                    }
-                    options={[
-                      { value: "newest", label: "Newest First" },
-                      { value: "oldest", label: "Oldest First" },
-                    ]}
+                    onChange={setSortOrder}
+                    options={ADMIN_SORT_ORDER_OPTIONS}
                     className="admin-filter-select"
                   />
                 </div>
@@ -1590,13 +1575,8 @@ export default function AdminPage() {
                   <CustomSelect
                     fit
                     value={sortOrder}
-                    onChange={(val) =>
-                      setSortOrder(val as "newest" | "oldest")
-                    }
-                    options={[
-                      { value: "newest", label: "Newest First" },
-                      { value: "oldest", label: "Oldest First" },
-                    ]}
+                    onChange={setSortOrder}
+                    options={ADMIN_SORT_ORDER_OPTIONS}
                     className="admin-filter-select"
                   />
                 </div>

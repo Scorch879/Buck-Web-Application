@@ -48,3 +48,26 @@ export function parseBudgetInput(raw: string): number | null {
 export function addMoney(a: number, b: number) {
   return Math.round((a + b) * 100) / 100;
 }
+
+/** Formats a numeric wallet budget into an editable comma-grouped string. */
+export function formatEditableBudget(value: number): string {
+  const num = Number(value) || 0;
+  return num.toLocaleString("en-US", {
+    minimumFractionDigits: num % 1 !== 0 ? 2 : 0,
+    maximumFractionDigits: 2,
+  });
+}
+
+/** Formats an ISO/date string with medium date style (and optional short time), returning null if missing or invalid. */
+export function formatMediumDateTime(
+  value: string | null | undefined,
+  includeTime = true
+): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(
+    undefined,
+    includeTime ? { dateStyle: "medium", timeStyle: "short" } : { dateStyle: "medium" }
+  ).format(date);
+}

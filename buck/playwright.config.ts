@@ -3,6 +3,11 @@ import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
 const hasEnvLocal = fs.existsSync(path.join(__dirname, ".env.local"));
+const hasBuild = fs.existsSync(path.join(__dirname, ".next", "BUILD_ID"));
+const webServerCommand =
+  process.env.CI && hasBuild
+    ? "npm run start -- --port 3000"
+    : "npm run dev -- --port 3000";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -26,7 +31,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev -- --port 3000",
+    command: webServerCommand,
     url: "http://127.0.0.1:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
