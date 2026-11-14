@@ -3,7 +3,15 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { AnimatePresence, animate, motion, useMotionValue } from "framer-motion";
+import {
+  AnimatePresence,
+  type MotionStyle,
+  animate,
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+} from "framer-motion";
 import {
   FaAngleDoubleLeft,
   FaBars,
@@ -116,6 +124,11 @@ export default function DashboardHeader({
   // after a page load snap: <html data-buck-sidebar> flips first and the CSS
   // width is already at the target before the animation starts.
   const railWidth = useMotionValue(250);
+  // Normalized 0 (expanded) -> 1 (collapsed) progress locked to railWidth so
+  // every spatial transform and the account tray resize on the exact same
+  // SPRING curve with zero CSS/layout-snapshot desync.
+  const collapseProgress = useTransform(railWidth, [250, 80], [0, 1]);
+  const prefersReducedMotion = useReducedMotion();
   const router = useRouter();
   const user = useOptionalDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
@@ -166,25 +179,30 @@ export default function DashboardHeader({
 
   // The rail only collapses on desktop; the mobile bar always shows the brand.
   const railCollapsed = sidebarCollapsed && isDesktop;
-  const sidebarTransition = sidebarReady ? SPRING : INSTANT;
-  const labelTransition = sidebarReady ? LABEL_TRANSITION : INSTANT;
+  const shouldAnimate = sidebarReady && !prefersReducedMotion;
+  const labelTransition = shouldAnimate ? LABEL_TRANSITION : INSTANT;
   // Labels leave faster than the rail closes, so no text lingers in it.
-  const labelExit = sidebarReady ? LABEL_EXIT : INSTANT;
+  const labelExit = shouldAnimate ? LABEL_EXIT : INSTANT;
 
   useEffect(() => {
     if (!mounted || !isDesktop) return;
     const target = railCollapsed ? 80 : 250;
-    if (!sidebarReady) {
+    if (!shouldAnimate) {
       railWidth.set(target);
       setSidebarAnimating(false);
       return;
     }
+    if (railWidth.get() === target) {
+      setSidebarAnimating(false);
+      return;
+    }
+    setSidebarAnimating(true);
     const controls = animate(railWidth, target, {
       ...SPRING,
       onComplete: () => setSidebarAnimating(false),
     });
     return () => controls.stop();
-  }, [mounted, isDesktop, railCollapsed, sidebarReady, railWidth]);
+  }, [mounted, isDesktop, railCollapsed, shouldAnimate, railWidth]);
 
   // Flip <html data-buck-sidebar> after React commits, not inside the state
   // update. The collapsed tray layout is CSS keyed on that attribute; setting
@@ -321,7 +339,14 @@ export default function DashboardHeader({
       }`}
       // No inline width until mounted: before that, CSS sizes the rail from
       // <html data-buck-sidebar>, set before first paint by the root layout.
-      style={mounted && isDesktop ? { width: railWidth } : undefined}
+      style={
+        mounted && isDesktop
+          ? ({
+              width: railWidth,
+              "--buck-collapse": collapseProgress,
+            } as MotionStyle)
+          : undefined
+      }
     >
       <div className="dashboard-header-inner">
         <button
@@ -331,8 +356,8 @@ export default function DashboardHeader({
           aria-label="Go to dashboard home"
           title={railCollapsed ? "Buck — Go to dashboard home" : undefined}
         >
-          {/* No layout animation: CSS slides the mascot a fixed distance
-              (dashboard.css), so it never chases the shrinking brand. */}
+          {/* Driven by --buck-collapse in CSS (dashboard.css) so the mascot
+              glides on the exact same SPRING curve as railWidth. */}
           <span className="dashboard-mascot">
             <Image
               src="/BuckMascot.png"
@@ -369,21 +394,15 @@ export default function DashboardHeader({
         </nav>
 
         <div className="dashboard-header-actions">
-          {/* layout="position", not layout: the tray turns from a 62px row into
-              a 140px column when the rail collapses. A full layout animation
-              scales the tray to bridge that, which squashed and stretched the
-              round profile photo (a visible "pop"). The tray is transparent,
-              so only its children need to move; nothing here scales now. */}
-          <motion.div
-            layout="position"
-            transition={sidebarTransition}
+          {/* Desktop tray positions and height are driven in CSS from
+              --buck-collapse (derived from railWidth) so the border, avatar,
+              copy, and collapse button move on one curve with no layout-flip snap. */}
+          <div
             className="dashboard-account-tray"
             role="group"
             aria-label="Profile and sidebar controls"
           >
-            <motion.span
-              layout="position"
-              transition={sidebarTransition}
+            <span
               className="dashboard-account-avatar"
               aria-hidden="true"
               title={railCollapsed ? `${displayName} (${accountSubtitle})` : undefined}
@@ -396,12 +415,8 @@ export default function DashboardHeader({
                   referrerPolicy="no-referrer"
                 />
               ) : null}
-            </motion.span>
-            {/* popLayout: the name block leaves the layout as soon as its exit
-                starts. Otherwise it held its space until the fade ended, then
-                the collapsed tray shrank and the photo dropped ~40px in one
-                frame at the end of the slide. */}
-            <AnimatePresence initial={false} mode="popLayout">
+            </span>
+            <AnimatePresence initial={false}>
               {!railCollapsed && (
                 <motion.span
                   key="account-copy"
@@ -416,11 +431,7 @@ export default function DashboardHeader({
                 </motion.span>
               )}
             </AnimatePresence>
-            <motion.div
-              layout="position"
-              transition={sidebarTransition}
-              className="dashboard-account-controls"
-            >
+            <div className="dashboard-account-controls">
               <button
                 type="button"
                 className="dashboard-tray-btn dashboard-tray-btn--collapse"
@@ -429,17 +440,12 @@ export default function DashboardHeader({
                 aria-label={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                 title={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
-                <motion.span
-                  className="dashboard-collapse-icon"
-                  initial={false}
-                  animate={{ rotate: railCollapsed ? 180 : 0 }}
-                  transition={sidebarTransition}
-                >
+                <span className="dashboard-collapse-icon">
                   <FaAngleDoubleLeft aria-hidden="true" />
-                </motion.span>
+                </span>
               </button>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         </div>
 
         <button
