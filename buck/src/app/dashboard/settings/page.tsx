@@ -10,6 +10,8 @@ import {
   type FormEvent,
 } from "react";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
+import { backdropMotion, panelMotion } from "@/utils/motion";
 import {
   FaCamera,
   FaEnvelope,
@@ -1327,8 +1329,11 @@ export default function SettingsPage() {
       </div>
     </section>
 
+      <AnimatePresence>
       {emailModalOpen ? (
-        <div
+        <motion.div
+          key="settings-modal-0"
+          {...backdropMotion}
           className="settings-modal-backdrop"
           role="presentation"
           onMouseDown={(event) => {
@@ -1337,7 +1342,8 @@ export default function SettingsPage() {
             }
           }}
         >
-          <section
+          <motion.section
+            {...panelMotion}
             className="settings-modal"
             role="dialog"
             aria-modal="true"
@@ -1412,12 +1418,16 @@ export default function SettingsPage() {
                 </button>
               </div>
             </form>
-          </section>
-        </div>
+          </motion.section>
+        </motion.div>
       ) : null}
+      </AnimatePresence>
 
+      <AnimatePresence>
       {passwordModalOpen ? (
-        <div
+        <motion.div
+          key="settings-modal-1"
+          {...backdropMotion}
           className="settings-modal-backdrop"
           role="presentation"
           onMouseDown={(event) => {
@@ -1426,7 +1436,8 @@ export default function SettingsPage() {
             }
           }}
         >
-          <section
+          <motion.section
+            {...panelMotion}
             className="settings-modal"
             role="dialog"
             aria-modal="true"
@@ -1548,9 +1559,10 @@ export default function SettingsPage() {
                 </button>
               </div>
             </form>
-          </section>
-        </div>
+          </motion.section>
+        </motion.div>
       ) : null}
+      </AnimatePresence>
     </div>
   );
 }

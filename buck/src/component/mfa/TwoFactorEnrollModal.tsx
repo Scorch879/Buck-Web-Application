@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { motion } from "framer-motion";
 import { FaCopy, FaTimes } from "react-icons/fa";
+import { backdropMotion, panelMotion } from "@/utils/motion";
 import TotpCodeInput from "@/component/mfa/TotpCodeInput";
 import RecoveryCodesPanel from "@/component/mfa/RecoveryCodesPanel";
 import { useToast } from "@/component/toast";
@@ -212,7 +214,9 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
   };
 
   return (
-    <div
+    <motion.div
+      key="enroll-0"
+      {...backdropMotion}
       className="settings-modal-backdrop"
       role="presentation"
       onMouseDown={(event) => {
@@ -221,7 +225,8 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
         }
       }}
     >
-      <section
+      <motion.section
+        {...panelMotion}
         className="settings-modal settings-modal--wide"
         role="dialog"
         aria-modal="true"
@@ -385,7 +390,7 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
             onDone={onClose}
           />
         ) : null}
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   );
 }
