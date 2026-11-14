@@ -9,6 +9,8 @@ import { FaPlus, FaTimes, FaExclamationTriangle } from "react-icons/fa";
 import CustomSelect from "@/component/CustomSelect";
 import CustomDatePicker from "@/component/CustomDatePicker";
 import { useToast } from "@/component/toast/ToastContext";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useIsClient } from "@/hooks/useIsClient";
 import { toLocalDateString } from "@/utils/cashFlow";
 import { addMoney, formatCurrency, parseMoneyInput } from "@/utils/formatters";
 import {
@@ -42,7 +44,7 @@ export default function AddExpenseModal({
   goalId = null,
 }: AddExpenseModalProps) {
   const { toast } = useToast();
-  const [portalReady, setPortalReady] = useState(false);
+  const isClient = useIsClient();
 
   const [amount, setAmount] = useState("");
   const [categoryName, setCategoryName] = useState("");
@@ -54,9 +56,7 @@ export default function AddExpenseModal({
   const amountInputRef = useRef<HTMLInputElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
-  useEffect(() => {
-    setPortalReady(true);
-  }, []);
+  useEscapeKey(open && !saving, onClose);
 
   // Reset fields only on the closed -> open transition so background category
   // refreshes never wipe what the user is typing.
@@ -91,18 +91,6 @@ export default function AddExpenseModal({
       document.body.style.overflow = prevOverflow;
     };
   }, [open]);
-
-  // Escape key handler
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !saving) {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, saving, onClose]);
 
   const numAmount = parseMoneyInput(amount) ?? 0;
   const isOverBudget =
@@ -156,7 +144,7 @@ export default function AddExpenseModal({
     }
   };
 
-  if (!portalReady) return null;
+  if (!isClient) return null;
 
   return createPortal(
     <AnimatePresence>

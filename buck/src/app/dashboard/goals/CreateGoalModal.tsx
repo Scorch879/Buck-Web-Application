@@ -3,6 +3,7 @@ import { createGoal } from "@/component/goals";
 import "./style.css";
 import CustomDatePicker from "@/component/CustomDatePicker";
 import { useToast } from "@/component/toast/ToastContext";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { motion } from "framer-motion";
 import { backdropMotion, panelMotion } from "@/utils/motion";
 import { detectGoalAttitude } from "@/utils/aiApi";
@@ -42,6 +43,8 @@ const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreate
     targetAmount: "",
     targetDate: "",
   });
+
+  useEscapeKey(!submitting, onClose);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;

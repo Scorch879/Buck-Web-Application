@@ -273,3 +273,22 @@ export function describeAuthError(error: unknown, fallback: string) {
   const message = asString(asObject(error).message);
   return message || fallback;
 }
+
+/** Supabase's TOTP verify errors, in plain words. */
+export function describeVerifyError(
+  error?: { message?: string; status?: number; code?: string } | null
+): string {
+  if (!error) {
+    return "We couldn't check that code. Please try again.";
+  }
+
+  if (error.status === 429 || error.code === "over_request_rate_limit") {
+    return "Too many tries. Wait a minute, then enter the newest code.";
+  }
+
+  if (/invalid|expired|mfa_verification_failed/i.test(`${error.code ?? ""} ${error.message ?? ""}`)) {
+    return "That code didn't work. Enter the newest code from your app, and check your phone's clock is right.";
+  }
+
+  return error.message || "We couldn't check that code. Please try again.";
+}

@@ -97,7 +97,7 @@ export default function AdminPage() {
 
   const fetchFeedbackData = useCallback(
     async (showSpinner = false) => {
-      if (showSpinner || !feedback) setIsFetchingFeedback(true);
+      if (showSpinner) setIsFetchingFeedback(true);
       setError("");
       try {
         const data = await getAdminFeedback();
@@ -110,12 +110,12 @@ export default function AdminPage() {
         setIsFetchingFeedback(false);
       }
     },
-    [feedback, setDashboardCache]
+    [setDashboardCache]
   );
 
   const fetchTelemetryData = useCallback(
     async (showSpinner = false) => {
-      if (showSpinner || !telemetry) setIsFetchingTelemetry(true);
+      if (showSpinner) setIsFetchingTelemetry(true);
       try {
         const res = await fetch("/api/admin/overview", { cache: "no-store" });
         const data = await res.json();
@@ -141,12 +141,12 @@ export default function AdminPage() {
         setIsFetchingTelemetry(false);
       }
     },
-    [telemetry, setDashboardCache]
+    [setDashboardCache]
   );
 
   const fetchSupabaseLogs = useCallback(
     async (showSpinner = false) => {
-      if (showSpinner || !supabaseLogs) setIsFetchingSupabase(true);
+      if (showSpinner) setIsFetchingSupabase(true);
       try {
         const res = await fetch("/api/admin/supabase", { cache: "no-store" });
         const data = await res.json();
@@ -171,12 +171,12 @@ export default function AdminPage() {
         setIsFetchingSupabase(false);
       }
     },
-    [supabaseLogs, setDashboardCache]
+    [setDashboardCache]
   );
 
   const fetchVercelDeployments = useCallback(
     async (showSpinner = false) => {
-      if (showSpinner || !vercelDeployments) setIsFetchingVercel(true);
+      if (showSpinner) setIsFetchingVercel(true);
       try {
         const res = await fetch("/api/admin/vercel", { cache: "no-store" });
         const data = await res.json();
@@ -201,8 +201,15 @@ export default function AdminPage() {
         setIsFetchingVercel(false);
       }
     },
-    [vercelDeployments, setDashboardCache]
+    [setDashboardCache]
   );
+
+  const handleTabChange = (tabId: AdminTabId) => {
+    setActiveTab(tabId);
+    setSearchQuery("");
+    setFilterCategory("all");
+    setAiEngineFilter("all");
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -219,15 +226,18 @@ export default function AdminPage() {
     } else if (activeTab === "vercel" && !vercelDeployments) {
       void fetchVercelDeployments();
     }
-    // Only trigger when switching tabs or signing in.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, activeTab]);
-
-  useEffect(() => {
-    setSearchQuery("");
-    setFilterCategory("all");
-    setAiEngineFilter("all");
-  }, [activeTab]);
+  }, [
+    user,
+    activeTab,
+    feedback,
+    telemetry,
+    supabaseLogs,
+    vercelDeployments,
+    fetchFeedbackData,
+    fetchTelemetryData,
+    fetchSupabaseLogs,
+    fetchVercelDeployments,
+  ]);
 
   const adminTabs = [
     {
@@ -519,7 +529,7 @@ export default function AdminPage() {
                   isActive ? " settings-tab--active" : ""
                 }`}
                 type="button"
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 aria-pressed={isActive}
               >
                 <TabIcon aria-hidden="true" />

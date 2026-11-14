@@ -7,7 +7,8 @@ import { backdropMotion, panelMotion } from "@/utils/motion";
 import TotpCodeInput from "@/component/mfa/TotpCodeInput";
 import RecoveryCodesPanel from "@/component/mfa/RecoveryCodesPanel";
 import { useToast } from "@/component/toast";
-import { describeAuthError, generateRecoveryCodes } from "@/utils/mfa/client";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { describeAuthError, describeVerifyError, generateRecoveryCodes } from "@/utils/mfa/client";
 import { supabase } from "@/utils/supabase";
 
 /**
@@ -30,16 +31,6 @@ interface TwoFactorEnrollModalProps {
   onClose: () => void;
   /** Called once the app is verified (before the backup-code step). */
   onEnrolled: () => void;
-}
-
-function describeVerifyError(error: { message?: string; status?: number }) {
-  if (error.status === 429) {
-    return "Too many tries. Wait a minute, then enter the newest code.";
-  }
-
-  return /invalid|expired/i.test(error.message ?? "")
-    ? "That code didn't work. Enter the newest code from your app, and check your phone's clock is right."
-    : error.message || "We couldn't check that code. Please try again.";
 }
 
 /** Drops half-finished enrolments so a retry can reuse the name. */
@@ -93,16 +84,7 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
     []
   );
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && canClose) {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [canClose, onClose]);
+  useEscapeKey(canClose, onClose);
 
   const startEnroll = async (event: FormEvent) => {
     event.preventDefault();
@@ -170,34 +152,39 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
     setBusy(true);
     setError("");
 
-    const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
-      factorId: enroll.factorId,
-      code: value,
-    });
+    try {
+      const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: enroll.factorId,
+        code: value,
+      });
 
-    if (verifyError) {
-      setError(describeVerifyError(verifyError));
+      if (verifyError) {
+        setError(describeVerifyError(verifyError));
+        setCode("");
+        codeRef.current?.focus();
+        return;
+      }
+
+      verifiedRef.current = true;
+      onEnrolled();
+
+      if (!isFirstFactor) {
+        toast.success(`${friendlyName.trim()} was added.`);
+        onClose();
+        return;
+      }
+
+      toast.success("Two-factor authentication is on.");
+      setStep("codes");
+      await createCodes();
+    } catch (verifyFailure) {
+      setError(describeAuthError(verifyFailure, "We couldn't check that code. Please try again."));
       setCode("");
-      setBusy(false);
-      verifyingRef.current = false;
       codeRef.current?.focus();
-      return;
-    }
-
-    verifiedRef.current = true;
-    verifyingRef.current = false;
-    onEnrolled();
-
-    if (!isFirstFactor) {
-      toast.success(`${friendlyName.trim()} was added.`);
+    } finally {
+      verifyingRef.current = false;
       setBusy(false);
-      onClose();
-      return;
     }
-
-    toast.success("Two-factor authentication is on.");
-    setStep("codes");
-    await createCodes();
   };
 
   const copySecret = async () => {

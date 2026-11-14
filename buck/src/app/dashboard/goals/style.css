@@ -637,11 +637,17 @@ html[data-buck-theme="dark"] .goals-forecast-modal {
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.goals-segmented-btn:hover {
+  color: var(--buck-ink);
 }
 
 .goals-segmented-btn[aria-pressed="true"] {
   color: #fff;
   background: var(--buck-orange);
+  box-shadow: 0 4px 10px rgba(244, 117, 54, 0.25);
 }
 
 html[data-buck-theme="dark"] .goals-segmented-btn[aria-pressed="true"] {
