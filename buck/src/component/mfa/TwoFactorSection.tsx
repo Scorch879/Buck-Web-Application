@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { FaExclamationTriangle, FaMobileAlt, FaPlus, FaRedo, FaShieldAlt, FaTimes, FaTrash } from "react-icons/fa";
 import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import RecoveryCodesPanel from "@/component/mfa/RecoveryCodesPanel";
@@ -16,6 +17,7 @@ import {
   type MfaFactorSummary,
   type MfaStatus,
 } from "@/utils/mfa/client";
+import { backdropMotion, panelMotion } from "@/utils/motion";
 import { supabase } from "@/utils/supabase";
 import "@/component/skeletons/skeletons.css";
 
@@ -306,6 +308,7 @@ export default function TwoFactorSection({ autoStartEnroll = false, onAutoStartH
         </>
       ) : null}
 
+      <AnimatePresence>
       {enrollOpen && status ? (
         <TwoFactorEnrollModal
           isFirstFactor={!status.enabled}
@@ -316,9 +319,13 @@ export default function TwoFactorSection({ autoStartEnroll = false, onAutoStartH
           }}
         />
       ) : null}
+      </AnimatePresence>
 
+      <AnimatePresence>
       {regenOpen ? (
-        <div
+        <motion.div
+          key="regen-0"
+          {...backdropMotion}
           className="settings-modal-backdrop"
           role="presentation"
           onMouseDown={(event) => {
@@ -327,7 +334,8 @@ export default function TwoFactorSection({ autoStartEnroll = false, onAutoStartH
             }
           }}
         >
-          <section
+          <motion.section
+            {...panelMotion}
             className="settings-modal settings-modal--wide"
             role="dialog"
             aria-modal="true"
@@ -385,9 +393,10 @@ export default function TwoFactorSection({ autoStartEnroll = false, onAutoStartH
                 </button>
               </div>
             )}
-          </section>
-        </div>
+          </motion.section>
+        </motion.div>
       ) : null}
+      </AnimatePresence>
 
       <DangerDeleteDialog
         open={Boolean(removing)}
