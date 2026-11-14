@@ -1,25 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useDashboardUser } from "@/context/DashboardUserContext";
+import { useFinancial } from "@/context/FinancialContext";
 import GettingStarted from "@/component/onboarding/GettingStarted";
-import {
-  mergeDashboardDataCache,
-  useFinancial,
-} from "@/context/FinancialContext";
+import { useUserTable } from "@/hooks/useUserTable";
 import { toNumber } from "@/utils/formatters";
-import {
-  ensureDefaultCategories,
-  getUserProfile,
-  listExpenses,
-  listWallets,
-  getActiveWalletId,
-  subscribeUserTable,
-  type BuckCategory,
-  type BuckExpense,
-} from "@/utils/supabaseData";
+import type { BuckExpense } from "@/utils/supabaseData";
 import WeeklyPieChart, { type WeeklyPieSlice } from "./WeeklyPieChart";
 import WeeklyBarChart, { fullDayNames, type WeeklyDatum } from "./WeeklyBarChart";
 import FinancialSummaryTable, { type SummaryTableItem } from "./FinancialSummaryTable";
@@ -30,7 +19,6 @@ import "./style.css";
 // Summary row for the grouped donut slice ("Others" in the chart).
 const OTHERS_ROW_LABEL = "All other categories";
 
-type Category = BuckCategory;
 type Expense = BuckExpense;
 
 
@@ -375,144 +363,23 @@ function getCategoryPieData(filteredExpenses: Expense[]): {
 
 export default function Dashboard() {
   const { user } = useDashboardUser();
-  const { dashboardCache, setDashboardCache } = useFinancial();
+  const { dashboardCache } = useFinancial();
   const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
-  const hasInitialDashboardData = 
-    userCache.profile !== undefined && 
-    userCache.categories !== undefined && 
-    userCache.expenses !== undefined && 
-    userCache.wallets !== undefined;
-  const [categories, setCategories] = useState<Category[]>(
-    () => userCache.categories ?? []
-  );
-  const [expenses, setExpenses] = useState<Expense[]>(
-    () => userCache.expenses ?? []
-  );
-  const [loadingDashboardData, setLoadingDashboardData] = useState(
-    () => !hasInitialDashboardData
-  );
-  const hadInitialDashboardData = useRef(hasInitialDashboardData);
-
-  useEffect(() => {
-    let active = true;
-
-    const loadProfile = async () => {
-      const loadedProfile = await getUserProfile(user.uid);
-
-      if (active) {
-        setDashboardCache((currentCache) =>
-          mergeDashboardDataCache(currentCache, user.uid, {
-            profile: loadedProfile,
-          })
-        );
-      }
-    };
-
-    const loadCategories = async () => {
-      const nextCategories = await ensureDefaultCategories(user.uid);
-
-      if (active) {
-        setCategories(nextCategories);
-        setDashboardCache((currentCache) =>
-          mergeDashboardDataCache(currentCache, user.uid, {
-            categories: nextCategories,
-          })
-        );
-      }
-    };
-
-    const loadExpenses = async () => {
-      const nextExpenses = await listExpenses(user.uid);
-
-      if (active) {
-        setExpenses(nextExpenses);
-        setDashboardCache((currentCache) =>
-          mergeDashboardDataCache(currentCache, user.uid, {
-            expenses: nextExpenses,
-          })
-        );
-      }
-    };
-
-    const loadInitialData = async () => {
-      if (!hadInitialDashboardData.current) {
-        setLoadingDashboardData(true);
-      }
-
-      try {
-        const [loadedProfile, nextCategories, nextExpenses, loadedWallets, activeWalletId] = await Promise.all([
-          getUserProfile(user.uid),
-          ensureDefaultCategories(user.uid),
-          listExpenses(user.uid),
-          listWallets(user.uid),
-          getActiveWalletId(user.uid),
-        ]);
-        
-        let activeWalletBudget = null;
-        if (activeWalletId && loadedWallets) {
-          const activeWallet = loadedWallets.find((w) => w.id === activeWalletId && !w.deletedAt);
-          if (activeWallet) {
-            activeWalletBudget = Number(activeWallet.budget);
-          }
-        }
-
-        if (!active) {
-          return;
-        }
-
-        setCategories(nextCategories);
-        setExpenses(nextExpenses);
-        setDashboardCache((currentCache) =>
-          mergeDashboardDataCache(currentCache, user.uid, {
-            profile: loadedProfile,
-            categories: nextCategories,
-            expenses: nextExpenses,
-            wallets: loadedWallets,
-            activeWalletId,
-            activeWalletBudget,
-          })
-        );
-      } catch (error) {
-        console.error("Failed to load dashboard:", error);
-      } finally {
-        if (active) {
-          setLoadingDashboardData(false);
-        }
-      }
-    };
-
-    void loadInitialData();
-
-    const unsubscribeCategories = subscribeUserTable(
-      "categories",
-      user.uid,
-      () => void loadCategories()
-    );
-    const unsubscribeExpenses = subscribeUserTable(
-      "expenses",
-      user.uid,
-      () => void loadExpenses()
-    );
-    const unsubscribeProfile = subscribeUserTable(
-      "profiles",
-      user.uid,
-      () => void loadProfile()
-    );
-
-    return () => {
-      active = false;
-      unsubscribeCategories();
-      unsubscribeExpenses();
-      unsubscribeProfile();
-    };
-  }, [setDashboardCache, user.uid]);
+  const { loading: loadingProfile } = useUserTable("profile");
+  const { data: categoriesData, loading: loadingCategories } = useUserTable("categories");
+  const { data: expensesData, loading: loadingExpenses } = useUserTable("expenses");
+  const { loading: loadingWallets } = useUserTable("wallets");
+  const categories = useMemo(() => categoriesData ?? [], [categoriesData]);
+  const expenses = useMemo(() => expensesData ?? [], [expensesData]);
+  const loadingDashboardData =
+    loadingProfile || loadingCategories || loadingExpenses || loadingWallets;
 
   const [timeframe, setTimeframe] = useState<TimeframeFilter>("all");
   const [allTimeGranularity, setAllTimeGranularity] =
     useState<AllTimeGranularity>("months");
   const [barPageOffset, setBarPageOffset] = useState(0);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [rawSelectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [rawSelectedDay, setSelectedDay] = useState<string | null>(null);
 
   const barBucketConfig = useMemo(
     () =>
@@ -547,6 +414,15 @@ export default function Dashboard() {
     [expenses, timeframe]
   );
 
+  const selectedDay = useMemo(() => {
+    if (!rawSelectedDay) return null;
+    if (pieExpenses.length === 0) return rawSelectedDay;
+    const hasDayExpenses = pieExpenses.some((e) =>
+      matchesBucketFilter(e, rawSelectedDay, barBucketConfig.buckets)
+    );
+    return hasDayExpenses ? rawSelectedDay : null;
+  }, [rawSelectedDay, pieExpenses, barBucketConfig.buckets]);
+
   const dayFilteredExpenses = useMemo(() => {
     if (!selectedDay) return pieExpenses;
     return pieExpenses.filter((e) =>
@@ -558,6 +434,24 @@ export default function Dashboard() {
     () => getCategoryPieData(dayFilteredExpenses),
     [dayFilteredExpenses]
   );
+
+  const selectedCategory = useMemo(() => {
+    if (!rawSelectedCategory) return null;
+    if (pieExpenses.length === 0) return rawSelectedCategory;
+    if (
+      rawSelectedCategory === "Others" ||
+      rawSelectedCategory === OTHERS_ROW_LABEL
+    ) {
+      const hasOthers = categoryPieData.slices.some((s) => s.category === "Others");
+      return hasOthers ? rawSelectedCategory : null;
+    }
+    const exists = pieExpenses.some(
+      (e) =>
+        (e.category?.trim() || "Uncategorized").toLowerCase() ===
+        rawSelectedCategory.toLowerCase()
+    );
+    return exists ? rawSelectedCategory : null;
+  }, [rawSelectedCategory, pieExpenses, categoryPieData.slices]);
 
   const top4CategoryNames = useMemo(
     () =>
@@ -582,7 +476,6 @@ export default function Dashboard() {
     );
     if (slice) return slice.color;
 
-    // Fallback to Others slice color if grouped under Others
     const othersSlice = categoryPieData.slices.find((s) => s.category === "Others");
     return othersSlice?.color || CHART_THEME.othersColor;
   }, [categoryPieData.slices, selectedCategory]);
@@ -609,37 +502,6 @@ export default function Dashboard() {
       setSelectedCategory(null);
     }
   };
-
-  // If timeframe changes and selected category no longer exists in current timeframe, reset it
-  useEffect(() => {
-    if (selectedCategory && pieExpenses.length > 0) {
-      if (selectedCategory === "Others" || selectedCategory === OTHERS_ROW_LABEL) {
-        const hasOthers = categoryPieData.slices.some((s) => s.category === "Others");
-        if (!hasOthers) setSelectedCategory(null);
-      } else {
-        const exists = pieExpenses.some(
-          (e) =>
-            (e.category?.trim() || "Uncategorized").toLowerCase() ===
-            selectedCategory.toLowerCase()
-        );
-        if (!exists) {
-          setSelectedCategory(null);
-        }
-      }
-    }
-  }, [categoryPieData.slices, pieExpenses, selectedCategory]);
-
-  // If timeframe or bucket window changes and selected bucket no longer has expenses, reset it
-  useEffect(() => {
-    if (selectedDay && pieExpenses.length > 0) {
-      const hasDayExpenses = pieExpenses.some((e) =>
-        matchesBucketFilter(e, selectedDay, barBucketConfig.buckets)
-      );
-      if (!hasDayExpenses) {
-        setSelectedDay(null);
-      }
-    }
-  }, [pieExpenses, selectedDay, barBucketConfig.buckets]);
 
   const barChartExpenses = useMemo(() => {
     return pieExpenses.filter((expense) =>

@@ -1,14 +1,9 @@
 import { detectGoalAttitude, getGoalTip } from "@/utils/aiApi";
 import { isSavingAttitude, type GoalAttitude, type SavingAttitude } from "@/utils/goalAttitude";
 import {
-  addGoalProgressRecord,
   createGoalRecord,
-  deleteGoalRecord,
-  restoreGoalRecord,
   setOnlyGoalActiveRecord,
   updateGoalRecord,
-  updateGoalStatusRecord,
-  type BuckGoal,
 } from "@/utils/supabaseData";
 
 /**
@@ -52,44 +47,6 @@ export async function createGoal(
   }
 }
 
-export async function deleteGoal(goalId: string) {
-  try {
-    await deleteGoalRecord(goalId);
-    return { success: true };
-  } catch (error) {
-    console.error("Failed to delete goal:", error);
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : "Failed to delete goal.",
-    };
-  }
-}
-
-export async function restoreGoal(
-  goalId: string
-): Promise<{ success: boolean; goal?: BuckGoal; message?: string }> {
-  try {
-    const goal = await restoreGoalRecord(goalId);
-    return { success: true, goal };
-  } catch (error) {
-    console.error("Failed to restore goal:", error);
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : "Failed to restore goal.",
-    };
-  }
-}
-
-export async function updateGoalStatus(goalId: string, isActive: boolean) {
-  try {
-    await updateGoalStatusRecord(goalId, isActive);
-    return { success: true };
-  } catch (error) {
-    console.error("Failed to update goal status:", error);
-    return { success: false, message: "Failed to update goal status." };
-  }
-}
-
 /** Makes this the one active goal (one transaction) and refreshes its attitude. */
 export async function setOnlyGoalActive(goalId: string) {
   try {
@@ -99,17 +56,6 @@ export async function setOnlyGoalActive(goalId: string) {
   } catch (error) {
     console.error("Failed to update goals:", error);
     return { success: false, message: "Failed to update goals." };
-  }
-}
-
-/** Adds to the saved amount atomically; reaching the target completes the goal. */
-export async function addGoalProgress(goalId: string, amount: number) {
-  try {
-    const goal = await addGoalProgressRecord(goalId, amount);
-    return { success: true, ...goal };
-  } catch (error) {
-    console.error("Failed to add goal progress:", error);
-    return { success: false, message: "Failed to update progress." };
   }
 }
 

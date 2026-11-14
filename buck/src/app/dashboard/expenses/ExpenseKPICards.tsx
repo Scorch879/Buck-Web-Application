@@ -11,6 +11,7 @@ import {
   FaExclamationTriangle,
   FaInfoCircle,
 } from "react-icons/fa";
+import { BUDGET_WARNING_REMAINING_PCT, getBudgetLevel } from "@/utils/categoryUtils";
 import { formatCurrency, toNumber } from "@/utils/formatters";
 import type { BuckExpense, BuckWallet } from "@/utils/supabaseData";
 
@@ -66,27 +67,23 @@ export default function ExpenseKPICards({
       icon: <FaCheckCircle aria-hidden="true" />,
     };
 
+    const walletLevel = getBudgetLevel(spent, capacity);
+
     if (!activeWallet) {
       status = {
         label: "No wallet chosen",
         color: "neutral",
         icon: <FaInfoCircle aria-hidden="true" />,
       };
-    } else if (walletBudget <= 0) {
+    } else if (walletBudget <= 0 || walletLevel === "critical") {
       status = {
-        label: "Empty",
+        label: walletBudget <= 0 ? "Empty" : "Budget reached",
         color: "danger",
         icon: <FaExclamationTriangle aria-hidden="true" />,
       };
-    } else if (pctRemaining <= 15) {
+    } else if (walletLevel === "caution") {
       status = {
-        label: "Under 15% left",
-        color: "danger",
-        icon: <FaExclamationTriangle aria-hidden="true" />,
-      };
-    } else if (pctRemaining <= 35) {
-      status = {
-        label: "Under 35% left",
+        label: `Under ${BUDGET_WARNING_REMAINING_PCT}% left`,
         color: "warning",
         icon: <FaExclamationTriangle aria-hidden="true" />,
       };
@@ -139,7 +136,7 @@ export default function ExpenseKPICards({
     const sumMonth = expenses
       .filter((e) => {
         if (!e.date) return false;
-        const d = new Date(e.date);
+        const d = e.date.includes("T") ? new Date(e.date) : new Date(`${e.date}T00:00:00`);
         return (
           !Number.isNaN(d.getTime()) &&
           d.getFullYear() === currentYear &&

@@ -69,21 +69,24 @@
 .admin-search-input {
   flex: 1 1 220px;
   min-width: 180px;
-  min-height: 42px;
+  /* Same toolbar search box as Expenses, Wallet, Categories and Home. */
+  min-height: 38px;
   box-sizing: border-box;
   background: var(--buck-bg);
   border: 1px solid var(--buck-line);
   color: var(--buck-ink);
-  padding: 0.55rem 0.9rem;
-  border-radius: 10px;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
   font-family: inherit;
-  font-size: 0.88rem;
+  font-size: 0.84rem;
   font-weight: 400;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
 .admin-search-input:focus {
   outline: none;
   border-color: var(--buck-orange);
+  box-shadow: 0 0 0 2px rgba(244, 117, 54, 0.18);
 }
 
 /* ADR-040: toolbar selects use `fit` and size naturally to their longest option. */

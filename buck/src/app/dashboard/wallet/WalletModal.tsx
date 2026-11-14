@@ -3,12 +3,17 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import styles from "./WalletModal.module.css";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { backdropMotion, panelMotion } from "@/utils/motion";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial } from "@/context/FinancialContext";
-import { usePointerGradient } from "@/hooks/usePointerGradient";
-import { formatCurrency } from "@/utils/formatters";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useIsClient } from "@/hooks/useIsClient";
+import {
+  formatCurrency,
+  parseBudgetInput,
+  sanitizeBudgetInput,
+} from "@/utils/formatters";
 import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import {
   addWallet,
@@ -22,20 +27,6 @@ import {
 } from "@/utils/supabaseData";
 
 type Wallet = BuckWallet;
-
-function sanitizeBudgetInput(raw: string): string {
-  const cleaned = raw.replace(/[^0-9.,]/g, "");
-  const firstDot = cleaned.indexOf(".");
-  if (firstDot === -1) return cleaned;
-  return (
-    cleaned.slice(0, firstDot + 1) +
-    cleaned.slice(firstDot + 1).replace(/\./g, "")
-  );
-}
-
-function parseBudgetInput(raw: string): number {
-  return Number(raw.replace(/,/g, "").trim());
-}
 
 function formatEditableBudget(value: number): string {
   const num = Number(value) || 0;
@@ -61,17 +52,14 @@ export default function WalletModal({
   const [editName, setEditName] = useState("");
   const [editBudget, setEditBudget] = useState("");
   const [activeWalletId, setActiveWalletId] = useState<string | null>(null);
-  const addButton = usePointerGradient<HTMLButtonElement>();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [justActivatedId, setJustActivatedId] = useState<string | null>(null);
-  const [portalReady, setPortalReady] = useState(false);
+  const isClient = useIsClient();
 
   const user = useOptionalDashboardUser();
   const { setDashboardCache } = useFinancial();
 
-  useEffect(() => {
-    setPortalReady(true);
-  }, []);
+  useEscapeKey(open && !confirmDeleteId, onClose);
 
   useEffect(() => {
     if (!open) {
@@ -152,7 +140,7 @@ export default function WalletModal({
     e.preventDefault();
     setError("");
     const parsedBudget = parseBudgetInput(budget);
-    if (!name.trim() || !budget.trim() || isNaN(parsedBudget) || parsedBudget <= 0) {
+    if (!name.trim() || parsedBudget === null) {
       setError("Please enter a valid name and a budget greater than 0.");
       return;
     }
@@ -193,7 +181,7 @@ export default function WalletModal({
   const handleEditSave = async (id: string) => {
     if (!user) return;
     const parsedBudget = parseBudgetInput(editBudget);
-    if (!editName.trim() || !editBudget.trim() || isNaN(parsedBudget) || parsedBudget <= 0) {
+    if (!editName.trim() || parsedBudget === null) {
       setError("Please enter a valid name and a budget greater than 0.");
       return;
     }
@@ -244,58 +232,56 @@ export default function WalletModal({
     ...activeWallets.filter((w) => w.id !== activeWalletId),
   ];
 
-  if (!open || !portalReady) return null;
+  if (!isClient) return null;
 
   return createPortal(
-    <motion.div 
-      className={styles.backdrop} 
-      onClick={onClose}
-      {...backdropMotion}
-    >
-      <motion.div 
-        className={styles.modal} 
-        role="dialog"
-        aria-modal="true"
-        aria-label="Manage wallets"
-        onClick={(e) => e.stopPropagation()}
-        {...panelMotion}
-      >
-        <h2 className={styles.title}>Wallets</h2>
-        <div className={styles.totalBudget}>
-          Total Budget: <span>{formatCurrency(totalBudget)}</span>
-        </div>
-        <form onSubmit={handleAddWallet} className={styles.form}>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Wallet Name"
-            className={styles.input}
-          />
-          <input
-            value={budget}
-            onChange={(e) => setBudget(sanitizeBudgetInput(e.target.value))}
-            placeholder="Budget (e.g. 50,000)"
-            type="text"
-            inputMode="decimal"
-            className={styles.input}
-          />
-          <motion.button
-            ref={addButton.ref}
-            type="submit"
-            className={styles.addBtn}
-            onMouseMove={addButton.handlePointerMove}
-            onMouseLeave={addButton.handlePointerLeave}
-            style={{
-              background: addButton.pointer
-                ? `radial-gradient(circle at ${addButton.pointer.x}px ${addButton.pointer.y}px, var(--buck-gold) 0%, var(--buck-orange) 100%)`
-                : "var(--buck-orange)",
-              transition: addButton.pointer ? "background 0.1s" : "background 0.3s",
-            }}
-            whileHover={{ scale: 1.03 }}
+    <>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className={styles.backdrop}
+            onClick={onClose}
+            {...backdropMotion}
           >
-            Add Wallet
-          </motion.button>
+            <motion.div
+              className={styles.modal}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Manage wallets"
+              onClick={(e) => e.stopPropagation()}
+              {...panelMotion}
+            >
+        <h2 className={`${styles.title} buck-modal-title`}>Wallets</h2>
+        <p className={`${styles.totalBudget} buck-modal-subtitle`}>
+          Total budget: <span>{formatCurrency(totalBudget)}</span>
+        </p>
+        <form onSubmit={handleAddWallet} className={`${styles.form} buck-modal-form`}>
+          <label className="buck-modal-field">
+            <span>Wallet name</span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Cash, GCash, BPI..."
+              className={styles.input}
+            />
+          </label>
+          <label className="buck-modal-field">
+            <span>Budget (PHP)</span>
+            <input
+              value={budget}
+              onChange={(e) => setBudget(sanitizeBudgetInput(e.target.value))}
+              placeholder="0.00"
+              type="text"
+              inputMode="decimal"
+              className={styles.input}
+            />
+          </label>
           {error && <div className={styles.error}>{error}</div>}
+          <div className="buck-modal-actions">
+            <button type="submit" className="buck-modal-btn buck-modal-btn--primary">
+              Add wallet
+            </button>
+          </div>
         </form>
         <div className={styles.listSection}>
           {loading ? (
@@ -383,10 +369,19 @@ export default function WalletModal({
             </ul>
           )}
         </div>
-        <button onClick={onClose} className={styles.closeBtn}>
-          Close
-        </button>
-      </motion.div>
+        <div className="buck-modal-actions">
+          <button
+            type="button"
+            onClick={onClose}
+            className="buck-modal-btn buck-modal-btn--secondary"
+          >
+            Close
+          </button>
+        </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <DangerDeleteDialog
         open={Boolean(confirmDeleteId)}
         itemType="wallet"
@@ -397,7 +392,7 @@ export default function WalletModal({
           if (confirmDeleteId) await handleDelete(confirmDeleteId);
         }}
       />
-    </motion.div>,
+    </>,
     document.body
   );
 }

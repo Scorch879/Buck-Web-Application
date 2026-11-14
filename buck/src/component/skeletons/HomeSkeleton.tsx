@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useLayoutEffect, useState } from "react";
 import CustomSelect from "@/component/CustomSelect";
 import GettingStarted from "@/component/onboarding/GettingStarted";
+import { readAdvisorCollapsed } from "@/app/dashboard/home/AIAdvisorPlaceholderCard";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import "@/app/dashboard/home/style.css";
 import "./skeletons.css";
@@ -25,6 +26,11 @@ const LEGEND_NAMES = ["Transportation", "Entertainment", "Electronics", "Video G
  */
 export default function HomeSkeleton() {
   const user = useOptionalDashboardUser();
+  // Match the Advisor card's remembered minimized state (ADR-012).
+  const [advisorCollapsed, setAdvisorCollapsed] = useState(false);
+  useLayoutEffect(() => {
+    setAdvisorCollapsed(readAdvisorCollapsed());
+  }, []);
   return (
     <div className="dashboard-container dashboard-skeleton" aria-busy="true" aria-label="Loading dashboard">
       {/* 0. The first-run checklist as this browser last saw it (nothing for a
@@ -259,9 +265,11 @@ export default function HomeSkeleton() {
           </div>
           <div className="home-ai-header-actions">
             <span className="home-ai-link-btn skeleton-text">View Full Advisor →</span>
-            <span className="advisor-score home-ai-score skeleton-circle" />
+            <span className="home-ai-toggle-btn skeleton-button" />
           </div>
         </div>
+        {!advisorCollapsed && (
+        <div className="home-ai-body">
         <div className="home-ai-grid">
           {["What to do next", "Detailed Analysis"].map((title) => (
             <section key={title} className="home-ai-card">
@@ -278,6 +286,8 @@ export default function HomeSkeleton() {
             </section>
           ))}
         </div>
+        </div>
+        )}
       </article>
     </div>
   );

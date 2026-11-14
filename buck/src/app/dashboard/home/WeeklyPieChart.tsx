@@ -413,6 +413,10 @@ const excelDataCalloutPlugin: Plugin<"pie", CalloutPluginOptions> = {
   },
 };
 
+// The pie draws itself in once per session. Coming back to Home shows it
+// finished, so returning to the tab doesn't look like a reload.
+let pieIntroPlayed = false;
+
 export default function WeeklyPieChart({
   slices,
   total,
@@ -424,9 +428,15 @@ export default function WeeklyPieChart({
 }: WeeklyPieChartProps) {
   const [mounted, setMounted] = useState(false);
   const isDarkTheme = useAuthPageTheme();
+  // Skip the intro only for the first draw of a repeat visit; later data
+  // changes (filters, new expenses) still animate.
+  const [skipIntro, setSkipIntro] = useState(() => pieIntroPlayed);
 
   useEffect(() => {
     setMounted(true);
+    pieIntroPlayed = true;
+    const frame = window.requestAnimationFrame(() => setSkipIntro(false));
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   const isDirectSliceMatch = Boolean(
@@ -589,7 +599,7 @@ export default function WeeklyPieChart({
       },
     },
     animation: {
-      duration: 380,
+      duration: skipIntro ? 0 : 380,
       easing: "easeOutQuart" as const,
     },
   };

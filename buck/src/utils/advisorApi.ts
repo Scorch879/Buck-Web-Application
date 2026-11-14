@@ -25,6 +25,10 @@ export interface AIAdvisorInsights {
   stale?: boolean;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /**
  * Reads the user's advice. Buck_AI returns the saved advisory while the data
  * is unchanged, and regenerates and saves a new one when it moved (or when
@@ -39,5 +43,17 @@ export async function fetchAIAdvisorInsights(context: {
   if (!response.ok) {
     throw new Error(await buckAiError(response, "Failed to fetch AI advisor insights"));
   }
-  return response.json();
+
+  let raw: unknown;
+  try {
+    raw = await response.json();
+  } catch {
+    throw new Error("Invalid AI advisor payload.");
+  }
+
+  if (!isRecord(raw) || typeof raw.suggestion !== "string" || typeof raw.advice !== "string") {
+    throw new Error("Invalid AI advisor payload.");
+  }
+
+  return raw as unknown as AIAdvisorInsights;
 }

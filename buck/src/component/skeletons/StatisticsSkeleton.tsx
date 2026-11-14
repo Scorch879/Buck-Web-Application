@@ -150,6 +150,7 @@ export default function StatisticsSkeleton() {
           <div className="stats-forecast-body">
             <span className="stats-forecast-chart skeleton-line" style={{ display: "block", borderRadius: 8 }} />
             <p className="stats-forecast-summary"><span className="skeleton-text">Save ₱000.00 a day to reach Goal name by its target date.</span></p>
+            <p className="stats-chart-caption"><span className="skeleton-text">This comes from your goal&apos;s amount left and days left. It&apos;s plain math, not AI.</span></p>
           </div>
         </section>
       </div>

@@ -190,11 +190,57 @@ export interface AIForecastInsights {
   cooldownUntil?: string | null;
 }
 
-function fromBuckAi(r: BuckForecastResponse): AIForecastInsights {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isForecastBand(value: unknown): value is ForecastBand {
+  return (
+    isRecord(value) &&
+    isFiniteNumber(value.p10) &&
+    isFiniteNumber(value.p50) &&
+    isFiniteNumber(value.p90)
+  );
+}
+
+function parseBuckForecastResponse(raw: unknown): BuckForecastResponse {
+  if (!isRecord(raw) || !isRecord(raw.forecast) || !isRecord(raw.narrative)) {
+    throw new Error("Invalid forecast payload from Buck_AI.");
+  }
+
+  const f = raw.forecast;
+  const n = raw.narrative;
+  if (
+    !isRecord(f.month) ||
+    !isForecastBand(f.month.projectedTotal) ||
+    !isRecord(f.month.surplus) ||
+    !isFiniteNumber(f.month.surplus.likely) ||
+    !isFiniteNumber(f.month.spentSoFar) ||
+    !isRecord(f.target) ||
+    !isFiniteNumber(f.target.restOfMonthTarget) ||
+    !Array.isArray(f.days) ||
+    !f.days.every((d) => isRecord(d) && typeof d.date === "string" && isFiniteNumber(d.p50)) ||
+    !Array.isArray(f.warnings) ||
+    !f.warnings.every((w) => typeof w === "string") ||
+    typeof n.headline !== "string" ||
+    typeof n.explanation !== "string"
+  ) {
+    throw new Error("Invalid forecast payload from Buck_AI.");
+  }
+
+  return raw as unknown as BuckForecastResponse;
+}
+
+function fromBuckAi(raw: unknown): AIForecastInsights {
+  const r = parseBuckForecastResponse(raw);
   const f = r.forecast;
   const { month } = f;
   return {
-    id: r.id,
+    id: r.id ?? null,
     summary: [r.narrative.headline, r.narrative.explanation].filter(Boolean).join(" "),
     // The flat fields describe this calendar month, like the rule engine's.
     projectedSpending: month.projectedTotal.p50,
@@ -217,6 +263,14 @@ function fromBuckAi(r: BuckForecastResponse): AIForecastInsights {
   };
 }
 
+async function readJsonPayload(response: Response, errorMessage: string): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    throw new Error(errorMessage);
+  }
+}
+
 async function fromRuleEngine(forceRefresh: boolean): Promise<AIForecastInsights> {
   const response = await fetch("/api/forecast", {
     method: "POST",
@@ -226,8 +280,17 @@ async function fromRuleEngine(forceRefresh: boolean): Promise<AIForecastInsights
   if (!response.ok) {
     throw new Error("Failed to fetch AI forecast insights");
   }
-  const data: AIForecastInsights = await response.json();
-  return { ...data, source: "rules" };
+  const raw = await readJsonPayload(response, "Invalid forecast payload.");
+  if (
+    !isRecord(raw) ||
+    typeof raw.summary !== "string" ||
+    !isFiniteNumber(raw.projectedSavings) ||
+    !Array.isArray(raw.warnings) ||
+    !raw.warnings.every((w) => typeof w === "string")
+  ) {
+    throw new Error("Invalid forecast payload.");
+  }
+  return { ...(raw as unknown as AIForecastInsights), source: "rules" };
 }
 
 /**
@@ -251,7 +314,7 @@ export async function fetchAIForecastInsights(context: {
     if (!response.ok) {
       throw new Error(await buckAiError(response, "Failed to fetch AI forecast"));
     }
-    return fromBuckAi(await response.json());
+    return fromBuckAi(await readJsonPayload(response, "Invalid forecast payload from Buck_AI."));
   } catch (err) {
     console.warn("AI Forecaster unavailable; using the rule-based forecast.", err);
     return fromRuleEngine(Boolean(context.forceRefresh));
@@ -272,7 +335,7 @@ export function explainAIForecast(horizon: ForecastHorizon = 30): Promise<AIFore
     if (!response.ok) {
       throw new Error(await buckAiError(response, "Failed to explain the forecast"));
     }
-    return fromBuckAi(await response.json());
+    return fromBuckAi(await readJsonPayload(response, "Invalid forecast payload from Buck_AI."));
   })().finally(() => explaining.delete(horizon));
   explaining.set(horizon, request);
   return request;

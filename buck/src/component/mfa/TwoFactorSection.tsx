@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { FaExclamationTriangle, FaMobileAlt, FaPlus, FaRedo, FaShieldAlt, FaTimes, FaTrash } from "react-icons/fa";
 import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import RecoveryCodesPanel from "@/component/mfa/RecoveryCodesPanel";
@@ -16,6 +17,7 @@ import {
   type MfaFactorSummary,
   type MfaStatus,
 } from "@/utils/mfa/client";
+import { backdropMotion, panelMotion } from "@/utils/motion";
 import { supabase } from "@/utils/supabase";
 import "@/component/skeletons/skeletons.css";
 
@@ -306,6 +308,7 @@ export default function TwoFactorSection({ autoStartEnroll = false, onAutoStartH
         </>
       ) : null}
 
+      <AnimatePresence>
       {enrollOpen && status ? (
         <TwoFactorEnrollModal
           isFirstFactor={!status.enabled}
@@ -316,9 +319,13 @@ export default function TwoFactorSection({ autoStartEnroll = false, onAutoStartH
           }}
         />
       ) : null}
+      </AnimatePresence>
 
+      <AnimatePresence>
       {regenOpen ? (
-        <div
+        <motion.div
+          key="regen-0"
+          {...backdropMotion}
           className="settings-modal-backdrop"
           role="presentation"
           onMouseDown={(event) => {
@@ -327,7 +334,8 @@ export default function TwoFactorSection({ autoStartEnroll = false, onAutoStartH
             }
           }}
         >
-          <section
+          <motion.section
+            {...panelMotion}
             className="settings-modal settings-modal--wide"
             role="dialog"
             aria-modal="true"
@@ -336,7 +344,7 @@ export default function TwoFactorSection({ autoStartEnroll = false, onAutoStartH
             <div className="settings-modal-heading">
               <div>
                 <p className="settings-eyebrow">Two-factor authentication</p>
-                <h2 id="settings-2fa-regen-title">
+                <h2 id="settings-2fa-regen-title" className="buck-modal-title">
                   {regenCodes.length > 0 ? "Save your new backup codes" : "Regenerate backup codes"}
                 </h2>
                 <p>
@@ -366,18 +374,29 @@ export default function TwoFactorSection({ autoStartEnroll = false, onAutoStartH
                 onDone={closeRegen}
               />
             ) : (
-              <button
-                type="button"
-                className="settings-button settings-button--primary"
-                onClick={() => void createNewCodes()}
-                disabled={regenBusy}
-              >
-                {regenBusy ? "Creating..." : "Create new codes"}
-              </button>
+              <div className="buck-modal-actions">
+                <button
+                  type="button"
+                  className="buck-modal-btn buck-modal-btn--secondary"
+                  onClick={closeRegen}
+                  disabled={regenBusy}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="settings-button settings-button--primary buck-modal-btn buck-modal-btn--primary"
+                  onClick={() => void createNewCodes()}
+                  disabled={regenBusy}
+                >
+                  {regenBusy ? "Creating..." : "Create new codes"}
+                </button>
+              </div>
             )}
-          </section>
-        </div>
+          </motion.section>
+        </motion.div>
       ) : null}
+      </AnimatePresence>
 
       <DangerDeleteDialog
         open={Boolean(removing)}

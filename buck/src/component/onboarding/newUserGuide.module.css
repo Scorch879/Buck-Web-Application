@@ -1,0 +1,77 @@
+/* "New to Buck?" empty state. Same surface, line and radius tokens as the
+   Getting started card it links to. */
+
+.card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: clamp(1rem, 2.4vw, 1.5rem);
+  color: var(--buck-ink);
+  background: var(--buck-surface);
+  border: 1px solid var(--buck-line);
+  border-radius: var(--buck-card-radius);
+  box-shadow: var(--buck-shadow);
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--buck-orange);
+  background: rgba(244, 117, 54, 0.12);
+  border-radius: 12px;
+  font-size: 1.15rem;
+}
+
+.body {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--buck-card-title-size);
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.message {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--buck-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0.6rem 1.15rem;
+  color: #241409;
+  background: linear-gradient(135deg, var(--buck-gold), var(--buck-orange));
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 650;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cta:focus-visible {
+  outline: 2px solid var(--buck-orange);
+  outline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+  .card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .cta {
+    grid-column: 1 / -1;
+  }
+}

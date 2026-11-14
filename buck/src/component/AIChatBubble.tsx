@@ -19,11 +19,16 @@ import "./AIChatBubble.css";
 export const OPEN_AI_CHAT_EVENT = "open-ai-chat";
 
 const STORAGE_KEY = "buck.aiChatBubble.position";
+const SIZE_KEY = "buck.aiChatBubble.size";
 const PANEL_ID = "ai-chat-panel";
 const SIZE = 58; // bubble diameter (px)
 const MARGIN = 16; // gap to the viewport edges and sticky chrome
 const PANEL_GAP = 12; // gap between bubble and panel
-const PANEL_MAX_H = 560; // matches .ai-chat-panel height: min(70dvh, 560px)
+const PANEL_W = 380; // default panel width (px)
+const PANEL_MAX_H = 560; // default panel height cap: min(70vh, 560px)
+const PANEL_MIN_W = 300;
+const PANEL_MIN_H = 360;
+const PANEL_MAX_W = 720;
 const TAP_SLOP = 6; // pointer travel below this is a tap, not a drag
 const NUDGE = 24; // arrow-key step (Shift: x4)
 const MOBILE_QUERY = "(max-width: 767px)";
@@ -42,6 +47,41 @@ interface DragState {
   originX: number;
   originY: number;
   dragging: boolean;
+}
+
+interface PanelSize {
+  w: number;
+  h: number;
+}
+
+interface ResizeState {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  startW: number;
+  startH: number;
+}
+
+function readStoredSize(): PanelSize | null {
+  try {
+    const raw = window.localStorage.getItem(SIZE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PanelSize>;
+    if (Number.isFinite(parsed.w) && Number.isFinite(parsed.h)) {
+      return { w: Number(parsed.w), h: Number(parsed.h) };
+    }
+  } catch {
+    // Storage blocked or corrupt: use the default size.
+  }
+  return null;
+}
+
+function writeStoredSize(size: PanelSize) {
+  try {
+    window.localStorage.setItem(SIZE_KEY, JSON.stringify(size));
+  } catch {
+    // Private mode or blocked storage: the size just won't persist.
+  }
 }
 
 function readStoredPosition(): StoredPosition | null {
@@ -127,6 +167,10 @@ export default function AIChatBubble() {
   const [isMobile, setIsMobile] = useState(false);
   const [side, setSide] = useState<Side>("right");
   const [panelStyle, setPanelStyle] = useState<CSSProperties>({});
+  // True while the bubble is dragged with the chat open: the window folds
+  // back into the bubble and unfolds again where the bubble lands.
+  const [tucked, setTucked] = useState(false);
+  const [resizing, setResizing] = useState(false);
 
   const bubbleRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -137,6 +181,9 @@ export default function AIChatBubble() {
   const suppressClickRef = useRef(false);
   const frameRef = useRef(0);
   const pendingRef = useRef<{ x: number; y: number } | null>(null);
+  // User-chosen panel size (desktop only); null = the default size.
+  const sizeRef = useRef<PanelSize | null>(null);
+  const resizeRef = useRef<ResizeState | null>(null);
 
   const spring: Transition = reduceMotion
     ? { duration: 0 }
@@ -159,18 +206,32 @@ export default function AIChatBubble() {
       return;
     }
 
-    const height = Math.min(window.innerHeight * 0.7, PANEL_MAX_H);
+    // Room beside the bubble, inside the viewport.
+    const { left, right } = horizontalBounds();
+    const roomW =
+      currentSide === "left"
+        ? window.innerWidth - (left + SIZE + PANEL_GAP) - MARGIN
+        : right - PANEL_GAP - MARGIN;
+    const roomH = window.innerHeight - minTop - MARGIN;
+    const chosen = sizeRef.current;
+    const width = clamp(chosen?.w ?? PANEL_W, Math.min(PANEL_MIN_W, roomW), Math.min(PANEL_MAX_W, roomW));
+    const height = clamp(
+      chosen?.h ?? Math.min(window.innerHeight * 0.7, PANEL_MAX_H),
+      Math.min(PANEL_MIN_H, roomH),
+      roomH
+    );
     const maxTop = window.innerHeight - height - MARGIN;
     // Bottom-align with the bubble, so the panel grows up and out of it.
     const top = clamp(bubbleY + SIZE - height, Math.min(minTop, maxTop), maxTop);
     // Beside the bubble, measured from the bubble's outer edge.
-    const { left, right } = horizontalBounds();
     const inset =
       currentSide === "left"
         ? left + SIZE + PANEL_GAP
         : window.innerWidth - right + PANEL_GAP;
     setPanelStyle({
       top,
+      width,
+      height,
       [currentSide]: inset,
       transformOrigin: `${currentSide} ${clamp(originY - top, 0, height)}px`,
     });
@@ -193,6 +254,7 @@ export default function AIChatBubble() {
 
   // Initial position: the stored side and height, else bottom-right.
   useLayoutEffect(() => {
+    sizeRef.current = readStoredSize();
     const stored = readStoredPosition();
     const { top, bottom } = verticalBounds();
     const nextSide = stored?.side ?? "right";
@@ -329,6 +391,7 @@ export default function AIChatBubble() {
       if (Math.hypot(dx, dy) < TAP_SLOP) return;
       drag.dragging = true;
       setDragging(true);
+      if (openRef.current) setTucked(true);
     }
     pendingRef.current = { x: drag.originX + dx, y: drag.originY + dy };
     if (!frameRef.current) {
@@ -363,9 +426,82 @@ export default function AIChatBubble() {
     const nextSide: Side = final.x < (left + right) / 2 ? "left" : "right";
     settle(nextSide, final.y, true, spring);
     if (openRef.current) {
-      // Let the snap land before re-anchoring the open panel.
-      window.setTimeout(layoutPanel, reduceMotion ? 0 : 260);
+      // Let the snap land, then unfold the chat from the bubble's new spot.
+      window.setTimeout(() => {
+        layoutPanel();
+        setTucked(false);
+      }, reduceMotion ? 0 : 260);
     }
+  };
+
+  // Resize from the panel's free top corner (desktop). The panel stays
+  // bottom-aligned with the bubble, so it grows up and away from it.
+  const onResizeDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const rect = panelRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    e.preventDefault();
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Pointer already gone: the resize still follows moves over the handle.
+    }
+    resizeRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startW: rect.width,
+      startH: rect.height,
+    };
+    setResizing(true);
+  };
+
+  const onResizeMove = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    const resize = resizeRef.current;
+    if (!resize || resize.pointerId !== e.pointerId) return;
+    const dx = e.clientX - resize.startX;
+    const dy = e.clientY - resize.startY;
+    sizeRef.current = {
+      w: resize.startW + (sideRef.current === "right" ? -dx : dx),
+      h: resize.startH - dy,
+    };
+    layoutPanel(); // clamps to the room available
+  };
+
+  const saveSize = () => {
+    window.requestAnimationFrame(() => {
+      const rect = panelRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      sizeRef.current = { w: Math.round(rect.width), h: Math.round(rect.height) };
+      writeStoredSize(sizeRef.current);
+    });
+  };
+
+  const onResizeEnd = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    const resize = resizeRef.current;
+    if (!resize || resize.pointerId !== e.pointerId) return;
+    resizeRef.current = null;
+    setResizing(false);
+    saveSize();
+  };
+
+  // Keyboard resizing for the handle: arrows grow or shrink by 24px.
+  const onResizeKey = (e: ReactKeyboardEvent<HTMLButtonElement>) => {
+    const rect = panelRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const step = e.shiftKey ? NUDGE * 4 : NUDGE;
+    const outward = sideRef.current === "right" ? -1 : 1;
+    let w = rect.width;
+    let h = rect.height;
+    if (e.key === "ArrowUp") h += step;
+    else if (e.key === "ArrowDown") h -= step;
+    else if (e.key === "ArrowLeft") w -= step * outward;
+    else if (e.key === "ArrowRight") w += step * outward;
+    else return;
+    e.preventDefault();
+    sizeRef.current = { w, h };
+    layoutPanel();
+    saveSize();
   };
 
   const onClick = () => {
@@ -423,10 +559,11 @@ export default function AIChatBubble() {
         id={PANEL_ID}
         role="dialog"
         aria-label="AI Advisor chat"
-        className={`ai-chat-panel${isMobile ? " ai-chat-panel--sheet" : ""}`}
+        className={`ai-chat-panel${isMobile ? " ai-chat-panel--sheet" : ""}${resizing ? " ai-chat-panel--resizing" : ""}`}
+        data-side={side}
         style={panelStyle}
         initial={false}
-        animate={open ? panelShown : panelHidden}
+        animate={open && !tucked ? panelShown : panelHidden}
         transition={
           reduceMotion
             ? { duration: 0 }
@@ -434,8 +571,21 @@ export default function AIChatBubble() {
               ? { type: "spring", stiffness: 420, damping: 34, mass: 0.9 }
               : { duration: 0.16, ease: "easeIn" }
         }
-        inert={!open}
+        inert={!open || tucked}
       >
+        {!isMobile ? (
+          <button
+            type="button"
+            className="ai-chat-panel__resize"
+            aria-label="Resize the chat window. Drag, or use the arrow keys."
+            title="Drag to resize"
+            onPointerDown={onResizeDown}
+            onPointerMove={onResizeMove}
+            onPointerUp={onResizeEnd}
+            onPointerCancel={onResizeEnd}
+            onKeyDown={onResizeKey}
+          />
+        ) : null}
         <AIChat variant="panel" onClose={closePanel} onReplyDone={onReplyDone} />
       </motion.div>
 

@@ -32,12 +32,6 @@ export async function categorizeItems(kind: CategorizeKind, descriptions: string
   }
 }
 
-/** Single-description convenience for add-expense flows. */
-export async function suggestCategory(kind: CategorizeKind, description: string) {
-  if (!description.trim()) return null;
-  return (await categorizeItems(kind, [description]))[0] ?? null;
-}
-
 /**
  * Two-sentence Advisor tip for a saved goal (`{ goalId }`) or a goal being
  * created. Every ₱ figure in it is from the goal plan. When no AI model gives a

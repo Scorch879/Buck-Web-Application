@@ -70,3 +70,9 @@ export const LABEL_TRANSITION: Transition = {
   duration: DURATION.base,
   ease: EASE_OUT,
 };
+
+/** Sidebar labels leaving: quicker than the rail closes, easing in. */
+export const LABEL_EXIT: Transition = {
+  duration: 0.12,
+  ease: EASE_IN,
+};

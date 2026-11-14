@@ -250,11 +250,17 @@ html[data-buck-theme="dark"] .forecast-story {
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.forecast-segmented-btn:hover {
+  color: var(--buck-ink);
 }
 
 .forecast-segmented-btn[aria-pressed="true"] {
   color: #fff;
   background: var(--buck-orange);
+  box-shadow: 0 4px 10px rgba(244, 117, 54, 0.25);
 }
 
 html[data-buck-theme="dark"] .forecast-segmented-btn[aria-pressed="true"] {
@@ -280,6 +286,18 @@ html[data-buck-theme="dark"] .forecast-segmented-btn[aria-pressed="true"] {
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.forecast-refresh-btn:hover:not(:disabled),
+.forecast-refresh-btn:focus-visible {
+  background: rgba(255, 197, 71, 0.22);
+  border-color: var(--buck-orange);
+}
+
+.forecast-refresh-btn:focus-visible {
+  outline: 2px solid var(--buck-orange);
+  outline-offset: 2px;
 }
 
 .forecast-refresh-btn:disabled {

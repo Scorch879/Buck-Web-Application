@@ -4,7 +4,6 @@
  */
 
 export const CHAT_QUESTION_MAX = 500;
-export const CHAT_TURN_MAX = 1500;
 export const CHAT_HISTORY_MAX = 8;
 
 export interface ChatTurn {

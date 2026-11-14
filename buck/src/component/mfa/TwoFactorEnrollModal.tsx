@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { motion } from "framer-motion";
 import { FaCopy, FaTimes } from "react-icons/fa";
+import { backdropMotion, panelMotion } from "@/utils/motion";
 import TotpCodeInput from "@/component/mfa/TotpCodeInput";
 import RecoveryCodesPanel from "@/component/mfa/RecoveryCodesPanel";
 import { useToast } from "@/component/toast";
-import { describeAuthError, generateRecoveryCodes } from "@/utils/mfa/client";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { describeAuthError, describeVerifyError, generateRecoveryCodes } from "@/utils/mfa/client";
 import { supabase } from "@/utils/supabase";
 
 /**
@@ -28,16 +31,6 @@ interface TwoFactorEnrollModalProps {
   onClose: () => void;
   /** Called once the app is verified (before the backup-code step). */
   onEnrolled: () => void;
-}
-
-function describeVerifyError(error: { message?: string; status?: number }) {
-  if (error.status === 429) {
-    return "Too many tries. Wait a minute, then enter the newest code.";
-  }
-
-  return /invalid|expired/i.test(error.message ?? "")
-    ? "That code didn't work. Enter the newest code from your app, and check your phone's clock is right."
-    : error.message || "We couldn't check that code. Please try again.";
 }
 
 /** Drops half-finished enrolments so a retry can reuse the name. */
@@ -91,16 +84,7 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
     []
   );
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && canClose) {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [canClose, onClose]);
+  useEscapeKey(canClose, onClose);
 
   const startEnroll = async (event: FormEvent) => {
     event.preventDefault();
@@ -168,34 +152,39 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
     setBusy(true);
     setError("");
 
-    const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
-      factorId: enroll.factorId,
-      code: value,
-    });
+    try {
+      const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: enroll.factorId,
+        code: value,
+      });
 
-    if (verifyError) {
-      setError(describeVerifyError(verifyError));
+      if (verifyError) {
+        setError(describeVerifyError(verifyError));
+        setCode("");
+        codeRef.current?.focus();
+        return;
+      }
+
+      verifiedRef.current = true;
+      onEnrolled();
+
+      if (!isFirstFactor) {
+        toast.success(`${friendlyName.trim()} was added.`);
+        onClose();
+        return;
+      }
+
+      toast.success("Two-factor authentication is on.");
+      setStep("codes");
+      await createCodes();
+    } catch (verifyFailure) {
+      setError(describeAuthError(verifyFailure, "We couldn't check that code. Please try again."));
       setCode("");
-      setBusy(false);
-      verifyingRef.current = false;
       codeRef.current?.focus();
-      return;
-    }
-
-    verifiedRef.current = true;
-    verifyingRef.current = false;
-    onEnrolled();
-
-    if (!isFirstFactor) {
-      toast.success(`${friendlyName.trim()} was added.`);
+    } finally {
+      verifyingRef.current = false;
       setBusy(false);
-      onClose();
-      return;
     }
-
-    toast.success("Two-factor authentication is on.");
-    setStep("codes");
-    await createCodes();
   };
 
   const copySecret = async () => {
@@ -212,7 +201,9 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
   };
 
   return (
-    <div
+    <motion.div
+      key="enroll-0"
+      {...backdropMotion}
       className="settings-modal-backdrop"
       role="presentation"
       onMouseDown={(event) => {
@@ -221,7 +212,8 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
         }
       }}
     >
-      <section
+      <motion.section
+        {...panelMotion}
         className="settings-modal settings-modal--wide"
         role="dialog"
         aria-modal="true"
@@ -233,7 +225,7 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
               Two-factor authentication · Step {step === "name" ? 1 : step === "scan" ? 2 : 3} of{" "}
               {isFirstFactor ? 3 : 2}
             </p>
-            <h2 id="settings-2fa-modal-title">
+            <h2 id="settings-2fa-modal-title" className="buck-modal-title">
               {step === "name"
                 ? isFirstFactor
                   ? "Turn on two-factor"
@@ -264,8 +256,8 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
         </div>
 
         {step === "name" ? (
-          <form className="settings-form settings-modal-form" onSubmit={(event) => void startEnroll(event)} noValidate>
-            <div className="settings-field">
+          <form className="settings-form settings-modal-form buck-modal-form" onSubmit={(event) => void startEnroll(event)} noValidate>
+            <div className="settings-field buck-modal-field">
               <label htmlFor="settings-2fa-name">App name</label>
               <input
                 ref={nameRef}
@@ -290,9 +282,23 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
                 </p>
               ) : null}
             </div>
-            <button className="settings-button settings-button--primary" type="submit" disabled={busy}>
-              {busy ? "Starting..." : "Continue"}
-            </button>
+            <div className="buck-modal-actions">
+              <button
+                className="buck-modal-btn buck-modal-btn--secondary"
+                type="button"
+                onClick={onClose}
+                disabled={!canClose}
+              >
+                Cancel
+              </button>
+              <button
+                className="settings-button settings-button--primary buck-modal-btn buck-modal-btn--primary"
+                type="submit"
+                disabled={busy}
+              >
+                {busy ? "Starting..." : "Continue"}
+              </button>
+            </div>
           </form>
         ) : null}
 
@@ -303,14 +309,14 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
               <img src={enroll.qrCode} alt="QR code to add Buck to your authenticator app" width={184} height={184} />
             </div>
             <form
-              className="settings-form settings-mfa-scan-form"
+              className="settings-form settings-mfa-scan-form buck-modal-form"
               onSubmit={(event) => {
                 event.preventDefault();
                 void verify(code);
               }}
               noValidate
             >
-              <div className="settings-field">
+              <div className="settings-field buck-modal-field">
                 <span className="settings-mfa-label" id="settings-2fa-secret-label">
                   Can&apos;t scan? Type this setup key
                 </span>
@@ -327,7 +333,7 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
                   </button>
                 </div>
               </div>
-              <div className="settings-field">
+              <div className="settings-field buck-modal-field">
                 <label htmlFor="settings-2fa-code">6-digit code</label>
                 <TotpCodeInput
                   ref={codeRef}
@@ -349,9 +355,15 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
                   </p>
                 ) : null}
               </div>
-              <button className="settings-button settings-button--primary" type="submit" disabled={busy}>
-                {busy ? "Checking..." : "Verify and turn on"}
-              </button>
+              <div className="buck-modal-actions">
+                <button
+                  className="settings-button settings-button--primary buck-modal-btn buck-modal-btn--primary"
+                  type="submit"
+                  disabled={busy}
+                >
+                  {busy ? "Checking..." : "Verify and turn on"}
+                </button>
+              </div>
             </form>
           </div>
         ) : null}
@@ -365,7 +377,7 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
             onDone={onClose}
           />
         ) : null}
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   );
 }

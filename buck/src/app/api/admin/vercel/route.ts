@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { isAdminUser } from "@/utils/adminAccess";
 import { createServerClient } from "@supabase/ssr";
-import { supabaseAnonKey, supabaseCookieOptions, supabaseUrl } from "@/utils/supabaseConfig";
+import { getSupabaseEnv, supabaseCookieOptions } from "@/utils/supabaseConfig";
 import { cookies } from "next/headers";
 
 export async function GET() {
+  const { url, anonKey } = getSupabaseEnv();
   const cookieStore = await cookies();
-  const supabase = createServerClient(supabaseUrl!, supabaseAnonKey!, {
+  const supabase = createServerClient(url, anonKey, {
     cookieOptions: supabaseCookieOptions,
     cookies: {
       getAll() {

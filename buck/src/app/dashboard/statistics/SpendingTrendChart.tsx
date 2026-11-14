@@ -11,8 +11,12 @@ import {
 } from "chart.js";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import { buckChartColors, buckTooltip } from "@/utils/chartTheme";
+import {
+  BUDGET_LEVEL_COLORS,
+  BUDGET_LEVEL_HOVER_COLORS,
+  getBudgetLevel,
+} from "@/utils/categoryUtils";
 import { formatCurrency } from "@/utils/formatters";
-import { getBudgetLevel } from "./BudgetDonut";
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip);
 
@@ -29,27 +33,12 @@ interface SpendingTrendChartProps {
   unit: string;
 }
 
-// SRS 3.7 thresholds: amber from 80% of the bar's budget, crimson above 100%.
-const LEVEL_COLORS = {
-  safe: "#f47536",
-  caution: "#f59e0b",
-  critical: "#ff3838",
-  none: "#f47536",
-} as const;
-
 const UNIT_ADJECTIVES: Record<string, string> = {
   day: "Daily",
   week: "Weekly",
   month: "Monthly",
   year: "Yearly",
 };
-
-const LEVEL_HOVER_COLORS = {
-  safe: "#ff8547",
-  caution: "#fbbf24",
-  critical: "#ff5252",
-  none: "#ff8547",
-} as const;
 
 /**
  * Spending per day / week / month / year. The budget is drawn *behind* the
@@ -184,10 +173,10 @@ export default function SpendingTrendChart({
               label: "Spent",
               data: values,
               backgroundColor: values.map(
-                (v, i) => LEVEL_COLORS[getBudgetLevel(v, budgets[i] ?? 0)]
+                (v, i) => BUDGET_LEVEL_COLORS[getBudgetLevel(v, budgets[i] ?? 0)]
               ),
               hoverBackgroundColor: values.map(
-                (v, i) => LEVEL_HOVER_COLORS[getBudgetLevel(v, budgets[i] ?? 0)]
+                (v, i) => BUDGET_LEVEL_HOVER_COLORS[getBudgetLevel(v, budgets[i] ?? 0)]
               ),
               borderRadius: { topLeft: 6, topRight: 6, bottomLeft: 2, bottomRight: 2 },
               borderSkipped: false,
@@ -210,7 +199,7 @@ export default function SpendingTrendChart({
               callbacks: {
                 labelColor: (ctx) => {
                   const color =
-                    LEVEL_COLORS[getBudgetLevel(Number(ctx.raw), budgets[ctx.dataIndex] ?? 0)];
+                    BUDGET_LEVEL_COLORS[getBudgetLevel(Number(ctx.raw), budgets[ctx.dataIndex] ?? 0)];
                   return { borderColor: color, backgroundColor: color, borderWidth: 1, borderRadius: 2 };
                 },
                 title: (items) => {

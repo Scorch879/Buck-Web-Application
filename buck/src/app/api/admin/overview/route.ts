@@ -217,7 +217,6 @@ export async function GET() {
             Number(buckAiData.advisories_groq ?? 0) +
             Number(buckAiData.advisories_other ?? 0),
       ),
-      avg_health_score: Number(buckAiData.avg_health_score ?? 0),
       forecasts_total: Number(buckAiData.forecasts_total ?? 0),
       forecasts_active: Number(buckAiData.forecasts_active ?? 0),
       usage_24h: {

@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { backdropMotion, panelMotion } from "@/utils/motion";
 import { FaChevronRight, FaExclamationTriangle, FaTrash } from "react-icons/fa";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useIsClient } from "@/hooks/useIsClient";
 import styles from "./DangerDeleteDialog.module.css";
 
 /**
@@ -68,18 +70,12 @@ export default function DangerDeleteDialog({
     if (step === 3) inputRef.current?.focus();
   }, [step]);
 
+  const isClient = useIsClient();
   const cancel = useCallback(() => {
     if (!busy) onCancel();
   }, [busy, onCancel]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") cancel();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, cancel]);
+  useEscapeKey(open, cancel);
 
   const matches = typed === itemName;
 
@@ -93,7 +89,7 @@ export default function DangerDeleteDialog({
     }
   };
 
-  if (typeof document === "undefined") return null;
+  if (!isClient) return null;
 
   return createPortal(
     <AnimatePresence>
@@ -120,7 +116,7 @@ export default function DangerDeleteDialog({
                 <FaExclamationTriangle />
               </span>
               <div className={styles.headerText}>
-                <h3 id={titleId}>{verb} {itemType}</h3>
+                <h3 id={titleId} className="buck-modal-title">{verb} {itemType}</h3>
                 <p className={styles.itemName} title={itemName}>
                   {itemName}
                 </p>
@@ -268,7 +264,7 @@ function SlideToConfirm({ label, onComplete }: { label: string; onComplete: () =
         aria-valuenow={Math.round(progress * 100)}
         style={{ transform: `translateX(calc(${progress} * var(--slide-travel, 0px)))` }}
         onPointerDown={(e) => {
-          (e.target as HTMLElement).setPointerCapture(e.pointerId);
+          e.currentTarget.setPointerCapture(e.pointerId);
           startX.current = e.clientX;
           startProgress.current = progress;
           setDragging(true);

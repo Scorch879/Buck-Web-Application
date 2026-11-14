@@ -14,132 +14,16 @@ import FinancialProvider from "@/context/FinancialProvider";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import { FaWallet } from "react-icons/fa";
 import type { BuckUser } from "@/utils/authUser";
+import {
+  getDashboardDisplayName,
+  getDashboardPageChrome,
+  getDashboardSkeletonVariant,
+} from "@/utils/dashboardRoutes";
 import { getActiveWallet } from "@/utils/supabaseData";
-
-function getSkeletonVariant(pathname: string | null): import("@/component/DashboardSkeletons").DashboardSkeletonVariant {
-  if (pathname?.startsWith("/dashboard/expenses")) {
-    return "expenses";
-  }
-
-  if (pathname?.startsWith("/dashboard/wallet")) {
-    return "wallet";
-  }
-
-  if (pathname?.startsWith("/dashboard/categories")) {
-    return "categories";
-  }
-
-  if (pathname?.startsWith("/dashboard/financial-advisor")) {
-    return "financial-advisor";
-  }
-
-  if (pathname?.startsWith("/dashboard/forecast")) {
-    return "forecast";
-  }
-
-  if (pathname?.startsWith("/dashboard/goals")) {
-    return "goals";
-  }
-
-  if (pathname?.startsWith("/dashboard/statistics")) {
-    return "statistics";
-  }
-
-  if (pathname?.startsWith("/dashboard/settings")) {
-    return "settings";
-  }
-
-  if (pathname?.startsWith("/dashboard/admin")) {
-    return "admin";
-  }
-
-  return "home";
-}
-
-
-function getPageChrome(pathname: string | null) {
-  if (pathname?.startsWith("/dashboard/categories")) {
-    return {
-      title: "Categories",
-      eyebrow: "Organize your money",
-      description: "Create, rename, and clean up your expense and income categories.",
-    };
-  }
-
-  if (pathname?.startsWith("/dashboard/wallet")) {
-    return {
-      title: "Wallets",
-      eyebrow: "Wallet management",
-      description: "Manage your active wallets and total budget.",
-    };
-  }
-
-  if (pathname?.startsWith("/dashboard/expenses")) {
-    return {
-      title: "Expenses",
-      eyebrow: "Track the money trail",
-      description: "Log spending, review recent expenses, and keep the wallet honest.",
-    };
-  }
-
-  if (pathname?.startsWith("/dashboard/financial-advisor")) {
-    return {
-      title: "Financial Advisor",
-      eyebrow: "Buck's next-step notes",
-      description: "Readable suggestions from your wallet, goals, and spending rhythm.",
-    };
-  }
-
-  if (pathname?.startsWith("/dashboard/forecast")) {
-    return {
-      title: "Forecast",
-      eyebrow: "Future planning",
-      description: "Predict your financial future based on your current habits.",
-    };
-  }
-
-  if (pathname?.startsWith("/dashboard/statistics")) {
-    return {
-      title: "Statistics",
-      eyebrow: "Spending patterns",
-      description: "Forecasts, category views, and weekly budget movement.",
-    };
-  }
-
-  if (pathname?.startsWith("/dashboard/goals")) {
-    return {
-      title: "Goals",
-      eyebrow: "Saving progress",
-      description: "Keep your active goal visible before the week gets noisy.",
-    };
-  }
-
-  if (pathname?.startsWith("/dashboard/settings")) {
-    return {
-      title: "Keep your Buck profile tidy.",
-      eyebrow: "Account settings",
-      description: "Manage your display name, profile picture, email, and account security from one protected place.",
-    };
-  }
-
-  if (pathname?.startsWith("/dashboard/admin")) {
-    return {
-      title: "SuperAdmin Dashboard",
-      eyebrow: "Admin tools",
-      description: "Monitor feedback, logs, and deployments for Buck.",
-    };
-  }
-
-  return {
-    title: "Dashboard",
-    eyebrow: "Home",
-    description: "Your weekly budget, spending, and summary at a glance.",
-  };
-}
 
 function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const pageChrome = getPageChrome(pathname);
+  const pageChrome = getDashboardPageChrome(pathname);
   const user = useOptionalDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
   const userCache = dashboardCache.userId === user?.uid ? dashboardCache : {};
@@ -171,11 +55,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [user?.uid, walletBudgetKnown, setDashboardCache]);
-  const displayName =
-    userCache.profile?.username ||
-    user?.displayName ||
-    user?.email?.split("@")[0] ||
-    "Buck user";
+  const displayName = getDashboardDisplayName(userCache, user);
   const isHomePage = pathname?.startsWith("/dashboard/home") ?? true;
   // A brand-new account (under a day old) is welcomed, not "welcomed back".
   const createdAt = user?.created_at ? Date.parse(user.created_at) : NaN;
@@ -249,7 +129,7 @@ export default function DashboardClientLayout({
   initialUser?: BuckUser | null;
 }) {
   const pathname = usePathname();
-  const skeletonVariant = getSkeletonVariant(pathname);
+  const skeletonVariant = getDashboardSkeletonVariant(pathname);
   useAuthPageTheme();
 
   return (

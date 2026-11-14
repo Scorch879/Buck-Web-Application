@@ -2,17 +2,18 @@ import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createInvalidatingFetch } from "@/utils/dataCache";
 import {
+  getSupabaseEnv,
   isSupabaseConfigured,
-  supabaseAnonKey,
   supabaseConfigError,
   supabaseCookieOptions,
-  supabaseUrl,
 } from "@/utils/supabaseConfig";
 
 export { isSupabaseConfigured, supabaseConfigError };
 
-export const supabase: SupabaseClient | null = isSupabaseConfigured
-  ? createBrowserClient(supabaseUrl!, supabaseAnonKey!, {
+const supabaseEnv = isSupabaseConfigured ? getSupabaseEnv() : null;
+
+export const supabase: SupabaseClient | null = supabaseEnv
+  ? createBrowserClient(supabaseEnv.url, supabaseEnv.anonKey, {
       auth: {
         autoRefreshToken: true,
         detectSessionInUrl: true,
