@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import type { FormEvent } from "react";
 import {
   getSupabaseClient,
   isSupabaseConfigured,
@@ -12,16 +10,8 @@ import {
   getEmailValidationMessage,
   normalizeEmailAddress,
 } from "@/utils/emailValidation";
-import { toast } from "@/component/toast";
 
-type AuthFormData = {
-  username: string;
-  pass: string;
-  confirm: string;
-  email: string;
-};
-
-type AuthResult = {
+export type AuthResult = {
   success: boolean;
   message?: string;
   cancelled?: boolean;
@@ -29,31 +19,67 @@ type AuthResult = {
   needsEmailConfirmation?: boolean;
 };
 
-type AuthFormInputEvent = {
-  target: HTMLInputElement;
-};
+export const SESSION_LAST_ACTIVITY_KEY = "buck-session-last-activity";
+export const SESSION_FORCE_SIGN_OUT_KEY = "buck-session-force-signout";
+const DASHBOARD_CACHE_KEY = "buck-dashboard-cache-v1";
+export const DEFAULT_IDLE_TIMEOUT_MINUTES = 30;
 
 const CLIENT_AUTH_STORAGE_KEYS = [
-  "buck-dashboard-cache-v1",
-  "buck-session-last-activity",
-  "buck-session-force-signout",
+  DASHBOARD_CACHE_KEY,
+  SESSION_LAST_ACTIVITY_KEY,
+  SESSION_FORCE_SIGN_OUT_KEY,
   "selectedGoalId",
 ];
-
-const DEFAULT_IDLE_TIMEOUT_MINUTES = 30;
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong.";
 }
 
-function getClientIdleTimeoutMs() {
-  const parsed = Number(process.env.NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_MINUTES);
-  const minutes =
-    Number.isFinite(parsed) && parsed >= 0
-      ? parsed
-      : DEFAULT_IDLE_TIMEOUT_MINUTES;
+export function getPositiveNumber(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+export function getClientIdleTimeoutMs() {
+  const minutes = getPositiveNumber(
+    process.env.NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_MINUTES,
+    DEFAULT_IDLE_TIMEOUT_MINUTES
+  );
 
   return minutes * 60 * 1000;
+}
+
+export function readStoredTimestamp(key: string) {
+  try {
+    const value = window.localStorage.getItem(key);
+    const parsed = value ? Number(value) : 0;
+
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function writeStoredValue(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Storage can be unavailable in strict privacy modes. Timers still protect
+    // the current tab.
+  }
+}
+
+export function removeStoredValue(key: string) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore storage cleanup failures for browsers with restricted storage.
+  }
 }
 
 export function clearClientAuthStorage() {
@@ -62,11 +88,7 @@ export function clearClientAuthStorage() {
   }
 
   CLIENT_AUTH_STORAGE_KEYS.forEach((key) => {
-    try {
-      window.localStorage.removeItem(key);
-    } catch {
-      // Local storage cleanup is best-effort.
-    }
+    removeStoredValue(key);
 
     try {
       window.sessionStorage.removeItem(key);
@@ -81,17 +103,11 @@ export function resetClientSessionActivity() {
     return;
   }
 
-  const now = String(Date.now());
+  writeStoredValue(SESSION_LAST_ACTIVITY_KEY, String(Date.now()));
+  removeStoredValue(SESSION_FORCE_SIGN_OUT_KEY);
 
   try {
-    window.localStorage.setItem("buck-session-last-activity", now);
-    window.localStorage.removeItem("buck-session-force-signout");
-  } catch {
-    // Local storage write is best-effort.
-  }
-
-  try {
-    window.sessionStorage.removeItem("buck-dashboard-cache-v1");
+    window.sessionStorage.removeItem(DASHBOARD_CACHE_KEY);
   } catch {
     // Session storage cleanup is best-effort.
   }
@@ -110,16 +126,7 @@ export function isClientSessionIdleExpired(
     return false;
   }
 
-  let storedActivity = 0;
-
-  try {
-    const raw = window.localStorage.getItem("buck-session-last-activity");
-    const parsed = raw ? Number(raw) : 0;
-    storedActivity = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-  } catch {
-    storedActivity = 0;
-  }
-
+  const storedActivity = readStoredTimestamp(SESSION_LAST_ACTIVITY_KEY);
   const lastSignInMs = user.last_sign_in_at
     ? Date.parse(user.last_sign_in_at)
     : Number.NaN;
@@ -168,69 +175,11 @@ function getConfiguredAuthError(): AuthResult {
   };
 }
 
-export function SignInSignUp() {
-  const initialFormState: AuthFormData = {
-    username: "",
-    pass: "",
-    confirm: "",
-    email: "",
-  };
-  const [form, setForm] = useState(initialFormState);
-
-  const handleChange = (e: AuthFormInputEvent) => {
-    setForm({ ...form, [e.target.id]: e.target.value });
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-
-    if (form.username === "" || form.pass === "" || form.email === "") {
-      toast("Please fill in all fields", "warning");
-      return;
-    }
-
-    if (form.pass !== form.confirm) {
-      toast("Passwords do not match", "error");
-      return;
-    }
-
-    const emailValidationMessage = getEmailValidationMessage(form.email);
-    if (emailValidationMessage) {
-      toast(emailValidationMessage, "error");
-      return;
-    }
-
-    const result = await signUpUser(
-      normalizeEmailAddress(form.email),
-      form.pass,
-      form.username
-    );
-
-    if (!result.success) {
-      toast(result.message || "Sign up failed.", "error");
-      return;
-    }
-
-    toast(
-      result.needsEmailConfirmation
-        ? "Account created. Please check your email to confirm your account."
-        : "Sign up successful!",
-      "success"
-    );
-  };
-
-  return {
-    form,
-    handleChange,
-    handleSubmit,
-  };
-}
-
 export async function signUpUser(
   email: string,
   password: string,
   username: string
-) {
+): Promise<AuthResult> {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
@@ -293,7 +242,7 @@ export async function signUpUser(
 export async function signInUser(
   email: string,
   password: string
-) {
+): Promise<AuthResult> {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
@@ -327,44 +276,9 @@ export async function signInUser(
   }
 }
 
-export async function sendMagicLink(
-  email: string,
-  redirectTo = "/dashboard/home"
-) {
-  if (!isSupabaseConfigured) {
-    return getConfiguredAuthError();
-  }
-
-  try {
-    const normalizedEmail = normalizeEmailAddress(email);
-    const emailValidationMessage = getEmailValidationMessage(normalizedEmail);
-
-    if (emailValidationMessage) {
-      return { success: false, message: emailValidationMessage };
-    }
-
-    const supabase = getSupabaseClient();
-    clearClientAuthStorage();
-    const { error } = await supabase.auth.signInWithOtp({
-      email: normalizedEmail,
-      options: {
-        emailRedirectTo: getAuthCallbackUrl(redirectTo),
-      },
-    });
-
-    if (error) {
-      return { success: false, message: error.message };
-    }
-
-    return { success: true, message: "Magic link sent. Check your email." };
-  } catch (error) {
-    return { success: false, message: getErrorMessage(error) };
-  }
-}
-
 export async function signInWithGoogle(
   redirectTo = "/dashboard/home"
-) {
+): Promise<AuthResult> {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
@@ -393,7 +307,7 @@ export async function signInWithGoogle(
 
 export async function resendSignUpConfirmation(
   email: string
-) {
+): Promise<AuthResult> {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
@@ -428,7 +342,7 @@ export async function resendSignUpConfirmation(
   }
 }
 
-export async function sendPasswordReset(email: string) {
+export async function sendPasswordReset(email: string): Promise<AuthResult> {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
@@ -465,7 +379,7 @@ export async function sendPasswordReset(email: string) {
   }
 }
 
-export async function updatePassword(password: string) {
+export async function updatePassword(password: string): Promise<AuthResult> {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
@@ -495,7 +409,9 @@ export async function updatePassword(password: string) {
   }
 }
 
-export async function verifyCurrentPassword(currentPassword: string) {
+export async function verifyCurrentPassword(
+  currentPassword: string
+): Promise<AuthResult> {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
@@ -536,7 +452,7 @@ export async function verifyCurrentPassword(currentPassword: string) {
   }
 }
 
-export async function updateEmailAddress(email: string) {
+export async function updateEmailAddress(email: string): Promise<AuthResult> {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
@@ -570,7 +486,7 @@ export async function updateEmailAddress(email: string) {
   }
 }
 
-export async function signOutUser() {
+export async function signOutUser(): Promise<AuthResult> {
   if (!isSupabaseConfigured) {
     clearClientAuthStorage();
     return getConfiguredAuthError();

@@ -14,6 +14,7 @@ import {
   MfaRequestError,
   completeEmailRecovery,
   describeAuthError,
+  describeVerifyError,
   fetchMfaStatus,
   getSafeMfaRedirect,
   isCompleteRecoveryCode,
@@ -52,19 +53,6 @@ function formatLocalTime(value: string) {
   return Number.isNaN(date.getTime())
     ? value
     : new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
-}
-
-/** Supabase's verify errors, in plain words. */
-function describeVerifyError(error: { message?: string; status?: number; code?: string }) {
-  if (error.status === 429 || error.code === "over_request_rate_limit") {
-    return "Too many tries. Wait a minute, then enter the newest code.";
-  }
-
-  if (/invalid|expired|mfa_verification_failed/i.test(`${error.code ?? ""} ${error.message ?? ""}`)) {
-    return "That code didn't work. Enter the newest code from your app, and check your phone's clock is right.";
-  }
-
-  return error.message || "We couldn't check that code. Please try again.";
 }
 
 function Shell({ dark, busy = false, children }: { dark: boolean; busy?: boolean; children: ReactNode }) {
@@ -233,19 +221,26 @@ export default function VerifyTwoFactorPage() {
     setBusy(true);
     setError("");
 
-    const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({ factorId, code: value });
+    try {
+      const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({ factorId, code: value });
 
-    if (verifyError) {
-      setError(describeVerifyError(verifyError));
+      if (verifyError) {
+        setError(describeVerifyError(verifyError));
+        setCode("");
+        codeRef.current?.focus();
+        return;
+      }
+
+      setLeaving(true);
+      window.location.replace(redirectTo);
+    } catch (verifyFailure) {
+      setError(describeAuthError(verifyFailure, "We couldn't check that code. Please try again."));
       setCode("");
-      setBusy(false);
-      submittingRef.current = false;
       codeRef.current?.focus();
-      return;
+    } finally {
+      submittingRef.current = false;
+      setBusy(false);
     }
-
-    setLeaving(true);
-    window.location.replace(redirectTo);
   };
 
   const handleCodeSubmit = (event: FormEvent) => {

@@ -47,6 +47,7 @@ import {
 } from "@/context/FinancialContext";
 import { evaluatePasswordPolicy } from "@/utils/passwordPolicy";
 import { getEmailValidationMessage } from "@/utils/emailValidation";
+import { describeVerifyError } from "@/utils/mfa/client";
 import {
   getAccountDeletionStatus,
   getUserProfile,
@@ -699,11 +700,7 @@ export default function SettingsPage() {
 
       if (verifyError) {
         setStepUpCode("");
-        setStepUpError(
-          verifyError.status === 429
-            ? "Too many tries. Wait a minute, then enter the newest code."
-            : "That code didn't work. Enter the newest code from your app."
-        );
+        setStepUpError(describeVerifyError(verifyError));
         return;
       }
     } finally {

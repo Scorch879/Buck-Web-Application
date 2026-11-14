@@ -15,65 +15,26 @@ import {
 import {
   FaAngleDoubleLeft,
   FaBars,
-  FaBullseye,
-  FaChartArea,
-  FaChartLine,
-  FaCog,
-  FaHome,
-  FaReceipt,
-  FaRobot,
   FaSignOutAlt,
-  FaTags,
   FaTimes,
-  FaWallet,
 } from "react-icons/fa";
 import WalletModal from "@/app/dashboard/wallet/WalletModal";
 import FadeInImage from "@/component/FadeInImage";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial } from "@/context/FinancialContext";
 import { useToast } from "@/component/toast";
+import {
+  DASHBOARD_ROUTES,
+  getDashboardDisplayName,
+  type DashboardNavId,
+  type DashboardRoute,
+} from "@/utils/dashboardRoutes";
 import { INSTANT, LABEL_EXIT, LABEL_TRANSITION, SPRING, popoverMotion } from "@/utils/motion";
 import { signOutUser } from "./authentication";
 import "./dashboard.css";
 
 const SIDEBAR_STORAGE_KEY = "buck:sidebar-collapsed";
 const DESKTOP_QUERY = "(min-width: 1025px)";
-
-const dashboardNavItems = [
-  { id: "home", label: "Home", href: "/dashboard/home", icon: FaHome },
-  {
-    id: "expenses",
-    label: "Expenses",
-    href: "/dashboard/expenses",
-    icon: FaReceipt,
-  },
-  { id: "wallet", label: "Wallet", href: "/dashboard/wallet", icon: FaWallet },
-  { id: "categories", label: "Categories", href: "/dashboard/categories", icon: FaTags },
-  {
-    id: "advisor",
-    label: "Financial Advisor",
-    href: "/dashboard/financial-advisor",
-    icon: FaRobot,
-  },
-  {
-    id: "forecast",
-    label: "Forecast",
-    href: "/dashboard/forecast",
-    icon: FaChartArea,
-  },
-  {
-    id: "statistics",
-    label: "Statistics",
-    href: "/dashboard/statistics",
-    icon: FaChartLine,
-  },
-  { id: "goals", label: "Goals", href: "/dashboard/goals", icon: FaBullseye },
-  { id: "admin", label: "Admin", href: "/dashboard/admin", icon: FaRobot, adminOnly: true },
-  { id: "settings", label: "Settings", href: "/dashboard/settings", icon: FaCog },
-] as const;
-
-type DashboardNavId = (typeof dashboardNavItems)[number]["id"];
-type DashboardNavItem = (typeof dashboardNavItems)[number];
 
 type DashboardHeaderProps = {
   initialActiveNav?: DashboardNavId;
@@ -101,9 +62,7 @@ export default function DashboardHeader({
 }: DashboardHeaderProps) {
   const pathname = usePathname();
   const currentNav: DashboardNavId =
-    dashboardNavItems.find(
-      (item) => "href" in item && pathname?.startsWith(item.href)
-    )?.id ?? initialActiveNav;
+    DASHBOARD_ROUTES.find((item) => pathname?.startsWith(item.href))?.id ?? initialActiveNav;
   // Start on the route's own item so a hard load of /dashboard/goals never
   // paints Home as active first and then slides the highlight across.
   const [activeNav, setActiveNav] = useState<DashboardNavId>(currentNav);
@@ -134,11 +93,7 @@ export default function DashboardHeader({
   const { dashboardCache, setDashboardCache } = useFinancial();
   const { toast } = useToast();
   const userCache = dashboardCache.userId === user?.uid ? dashboardCache : {};
-  const displayName =
-    userCache.profile?.username ||
-    user?.displayName ||
-    user?.email?.split("@")[0] ||
-    "Buck user";
+  const displayName = getDashboardDisplayName(userCache, user);
   const accountSubtitle = user?.email || "Signed in";
 
   const avatarSource = userCache.profile?.avatarPath
@@ -228,10 +183,8 @@ export default function DashboardHeader({
   };
 
   useEffect(() => {
-    dashboardNavItems.forEach((item) => {
-      if ("href" in item) {
-        router.prefetch(item.href);
-      }
+    DASHBOARD_ROUTES.forEach((item) => {
+      router.prefetch(item.href);
     });
   }, [router]);
 
@@ -252,13 +205,9 @@ export default function DashboardHeader({
     };
   }, []);
 
-  const navigateTo = (item: DashboardNavItem) => {
+  const navigateTo = (item: DashboardRoute) => {
     setActiveNav(item.id);
     setMenuOpen(false);
-
-    if (!("href" in item)) {
-      return;
-    }
 
     if (pathname?.startsWith(item.href)) {
       return;
@@ -286,8 +235,8 @@ export default function DashboardHeader({
   };
 
   const renderNavItems = (isMobile = false) =>
-    dashboardNavItems
-      .filter((item) => !("adminOnly" in item && item.adminOnly) || user?.isAdmin)
+    DASHBOARD_ROUTES
+      .filter((item) => !item.adminOnly || user?.isAdmin)
       .map((item) => {
         const Icon = item.icon;
         const showLabel = isMobile || !railCollapsed;
@@ -300,16 +249,8 @@ export default function DashboardHeader({
             title={!isMobile && railCollapsed ? item.label : undefined}
             aria-label={item.label}
             onClick={() => navigateTo(item)}
-            onFocus={() => {
-              if ("href" in item) {
-                router.prefetch(item.href);
-              }
-            }}
-            onMouseEnter={() => {
-              if ("href" in item) {
-                router.prefetch(item.href);
-              }
-            }}
+            onFocus={() => router.prefetch(item.href)}
+            onMouseEnter={() => router.prefetch(item.href)}
           >
             <Icon aria-hidden="true" className="nav-button-icon" />
             <AnimatePresence initial={false}>
@@ -352,7 +293,7 @@ export default function DashboardHeader({
         <button
           className="dashboard-brand"
           type="button"
-          onClick={() => navigateTo(dashboardNavItems[0])}
+          onClick={() => navigateTo(DASHBOARD_ROUTES[0])}
           aria-label="Go to dashboard home"
           title={railCollapsed ? "Buck — Go to dashboard home" : undefined}
         >
