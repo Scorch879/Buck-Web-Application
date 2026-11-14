@@ -7,7 +7,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { backdropMotion, panelMotion } from "@/utils/motion";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial } from "@/context/FinancialContext";
-import { formatCurrency } from "@/utils/formatters";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useIsClient } from "@/hooks/useIsClient";
+import {
+  formatCurrency,
+  parseBudgetInput,
+  sanitizeBudgetInput,
+} from "@/utils/formatters";
 import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import {
   addWallet,
@@ -21,20 +27,6 @@ import {
 } from "@/utils/supabaseData";
 
 type Wallet = BuckWallet;
-
-function sanitizeBudgetInput(raw: string): string {
-  const cleaned = raw.replace(/[^0-9.,]/g, "");
-  const firstDot = cleaned.indexOf(".");
-  if (firstDot === -1) return cleaned;
-  return (
-    cleaned.slice(0, firstDot + 1) +
-    cleaned.slice(firstDot + 1).replace(/\./g, "")
-  );
-}
-
-function parseBudgetInput(raw: string): number {
-  return Number(raw.replace(/,/g, "").trim());
-}
 
 function formatEditableBudget(value: number): string {
   const num = Number(value) || 0;
@@ -62,14 +54,12 @@ export default function WalletModal({
   const [activeWalletId, setActiveWalletId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [justActivatedId, setJustActivatedId] = useState<string | null>(null);
-  const [portalReady, setPortalReady] = useState(false);
+  const isClient = useIsClient();
 
   const user = useOptionalDashboardUser();
   const { setDashboardCache } = useFinancial();
 
-  useEffect(() => {
-    setPortalReady(true);
-  }, []);
+  useEscapeKey(open && !confirmDeleteId, onClose);
 
   useEffect(() => {
     if (!open) {
@@ -150,7 +140,7 @@ export default function WalletModal({
     e.preventDefault();
     setError("");
     const parsedBudget = parseBudgetInput(budget);
-    if (!name.trim() || !budget.trim() || isNaN(parsedBudget) || parsedBudget <= 0) {
+    if (!name.trim() || parsedBudget === null) {
       setError("Please enter a valid name and a budget greater than 0.");
       return;
     }
@@ -191,7 +181,7 @@ export default function WalletModal({
   const handleEditSave = async (id: string) => {
     if (!user) return;
     const parsedBudget = parseBudgetInput(editBudget);
-    if (!editName.trim() || !editBudget.trim() || isNaN(parsedBudget) || parsedBudget <= 0) {
+    if (!editName.trim() || parsedBudget === null) {
       setError("Please enter a valid name and a budget greater than 0.");
       return;
     }
@@ -242,7 +232,7 @@ export default function WalletModal({
     ...activeWallets.filter((w) => w.id !== activeWalletId),
   ];
 
-  if (!portalReady) return null;
+  if (!isClient) return null;
 
   return createPortal(
     <>

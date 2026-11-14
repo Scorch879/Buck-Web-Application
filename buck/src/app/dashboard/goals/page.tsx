@@ -13,17 +13,12 @@ import {
   useFinancial,
 } from "@/context/FinancialContext";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { buckChartColors, buckTooltip } from "@/utils/chartTheme";
 import CreateGoalModal from "./CreateGoalModal";
 import GoalPlanTable, { AttitudeChip } from "./GoalPlanTable";
 import AddExpenseModal from "../expenses/AddExpenseModal";
-import {
-  addGoalProgress,
-  deleteGoal,
-  updateGoalStatus,
-  setOnlyGoalActive,
-  restoreGoal,
-} from "@/component/goals";
+import { setOnlyGoalActive } from "@/component/goals";
 import ProgressBarCard from "./ProgressBarCard";
 import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import { detectGoalAttitude, getGoalTipWithSource } from "@/utils/aiApi";
@@ -43,12 +38,16 @@ import {
 import { formatCurrency } from "@/utils/formatters";
 import { daysBetween, formatDayKey, storedDayKey, toDayKey } from "@/utils/periods";
 import {
+  addGoalProgressRecord,
+  deleteGoalRecord,
   ensureDefaultCategories,
   getActiveWallet,
   listExpenses,
   listGoals,
   listDeletedGoals,
+  restoreGoalRecord,
   subscribeUserTable,
+  updateGoalStatusRecord,
   type BuckCategory,
   type BuckExpense,
   type BuckGoal,
@@ -149,12 +148,15 @@ const GoalsPage = () => {
   // Opened by the Delete button; the three-step dialog (ADR-041) calls handleDeleteGoal.
   const [confirmGoalDelete, setConfirmGoalDelete] = useState(false);
 
+  useEscapeKey(forecastModalOpen && !showExpenseModal, () => setForecastModalOpen(false));
+  useEscapeKey(showProgressModal && !progressLoading, () => setShowProgressModal(false));
+
   const handleDeleteGoal = async () => {
     const goalToDelete = selectedGoal;
     if (!goalToDelete) return;
 
-    const result = await deleteGoal(goalToDelete.id);
-    if (result.success) {
+    try {
+      await deleteGoalRecord(goalToDelete.id);
       const nextGoals = goals.filter((goal) => goal.id !== goalToDelete.id);
       setGoals(nextGoals);
       setDeletedGoals((prev) => [
@@ -168,8 +170,12 @@ const GoalsPage = () => {
       );
       setSelectedGoal(nextGoals[0] ?? null);
       toast("Goal moved to Deleted goals. You can restore it anytime.", "success");
-    } else {
-      toast(result.message || "Failed to delete goal.", "error");
+    } catch (error) {
+      console.error("Failed to delete goal:", error);
+      toast(
+        error instanceof Error ? error.message : "Failed to delete goal.",
+        "error"
+      );
     }
   };
 
@@ -177,27 +183,21 @@ const GoalsPage = () => {
     if (restoringGoalId) return;
     setRestoringGoalId(goalToRestore.id);
     try {
-      const result = await restoreGoal(goalToRestore.id);
-      if (result.success) {
-        const restored: Goal = result.goal ?? {
-          ...goalToRestore,
-          isActive: false,
-          deletedAt: null,
-        };
-        const nextGoals = [restored, ...goals.filter((g) => g.id !== restored.id)];
-        setGoals(nextGoals);
-        setDeletedGoals((prev) => prev.filter((g) => g.id !== goalToRestore.id));
-        setDashboardCache((currentCache) =>
-          mergeDashboardDataCache(currentCache, user.uid, { goals: nextGoals })
-        );
-        setSelectedGoal(restored);
-        toast(`Restored "${restored.goalName}"`, "success");
-      } else {
-        toast(result.message || "Failed to restore goal.", "error");
-      }
+      const restored = await restoreGoalRecord(goalToRestore.id);
+      const nextGoals = [restored, ...goals.filter((g) => g.id !== restored.id)];
+      setGoals(nextGoals);
+      setDeletedGoals((prev) => prev.filter((g) => g.id !== goalToRestore.id));
+      setDashboardCache((currentCache) =>
+        mergeDashboardDataCache(currentCache, user.uid, { goals: nextGoals })
+      );
+      setSelectedGoal(restored);
+      toast(`Restored "${restored.goalName}"`, "success");
     } catch (error) {
       console.error("Failed to restore goal:", error);
-      toast("Failed to restore goal.", "error");
+      toast(
+        error instanceof Error ? error.message : "Failed to restore goal.",
+        "error"
+      );
     } finally {
       setRestoringGoalId(null);
     }
@@ -223,11 +223,12 @@ const GoalsPage = () => {
     };
 
     if (selectedGoal.isActive) {
-      const result = await updateGoalStatus(selectedGoal.id, false);
-      if (result.success) {
+      try {
+        await updateGoalStatusRecord(selectedGoal.id, false);
         applyToSelected({ isActive: false }, false);
-      } else {
-        toast(result.message || "Failed to update goal status.", "error");
+      } catch (error) {
+        console.error("Failed to update goal status:", error);
+        toast("Failed to update goal status.", "error");
       }
       return;
     }
@@ -275,39 +276,41 @@ const GoalsPage = () => {
       return;
     }
     setProgressLoading(true);
-    // The database adds the amount itself (add_goal_progress), so two quick
-    // saves can't overwrite each other the way a browser-computed total could.
-    const result = await addGoalProgress(progressGoal.id, amountToAdd);
-    setProgressLoading(false);
-    if (!result.success || !("currentAmount" in result)) {
+    try {
+      // The database adds the amount itself (add_goal_progress), so two quick
+      // saves can't overwrite each other the way a browser-computed total could.
+      const updated = await addGoalProgressRecord(progressGoal.id, amountToAdd);
+      const patch = {
+        currentAmount: updated.currentAmount,
+        completed: updated.completed,
+        // Reaching the target completes the goal and makes it inactive.
+        isActive: updated.isActive,
+      };
+      const nextGoals = goals.map((goal) =>
+        goal.id === progressGoal.id ? { ...goal, ...patch } : goal
+      );
+      setGoals(nextGoals);
+      setDashboardCache((currentCache) =>
+        mergeDashboardDataCache(currentCache, user.uid, {
+          goals: nextGoals,
+        })
+      );
+      if (selectedGoal && selectedGoal.id === progressGoal.id) {
+        setSelectedGoal({ ...selectedGoal, ...patch });
+      }
+      setShowProgressModal(false);
+      toast(
+        patch.completed
+          ? "Congratulations! Goal completed!"
+          : "Goal progress updated successfully",
+        "success"
+      );
+    } catch (error) {
+      console.error("Failed to add goal progress:", error);
       toast("Failed to update progress.", "error");
-      return;
+    } finally {
+      setProgressLoading(false);
     }
-    const patch = {
-      currentAmount: result.currentAmount,
-      completed: result.completed,
-      // Reaching the target completes the goal and makes it inactive.
-      isActive: result.isActive,
-    };
-    const nextGoals = goals.map((goal) =>
-      goal.id === progressGoal.id ? { ...goal, ...patch } : goal
-    );
-    setGoals(nextGoals);
-    setDashboardCache((currentCache) =>
-      mergeDashboardDataCache(currentCache, user.uid, {
-        goals: nextGoals,
-      })
-    );
-    if (selectedGoal && selectedGoal.id === progressGoal.id) {
-      setSelectedGoal({ ...selectedGoal, ...patch });
-    }
-    setShowProgressModal(false);
-    toast(
-      patch.completed
-        ? "Congratulations! Goal completed!"
-        : "Goal progress updated successfully",
-      "success"
-    );
   };
 
   const loadGoalForecast = async (goal: Goal): Promise<GoalForecastView> => {

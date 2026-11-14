@@ -5,8 +5,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { DURATION, EASE_OUT, SPRING } from "@/utils/motion";
 import {
   FaCheck,
-  FaChevronLeft,
-  FaChevronRight,
   FaEdit,
   FaFilter,
   FaListUl,
@@ -20,12 +18,14 @@ import {
 import { categorizeItems } from "@/utils/aiApi";
 import "./style.css";
 import CustomSelect, { type SelectOption } from "@/component/CustomSelect";
+import Pagination from "@/component/Pagination";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import { useToast } from "@/component/toast/ToastContext";
 import { useDashboardUser } from "@/context/DashboardUserContext";
 import { mergeDashboardDataCache, useFinancial } from "@/context/FinancialContext";
 import { formatCurrency } from "@/utils/formatters";
+import { getCategoryColor, getShareTier } from "@/utils/categoryUtils";
 import { getCategoryTheme } from "@/app/dashboard/expenses/categoryUtils";
 import {
   addCategory,
@@ -76,7 +76,7 @@ type CategoryFilterMode =
   | "entries"
   | "percentage-share";
 
-const CATEGORY_FILTER_OPTIONS: SelectOption[] = [
+const CATEGORY_FILTER_OPTIONS: readonly SelectOption<CategoryFilterMode>[] = [
   { value: "largest-total", label: "Largest Total" },
   { value: "alphabetical", label: "Alphabetical" },
   { value: "entries", label: "Number of Entries" },
@@ -94,92 +94,6 @@ const PAGE_VARIANTS = {
     opacity: 0,
   },
 };
-
-function getPaginationPages(
-  current: number,
-  total: number
-): (number | "ellipsis-start" | "ellipsis-end")[] {
-  if (total <= 7) {
-    return Array.from({ length: total }, (_, i) => i + 1);
-  }
-  if (current <= 4) {
-    return [1, 2, 3, 4, 5, "ellipsis-end", total];
-  }
-  if (current >= total - 3) {
-    return [
-      1,
-      "ellipsis-start",
-      total - 4,
-      total - 3,
-      total - 2,
-      total - 1,
-      total,
-    ];
-  }
-  return [
-    1,
-    "ellipsis-start",
-    current - 1,
-    current,
-    current + 1,
-    "ellipsis-end",
-    total,
-  ];
-}
-
-function getShareTier(share: number): {
-  tier: "dominant" | "high" | "moderate" | "low" | "minimal" | "zero";
-  gradient: string;
-  textColor: string;
-  trackBg: string;
-} {
-  if (share >= 20) {
-    return {
-      tier: "dominant",
-      gradient: "linear-gradient(90deg, #ff7a45 0%, #ef4444 100%)",
-      textColor: "#f87171",
-      trackBg: "rgba(239, 68, 68, 0.14)",
-    };
-  }
-  if (share >= 10) {
-    return {
-      tier: "high",
-      gradient: "linear-gradient(90deg, #ffc547 0%, #f47536 100%)",
-      textColor: "var(--buck-orange)",
-      trackBg: "rgba(244, 117, 54, 0.14)",
-    };
-  }
-  if (share >= 6) {
-    return {
-      tier: "moderate",
-      gradient: "linear-gradient(90deg, #fde047 0%, #eab308 100%)",
-      textColor: "#facc15",
-      trackBg: "rgba(234, 179, 8, 0.14)",
-    };
-  }
-  if (share >= 3) {
-    return {
-      tier: "low",
-      gradient: "linear-gradient(90deg, #34d399 0%, #10b981 100%)",
-      textColor: "#34d399",
-      trackBg: "rgba(16, 185, 129, 0.14)",
-    };
-  }
-  if (share > 0) {
-    return {
-      tier: "minimal",
-      gradient: "linear-gradient(90deg, #38bdf8 0%, #0ea5e9 100%)",
-      textColor: "#38bdf8",
-      trackBg: "rgba(14, 165, 233, 0.14)",
-    };
-  }
-  return {
-    tier: "zero",
-    gradient: "rgba(148, 163, 184, 0.25)",
-    textColor: "var(--buck-muted)",
-    trackBg: "rgba(148, 163, 184, 0.12)",
-  };
-}
 
 export default function CategoriesPage() {
   const { user } = useDashboardUser();
@@ -586,7 +500,7 @@ export default function CategoriesPage() {
                 fit
                 icon={<FaFilter aria-hidden="true" />}
                 value={filterMode}
-                onChange={(val) => setFilterMode(val as CategoryFilterMode)}
+                onChange={setFilterMode}
                 options={CATEGORY_FILTER_OPTIONS}
               />
             </div>
@@ -799,7 +713,7 @@ export default function CategoriesPage() {
                           <span
                             className="cat-category-icon"
                             style={{
-                              color: theme.color,
+                              color: getCategoryColor(row.category.name),
                               backgroundColor: theme.bg,
                               borderColor: theme.border,
                             }}
@@ -1103,90 +1017,15 @@ export default function CategoriesPage() {
           </table>
         </div>
 
-        {/* Centered Windowed Pagination with Right-Aligned Range Info */}
-        {totalItems > 0 && (
-          <div
-            className="cat-pagination"
-            role="navigation"
-            aria-label="Categories pagination"
-          >
-            <div className="cat-pagination-spacer" aria-hidden="true" />
-
-            <div className="cat-pagination-nav">
-              <motion.button
-                type="button"
-                className="cat-page-btn cat-page-btn--nav"
-                onClick={() => handlePageChange(safeCurrentPage - 1)}
-                disabled={safeCurrentPage <= 1}
-                aria-label="Previous page"
-                title="Previous page"
-                whileHover={safeCurrentPage <= 1 ? undefined : { scale: 1.03 }}
-                whileTap={safeCurrentPage <= 1 ? undefined : { scale: 0.98 }}
-              >
-                <FaChevronLeft aria-hidden="true" />
-                <span>Prev</span>
-              </motion.button>
-
-              <div className="cat-page-numbers">
-                {getPaginationPages(safeCurrentPage, totalPages).map((p, idx) => {
-                  if (typeof p === "string") {
-                    return (
-                      <span
-                        key={`${p}-${idx}`}
-                        className="cat-page-ellipsis"
-                        aria-hidden="true"
-                      >
-                        …
-                      </span>
-                    );
-                  }
-                  const isActive = p === safeCurrentPage;
-                  return (
-                    <motion.button
-                      key={p}
-                      type="button"
-                      className={`cat-page-btn ${
-                        isActive ? "cat-page-btn--active" : ""
-                      }`}
-                      onClick={() => handlePageChange(p)}
-                      aria-label={`Page ${p}`}
-                      aria-current={isActive ? "page" : undefined}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      {p}
-                    </motion.button>
-                  );
-                })}
-              </div>
-
-              <motion.button
-                type="button"
-                className="cat-page-btn cat-page-btn--nav"
-                onClick={() => handlePageChange(safeCurrentPage + 1)}
-                disabled={safeCurrentPage >= totalPages}
-                aria-label="Next page"
-                title="Next page"
-                whileHover={safeCurrentPage >= totalPages ? undefined : { scale: 1.03 }}
-                whileTap={safeCurrentPage >= totalPages ? undefined : { scale: 0.98 }}
-              >
-                <span>Next</span>
-                <FaChevronRight aria-hidden="true" />
-              </motion.button>
-            </div>
-
-            <div className="cat-pagination-info">
-              <span className="cat-pagination-info-full">
-                Showing <strong>{startIndex + 1}</strong>–<strong>{endIndex}</strong> of{" "}
-                <strong>{totalItems}</strong>
-              </span>
-              <span className="cat-pagination-info-short">
-                <strong>{startIndex + 1}</strong>–<strong>{endIndex}</strong> of{" "}
-                <strong>{totalItems}</strong>
-              </span>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={safeCurrentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          startIndex={startIndex}
+          endIndex={endIndex}
+          onPageChange={handlePageChange}
+          ariaLabel="Categories pagination"
+        />
       </section>
 
       <DangerDeleteDialog

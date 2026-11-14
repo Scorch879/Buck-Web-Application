@@ -28,6 +28,22 @@ export function parseMoneyInput(value: string): number | null {
   return parsed > 0 ? parsed : null;
 }
 
+/** Strips non-numeric characters from a wallet budget input while keeping one decimal point. */
+export function sanitizeBudgetInput(raw: string): string {
+  const cleaned = raw.replace(/[^0-9.,]/g, "");
+  const firstDot = cleaned.indexOf(".");
+  if (firstDot === -1) return cleaned;
+  return (
+    cleaned.slice(0, firstDot + 1) +
+    cleaned.slice(firstDot + 1).replace(/\./g, "")
+  );
+}
+
+/** Parses a formatted wallet budget string (allowing commas) using numeric(14,2) validation. */
+export function parseBudgetInput(raw: string): number | null {
+  return parseMoneyInput(raw.replace(/,/g, ""));
+}
+
 /** Adds two PHP amounts in integer centavos to avoid float drift. */
 export function addMoney(a: number, b: number) {
   return Math.round((a + b) * 100) / 100;

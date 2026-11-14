@@ -8,15 +8,15 @@ import { useClickOutside } from "@/hooks/useClickOutside";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import styles from "./CustomSelect.module.css";
 
-export type SelectOption = {
-  value: string;
+export type SelectOption<T extends string = string> = {
+  value: T;
   label: string;
 };
 
-interface CustomSelectProps {
-  value: string;
-  onChange: (value: string) => void;
-  options: SelectOption[];
+interface CustomSelectProps<T extends string = string> {
+  value: T;
+  onChange: (value: T) => void;
+  options: readonly SelectOption<T>[];
   disabled?: boolean;
   className?: string;
   id?: string;
@@ -30,7 +30,7 @@ interface CustomSelectProps {
   fit?: boolean;
 }
 
-export default function CustomSelect({
+export default function CustomSelect<T extends string = string>({
   value,
   onChange,
   options,
@@ -40,7 +40,7 @@ export default function CustomSelect({
   icon,
   size = "default",
   fit = false,
-}: CustomSelectProps) {
+}: CustomSelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const listboxId = useId();
