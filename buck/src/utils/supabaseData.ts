@@ -7,6 +7,7 @@ import {
   designPreviewUserId,
   isDesignPreviewMode,
 } from "@/utils/designPreview";
+import { toNumber } from "@/utils/formatters";
 
 /** Expense and income categories share one table (Design.md ADR-042). */
 export type CategoryKind = "expense" | "income";
@@ -261,10 +262,6 @@ const previewExpenses: BuckExpense[] = [
   },
 ];
 
-function toNumber(value: unknown) {
-  const numberValue = Number(value);
-  return Number.isFinite(numberValue) ? numberValue : 0;
-}
 
 function assertUuid(value: string, label: string) {
   if (!uuidRegex.test(value)) {
@@ -1040,7 +1037,7 @@ export async function deleteCategoryAndReassign(
   return moved;
 }
 
-export async function deleteCategory(userId: string, categoryId: string) {
+async function deleteCategory(userId: string, categoryId: string) {
   if (isDesignPreviewMode) {
     return;
   }
@@ -1122,7 +1119,7 @@ async function getCategoryByName(userId: string, categoryName: string) {
   return data ? mapCategory(data) : null;
 }
 
-export async function addExpense(
+async function addExpense(
   userId: string,
   expense: {
     amount: number;
@@ -1189,7 +1186,7 @@ export async function addExpense(
   return mapExpense(data);
 }
 
-export async function deleteExpense(userId: string, expenseId: string) {
+async function deleteExpense(userId: string, expenseId: string) {
   if (isDesignPreviewMode) {
     return;
   }
@@ -1907,7 +1904,7 @@ export async function deleteIncome(userId: string, incomeId: string) {
  * address so plaintext sender identities are never transmitted or stored in
  * `public.feedback` (matching `private.sha256_email` in Postgres).
  */
-export async function hashFeedbackIdentity(email: string): Promise<string> {
+async function hashFeedbackIdentity(email: string): Promise<string> {
   const normalized = email.trim().toLowerCase();
   if (!normalized) return "";
   if (/^[0-9a-f]{64}$/.test(normalized)) return normalized;
@@ -1985,7 +1982,7 @@ export function listWallets(userId: string) {
   return cachedRead(`wallets:${userId}`, () => fetchListWallets(userId)).then(copyList);
 }
 
-export function listCategories(userId: string) {
+function listCategories(userId: string) {
   return cachedRead(`categories:${userId}`, () => fetchListCategories(userId)).then(copyList);
 }
 

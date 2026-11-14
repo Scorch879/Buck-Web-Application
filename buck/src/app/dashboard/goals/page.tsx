@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useToast } from "@/component/toast/ToastContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { backdropMotion, panelMotion } from "@/utils/motion";
@@ -14,6 +14,7 @@ import {
 } from "@/context/FinancialContext";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useUserTable } from "@/hooks/useUserTable";
 import { buckChartColors, buckTooltip } from "@/utils/chartTheme";
 import CreateGoalModal from "./CreateGoalModal";
 import GoalPlanTable, { AttitudeChip } from "./GoalPlanTable";
@@ -41,15 +42,11 @@ import {
   addGoalProgressRecord,
   deleteGoalRecord,
   ensureDefaultCategories,
-  getActiveWallet,
-  listExpenses,
   listGoals,
   listDeletedGoals,
   restoreGoalRecord,
   subscribeUserTable,
   updateGoalStatusRecord,
-  type BuckCategory,
-  type BuckExpense,
   type BuckGoal,
 } from "@/utils/supabaseData";
 
@@ -63,10 +60,8 @@ ChartJS.register(
   Legend
 );
 
-type Goal = BuckGoal;
-
 /** Adds a goal, or replaces it if the cache or realtime sync already added it (BUG-046). */
-function upsertGoal(goals: Goal[], goal: Goal): Goal[] {
+function upsertGoal(goals: BuckGoal[], goal: BuckGoal): BuckGoal[] {
   return goals.some((g) => g.id === goal.id)
     ? goals.map((g) => (g.id === goal.id ? goal : g))
     : [...goals, goal];
@@ -103,25 +98,24 @@ const GoalsPage = () => {
   const hasInitialGoalsData = Boolean(userCache.goals);
   const isDarkTheme = useAuthPageTheme();
   const { text: chartTextColor, grid: chartGridColor } = buckChartColors(isDarkTheme);
-  const [goals, setGoals] = useState<Goal[]>(() => userCache.goals ?? []);
-  const [deletedGoals, setDeletedGoals] = useState<Goal[]>([]);
+  const [goals, setGoals] = useState<BuckGoal[]>(() => userCache.goals ?? []);
+  const [deletedGoals, setDeletedGoals] = useState<BuckGoal[]>([]);
   const [showDeletedGoals, setShowDeletedGoals] = useState(false);
   const [restoringGoalId, setRestoringGoalId] = useState<string | null>(null);
   const [loadingGoals, setLoadingGoals] = useState(
     () => !hasInitialGoalsData
   );
   const [showModal, setShowModal] = useState(false);
-  const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
+  const [selectedGoal, setSelectedGoal] = useState<BuckGoal | null>(null);
   const [aiRecommendation, setAIRecommendation] = useState<string | null>(null);
   // True when Buck_AI wrote the tip from the goal plan's rules, not an AI model.
   const [tipFromPlan, setTipFromPlan] = useState(false);
-  const [walletBudget, setWalletBudget] = useState<number | null>(
-    () => userCache.activeWalletBudget ?? null
-  );
-  
+  const { refresh: refreshWallets } = useUserTable("wallets");
+  const walletBudget = userCache.activeWalletBudget ?? null;
+
   // Progress modal state
   const [showProgressModal, setShowProgressModal] = useState(false);
-  const [progressGoal, setProgressGoal] = useState<Goal | null>(null);
+  const [progressGoal, setProgressGoal] = useState<BuckGoal | null>(null);
   const [progressInput, setProgressInput] = useState("");
   const [progressLoading, setProgressLoading] = useState(false);
 
@@ -134,13 +128,20 @@ const GoalsPage = () => {
 
   // Add Spending dialog (opened from the forecast dialog) and its categories.
   const [showExpenseModal, setShowExpenseModal] = useState(false);
-  const [categories, setCategories] = useState<BuckCategory[]>(
-    () => userCache.categories ?? []
+  const { data: categoriesData, setData: setCategories } = useUserTable("categories");
+  const categories = useMemo(
+    () => [...(categoriesData ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
+    [categoriesData]
   );
 
-  // Add state for expenses
-  const [expenses, setExpenses] = useState<BuckExpense[]>(
-    () => userCache.expenses ?? []
+  // Expenses linked to the currently selected goal.
+  const { data: allExpensesData } = useUserTable("expenses");
+  const expenses = useMemo(
+    () =>
+      selectedGoal
+        ? (allExpensesData ?? []).filter((expense) => expense.goalId === selectedGoal.id)
+        : [],
+    [allExpensesData, selectedGoal]
   );
   const hadInitialGoalsData = useRef(hasInitialGoalsData);
 
@@ -179,7 +180,7 @@ const GoalsPage = () => {
     }
   };
 
-  const handleRestoreGoal = async (goalToRestore: Goal) => {
+  const handleRestoreGoal = async (goalToRestore: BuckGoal) => {
     if (restoringGoalId) return;
     setRestoringGoalId(goalToRestore.id);
     try {
@@ -205,7 +206,7 @@ const GoalsPage = () => {
 
   const handleSetActive = async () => {
     if (!selectedGoal || !user) return;
-    const applyToSelected = (patch: Partial<Goal>, deactivateOthers: boolean) => {
+    const applyToSelected = (patch: Partial<BuckGoal>, deactivateOthers: boolean) => {
       const nextGoals = goals.map((goal) =>
         goal.id === selectedGoal.id
           ? { ...goal, ...patch }
@@ -262,7 +263,7 @@ const GoalsPage = () => {
   };
 
   // --- Progress Modal Handlers ---
-  const handleOpenProgressModal = (goal: Goal) => {
+  const handleOpenProgressModal = (goal: BuckGoal) => {
     setProgressGoal(goal);
     setProgressInput("");
     setShowProgressModal(true);
@@ -313,7 +314,7 @@ const GoalsPage = () => {
     }
   };
 
-  const loadGoalForecast = async (goal: Goal): Promise<GoalForecastView> => {
+  const loadGoalForecast = async (goal: BuckGoal): Promise<GoalForecastView> => {
     try {
       if (goal.isActive) {
         const insights = await fetchAIForecastInsights({ horizon: 30 });
@@ -352,7 +353,7 @@ const GoalsPage = () => {
     }
   };
 
-  const refreshForecast = async (goal: Goal) => {
+  const refreshForecast = async (goal: BuckGoal) => {
     const request = ++forecastRequestRef.current;
     setForecastLoading(true);
     const view = await loadGoalForecast(goal);
@@ -458,62 +459,25 @@ const GoalsPage = () => {
     // starting another one.
   }, [selectedGoalId, storedTip]);
 
-  useEffect(() => {
-    const fetchWalletBudget = async () => {
-      if (!user) return;
-      const activeWallet = await getActiveWallet(user.uid);
-      const nextWalletBudget = activeWallet?.budget ?? null;
-      setWalletBudget(nextWalletBudget);
-      setDashboardCache((currentCache) =>
-        mergeDashboardDataCache(currentCache, user.uid, {
-          activeWalletBudget: nextWalletBudget,
-        })
-      );
-    };
-
-    fetchWalletBudget();
-
-    if (!user) {
-      return;
-    }
-
-    const unsubscribeWallets = subscribeUserTable("wallets", user.uid, () => {
-      void fetchWalletBudget();
-    });
-
-    return () => {
-      unsubscribeWallets();
-    };
-    // Keyed on user.uid: the user object itself is not referentially stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setDashboardCache, user.uid]);
-
   // Categories for the Add Spending dialog. Loaded when the forecast dialog
   // opens, so the category picker is ready before Add Spending is.
   useEffect(() => {
-    if (!(forecastModalOpen || showExpenseModal) || categories.length > 0) return;
+    if (!(forecastModalOpen || showExpenseModal) || !categoriesData || categoriesData.length > 0) return;
     let active = true;
     ensureDefaultCategories(user.uid)
       .then((cats) => {
         if (!active) return;
-        const nextCategories = [...cats].sort((a, b) => a.name.localeCompare(b.name));
-        setCategories(nextCategories);
-        setDashboardCache((currentCache) =>
-          mergeDashboardDataCache(currentCache, user.uid, {
-            categories: nextCategories,
-          })
-        );
+        setCategories([...cats].sort((a, b) => a.name.localeCompare(b.name)));
       })
       .catch((error) => console.error("Failed to load categories:", error));
     return () => {
       active = false;
     };
-  }, [forecastModalOpen, showExpenseModal, categories.length, setDashboardCache, user.uid]);
+  }, [forecastModalOpen, showExpenseModal, categoriesData, setCategories, user.uid]);
 
   // After an expense is saved: refresh the wallet, and the plan if it's open.
   const handleExpenseAdded = async () => {
-    const activeWallet = await getActiveWallet(user.uid);
-    setWalletBudget(activeWallet?.budget ?? null);
+    await refreshWallets();
     if (forecastModalOpen && selectedGoal) void refreshForecast(selectedGoal);
   };
 
@@ -555,40 +519,6 @@ const GoalsPage = () => {
           ],
         }
       : null;
-
-  // Fetch expenses for the selected goal
-  useEffect(() => {
-    if (!user || !selectedGoal) return;
-
-    const fetchExpenses = () => {
-      listExpenses(user.uid)
-        .then((allExpenses) => {
-          setDashboardCache((currentCache) =>
-            mergeDashboardDataCache(currentCache, user.uid, {
-              expenses: allExpenses,
-            })
-          );
-          setExpenses(
-            allExpenses.filter((expense) => expense.goalId === selectedGoal.id)
-          );
-        })
-        .catch((error) => console.error("Failed to load expenses:", error));
-    };
-
-    fetchExpenses();
-
-    const unsubscribeExpenses = subscribeUserTable(
-      "expenses",
-      user.uid,
-      fetchExpenses
-    );
-
-    return () => {
-      unsubscribeExpenses();
-    };
-    // Keyed on user.uid: the user object itself is not referentially stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setDashboardCache, selectedGoal, user.uid]);
 
   const renderDeletedGoalsSection = (forceExpanded = false) => {
     if (deletedGoals.length === 0) return null;
@@ -680,7 +610,7 @@ const GoalsPage = () => {
   }
 
   // User has at least one goal
-  const goalPercent = (goal: Goal) =>
+  const goalPercent = (goal: BuckGoal) =>
     goal.targetAmount > 0
       ? Math.min(((goal.currentAmount || 0) / goal.targetAmount) * 100, 100)
       : 0;

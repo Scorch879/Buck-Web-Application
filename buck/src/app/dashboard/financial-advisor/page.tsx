@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { OPEN_AI_CHAT_EVENT } from "@/component/AIChatBubble";
+import { toDayKey } from "@/utils/periods";
 import {
   FaBullseye,
   FaCommentDots,
@@ -24,9 +26,6 @@ import { fetchAIAdvisorInsights, type AIAdvisorInsights } from "@/utils/advisorA
 import { useToast } from "@/component/toast";
 import "./style.css";
 
-/** Opens the floating AI Advisor chat (AIChatBubble listens for it). */
-const OPEN_AI_CHAT_EVENT = "open-ai-chat";
-
 const pesoFormatter = new Intl.NumberFormat("en-PH", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
@@ -37,27 +36,21 @@ function peso(value: number | string | null | undefined) {
   return `₱${pesoFormatter.format(toNumber(value))}`;
 }
 
-/** "YYYY-MM-DD" in local time (expense dates are calendar days, not instants). */
-function dayKey(date: Date) {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
 function daysAgoKey(days: number) {
   const d = new Date();
   d.setDate(d.getDate() - days);
-  return dayKey(d);
+  return toDayKey(d);
 }
 
 /** Monday of the current week. */
 function weekStartKey() {
   const d = new Date();
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-  return dayKey(d);
+  return toDayKey(d);
 }
 
 function totalSince(expenses: BuckExpense[], fromKey: string) {
-  const today = dayKey(new Date());
+  const today = toDayKey(new Date());
   return expenses.reduce((sum, e) => {
     const key = e.date.slice(0, 10);
     return key >= fromKey && key <= today ? sum + toNumber(e.amount) : sum;

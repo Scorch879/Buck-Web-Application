@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { MouseEvent } from "react";
 
-type PointerPosition = {
+export type PointerPosition = {
   x: number;
   y: number;
 };

@@ -7,6 +7,7 @@ import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import RecoveryCodesPanel from "@/component/mfa/RecoveryCodesPanel";
 import TwoFactorEnrollModal from "@/component/mfa/TwoFactorEnrollModal";
 import { useToast } from "@/component/toast";
+import { formatMediumDateTime } from "@/utils/formatters";
 import {
   LOW_RECOVERY_CODES,
   MAX_TOTP_FACTORS,
@@ -34,13 +35,7 @@ interface TwoFactorSectionProps {
 }
 
 function formatDate(value: string, withTime = false) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "recently";
-  }
-
-  return new Intl.DateTimeFormat(undefined, withTime ? { dateStyle: "medium", timeStyle: "short" } : { dateStyle: "medium" }).format(date);
+  return formatMediumDateTime(value, withTime) ?? "recently";
 }
 
 function factorLabel(factor: MfaFactorSummary, index: number) {

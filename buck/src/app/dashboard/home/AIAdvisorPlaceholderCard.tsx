@@ -21,8 +21,6 @@ export function readAdvisorCollapsed(): boolean {
 
 interface AIAdvisorPlaceholderCardProps {
   userId?: string;
-  activeWalletBudget?: number | null;
-  totalExpensesCount?: number;
 }
 
 export default function AIAdvisorPlaceholderCard({

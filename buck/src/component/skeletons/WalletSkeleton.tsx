@@ -3,6 +3,7 @@
 import React from "react";
 import CustomSelect, { type SelectOption } from "@/component/CustomSelect";
 import "@/app/dashboard/settings/style.css";
+import { IconPlaceholder } from "./SkeletonPrimitives";
 import "./skeletons.css";
 
 const noop = () => {};
@@ -20,15 +21,6 @@ const HISTORY_OPTIONS: SelectOption[] = [
   { value: "Active Only", label: "Active Only" },
   { value: "Archived Only", label: "Archived Only" },
 ];
-
-function IconPlaceholder() {
-  return (
-    <span
-      className="skeleton-avatar"
-      style={{ display: "inline-block", width: "1em", height: "1em", borderRadius: 4 }}
-    />
-  );
-}
 
 function Toolbar({ placeholder, options }: { placeholder: string; options: SelectOption[] }) {
   return (

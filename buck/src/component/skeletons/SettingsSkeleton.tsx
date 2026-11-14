@@ -2,13 +2,10 @@
 
 import React from "react";
 import "@/app/dashboard/settings/style.css";
+import { IconPlaceholder } from "./SkeletonPrimitives";
 import "./skeletons.css";
 
 const TABS = ["Profile & Account", "Security", "Appearance", "Danger Zone", "Feedback"];
-
-function IconPlaceholder() {
-  return <span className="skeleton-avatar" style={{ display: "inline-block", width: "1em", height: "1em", borderRadius: 4 }} />;
-}
 
 /**
  * 1:1 High-Fidelity Settings Tab Skeleton (default "Profile & Account" tab)

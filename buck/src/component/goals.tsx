@@ -3,7 +3,6 @@ import { isSavingAttitude, type GoalAttitude, type SavingAttitude } from "@/util
 import {
   createGoalRecord,
   setOnlyGoalActiveRecord,
-  updateGoalRecord,
 } from "@/utils/supabaseData";
 
 /**
@@ -56,30 +55,5 @@ export async function setOnlyGoalActive(goalId: string) {
   } catch (error) {
     console.error("Failed to update goals:", error);
     return { success: false, message: "Failed to update goals." };
-  }
-}
-
-export async function updateGoal(
-  goalId: string,
-  goalName: string,
-  targetAmount: string,
-  attitude: string,
-  targetDate: string
-) {
-  try {
-    // The amount or date may have changed, so the attitude it needs may too.
-    const preview = await detectGoalAttitude({ targetAmount, targetDate });
-    const chosen: SavingAttitude = preview?.attitude ?? (isSavingAttitude(attitude) ? attitude : "Normal");
-    // The old tip quoted the old plan, so it is cleared; as on create, Buck_AI writes
-    // the new one onto the goal once ready and the save never waits for Gemini.
-    await updateGoalRecord(goalId, goalName, targetAmount, chosen, targetDate, "");
-    // Detect again from the saved goal (counts what is already saved) and store the basis.
-    const detected = await detectGoalAttitude({ goalId });
-    void getGoalTip({ goalId });
-
-    return { success: true, attitude: detected };
-  } catch (error) {
-    console.error("Failed to update goal:", error);
-    return { success: false, message: "Failed to update goal." };
   }
 }
