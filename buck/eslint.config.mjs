@@ -12,11 +12,14 @@ const eslintConfig = [
   {
     ignores: [
       ".next/**",
+      ".next-*/**",
       "node_modules/**",
       "out/**",
       "build/**",
       "coverage/**",
       ".kilo/**",
+      "playwright-report/**",
+      "test-results/**",
       "next-env.d.ts",
     ],
   },
