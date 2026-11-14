@@ -299,9 +299,9 @@ export default function DashboardHeader({
                 <motion.span
                   key="nav-label"
                   className="nav-button-label"
-                  initial={{ opacity: 0, width: 0, x: -6 }}
-                  animate={{ opacity: 1, width: "auto", x: 0 }}
-                  exit={{ opacity: 0, width: 0, x: -6, transition: labelExit }}
+                  initial={{ opacity: 0, x: -6 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -6, transition: labelExit }}
                   transition={labelTransition}
                 >
                   {item.label}
@@ -331,7 +331,9 @@ export default function DashboardHeader({
           aria-label="Go to dashboard home"
           title={railCollapsed ? "Buck — Go to dashboard home" : undefined}
         >
-          <motion.span layout="position" transition={sidebarTransition} className="dashboard-mascot">
+          {/* No layout animation: CSS slides the mascot a fixed distance
+              (dashboard.css), so it never chases the shrinking brand. */}
+          <span className="dashboard-mascot">
             <Image
               src="/BuckMascot.png"
               alt=""
@@ -344,15 +346,15 @@ export default function DashboardHeader({
                 playQuack();
               }}
             />
-          </motion.span>
+          </span>
           <AnimatePresence initial={false}>
             {!railCollapsed && (
               <motion.span
                 key="brand-copy"
                 className="dashboard-brand-copy"
-                initial={{ opacity: 0, width: 0, x: -8 }}
-                animate={{ opacity: 1, width: "auto", x: 0 }}
-                exit={{ opacity: 0, width: 0, x: -8, transition: labelExit }}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -8, transition: labelExit }}
                 transition={labelTransition}
               >
                 <span className="dashboard-title">Buck</span>
@@ -404,9 +406,9 @@ export default function DashboardHeader({
                 <motion.span
                   key="account-copy"
                   className="dashboard-account-copy"
-                  initial={{ opacity: 0, width: 0, x: -8 }}
-                  animate={{ opacity: 1, width: "auto", x: 0 }}
-                  exit={{ opacity: 0, width: 0, x: -8, transition: labelExit }}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8, transition: labelExit }}
                   transition={labelTransition}
                 >
                   <strong>{displayName}</strong>

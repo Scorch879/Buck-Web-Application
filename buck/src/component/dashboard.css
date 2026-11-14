@@ -26,6 +26,9 @@
 }
 
 .dashboard-header {
+  /* Side padding of the rail; the collapsed mascot offset is worked out
+     from it, so keep the two in step. */
+  --buck-rail-pad: clamp(0.85rem, 1.5vw, 1.15rem);
   z-index: 100;
   width: 250px;
   height: 100%;
@@ -46,7 +49,7 @@ html[data-buck-theme="dark"] .dashboard-header {
 
 .dashboard-header-inner {
   height: 100%;
-  padding: clamp(0.85rem, 1.5vw, 1.15rem);
+  padding: var(--buck-rail-pad);
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -119,6 +122,7 @@ html[data-buck-theme="dark"] .dashboard-mascot {
 
 .dashboard-brand-copy {
   display: grid;
+  flex-shrink: 0;
   min-width: 0;
   gap: 0.08rem;
   padding-top: 0.2rem;
@@ -411,9 +415,11 @@ html[data-buck-theme="dark"] .nav-button.active {
   font-size: 1rem;
 }
 
+/* Labels keep their full width and are clipped by the button (and the rail)
+   as it narrows. They used to shrink with an ellipsis, so the browser
+   re-cut the text on every frame of the slide ("Financial Adv…", "Fin…"). */
 .nav-button-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex-shrink: 0;
   white-space: nowrap;
 }
 
@@ -630,14 +636,19 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
 
   /* Heights match the open rail (mascot size, brand padding, button
      height, icon size): only widths change, so nothing jumps up or down in
-     the first frame while the labels are still fading out. */
-  html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .dashboard-brand,
-  .dashboard-header.dashboard-header--collapsed .dashboard-brand {
-    justify-content: center;
-    gap: 0;
-    padding-right: 0;
-    padding-left: 0;
-    width: 100%;
+     the first frame while the labels are still fading out.
+
+     The brand stays left-aligned and the mascot slides by a fixed amount to
+     the centre of the 80px rail (79px inside the border). Centring it in the
+     brand instead made it chase the shrinking width and the fading "Buck"
+     text, so it wobbled left, right and left again on every collapse. */
+  html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .dashboard-mascot,
+  .dashboard-header.dashboard-header--collapsed .dashboard-mascot {
+    transform: translateX(calc((79px - 52px) / 2 - var(--buck-rail-pad) - 0.42rem));
+  }
+
+  .dashboard-header.dashboard-header--ready .dashboard-mascot {
+    transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
 
@@ -655,20 +666,37 @@ html[data-buck-theme="dark"] .dashboard-tray-btn--collapse {
     right: 0.55rem;
   }
 
+  /* Name and e-mail are cut to the open rail's column width (249px inside
+     the border, minus tray padding, the 36px photo, the 32px button and two
+     gaps). The column itself still narrows with the rail and clips them, but
+     the ellipsis no longer moves while the rail slides open. */
+  .dashboard-header-actions .dashboard-account-copy strong,
+  .dashboard-header-actions .dashboard-account-copy span {
+    width: calc(249px - 2 * clamp(0.75rem, 1.3vw, 1rem) - 68px - 1.1rem);
+  }
+
   html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .dashboard-account-tray,
   .dashboard-header.dashboard-header--collapsed .dashboard-account-tray {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    /* Left-aligned at fixed offsets, not centred: the class flips while the
+       rail is still 250px wide, so a centred photo got a target ~90px to the
+       right, then drifted back as the rail shrank. That drift fought
+       Framer's layout glide and the photo dipped and wobbled. With fixed
+       offsets the target is the same at any width. The 36px photo sits at
+       (79 - 36) / 2 inside the border. */
+    align-items: flex-start;
     justify-content: center;
     gap: 0.45rem;
-    padding: 0.7rem 0.35rem;
+    padding: 0.7rem 0 0.7rem 21.5px;
   }
 
   html[data-buck-sidebar="collapsed"] .dashboard-header:not(.dashboard-header--ready) .dashboard-account-controls,
   .dashboard-header.dashboard-header--collapsed .dashboard-account-controls {
     flex-direction: column;
     gap: 0.38rem;
+    /* The 32px button, centred at (79 - 32) / 2 = 23.5px. */
+    margin-left: 2px;
   }
 }
 
