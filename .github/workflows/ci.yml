@@ -1,6 +1,6 @@
 # Buck CI: runs on every push to any branch and on every pull request.
 #
-#   web     - buck/      typecheck, lint (0 warnings), unit tests, production build
+#   web     - buck/      typecheck, lint (0 warnings), unit tests, production build, E2E tests
 #   buck-ai - Buck_AI/   offline unit tests
 #   ci      - one summary check; require this one in branch protection
 #
@@ -64,6 +64,25 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Playwright E2E tests
+        run: npm run test:e2e
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiJ9.placeholder
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          if-no-files-found: ignore
+          path: |
+            buck/playwright-report/
+            buck/test-results/
 
   buck-ai:
     name: Buck_AI (Python)
