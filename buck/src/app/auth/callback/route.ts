@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { EmailOtpType, Session, User } from "@supabase/supabase-js";
 import { getSafeAppPath } from "@/utils/authUser";
+import { processLoginDeletionAutoCancel } from "@/utils/accountDeletion";
 import {
   canAccountResetPassword,
   getAuthAccountCapabilitiesByUserId,
@@ -547,7 +548,7 @@ export async function GET(request: NextRequest) {
   }
 
   return setNoStoreHeaders(
-    gateTwoFactor(request, redirectResponse, nextPath, data.session)
+    await gateTwoFactor(request, redirectResponse, nextPath, data.session)
   );
 }
 
@@ -665,7 +666,7 @@ export async function POST(request: NextRequest) {
   }
 
   return setNoStoreHeaders(
-    gateTwoFactor(request, redirectResponse, nextPath, data.session)
+    await gateTwoFactor(request, redirectResponse, nextPath, data.session)
   );
 }
 
@@ -675,7 +676,7 @@ export async function POST(request: NextRequest) {
  * recovery link may continue without it, since it exists for users who lost
  * their authenticator.
  */
-function gateTwoFactor(
+async function gateTwoFactor(
   request: NextRequest,
   redirectResponse: NextResponse,
   nextPath: string,
@@ -684,12 +685,36 @@ function gateTwoFactor(
   clearActivityCookie(redirectResponse);
 
   const isRecoveryLink = nextPath.startsWith(EMAIL_RECOVERY_CONFIRM_PATH);
+  const isDeletionConfirmLink = nextPath.startsWith("/account/delete/confirm");
+  const mfaSatisfied =
+    session ? getMfaState(session.user, session.access_token).satisfied : false;
 
-  if (
-    !session ||
-    isRecoveryLink ||
-    getMfaState(session.user, session.access_token).satisfied
-  ) {
+  if (!session || isRecoveryLink || mfaSatisfied) {
+    if (
+      session &&
+      mfaSatisfied &&
+      !isRecoveryLink &&
+      !isDeletionConfirmLink &&
+      !nextPath.startsWith("/forgot-password") &&
+      isSupabaseAdminConfigured
+    ) {
+      try {
+        const meta = session.user.user_metadata as Record<string, unknown> | undefined;
+        await processLoginDeletionAutoCancel(createSupabaseAdminClient(), {
+          userId: session.user.id,
+          email: session.user.email,
+          username:
+            typeof meta?.username === "string"
+              ? meta.username
+              : typeof meta?.full_name === "string"
+                ? meta.full_name
+                : null,
+        });
+      } catch (error) {
+        console.warn("OAuth login deletion auto-cancel failed:", error);
+      }
+    }
+
     return redirectResponse;
   }
 

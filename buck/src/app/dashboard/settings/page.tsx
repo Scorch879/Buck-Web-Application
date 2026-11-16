@@ -37,6 +37,7 @@ import {
 } from "@/component/authentication";
 import FadeInImage from "@/component/FadeInImage";
 import ConnectedAppsSection from "@/component/ConnectedAppsSection";
+import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import PasskeysSection from "@/component/mfa/PasskeysSection";
 import TotpCodeInput from "@/component/mfa/TotpCodeInput";
@@ -246,7 +247,7 @@ export default function SettingsPage() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [deletePassword, setDeletePassword] = useState("");
-  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [feedbackCategory, setFeedbackCategory] = useState("feature");
   const [feedbackTitle, setFeedbackTitle] = useState("");
   const [feedbackDetails, setFeedbackDetails] = useState("");
@@ -710,7 +711,7 @@ export default function SettingsPage() {
     }
   };
 
-  const handleDeletionRequest = async (event: FormEvent) => {
+  const handleDeletionRequest = (event: FormEvent) => {
     event.preventDefault();
 
     if (requestingDeletion || deletionConfirmed) {
@@ -719,19 +720,13 @@ export default function SettingsPage() {
 
     clearMessages();
 
-    if (deleteConfirmText.trim().toUpperCase() !== "DELETE") {
-      setError("Type DELETE to request account deletion.");
-      toast("Type DELETE to request account deletion.", "warning");
-      return;
-    }
-
     if (canManageCredentials && !deletePassword) {
       setError("Enter your current password before requesting deletion.");
       toast("Enter your current password before requesting deletion.", "warning");
       return;
     }
 
-    await sendDeletionRequest();
+    setDeleteDialogOpen(true);
   };
 
   const sendDeletionRequest = async () => {
@@ -745,13 +740,14 @@ export default function SettingsPage() {
         },
         body: JSON.stringify({
           currentPassword: canManageCredentials ? deletePassword : undefined,
-          confirmText: deleteConfirmText,
+          confirmText: "DELETE",
         }),
       });
       const result = await readActionResponse(response);
 
       if (!result.success) {
         if (response.status === 403 && result.error === "mfa_step_up_required") {
+          setDeleteDialogOpen(false);
           setStepUpRequired(true);
           setStepUpCode("");
           setStepUpError("");
@@ -759,15 +755,16 @@ export default function SettingsPage() {
           return;
         }
 
+        setDeleteDialogOpen(false);
         setError(result.message);
         toast(result.message, "error");
         return;
       }
 
+      setDeleteDialogOpen(false);
       setStepUpRequired(false);
       setStepUpCode("");
       setDeletePassword("");
-      setDeleteConfirmText("");
       setNotice(result.message);
       toast(result.message || "Account deletion confirmation sent.", "warning");
       const nextDeletionStatus = await getAccountDeletionStatus(user.uid);
@@ -1276,14 +1273,15 @@ export default function SettingsPage() {
                     onSubmit={handleDeletionRequest}
                   >
                     <p>
-                      Buck sends a confirmation email first. After confirmation,
-                      your account enters a 10-day recovery window before the
-                      scheduled purge can permanently erase it.
+                      After our 3-step confirmation dialog, Buck emails a final
+                      4th-step link to <strong>{accountEmail || "your inbox"}</strong>.
+                      Once confirmed, your account is deleted in 10 days — signing
+                      back in during those 10 days cancels deletion automatically.
                     </p>
                     {deletionPendingConfirmation ? (
                       <p className="settings-confirm-hint">
-                        A deletion confirmation email is pending until{" "}
-                        {confirmationExpiresLabel}.
+                        A 4th-step deletion confirmation email is pending until{" "}
+                        {confirmationExpiresLabel}. Open it to start the 10-day window.
                       </p>
                     ) : null}
                     <div className="settings-field-row settings-field-row--delete">
@@ -1304,28 +1302,15 @@ export default function SettingsPage() {
                           />
                         </div>
                       ) : null}
-                      <div className="settings-field">
-                        <label htmlFor="settings-delete-confirm">
-                          Type DELETE
-                        </label>
-                        <input
-                          id="settings-delete-confirm"
-                          value={deleteConfirmText}
-                          onChange={(event) =>
-                            setDeleteConfirmText(event.target.value)
-                          }
-                          placeholder="DELETE"
-                          disabled={isBusy}
-                        />
-                      </div>
                       <button
                         className="settings-button settings-button--danger"
                         type="submit"
                         disabled={isBusy}
                       >
+                        <FaTrash aria-hidden="true" />
                         {requestingDeletion
                           ? "Sending confirmation..."
-                          : "Request deletion"}
+                          : "Delete account"}
                       </button>
                     </div>
                     {stepUpRequired ? (
@@ -1742,6 +1727,24 @@ export default function SettingsPage() {
         </motion.div>
       ) : null}
       </AnimatePresence>
+
+      <DangerDeleteDialog
+        open={deleteDialogOpen}
+        itemType="account"
+        itemName="DELETE"
+        warning="Step 1 of 4: Deleting your Buck account will schedule permanent removal after email confirmation."
+        consequences={[
+          `Step 4 (Final confirmation): Buck will send a confirmation link to ${accountEmail || "your email"} before scheduling deletion.`,
+          "Once confirmed, your account is scheduled for permanent purge in 10 days.",
+          "Signing back in to this Buck account during those 10 days cancels deletion automatically and notifies you.",
+        ]}
+        onConfirm={sendDeletionRequest}
+        onCancel={() => {
+          if (!requestingDeletion) {
+            setDeleteDialogOpen(false);
+          }
+        }}
+      />
     </div>
   );
 }

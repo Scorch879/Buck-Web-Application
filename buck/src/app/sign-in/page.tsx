@@ -74,6 +74,18 @@ function getAuthNotice(reason: string | null) {
       return "Password updated. Sign in with your new password.";
     case "email-verified":
       return "Email verified! Sign in to open your Buck dashboard.";
+    case "account-deletion-scheduled":
+      return "Account deletion scheduled for 10 days from now. Sign back in anytime during those 10 days to cancel it automatically.";
+    case "account-deletion-sign-in-required":
+      return "Sign in with this account to finish confirming account deletion.";
+    case "account-deletion-invalid-link":
+      return "That account deletion link is invalid or has already been used.";
+    case "account-deletion-link-expired":
+      return "That account deletion link has expired. Request a new one from Settings.";
+    case "account-deletion-confirm-failed":
+      return "Buck could not confirm account deletion right now. Please sign in and try again.";
+    case "account-deletion-not-configured":
+      return "Account deletion is not configured on the server.";
     default:
       return "";
   }
@@ -169,7 +181,10 @@ const SignIn = () => {
     );
 
     setRedirectTo(
-      getSafeAppPath(searchParams.get("redirectTo"), [OAUTH_CONSENT_PATH])
+      getSafeAppPath(searchParams.get("redirectTo"), [
+        OAUTH_CONSENT_PATH,
+        "/account/delete/confirm",
+      ])
     );
 
     const errorParam = searchParams.get("error") ?? hashParams.get("error");
