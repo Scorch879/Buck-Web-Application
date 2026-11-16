@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useFinancial } from "@/context/FinancialContext";
 import { SPRING } from "@/utils/motion";
 import {
   getOnboardingStatus,
@@ -112,6 +113,18 @@ function toTasks(saved: Saved): GettingStartedTask[] {
   return saved.ids.map((id) => ({ id, ...TASK_COPY[id], done: saved.done.includes(id) }));
 }
 
+function isSameSaved(a: Saved, b: Saved): boolean {
+  return (
+    a.userId === b.userId &&
+    a.state === b.state &&
+    a.metAdvisor === b.metAdvisor &&
+    a.ids.length === b.ids.length &&
+    a.ids.every((id, index) => id === b.ids[index]) &&
+    a.done.length === b.done.length &&
+    a.done.every((id, index) => id === b.done[index])
+  );
+}
+
 /**
  * The "Getting started" checklist at the top of Home for a new account
  * (ADR-057). Steps tick themselves off from the user's own wallets, expenses,
@@ -129,6 +142,7 @@ export default function GettingStarted({
   userId: string;
   preview?: boolean;
 }) {
+  const { dashboardCache } = useFinancial();
   const [saved, setSaved] = useState<Saved | null>(null);
   // True once this browser's memory has been read (after the first render).
   const [restored, setRestored] = useState(false);
@@ -141,11 +155,61 @@ export default function GettingStarted({
   const forcedRef = useRef(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
+  const cachedStatus = useMemo<OnboardingStatus | null>(() => {
+    if (
+      preview ||
+      dashboardCache.userId !== userId ||
+      dashboardCache.wallets === undefined ||
+      dashboardCache.expenses === undefined ||
+      dashboardCache.incomes === undefined ||
+      dashboardCache.goals === undefined
+    ) {
+      return null;
+    }
+
+    return {
+      hasWallet: dashboardCache.wallets.some((wallet) => !wallet.deletedAt),
+      hasExpense: dashboardCache.expenses.length > 0,
+      hasIncome: dashboardCache.incomes === null ? null : dashboardCache.incomes.length > 0,
+      hasGoal: dashboardCache.goals.some((goal) => !goal.deletedAt),
+    };
+  }, [
+    dashboardCache.expenses,
+    dashboardCache.goals,
+    dashboardCache.incomes,
+    dashboardCache.userId,
+    dashboardCache.wallets,
+    preview,
+    userId,
+  ]);
+
   const apply = useCallback((next: Saved) => {
     savedRef.current = next;
     setSaved(next);
     writeSaved(next);
   }, []);
+
+  const applyStatus = useCallback(
+    (status: OnboardingStatus) => {
+      const previous = savedRef.current;
+      if (previous?.state === "finished") return;
+      const next = fromStatus(userId, status, previous?.metAdvisor ?? false);
+      // The Advisor step has no data behind it, so an account whose data
+      // steps are all done on first sight was already set up.
+      const dataDone = next.ids
+        .filter((id) => id !== "advisor")
+        .every((id) => next.done.includes(id));
+      if (dataDone && !previous && !forcedRef.current) {
+        // An account that was already set up: never show the checklist.
+        apply({ ...next, state: "finished" });
+        return;
+      }
+      if (previous && isSameSaved(previous, next)) return;
+      if (!previous) setSlideIn(true);
+      apply(next);
+    },
+    [apply, userId]
+  );
 
   useLayoutEffect(() => {
     let remembered = readSaved(userId);
@@ -165,7 +229,12 @@ export default function GettingStarted({
   }, [preview, userId]);
 
   useEffect(() => {
-    if (preview || !restored) return;
+    if (preview || !restored || !cachedStatus) return;
+    applyStatus(cachedStatus);
+  }, [applyStatus, cachedStatus, preview, restored]);
+
+  useEffect(() => {
+    if (preview || !restored || cachedStatus !== null) return;
     if (savedRef.current?.state === "finished") return;
     let active = true;
 
@@ -173,21 +242,7 @@ export default function GettingStarted({
       try {
         const status = await getOnboardingStatus(userId);
         if (!active) return;
-        const previous = savedRef.current;
-        if (previous?.state === "finished") return;
-        const next = fromStatus(userId, status, previous?.metAdvisor ?? false);
-        // The Advisor step has no data behind it, so an account whose data
-        // steps are all done on first sight was already set up.
-        const dataDone = next.ids
-          .filter((id) => id !== "advisor")
-          .every((id) => next.done.includes(id));
-        if (dataDone && !previous && !forcedRef.current) {
-          // An account that was already set up: never show the checklist.
-          apply({ ...next, state: "finished" });
-          return;
-        }
-        if (!previous) setSlideIn(true);
-        apply(next);
+        applyStatus(status);
       } catch (error) {
         console.error("Failed to load the getting-started steps:", error);
       }
@@ -201,7 +256,7 @@ export default function GettingStarted({
       active = false;
       unsubscribes.forEach((unsubscribe) => unsubscribe());
     };
-  }, [apply, preview, restored, userId]);
+  }, [applyStatus, cachedStatus, preview, restored, userId]);
 
   const visible = Boolean(saved && saved.state === "open" && saved.ids.length > 0);
 

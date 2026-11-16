@@ -21,6 +21,14 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   outputFileTracingRoot: path.resolve(__dirname),
   poweredByHeader: false,
+  experimental: {
+    // Keep visited/prefetched dashboard segments in Next.js's client router cache
+    // so tab switches stay instant instead of triggering server/Suspense reloads.
+    staleTimes: {
+      dynamic: 300,
+      static: 300,
+    },
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
