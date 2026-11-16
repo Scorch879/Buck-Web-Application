@@ -67,7 +67,11 @@ export async function POST() {
 
   const { error: updateError } = await admin
     .from("account_deletion_requests")
-    .update({ canceled_at: new Date().toISOString() })
+    .update({
+      canceled_at: new Date().toISOString(),
+      cancel_reason: "manual_recovery",
+      auto_canceled_on_login: false,
+    })
     .eq("id", data.id)
     .eq("user_id", user.id);
 

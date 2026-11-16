@@ -1,6 +1,10 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSiteOrigin } from "@/utils/httpResponse";
+import {
+  isSmtpConfigured,
+  sendAccountDeletionConfirmationEmail,
+} from "@/utils/mailer";
 import { hashSha256Hex } from "@/utils/secureCompare";
 import { createSupabaseAdminClient } from "@/utils/supabase/admin";
 import { createSupabaseServerClient } from "@/utils/supabase/server";
@@ -160,6 +164,10 @@ export async function POST(request: NextRequest) {
       recovery_until: null,
       canceled_at: null,
       purge_started_at: null,
+      auto_canceled_on_login: false,
+      auto_cancel_notice_dismissed_at: null,
+      cancel_reason: null,
+      cancellation_email_sent_at: null,
     };
 
     const { error: upsertError } = await admin
@@ -174,26 +182,50 @@ export async function POST(request: NextRequest) {
     const nextPath = `/account/delete/confirm?request=${encodeURIComponent(
       requestId
     )}&token=${encodeURIComponent(token)}`;
+    const directConfirmUrl = new URL(nextPath, origin);
     const callbackUrl = new URL("/auth/callback", origin);
     callbackUrl.searchParams.set("next", nextPath);
 
-    const mailClient = createSupabaseStatelessClient();
-    const { error: otpError } = await mailClient.auth.signInWithOtp({
-      email: user.email,
-      options: {
-        emailRedirectTo: callbackUrl.toString(),
-        shouldCreateUser: false,
-      },
-    });
+    const username =
+      typeof user.user_metadata?.username === "string"
+        ? user.user_metadata.username
+        : typeof user.user_metadata?.full_name === "string"
+          ? user.user_metadata.full_name
+          : null;
 
-    if (otpError) {
-      throw new Error(otpError.message);
+    let delivered = false;
+    if (isSmtpConfigured()) {
+      try {
+        delivered = await sendAccountDeletionConfirmationEmail({
+          to: user.email,
+          username,
+          confirmUrl: directConfirmUrl.toString(),
+          expiresMinutes: CONFIRMATION_WINDOW_MINUTES,
+        });
+      } catch (smtpError) {
+        console.warn("SMTP deletion email failed, falling back to OTP mailer:", smtpError);
+      }
+    }
+
+    if (!delivered) {
+      const mailClient = createSupabaseStatelessClient();
+      const { error: otpError } = await mailClient.auth.signInWithOtp({
+        email: user.email,
+        options: {
+          emailRedirectTo: callbackUrl.toString(),
+          shouldCreateUser: false,
+        },
+      });
+
+      if (otpError) {
+        throw new Error(otpError.message);
+      }
     }
 
     return NextResponse.json({
       success: true,
       message:
-        "Confirmation email sent. Open it within 60 minutes to schedule deletion.",
+        "Confirmation email sent (Step 4 of 4). Open it within 60 minutes to schedule deletion in 10 days.",
     });
   } catch (error) {
     return NextResponse.json(

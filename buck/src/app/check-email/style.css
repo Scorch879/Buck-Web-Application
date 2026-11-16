@@ -84,6 +84,64 @@
   font-size: 1.7rem;
 }
 
+.CE-Icon--warning {
+  color: #b83324;
+  background: rgba(255, 56, 56, 0.14);
+  border-color: rgba(255, 56, 56, 0.32);
+}
+
+.CE-Dark .CE-Icon--warning {
+  color: #ffc547;
+  background: rgba(244, 117, 54, 0.2);
+  border-color: rgba(255, 197, 71, 0.36);
+}
+
+.CE-EmailField {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 1.25rem;
+  text-align: left;
+}
+
+.CE-EmailLabel {
+  font-size: 0.9rem;
+  font-weight: 850;
+}
+
+.CE-EmailInput {
+  width: 100%;
+  min-height: 46px;
+  padding: 0.75rem 0.95rem;
+  color: #2b2523;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(184, 51, 36, 0.22);
+  border-radius: 8px;
+  outline: none;
+  font: inherit;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+
+.CE-EmailInput:focus {
+  background: #ffffff;
+  border-color: rgba(244, 117, 54, 0.6);
+  box-shadow: 0 0 0 3px rgba(244, 117, 54, 0.14);
+}
+
+.CE-Dark .CE-EmailInput {
+  color: #fff8ed;
+  background: rgba(255, 248, 237, 0.08);
+  border-color: rgba(255, 211, 154, 0.2);
+}
+
+.CE-Dark .CE-EmailInput:focus {
+  background: rgba(255, 248, 237, 0.12);
+  border-color: rgba(255, 197, 71, 0.5);
+  box-shadow: 0 0 0 3px rgba(255, 197, 71, 0.14);
+}
+
 .CE-Kicker {
   margin: 0;
   color: #f47536;
@@ -200,6 +258,18 @@
   border-radius: 8px;
   font-weight: 800;
   line-height: 1.45;
+}
+
+.CE-Message p {
+  margin: 0;
+}
+
+.CE-InlineLink {
+  display: inline-block;
+  margin-top: 0.45rem;
+  color: inherit;
+  font-weight: 900;
+  text-decoration: underline;
 }
 
 .CE-Message--success {

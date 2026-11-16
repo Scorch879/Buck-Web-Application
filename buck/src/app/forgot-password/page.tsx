@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { sendPasswordReset, updatePassword } from "@/component/authentication";
+import { toBuckUser } from "@/utils/authUser";
 import { supabase } from "@/utils/supabase";
 import { evaluatePasswordPolicy } from "@/utils/passwordPolicy";
 import { getEmailValidationMessage } from "@/utils/emailValidation";
@@ -48,12 +49,73 @@ const forgotPasswordHighlights: ForgotPasswordHighlight[] = [
   },
 ];
 
+function getRecoveryUrlError(
+  searchParams: URLSearchParams,
+  hashParams: URLSearchParams
+) {
+  const errorParam = searchParams.get("error") ?? hashParams.get("error");
+  const errorCodeParam =
+    searchParams.get("error_code") ?? hashParams.get("error_code");
+  const errorDescriptionParam =
+    searchParams.get("error_description") ??
+    hashParams.get("error_description");
+
+  if (!errorParam && !errorCodeParam) {
+    return "";
+  }
+
+  if (
+    errorParam === "recovery-link-expired" ||
+    errorCodeParam === "otp_expired"
+  ) {
+    return "This password reset link has expired. Enter your email below to request a new one.";
+  }
+
+  if (errorParam === "recovery-link-failed" || errorParam === "access_denied") {
+    return (
+      errorDescriptionParam ||
+      "This password reset link is invalid or has already been used. Enter your email below to request a new one."
+    );
+  }
+
+  return (
+    errorDescriptionParam ||
+    "This password reset link is invalid or has expired. Enter your email below to request a new one."
+  );
+}
+
+async function canSessionResetPassword(sessionUser: NonNullable<ReturnType<typeof toBuckUser>>) {
+  if (sessionUser.isPasswordUser) {
+    return true;
+  }
+
+  try {
+    const response = await fetch("/api/auth/credentials", { cache: "no-store" });
+    if (response.ok) {
+      const payload = (await response.json()) as {
+        canResetPassword?: boolean;
+        hasPasskey?: boolean;
+        isPasswordUser?: boolean;
+      };
+      return Boolean(
+        payload.canResetPassword ?? (payload.isPasswordUser || payload.hasPasskey)
+      );
+    }
+  } catch {
+    // Fallback to client user check when endpoint is unreachable.
+  }
+
+  return !sessionUser.isGoogleOnlyUser;
+}
+
 const ForgotPassword = () => {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [recoveryEmail, setRecoveryEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [checkingRecoverySession, setCheckingRecoverySession] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,7 +123,9 @@ const ForgotPassword = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const isDarkTheme = useAuthPageTheme();
   const resetButton = usePointerGradient<HTMLButtonElement>();
-  const passwordPolicy = evaluatePasswordPolicy(newPassword, { email });
+  const passwordPolicy = evaluatePasswordPolicy(newPassword, {
+    email: recoveryEmail || email,
+  });
   const passwordProgress = Math.min(100, Math.max(8, passwordPolicy.score * 20));
   const confirmStatus =
     confirmPassword.length === 0
@@ -71,50 +135,141 @@ const ForgotPassword = () => {
         : "Passwords do not match yet.";
 
   useEffect(() => {
-    const hasRecoveryToken =
-      window.location.hash.includes("type=recovery") ||
-      window.location.search.includes("type=recovery");
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(
+      window.location.hash.startsWith("#")
+        ? window.location.hash.slice(1)
+        : window.location.hash
+    );
 
-    if (!supabase) return;
+    const urlError = getRecoveryUrlError(searchParams, hashParams);
+    if (urlError) {
+      setIsRecoveryMode(false);
+      setCheckingRecoverySession(false);
+      setError(urlError);
+      return;
+    }
+
+    const hasRecoveryToken =
+      searchParams.get("type") === "recovery" ||
+      hashParams.get("type") === "recovery" ||
+      hashParams.has("access_token");
+
+    if (!supabase || !hasRecoveryToken) {
+      return;
+    }
+
+    const activeSupabase = supabase;
+    let mounted = true;
+    setCheckingRecoverySession(true);
+
+    const applyRecoveryUser = async (
+      user: Parameters<typeof toBuckUser>[0]
+    ) => {
+      if (!mounted || !user) {
+        return false;
+      }
+
+      const buckUser = toBuckUser(user);
+      if (buckUser && !(await canSessionResetPassword(buckUser))) {
+        await activeSupabase.auth.signOut().catch(() => undefined);
+        if (!mounted) {
+          return true;
+        }
+        setIsRecoveryMode(false);
+        setCheckingRecoverySession(false);
+        setError(
+          "This account signs in with Google, so password reset is not available. Use Continue with Google on the sign-in page."
+        );
+        return true;
+      }
+
+      if (!mounted) {
+        return true;
+      }
+
+      setRecoveryEmail(user.email ?? "");
+      setIsRecoveryMode(true);
+      setError("");
+      setCheckingRecoverySession(false);
+      return true;
+    };
+
+    const resolveSession = async () => {
+      try {
+        const {
+          data: { session },
+        } = await activeSupabase.auth.getSession();
+
+        if (session?.user) {
+          await applyRecoveryUser(session.user);
+          return;
+        }
+
+        const accessToken = hashParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token");
+
+        if (accessToken && refreshToken) {
+          const { data, error: sessionError } =
+            await activeSupabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+
+          if (!mounted) {
+            return;
+          }
+
+          if (!sessionError && data.session?.user) {
+            window.history.replaceState(
+              null,
+              "",
+              `${window.location.pathname}?type=recovery`
+            );
+            await applyRecoveryUser(data.session.user);
+            return;
+          }
+        }
+
+        if (mounted) {
+          setIsRecoveryMode(false);
+          setCheckingRecoverySession(false);
+          setError(
+            "This password reset link is invalid or has expired. Enter your email below to request a new one."
+          );
+        }
+      } catch {
+        if (mounted) {
+          setIsRecoveryMode(false);
+          setCheckingRecoverySession(false);
+          setError(
+            "This password reset link is invalid or has expired. Enter your email below to request a new one."
+          );
+        }
+      }
+    };
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!supabase) return;
-      if (event === "INITIAL_SESSION") {
-        if (hasRecoveryToken) {
-          if (session) {
-            setIsRecoveryMode(true);
-          } else if (window.location.hash.includes("access_token")) {
-            // Fallback for older implicit flow email templates
-            const hashParams = new URLSearchParams(window.location.hash.substring(1));
-            const access_token = hashParams.get("access_token");
-            const refresh_token = hashParams.get("refresh_token");
+    } = activeSupabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) {
+        return;
+      }
 
-            if (access_token && refresh_token) {
-              supabase.auth.setSession({ access_token, refresh_token }).then(({ data, error }) => {
-                if (!error && data.session) {
-                  setIsRecoveryMode(true);
-                  setError("");
-                  window.history.replaceState(null, "", window.location.pathname + "?type=recovery");
-                } else {
-                  setError("This password reset link is invalid or has expired.");
-                }
-              });
-            } else {
-              setError("This password reset link is invalid or has expired.");
-            }
-          } else {
-            setError("This password reset link is invalid or has expired.");
-          }
-        }
-      } else if (event === "PASSWORD_RECOVERY" || (hasRecoveryToken && session)) {
-        setIsRecoveryMode(true);
-        setError("");
+      if (
+        (event === "PASSWORD_RECOVERY" ||
+          event === "SIGNED_IN" ||
+          event === "INITIAL_SESSION") &&
+        session?.user
+      ) {
+        void applyRecoveryUser(session.user);
       }
     });
 
+    void resolveSession();
+
     return () => {
+      mounted = false;
       subscription?.unsubscribe();
     };
   }, []);
@@ -125,7 +280,7 @@ const ForgotPassword = () => {
   };
 
   const handleUpdatePassword = async () => {
-    if (isSubmitting) {
+    if (isSubmitting || checkingRecoverySession) {
       return;
     }
 
@@ -156,7 +311,10 @@ const ForgotPassword = () => {
 
     if (result.success) {
       setMessage("Password updated. Redirecting to sign in...");
-      window.setTimeout(() => router.push("/sign-in"), 900);
+      window.setTimeout(
+        () => router.push("/sign-in?reason=password-updated"),
+        900
+      );
       return;
     }
 
@@ -166,7 +324,7 @@ const ForgotPassword = () => {
   };
 
   const handleResetPassword = async () => {
-    if (isSubmitting) {
+    if (isSubmitting || checkingRecoverySession) {
       return;
     }
 
@@ -189,12 +347,14 @@ const ForgotPassword = () => {
 
     if (result.success) {
       setMessage(
-        result.message || "Password reset link sent. Check your email."
+        result.message ||
+          "If password reset is available for that email, a reset link is on its way. Check your inbox."
       );
       setIsSubmitting(false);
     } else {
       setError(
-        result.message || "Failed to send password reset link. Please try again later."
+        result.message ||
+          "Failed to send password reset link. Please try again later."
       );
       setMessage("");
       setIsSubmitting(false);
@@ -265,7 +425,10 @@ const ForgotPassword = () => {
           </div>
         </section>
 
-        <section className="FP-AuthPanel" aria-labelledby="forgot-password-title">
+        <section
+          className="FP-AuthPanel"
+          aria-labelledby="forgot-password-title"
+        >
           <div className="FP-Container">
             <button
               className="FP-Mascot-Top"
@@ -288,180 +451,230 @@ const ForgotPassword = () => {
             <div className="FP-PanelHeading">
               <p className="FP-Kicker">Need a new key?</p>
               <h2 id="forgot-password-title" className="FP-Title">
-                {isRecoveryMode ? "Create new password" : "Reset password"}
+                {checkingRecoverySession
+                  ? "Verifying reset link"
+                  : isRecoveryMode
+                    ? "Create new password"
+                    : "Reset password"}
               </h2>
               <p>
-                {isRecoveryMode
-                  ? "Choose a new password for your Buck account."
-                  : "Enter the email connected to your Buck account."}
+                {checkingRecoverySession
+                  ? "Checking your recovery session..."
+                  : isRecoveryMode
+                    ? "Choose a new password for your Buck account."
+                    : "Enter the email connected to your Buck password account."}
               </p>
             </div>
 
-            <form
-              className="FP-Form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (isRecoveryMode) {
-                  handleUpdatePassword();
-                  return;
-                }
+            {checkingRecoverySession ? (
+              <div className="FP-Verifying" role="status" aria-live="polite">
+                <span className="auth-button-spinner" aria-hidden="true" />
+                <span>Verifying your recovery link...</span>
+              </div>
+            ) : (
+              <form
+                className="FP-Form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (isRecoveryMode) {
+                    void handleUpdatePassword();
+                    return;
+                  }
 
-                handleResetPassword();
-              }}
-            >
-              {isRecoveryMode ? (
-                <>
-                  <label htmlFor="new-password" className="FP-Label">
-                    New password
-                  </label>
-                  <div className="FP-InputWrapper">
-                    <input
-                      id="new-password"
-                      type={showNewPassword ? "text" : "password"}
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      className="FP-Input"
-                      placeholder="Create a new password"
-                      autoComplete="new-password"
-                      disabled={isSubmitting}
-                    />
-                    <button
-                      type="button"
-                      className="FP-Eye-Btn"
-                      tabIndex={-1}
-                      onClick={() => setShowNewPassword((v) => !v)}
-                      aria-label={showNewPassword ? "Hide password" : "Show password"}
-                      disabled={isSubmitting}
-                    >
-                      <Image
-                        src={showNewPassword ? "/duck-eye.png" : "/duck-eye-closed.png"}
-                        alt=""
-                        width={24}
-                        height={24}
-                      />
-                    </button>
-                  </div>
-                  {newPassword ? (
-                    <div
-                      className={`FP-PasswordFeedback FP-PasswordFeedback--${passwordPolicy.strength}`}
-                      aria-live="polite"
-                    >
-                      <div className="FP-PasswordSummary">
-                        <strong>{passwordPolicy.label}</strong>
-                        <span>{passwordPolicy.score}/5 checks</span>
-                      </div>
-                      <div className="FP-PasswordMeter" aria-hidden="true">
-                        <span style={{ width: `${passwordProgress}%` }} />
-                      </div>
-                      {passwordPolicy.issues.length > 0 ? (
-                        <ul>
-                          {passwordPolicy.issues.map((issue) => (
-                            <li key={issue}>{issue}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p>
-                          Your password meets Buck&apos;s security
-                          requirements.
-                        </p>
-                      )}
-                    </div>
-                  ) : null}
-
-                  <label htmlFor="confirm-password" className="FP-Label">
-                    Confirm password
-                  </label>
-                  <div className="FP-InputWrapper">
-                    <input
-                      id="confirm-password"
-                      type={showConfirmPassword ? "text" : "password"}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="FP-Input"
-                      placeholder="Confirm your new password"
-                      autoComplete="new-password"
-                      disabled={isSubmitting}
-                    />
-                    <button
-                      type="button"
-                      className="FP-Eye-Btn"
-                      tabIndex={-1}
-                      onClick={() => setShowConfirmPassword((v) => !v)}
-                      aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-                      disabled={isSubmitting}
-                    >
-                      <Image
-                        src={showConfirmPassword ? "/duck-eye.png" : "/duck-eye-closed.png"}
-                        alt=""
-                        width={24}
-                        height={24}
-                      />
-                    </button>
-                  </div>
-                  {confirmStatus ? (
-                    <p
-                      className={`FP-ConfirmHint${
-                        newPassword === confirmPassword
-                          ? " FP-ConfirmHint--match"
-                          : ""
-                      }`}
-                      aria-live="polite"
-                    >
-                      {confirmStatus}
-                    </p>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  <label htmlFor="forgot-email" className="FP-Label">
-                    Email address
-                  </label>
-                  <input
-                    id="forgot-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="FP-Input"
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                    disabled={isSubmitting}
-                  />
-                </>
-              )}
-
-              <motion.button
-                ref={resetButton.ref}
-                type="submit"
-                className="FP-Btn"
-                onMouseMove={resetButton.handlePointerMove}
-                onMouseLeave={resetButton.handlePointerLeave}
-                style={resetButtonStyle}
-                whileHover={isSubmitting ? undefined : { scale: 1.02 }}
-                disabled={isSubmitting}
-                aria-busy={isSubmitting}
+                  void handleResetPassword();
+                }}
               >
-                {isSubmitting ? (
+                {isRecoveryMode ? (
                   <>
-                    <span className="auth-button-spinner" aria-hidden="true" />
-                    {isRecoveryMode ? "Updating password..." : "Sending link..."}
+                    <label htmlFor="new-password" className="FP-Label">
+                      New password
+                    </label>
+                    <div className="FP-InputWrapper">
+                      <input
+                        id="new-password"
+                        type={showNewPassword ? "text" : "password"}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="FP-Input"
+                        placeholder="Create a new password"
+                        autoComplete="new-password"
+                        disabled={isSubmitting}
+                      />
+                      <button
+                        type="button"
+                        className="FP-Eye-Btn"
+                        tabIndex={-1}
+                        onClick={() => setShowNewPassword((v) => !v)}
+                        aria-label={
+                          showNewPassword ? "Hide password" : "Show password"
+                        }
+                        disabled={isSubmitting}
+                      >
+                        <Image
+                          src={
+                            showNewPassword
+                              ? "/duck-eye.png"
+                              : "/duck-eye-closed.png"
+                          }
+                          alt=""
+                          width={24}
+                          height={24}
+                        />
+                      </button>
+                    </div>
+                    {newPassword ? (
+                      <div
+                        className={`FP-PasswordFeedback FP-PasswordFeedback--${passwordPolicy.strength}`}
+                        aria-live="polite"
+                      >
+                        <div className="FP-PasswordSummary">
+                          <strong>{passwordPolicy.label}</strong>
+                          <span>{passwordPolicy.score}/5 checks</span>
+                        </div>
+                        <div className="FP-PasswordMeter" aria-hidden="true">
+                          <span style={{ width: `${passwordProgress}%` }} />
+                        </div>
+                        {passwordPolicy.issues.length > 0 ? (
+                          <ul>
+                            {passwordPolicy.issues.map((issue) => (
+                              <li key={issue}>{issue}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p>
+                            Your password meets Buck&apos;s security
+                            requirements.
+                          </p>
+                        )}
+                      </div>
+                    ) : null}
+
+                    <label htmlFor="confirm-password" className="FP-Label">
+                      Confirm password
+                    </label>
+                    <div className="FP-InputWrapper">
+                      <input
+                        id="confirm-password"
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="FP-Input"
+                        placeholder="Confirm your new password"
+                        autoComplete="new-password"
+                        disabled={isSubmitting}
+                      />
+                      <button
+                        type="button"
+                        className="FP-Eye-Btn"
+                        tabIndex={-1}
+                        onClick={() => setShowConfirmPassword((v) => !v)}
+                        aria-label={
+                          showConfirmPassword
+                            ? "Hide password"
+                            : "Show password"
+                        }
+                        disabled={isSubmitting}
+                      >
+                        <Image
+                          src={
+                            showConfirmPassword
+                              ? "/duck-eye.png"
+                              : "/duck-eye-closed.png"
+                          }
+                          alt=""
+                          width={24}
+                          height={24}
+                        />
+                      </button>
+                    </div>
+                    {confirmStatus ? (
+                      <p
+                        className={`FP-ConfirmHint${
+                          newPassword === confirmPassword
+                            ? " FP-ConfirmHint--match"
+                            : ""
+                        }`}
+                        aria-live="polite"
+                      >
+                        {confirmStatus}
+                      </p>
+                    ) : null}
                   </>
                 ) : (
                   <>
-                    {isRecoveryMode ? "Update Password" : "Send Reset Link"}
-                    <FaArrowRight aria-hidden="true" />
+                    <label htmlFor="forgot-email" className="FP-Label">
+                      Email address
+                    </label>
+                    <input
+                      id="forgot-email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="FP-Input"
+                      placeholder="you@example.com"
+                      autoComplete="email"
+                      disabled={isSubmitting}
+                    />
                   </>
                 )}
-              </motion.button>
 
-              {message && (
-                <div className="forgot-message-card forgot-success">
-                  {message}
-                </div>
-              )}
-              {error && (
-                <div className="forgot-message-card forgot-error">{error}</div>
-              )}
-            </form>
+                <motion.button
+                  ref={resetButton.ref}
+                  type="submit"
+                  className="FP-Btn"
+                  onMouseMove={resetButton.handlePointerMove}
+                  onMouseLeave={resetButton.handlePointerLeave}
+                  style={resetButtonStyle}
+                  whileHover={isSubmitting ? undefined : { scale: 1.02 }}
+                  disabled={isSubmitting}
+                  aria-busy={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <span
+                        className="auth-button-spinner"
+                        aria-hidden="true"
+                      />
+                      {isRecoveryMode
+                        ? "Updating password..."
+                        : "Sending link..."}
+                    </>
+                  ) : (
+                    <>
+                      {isRecoveryMode ? "Update Password" : "Send Reset Link"}
+                      <FaArrowRight aria-hidden="true" />
+                    </>
+                  )}
+                </motion.button>
+
+                {message && (
+                  <div
+                    className="forgot-message-card forgot-success"
+                    role="status"
+                  >
+                    {message}
+                  </div>
+                )}
+                {error && (
+                  <div
+                    className="forgot-message-card forgot-error"
+                    role="alert"
+                  >
+                    {error}
+                  </div>
+                )}
+              </form>
+            )}
+
+            {!isRecoveryMode && !checkingRecoverySession ? (
+              <p className="FP-ProviderHint">
+                Signed up with Google?{" "}
+                <Link href="/sign-in" className="FP-Link">
+                  Use Continue with Google
+                </Link>{" "}
+                instead.
+              </p>
+            ) : null}
 
             <div className="FP-Footer">
               Remembered it?{" "}

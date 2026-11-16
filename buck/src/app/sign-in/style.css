@@ -488,6 +488,61 @@ html[data-buck-theme="dark"] .SI-Background .SI-Btn {
   border: 1px solid rgba(239, 154, 154, 0.28);
 }
 
+.SI-ErrorCard {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  margin-top: 0.35rem;
+  color: #ffd8d8;
+  background: rgba(198, 40, 40, 0.22);
+  border: 1px solid rgba(239, 154, 154, 0.3);
+  border-radius: 8px;
+}
+
+.SI-ErrorCard p {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.SI-ErrorActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.SI-InlineActionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0.42rem 0.82rem;
+  color: #fff8ed;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 850;
+  background: rgba(18, 13, 10, 0.56);
+  border: 1px solid rgba(255, 197, 71, 0.44);
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.SI-InlineActionBtn:hover:not(:disabled) {
+  border-color: rgba(255, 197, 71, 0.72);
+  transform: translateY(-1px);
+}
+
+.SI-InlineActionBtn:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
 /* Light theme overrides */
 html[data-buck-theme="light"] .SI-Background .SI-Brand strong,
 html[data-buck-theme="light"] .SI-Background .SI-HeroCopy h1,
@@ -614,6 +669,22 @@ html[data-buck-theme="light"] .SI-Background .error-message {
   color: #b83324;
   background: rgba(255, 56, 56, 0.1);
   border-color: rgba(255, 56, 56, 0.2);
+}
+
+html[data-buck-theme="light"] .SI-Background .SI-ErrorCard {
+  color: #b83324;
+  background: rgba(255, 56, 56, 0.1);
+  border-color: rgba(255, 56, 56, 0.24);
+}
+
+html[data-buck-theme="light"] .SI-Background .SI-InlineActionBtn {
+  color: #2b2523;
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(184, 51, 36, 0.3);
+}
+
+html[data-buck-theme="light"] .SI-Background .SI-InlineActionBtn:hover:not(:disabled) {
+  border-color: rgba(184, 51, 36, 0.55);
 }
 
 /* Responsive layout */

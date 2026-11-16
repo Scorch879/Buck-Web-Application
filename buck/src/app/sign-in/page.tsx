@@ -3,7 +3,14 @@ import { useEffect, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { clearClientAuthStorage, resetClientSessionActivity, signInUser, signInWithGoogle } from "@/component/authentication";
+import {
+  clearClientAuthStorage,
+  resendSignUpConfirmation,
+  resetClientSessionActivity,
+  signInUser,
+  signInWithGoogle,
+  type AuthResult,
+} from "@/component/authentication";
 import { getSafeAppPath } from "@/utils/authUser";
 import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
 import { OAUTH_CONSENT_PATH, createMfaVerifyPath } from "@/utils/mfa/assurance";
@@ -52,28 +59,68 @@ const signInHighlights: SignInHighlight[] = [
   },
 ];
 
+type ExtendedAuthResult = AuthResult & {
+  errorCode?: string;
+  providerConflict?: "google" | "email";
+};
+
 function getAuthNotice(reason: string | null) {
   switch (reason) {
     case "session-expired":
       return "You were signed out after a period of inactivity.";
     case "mfa-recovery-sign-in-required":
       return "Sign in to finish removing two-factor. Then open the e-mail link again.";
+    case "password-updated":
+      return "Password updated. Sign in with your new password.";
+    case "email-verified":
+      return "Email verified! Sign in to open your Buck dashboard.";
+    case "account-deletion-scheduled":
+      return "Account deletion scheduled for 10 days from now. Sign back in anytime during those 10 days to cancel it automatically.";
+    case "account-deletion-sign-in-required":
+      return "Sign in with this account to finish confirming account deletion.";
+    case "account-deletion-invalid-link":
+      return "That account deletion link is invalid or has already been used.";
+    case "account-deletion-link-expired":
+      return "That account deletion link has expired. Request a new one from Settings.";
+    case "account-deletion-confirm-failed":
+      return "Buck could not confirm account deletion right now. Please sign in and try again.";
+    case "account-deletion-not-configured":
+      return "Account deletion is not configured on the server.";
     default:
       return "";
   }
 }
 
-function getAuthError(error: string | null) {
+function getAuthError(
+  error: string | null,
+  errorCode?: string | null,
+  errorDescription?: string | null
+) {
   switch (error) {
     case "supabase-not-configured":
       return "Supabase authentication is not configured yet.";
     case "session-security-not-configured":
       return "Session security is not configured. Add SESSION_COOKIE_SECRET before using protected pages in production.";
-    case "auth-callback-missing-code":
-      return "The sign-in link was missing an auth code. Please try signing in again.";
-    case "auth-callback-failed":
+    case "google-signin-failed":
       return "Buck could not finish Google sign in. Please try again.";
+    case "email-verification-expired":
+      return "That email verification link has expired. Request a new confirmation email below.";
+    case "email-verification-failed":
+      return "Buck could not verify that email link. Request a fresh confirmation email below.";
+    case "recovery-not-available-for-google":
+      return "This account signs in with Google, so password reset isn't available. Use Continue with Google below.";
+    case "auth-callback-missing-code":
+      return "The verification or sign-in link was incomplete. Please try again.";
+    case "auth-callback-failed":
+      return "That verification or sign-in link is invalid or has expired. Please try again.";
+    case "access_denied":
+      return errorCode === "otp_expired"
+        ? "That verification link has expired. Please request a fresh confirmation email."
+        : errorDescription || "Access was denied or the link has expired.";
     default:
+      if (errorCode === "otp_expired") {
+        return "That verification link has expired. Please request a fresh confirmation email.";
+      }
       return "";
   }
 }
@@ -89,9 +136,13 @@ const SignIn = () => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
   const [passkeySupported, setPasskeySupported] = useState(false);
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState("");
+  const [showVerificationLink, setShowVerificationLink] = useState(false);
+  const [isResendingConfirmation, setIsResendingConfirmation] = useState(false);
   const isDarkTheme = useAuthPageTheme();
   const signInButton = usePointerGradient<HTMLButtonElement>();
-  const isAuthBusy = isSigningIn || isGoogleLoading || isPasskeyLoading;
+  const isAuthBusy =
+    isSigningIn || isGoogleLoading || isPasskeyLoading || isResendingConfirmation;
 
   const openAuthRedirect = (path: string) => {
     window.location.assign(path);
@@ -123,13 +174,44 @@ const SignIn = () => {
     }
 
     const searchParams = new URLSearchParams(window.location.search);
-
-    setRedirectTo(
-      getSafeAppPath(searchParams.get("redirectTo"), [OAUTH_CONSENT_PATH])
+    const hashParams = new URLSearchParams(
+      window.location.hash.startsWith("#")
+        ? window.location.hash.slice(1)
+        : window.location.hash
     );
 
+    setRedirectTo(
+      getSafeAppPath(searchParams.get("redirectTo"), [
+        OAUTH_CONSENT_PATH,
+        "/account/delete/confirm",
+      ])
+    );
+
+    const errorParam = searchParams.get("error") ?? hashParams.get("error");
+    const errorCodeParam =
+      searchParams.get("error_code") ?? hashParams.get("error_code");
+    const errorDescriptionParam =
+      searchParams.get("error_description") ??
+      hashParams.get("error_description");
+    const emailParam = searchParams.get("email")?.trim() ?? "";
+
+    if (emailParam) {
+      setEmail(emailParam);
+    }
+
+    if (
+      errorParam === "email-verification-expired" ||
+      errorParam === "email-verification-failed" ||
+      errorCodeParam === "otp_expired"
+    ) {
+      setShowVerificationLink(true);
+      if (emailParam) {
+        setUnconfirmedEmail(emailParam);
+      }
+    }
+
     setMsg(getAuthNotice(searchParams.get("reason")));
-    setError(getAuthError(searchParams.get("error")));
+    setError(getAuthError(errorParam, errorCodeParam, errorDescriptionParam));
     setPasskeySupported(Boolean(supabase && window.PublicKeyCredential));
   }, []);
 
@@ -143,6 +225,8 @@ const SignIn = () => {
 
     setError("");
     setMsg("");
+    setUnconfirmedEmail("");
+    setShowVerificationLink(false);
     const normalizedEmail = normalizeEmailAddress(email);
 
     if (!normalizedEmail || !pass) {
@@ -162,7 +246,7 @@ const SignIn = () => {
     setIsSigningIn(true);
     setMsg("Checking your account...");
 
-    const result = await signInUser(normalizedEmail, pass);
+    const result: ExtendedAuthResult = await signInUser(normalizedEmail, pass);
 
     if (result.success) {
       resetClientSessionActivity();
@@ -170,10 +254,45 @@ const SignIn = () => {
       await openPostSignInRedirect(redirectTo);
       return;
     } else {
-      setError(result.message || "Sign in failed.");
+      const isUnconfirmed =
+        result.errorCode === "email_not_confirmed" ||
+        /email not confirmed/i.test(result.message || "");
+
+      if (isUnconfirmed) {
+        setUnconfirmedEmail(normalizedEmail);
+        setShowVerificationLink(true);
+        setError(
+          result.message ||
+            "Please confirm your email address before signing in."
+        );
+      } else {
+        setError(result.message || "Sign in failed.");
+      }
       setMsg("");
       setIsSigningIn(false);
     }
+  };
+
+  const handleResendConfirmation = async () => {
+    const targetEmail = normalizeEmailAddress(unconfirmedEmail || email);
+    if (isAuthBusy || !targetEmail) {
+      return;
+    }
+
+    setError("");
+    setMsg("Sending confirmation email...");
+    setIsResendingConfirmation(true);
+
+    const result: ExtendedAuthResult = await resendSignUpConfirmation(targetEmail);
+    setIsResendingConfirmation(false);
+
+    if (result.success) {
+      setMsg(result.message || "Confirmation email sent again. Check your inbox.");
+      return;
+    }
+
+    setMsg("");
+    setError(result.message || "Could not resend confirmation email.");
   };
 
   const handleGoogleSignIn = async () => {
@@ -461,8 +580,46 @@ const SignIn = () => {
                 )}
               </motion.button>
 
-              {message && <div className="success-message">{message}</div>}
-              {error && <div className="error-message">{error}</div>}
+              {message && (
+                <div className="success-message" role="status">
+                  {message}
+                </div>
+              )}
+              {error ? (
+                unconfirmedEmail || showVerificationLink ? (
+                  <div className="SI-ErrorCard" role="alert">
+                    <p>{error}</p>
+                    <div className="SI-ErrorActions">
+                      {unconfirmedEmail ? (
+                        <button
+                          type="button"
+                          className="SI-InlineActionBtn"
+                          onClick={() => void handleResendConfirmation()}
+                          disabled={isAuthBusy}
+                        >
+                          {isResendingConfirmation
+                            ? "Sending..."
+                            : "Resend confirmation email"}
+                        </button>
+                      ) : null}
+                      <Link
+                        href={
+                          unconfirmedEmail
+                            ? `/check-email?email=${encodeURIComponent(unconfirmedEmail)}`
+                            : "/check-email"
+                        }
+                        className="SI-Link"
+                      >
+                        Open verification page
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="error-message" role="alert">
+                    {error}
+                  </div>
+                )
+              ) : null}
             </form>
 
             <div className="SI-Create">
