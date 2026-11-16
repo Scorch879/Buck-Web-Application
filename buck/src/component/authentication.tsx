@@ -16,12 +16,21 @@ import {
 } from "@/utils/authUser";
 import { getPositiveNumber } from "@/utils/formatters";
 
+export type AuthErrorCode =
+  | "google_account_exists"
+  | "email_account_exists"
+  | "email_not_confirmed"
+  | "recovery_unavailable"
+  | "rate_limited";
+
 export type AuthResult = {
   success: boolean;
   message?: string;
   cancelled?: boolean;
   redirecting?: boolean;
   needsEmailConfirmation?: boolean;
+  errorCode?: AuthErrorCode;
+  providerConflict?: "google" | "email";
 };
 
 export const SESSION_LAST_ACTIVITY_KEY = "buck-session-last-activity";
@@ -161,6 +170,37 @@ function getConfiguredAuthError(): AuthResult {
   };
 }
 
+async function postAuthJson(
+  path: string,
+  body: Record<string, unknown>,
+  fallbackError: string
+): Promise<AuthResult> {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const result = (await response.json().catch(() => null)) as AuthResult | null;
+
+  if (!response.ok || !result?.success) {
+    return {
+      success: false,
+      message: result?.message || fallbackError,
+      errorCode:
+        result?.errorCode ?? (response.status === 429 ? "rate_limited" : undefined),
+      providerConflict: result?.providerConflict,
+    };
+  }
+
+  return {
+    success: true,
+    message: result.message,
+    needsEmailConfirmation: result.needsEmailConfirmation,
+  };
+}
+
 export async function signUpUser(
   email: string,
   password: string,
@@ -178,9 +218,14 @@ export async function signUpUser(
       return { success: false, message: emailValidationMessage };
     }
 
+    const trimmedUsername = username.trim();
+    if (!trimmedUsername) {
+      return { success: false, message: "Please enter a username." };
+    }
+
     const passwordPolicy = evaluatePasswordPolicy(password, {
       email: normalizedEmail,
-      username,
+      username: trimmedUsername,
     });
 
     if (!passwordPolicy.isValid) {
@@ -190,35 +235,16 @@ export async function signUpUser(
       };
     }
 
-    const supabase = getSupabaseClient();
-    resetClientSessionActivity();
-    const { data, error } = await supabase.auth.signUp({
-      email: normalizedEmail,
-      password,
-      options: {
-        data: {
-          username: username.trim(),
-          full_name: username.trim(),
-        },
-        emailRedirectTo: getAuthCallbackUrl("/dashboard/home"),
+    clearClientAuthStorage();
+    return await postAuthJson(
+      "/api/auth/sign-up",
+      {
+        username: trimmedUsername,
+        email: normalizedEmail,
+        password,
       },
-    });
-
-    if (error) {
-      clearClientAuthStorage();
-      return { success: false, message: error.message };
-    }
-
-    if (data.session) {
-      resetClientSessionActivity();
-    } else {
-      clearClientAuthStorage();
-    }
-
-    return {
-      success: true,
-      needsEmailConfirmation: Boolean(data.user && !data.session),
-    };
+      "Account creation failed."
+    );
   } catch (error) {
     console.error("Sign up error:", error);
     return { success: false, message: getErrorMessage(error) };
@@ -250,6 +276,19 @@ export async function signInUser(
 
     if (error) {
       clearClientAuthStorage();
+      const isUnconfirmed =
+        error.code === "email_not_confirmed" ||
+        /email not confirmed/i.test(error.message);
+
+      if (isUnconfirmed) {
+        return {
+          success: false,
+          errorCode: "email_not_confirmed",
+          message:
+            "Please verify your email address before signing in. Check your inbox or resend the confirmation email.",
+        };
+      }
+
       return { success: false, message: error.message };
     }
 
@@ -306,23 +345,11 @@ export async function resendSignUpConfirmation(
       return { success: false, message: emailValidationMessage };
     }
 
-    const supabase = getSupabaseClient();
-    const { error } = await supabase.auth.resend({
-      type: "signup",
-      email: normalizedEmail,
-      options: {
-        emailRedirectTo: getAuthCallbackUrl("/dashboard/home"),
-      },
-    });
-
-    if (error) {
-      return { success: false, message: error.message };
-    }
-
-    return {
-      success: true,
-      message: "Confirmation email sent again. Check your inbox.",
-    };
+    return await postAuthJson(
+      "/api/auth/resend-confirmation",
+      { email: normalizedEmail },
+      "Could not resend confirmation email."
+    );
   } catch (error) {
     return { success: false, message: getErrorMessage(error) };
   }
@@ -341,25 +368,11 @@ export async function sendPasswordReset(email: string): Promise<AuthResult> {
       return { success: false, message: emailValidationMessage };
     }
 
-    const response = await fetch("/api/auth/password-reset", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email: normalizedEmail }),
-    });
-    const result = (await response.json().catch(() => null)) as AuthResult | null;
-
-    if (!response.ok || !result?.success) {
-      return {
-        success: false,
-        message:
-          result?.message ||
-          "Failed to send password reset link. Please try again later.",
-      };
-    }
-
-    return { success: true, message: result.message };
+    return await postAuthJson(
+      "/api/auth/password-reset",
+      { email: normalizedEmail },
+      "Failed to send password reset link. Please try again later."
+    );
   } catch (error) {
     return { success: false, message: getErrorMessage(error) };
   }

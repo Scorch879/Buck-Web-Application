@@ -124,6 +124,7 @@ function isRootAuthReturn(request: NextRequest) {
 
   return (
     params.has("code") ||
+    params.has("token_hash") ||
     params.has("error") ||
     params.has("error_code") ||
     params.has("error_description")
@@ -136,7 +137,11 @@ function createAuthCallbackRedirect(request: NextRequest) {
   redirectUrl.pathname = "/auth/callback";
 
   if (!redirectUrl.searchParams.has("next")) {
-    redirectUrl.searchParams.set("next", "/dashboard/home");
+    const nextPath =
+      redirectUrl.searchParams.get("type") === "recovery"
+        ? "/forgot-password?type=recovery"
+        : "/dashboard/home";
+    redirectUrl.searchParams.set("next", nextPath);
   }
 
   return redirectUrl;
@@ -537,7 +542,8 @@ async function handleRequest(request: NextRequest, requestHeaders: Headers) {
 
     const isRecoveryMode =
       pathname === "/forgot-password" &&
-      request.nextUrl.searchParams.get("type") === "recovery";
+      (request.nextUrl.searchParams.get("type") === "recovery" ||
+        request.nextUrl.searchParams.has("error"));
 
     if (!isRecoveryMode) {
       if (shouldEnforceServerIdle && (await isSessionIdleExpired(request, user))) {
