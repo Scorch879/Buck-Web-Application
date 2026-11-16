@@ -1331,7 +1331,7 @@ export default function SettingsPage() {
         >
           <motion.section
             {...panelMotion}
-            className="settings-modal"
+            className="settings-modal buck-modal-panel buck-modal-accent"
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-email-modal-title"
@@ -1356,6 +1356,7 @@ export default function SettingsPage() {
               </button>
             </div>
 
+            <div className="buck-modal-scroll settings-modal-scroll">
             <form
               className="settings-form settings-modal-form buck-modal-form"
               onSubmit={handleEmailSubmit}
@@ -1405,6 +1406,7 @@ export default function SettingsPage() {
                 </button>
               </div>
             </form>
+            </div>
           </motion.section>
         </motion.div>
       ) : null}
@@ -1425,7 +1427,7 @@ export default function SettingsPage() {
         >
           <motion.section
             {...panelMotion}
-            className="settings-modal"
+            className="settings-modal buck-modal-panel buck-modal-accent"
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-password-modal-title"
@@ -1450,6 +1452,7 @@ export default function SettingsPage() {
               </button>
             </div>
 
+            <div className="buck-modal-scroll settings-modal-scroll">
             <form
               className="settings-form settings-modal-form buck-modal-form"
               onSubmit={handlePasswordSubmit}
@@ -1546,6 +1549,7 @@ export default function SettingsPage() {
                 </button>
               </div>
             </form>
+            </div>
           </motion.section>
         </motion.div>
       ) : null}

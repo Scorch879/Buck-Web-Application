@@ -884,7 +884,7 @@ html[data-buck-theme="dark"] .settings-confirm-hint--match {
 .settings-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 300;
+  z-index: 1000;
   display: grid;
   place-items: center;
   padding: 1rem;
@@ -897,11 +897,14 @@ html[data-buck-theme="dark"] .settings-modal-backdrop {
 }
 
 .settings-modal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   width: min(480px, 100%);
   min-width: 0;
-  max-height: min(720px, calc(100dvh - 2rem));
-  overflow: auto;
-  padding: clamp(0.9rem, 2.4vw, 1.1rem);
+  max-height: min(82dvh, 760px);
+  overflow: hidden;
+  padding: 0;
   color: var(--buck-ink);
   background: var(--buck-surface);
   border: 1px solid var(--buck-line);
@@ -920,12 +923,24 @@ html[data-buck-theme="dark"] .settings-modal {
 
 .settings-modal-heading {
   display: flex;
+  flex-shrink: 0;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.9rem;
-  padding-bottom: 0.75rem;
-  margin-bottom: 0.75rem;
+  padding: clamp(0.9rem, 2.4vw, 1.1rem) clamp(0.9rem, 2.4vw, 1.1rem) 0.75rem;
+  margin-bottom: 0;
   border-bottom: 1px solid rgba(244, 117, 54, 0.16);
+}
+
+.settings-modal-scroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+  padding: 0.85rem clamp(0.9rem, 2.4vw, 1.1rem) clamp(0.9rem, 2.4vw, 1.1rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .settings-modal-heading h2 {
@@ -1145,10 +1160,6 @@ html[data-buck-theme="dark"] .settings-modal {
   .settings-modal-backdrop {
     align-items: end;
     padding: 0.7rem;
-  }
-
-  .settings-modal {
-    max-height: calc(100dvh - 1.4rem);
   }
 }
 
@@ -1457,9 +1468,6 @@ html[data-buck-theme="dark"] .feedback-category-card.active {
     grid-column: auto;
   }
 }
-
-.settings-modal-backdrop { position: fixed; inset: 0; background: rgba(18, 13, 10, 0.8); display: grid; place-items: center; z-index: 1000; padding: 1rem; }
-.settings-modal-content { background: var(--buck-surface); border: 1px solid var(--buck-line); padding: 1.5rem; border-radius: 12px; max-width: 400px; width: 100%; box-shadow: var(--buck-shadow); }
 
 /* =========================================================
    WALLET DASHBOARD, TOOLBAR & CARDS

@@ -93,109 +93,113 @@ const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ onClose, onGoalCreate
   return (
     <motion.div className="modal-backdrop" {...backdropMotion}>
       <motion.div
-        className="modal-content"
+        className="modal-content buck-modal-panel buck-modal-accent"
         role="dialog"
         aria-modal="true"
         aria-label="Create a new goal"
         {...panelMotion}
       >
-        <button type="button" className="modal-close" onClick={onClose} aria-label="Close dialog">
-          <span aria-hidden="true">×</span>
-        </button>
-        <h2 className="create-goal-title buck-modal-title">Create a new goal</h2>
-        {success && <div className="create-goal-success">Goal created</div>}
-        <form onSubmit={handleGoalCreate} className="create-goal-form buck-modal-form">
-          <label className="buck-modal-field">
-            <span>Goal name</span>
-            <input
-              id="goalName"
-              type="text"
-              placeholder="Emergency fund, new laptop..."
-              value={form.goalName}
-              onChange={handleChange}
-              required
-              className="create-goal-input"
-            />
-          </label>
-          <label className="buck-modal-field">
-            <span>Target amount (PHP)</span>
-            <input
-              id="targetAmount"
-              type="number"
-              placeholder="0.00"
-              value={form.targetAmount}
-              onChange={handleChange}
-              required
-              min={1}
-              className="create-goal-input"
-            />
-          </label>
-          <label className="buck-modal-field">
-            <span>Target date</span>
-            <CustomDatePicker
-              id="targetDate"
-              placeholder="Pick a date"
-              value={form.targetDate}
-              onChange={(val) => setForm((prev) => ({ ...prev, targetDate: val }))}
-              required
-            />
-          </label>
+        <div className="create-goal-header">
+          <h2 className="create-goal-title buck-modal-title">Create a new goal</h2>
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Close dialog">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+        <div className="buck-modal-scroll create-goal-scroll">
+          {success && <div className="create-goal-success">Goal created</div>}
+          <form onSubmit={handleGoalCreate} className="create-goal-form buck-modal-form">
+            <label className="buck-modal-field">
+              <span>Goal name</span>
+              <input
+                id="goalName"
+                type="text"
+                placeholder="Emergency fund, new laptop..."
+                value={form.goalName}
+                onChange={handleChange}
+                required
+                className="create-goal-input"
+              />
+            </label>
+            <label className="buck-modal-field">
+              <span>Target amount (PHP)</span>
+              <input
+                id="targetAmount"
+                type="number"
+                placeholder="0.00"
+                value={form.targetAmount}
+                onChange={handleChange}
+                required
+                min={1}
+                className="create-goal-input"
+              />
+            </label>
+            <div className="buck-modal-field">
+              <label htmlFor="targetDate">Target date</label>
+              <CustomDatePicker
+                id="targetDate"
+                placeholder="Pick a date"
+                value={form.targetDate}
+                onChange={(val) => setForm((prev) => ({ ...prev, targetDate: val }))}
+                required
+              />
+            </div>
 
-          <div
-            className={`create-goal-attitude${outOfReach ? " create-goal-attitude--warning" : ""}`}
-            aria-live="polite"
-          >
-            <p className="create-goal-attitude-label">Saving attitude</p>
-            {detection.state === "idle" && (
-              <p className="create-goal-attitude-text">
-                Enter an amount and a target date. Your AI Advisor then picks the saving attitude
-                this goal needs.
-              </p>
-            )}
-            {detection.state === "loading" && (
-              <p className="create-goal-attitude-text">Working out your saving attitude…</p>
-            )}
-            {detection.state === "unavailable" && (
-              <p className="create-goal-attitude-text">
-                Your saving attitude will be set once Buck&apos;s AI is reachable. Until then it
-                starts as Normal.
-              </p>
-            )}
-            {detected && (
-              <>
-                <AttitudeChip attitude={detected.attitude} />
-                <p className="create-goal-attitude-text">{detected.reason}</p>
-                {outOfReach && detected.plan?.daysToGoal != null && (
-                  <p className="create-goal-attitude-text create-goal-attitude-text--strong">
-                    At this pace you&apos;d reach it in {detected.plan.daysToGoal} days. You can
-                    still create the goal.
-                  </p>
-                )}
-                {detected.plan && (
-                  <GoalPlanTable plan={detected.plan} caption="Your plan for this goal" />
-                )}
-              </>
-            )}
-          </div>
+            <div
+              className={`create-goal-attitude${outOfReach ? " create-goal-attitude--warning" : ""}`}
+              aria-live="polite"
+            >
+              <p className="create-goal-attitude-label">Saving attitude</p>
+              {detection.state === "idle" && (
+                <p className="create-goal-attitude-text">
+                  Enter an amount and a target date. Your AI Advisor then picks the saving attitude
+                  this goal needs.
+                </p>
+              )}
+              {detection.state === "loading" && (
+                <p className="create-goal-attitude-text">Working out your saving attitude…</p>
+              )}
+              {detection.state === "unavailable" && (
+                <p className="create-goal-attitude-text">
+                  Your saving attitude will be set once Buck&apos;s AI is reachable. Until then it
+                  starts as Normal.
+                </p>
+              )}
+              {detected && (
+                <>
+                  <AttitudeChip attitude={detected.attitude} />
+                  <p className="create-goal-attitude-text">{detected.reason}</p>
+                  {outOfReach && detected.plan?.daysToGoal != null && (
+                    <p className="create-goal-attitude-text create-goal-attitude-text--strong">
+                      At this pace you&apos;d reach it in {detected.plan.daysToGoal} days. You can
+                      still create the goal.
+                    </p>
+                  )}
+                  {detected.plan && (
+                    <GoalPlanTable plan={detected.plan} caption="Your plan for this goal" />
+                  )}
+                </>
+              )}
+            </div>
 
-          <div className="buck-modal-actions">
-            <button
-              type="button"
-              className="buck-modal-btn buck-modal-btn--secondary"
-              onClick={onClose}
-              disabled={submitting}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="buck-modal-btn buck-modal-btn--primary"
-              disabled={submitting}
-            >
-              {submitting ? "Creating..." : "Create goal"}
-            </button>
-          </div>
-        </form>
+            <div className="buck-modal-actions">
+              <button
+                type="button"
+                className="buck-modal-btn buck-modal-btn--secondary"
+                onClick={onClose}
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="buck-modal-btn buck-modal-btn--primary"
+                disabled={submitting}
+              >
+                {submitting ? "Creating..." : "Create goal"}
+              </button>
+            </div>
+          </form>
+        </div>
       </motion.div>
     </motion.div>
   );

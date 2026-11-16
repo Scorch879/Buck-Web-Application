@@ -912,7 +912,7 @@ const GoalsPage = () => {
             {...backdropMotion}
           >
             <motion.div
-              className="goals-forecast-modal"
+              className="goals-forecast-modal buck-modal-panel buck-modal-accent"
               role="dialog"
               aria-modal="true"
               aria-labelledby="goals-forecast-title"
@@ -933,6 +933,7 @@ const GoalsPage = () => {
               </button>
             </div>
 
+            <div className="buck-modal-scroll goals-forecast-scroll">
             <div className="goals-forecast-progress">
               <div className="goals-forecast-progress-row">
                 <span>Goal progress</span>
@@ -1068,6 +1069,7 @@ const GoalsPage = () => {
                 + Add expense
               </button>
             </div>
+            </div>
           </motion.div>
         </motion.div>
         )}
@@ -1117,41 +1119,43 @@ const GoalsPage = () => {
             {...backdropMotion}
           >
             <motion.div
-              className="modal"
+              className="modal buck-modal-panel buck-modal-accent"
               role="dialog"
               aria-modal="true"
               aria-label={`Add progress to ${progressGoal.goalName}`}
               {...panelMotion}
             >
-              <h3 className="buck-modal-title">Add progress to {progressGoal.goalName}</h3>
-              <label className="buck-modal-field">
-                <span>Amount (PHP)</span>
-                <input
-                  type="number"
-                  min="1"
-                  placeholder="0.00"
-                  value={progressInput}
-                  onChange={(e) => setProgressInput(e.target.value)}
-                  disabled={progressLoading}
-                />
-              </label>
-              <div className="buck-modal-actions">
-                <button
-                  type="button"
-                  className="buck-modal-btn buck-modal-btn--secondary"
-                  onClick={() => setShowProgressModal(false)}
-                  disabled={progressLoading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="buck-modal-btn buck-modal-btn--primary"
-                  onClick={handleAddProgress}
-                  disabled={progressLoading}
-                >
-                  {progressLoading ? "Saving..." : "Save"}
-                </button>
+              <div className="buck-modal-scroll goals-progress-scroll">
+                <h3 className="buck-modal-title">Add progress to {progressGoal.goalName}</h3>
+                <label className="buck-modal-field">
+                  <span>Amount (PHP)</span>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="0.00"
+                    value={progressInput}
+                    onChange={(e) => setProgressInput(e.target.value)}
+                    disabled={progressLoading}
+                  />
+                </label>
+                <div className="buck-modal-actions">
+                  <button
+                    type="button"
+                    className="buck-modal-btn buck-modal-btn--secondary"
+                    onClick={() => setShowProgressModal(false)}
+                    disabled={progressLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="buck-modal-btn buck-modal-btn--primary"
+                    onClick={handleAddProgress}
+                    disabled={progressLoading}
+                  >
+                    {progressLoading ? "Saving..." : "Save"}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>

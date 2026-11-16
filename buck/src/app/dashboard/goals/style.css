@@ -558,13 +558,13 @@ html[data-buck-theme="dark"] .ai-recommendation {
 /* ---- Forecast dialog (CLAUDE.md modal bounds) ---- */
 
 .goals-forecast-modal {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
   width: min(880px, 100%);
   max-height: min(82dvh, 760px);
-  padding: clamp(1rem, 2.5vw, 1.4rem);
-  overflow-y: auto;
+  padding: 0;
+  overflow: hidden;
   color: var(--buck-ink);
   background: var(--buck-surface);
   border: 1px solid var(--buck-line);
@@ -578,9 +578,23 @@ html[data-buck-theme="dark"] .goals-forecast-modal {
 
 .goals-modal-header {
   display: flex;
+  flex-shrink: 0;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+  padding: clamp(1rem, 2.5vw, 1.4rem) clamp(1rem, 2.5vw, 1.4rem) 0.75rem;
+  border-bottom: 1px solid rgba(244, 117, 54, 0.14);
+}
+
+.goals-forecast-scroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 0;
+  padding: 0.9rem clamp(1rem, 2.5vw, 1.4rem) clamp(1rem, 2.5vw, 1.4rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .goals-modal-header h3 {
@@ -592,9 +606,10 @@ html[data-buck-theme="dark"] .goals-forecast-modal {
 
 .goals-modal-close {
   display: grid;
+  flex-shrink: 0;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   color: var(--buck-muted);
   background: transparent;
   border: 1px solid var(--buck-line);
@@ -937,25 +952,47 @@ html[data-buck-theme="dark"] .goals-restore-btn:hover:not(:disabled) {
   background: rgba(18, 13, 10, 0.48);
 }
 
+/* The create dialog holds the attitude and plan, so its body scrolls inside
+   the standard modal bounds instead of growing past the screen. */
 .modal-content {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  width: min(520px, 94vw);
-  padding: clamp(1.2rem, 3vw, 1.6rem);
+  width: min(520px, 100%);
+  max-height: min(82dvh, 760px);
+  overflow: hidden;
+  padding: 0;
   text-align: left;
+}
+
+.create-goal-header {
+  position: relative;
+  flex-shrink: 0;
+  padding: clamp(1.2rem, 3vw, 1.6rem) clamp(1.2rem, 3vw, 1.6rem) 0.75rem;
+  border-bottom: 1px solid rgba(244, 117, 54, 0.14);
 }
 
 /* Keep the title clear of the close button in the corner. */
 .modal-content .create-goal-title {
+  margin: 0;
   padding-right: 2.5rem;
+}
+
+.create-goal-scroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 0;
+  padding: 0.85rem clamp(1.2rem, 3vw, 1.6rem) clamp(1.2rem, 3vw, 1.6rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .modal-close {
   position: absolute;
-  top: 0.85rem;
-  right: 0.85rem;
+  top: clamp(0.95rem, 2.5vw, 1.25rem);
+  right: clamp(0.95rem, 2.5vw, 1.25rem);
   display: inline-grid;
   place-items: center;
   min-width: 36px;
@@ -1030,13 +1067,6 @@ html[data-buck-theme="dark"] .create-goal-input {
 .goals-ghost-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
-}
-
-/* The create dialog now holds the attitude and plan, so it scrolls inside the
-   standard modal bounds instead of growing past the screen. */
-.modal-content {
-  max-height: min(82dvh, 760px);
-  overflow-y: auto;
 }
 
 .goal-fact--wide {
