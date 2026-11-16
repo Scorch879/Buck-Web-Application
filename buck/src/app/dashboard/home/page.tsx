@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import { useDashboardUser } from "@/context/DashboardUserContext";
-import { useFinancial } from "@/context/FinancialContext";
 import GettingStarted from "@/component/onboarding/GettingStarted";
 import { useUserTable } from "@/hooks/useUserTable";
 import { toNumber } from "@/utils/formatters";
@@ -18,9 +17,6 @@ import "./style.css";
 
 // Summary row for the grouped donut slice ("Others" in the chart).
 const OTHERS_ROW_LABEL = "All other categories";
-
-type Expense = BuckExpense;
-
 
 type TimeframeFilter = "all" | "month" | "week";
 type AllTimeGranularity = "months" | "years";
@@ -67,7 +63,7 @@ function getCurrentMonthRange() {
   return { start, end };
 }
 
-function parseExpenseDate(expense: Expense): Date | null {
+function parseExpenseDate(expense: BuckExpense): Date | null {
   if (!expense.date) return null;
 
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(expense.date);
@@ -83,9 +79,9 @@ function parseExpenseDate(expense: Expense): Date | null {
 }
 
 function getFilteredExpenses(
-  expenses: Expense[],
+  expenses: BuckExpense[],
   timeframe: TimeframeFilter
-): Expense[] {
+): BuckExpense[] {
   if (timeframe === "all") {
     return expenses;
   }
@@ -106,7 +102,7 @@ function getFilteredExpenses(
 }
 
 function buildBarTimeBuckets(
-  allExpenses: Expense[],
+  allExpenses: BuckExpense[],
   timeframe: TimeframeFilter,
   allTimeGranularity: AllTimeGranularity,
   barPageOffset: number
@@ -254,7 +250,7 @@ function buildBarTimeBuckets(
 }
 
 function getBucketExpensesData(
-  filteredExpenses: Expense[],
+  filteredExpenses: BuckExpense[],
   buckets: BarTimeBucket[]
 ): WeeklyDatum[] {
   return buckets.map((bucket) => {
@@ -277,7 +273,7 @@ function getBucketExpensesData(
 }
 
 function matchesBucketFilter(
-  expense: Expense,
+  expense: BuckExpense,
   selectedBucketKey: string | null,
   buckets: BarTimeBucket[]
 ): boolean {
@@ -302,7 +298,7 @@ function matchesCategoryFilter(
   return cat.toLowerCase() === selectedCategory.toLowerCase();
 }
 
-function getCategoryPieData(filteredExpenses: Expense[]): {
+function getCategoryPieData(filteredExpenses: BuckExpense[]): {
   slices: WeeklyPieSlice[];
   total: number;
 } {
@@ -363,8 +359,6 @@ function getCategoryPieData(filteredExpenses: Expense[]): {
 
 export default function Dashboard() {
   const { user } = useDashboardUser();
-  const { dashboardCache } = useFinancial();
-  const userCache = dashboardCache.userId === user.uid ? dashboardCache : {};
   const { loading: loadingProfile } = useUserTable("profile");
   const { data: categoriesData, loading: loadingCategories } = useUserTable("categories");
   const { data: expensesData, loading: loadingExpenses } = useUserTable("expenses");
@@ -937,11 +931,7 @@ export default function Dashboard() {
       </section>
 
       {/* 3. AI Financial Advisor Card */}
-      <AIAdvisorPlaceholderCard
-        userId={user.uid}
-        activeWalletBudget={userCache.activeWalletBudget}
-        totalExpensesCount={expenses.length}
-      />
+      <AIAdvisorPlaceholderCard userId={user.uid} />
     </div>
   );
 }

@@ -46,6 +46,7 @@ import {
   useFinancial,
 } from "@/context/FinancialContext";
 import { evaluatePasswordPolicy } from "@/utils/passwordPolicy";
+import { formatMediumDateTime } from "@/utils/formatters";
 import { getEmailValidationMessage } from "@/utils/emailValidation";
 import { describeVerifyError } from "@/utils/mfa/client";
 import {
@@ -156,17 +157,6 @@ async function readActionResponse(response: Response) {
   };
 }
 
-function formatSettingsDate(value: string | null | undefined) {
-  if (!value) {
-    return "Not scheduled";
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
 export default function SettingsPage() {
   const { user } = useDashboardUser();
   const router = useRouter();
@@ -245,10 +235,10 @@ export default function SettingsPage() {
   const deletionPendingConfirmation = Boolean(
     deletionStatus && !deletionStatus.confirmedAt
   );
-  const recoveryUntilLabel = formatSettingsDate(deletionStatus?.recoveryUntil);
-  const confirmationExpiresLabel = formatSettingsDate(
-    deletionStatus?.confirmationExpiresAt
-  );
+  const recoveryUntilLabel =
+    formatMediumDateTime(deletionStatus?.recoveryUntil) ?? "Not scheduled";
+  const confirmationExpiresLabel =
+    formatMediumDateTime(deletionStatus?.confirmationExpiresAt) ?? "Not scheduled";
   const activeSettingsTabDetails =
     settingsTabs.find((tab) => tab.id === activeSettingsTab) ?? settingsTabs[0];
   const ActiveSettingsIcon = activeSettingsTabDetails.icon;

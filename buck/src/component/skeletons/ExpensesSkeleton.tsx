@@ -3,11 +3,8 @@
 import React from "react";
 import CustomSelect from "@/component/CustomSelect";
 import "@/app/dashboard/expenses/style.css";
+import { IconPlaceholder } from "./SkeletonPrimitives";
 import "./skeletons.css";
-
-function IconPlaceholder() {
-  return <span className="skeleton-avatar" style={{ display: "inline-block", width: "1em", height: "1em", borderRadius: 4 }} />;
-}
 
 function KpiHeader({ subtitle, title, badge }: { subtitle: string; title: string; badge?: string }) {
   return (

@@ -6,11 +6,13 @@ import styles from "./WalletModal.module.css";
 import { AnimatePresence, motion } from "framer-motion";
 import { backdropMotion, panelMotion } from "@/utils/motion";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
-import { useFinancial } from "@/context/FinancialContext";
+import { mergeDashboardDataCache, useFinancial } from "@/context/FinancialContext";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useIsClient } from "@/hooks/useIsClient";
+import { useUserTable } from "@/hooks/useUserTable";
 import {
   formatCurrency,
+  formatEditableBudget,
   parseBudgetInput,
   sanitizeBudgetInput,
 } from "@/utils/formatters";
@@ -18,23 +20,10 @@ import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import {
   addWallet,
   deleteWallet,
-  getActiveWalletId,
-  listWallets,
   setActiveWallet,
-  subscribeUserTable,
   updateWallet,
   type BuckWallet,
 } from "@/utils/supabaseData";
-
-type Wallet = BuckWallet;
-
-function formatEditableBudget(value: number): string {
-  const num = Number(value) || 0;
-  return num.toLocaleString("en-US", {
-    minimumFractionDigits: num % 1 !== 0 ? 2 : 0,
-    maximumFractionDigits: 2,
-  });
-}
 
 export default function WalletModal({
   open,
@@ -43,21 +32,28 @@ export default function WalletModal({
   open: boolean;
   onClose: () => void;
 }) {
-  const [wallets, setWallets] = useState<Wallet[]>([]);
   const [name, setName] = useState("");
   const [budget, setBudget] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editBudget, setEditBudget] = useState("");
-  const [activeWalletId, setActiveWalletId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [justActivatedId, setJustActivatedId] = useState<string | null>(null);
   const isClient = useIsClient();
 
   const user = useOptionalDashboardUser();
-  const { setDashboardCache } = useFinancial();
+  const { dashboardCache, setDashboardCache } = useFinancial();
+  const {
+    data: walletsData,
+    loading,
+    refresh: refreshWallets,
+  } = useUserTable("wallets");
+  const wallets = walletsData ?? [];
+  const activeWalletId =
+    user && dashboardCache.userId === user.uid
+      ? (dashboardCache.activeWalletId ?? null)
+      : null;
 
   useEscapeKey(open && !confirmDeleteId, onClose);
 
@@ -74,68 +70,6 @@ export default function WalletModal({
     };
   }, [open]);
 
-  const fetchWallets = async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const walletsArr = await listWallets(user.uid);
-      setWallets(walletsArr);
-
-      const activeWalletsList = walletsArr.filter((w) => !w.deletedAt);
-      let newActiveId = activeWalletId;
-
-      if (activeWalletsList.length === 1) {
-        newActiveId = activeWalletsList[0].id;
-        await setActiveWallet(user.uid, newActiveId);
-        setActiveWalletId(newActiveId);
-      }
-
-      const activeWallet = walletsArr.find((w) => w.id === newActiveId && !w.deletedAt);
-
-      setDashboardCache((current) => ({
-        ...current,
-        wallets: walletsArr,
-        ...(newActiveId ? { activeWalletId: newActiveId } : {}),
-        ...(activeWallet ? { activeWalletBudget: activeWallet.budget } : { activeWalletBudget: 0 }),
-      }));
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to load wallets.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchActiveWallet = async () => {
-    if (!user) return;
-    try {
-      setActiveWalletId(await getActiveWalletId(user.uid));
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Failed to load active wallet."
-      );
-    }
-  };
-
-  useEffect(() => {
-    if (!open || !user) {
-      return;
-    }
-
-    fetchWallets();
-    fetchActiveWallet();
-
-    const unsubscribeWallets = subscribeUserTable("wallets", user.uid, () => {
-      void fetchWallets();
-    });
-
-    return () => {
-      unsubscribeWallets();
-    };
-    // Re-subscribe only when the modal opens or the user changes; the fetch
-    // helpers are recreated every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, user]);
-
   const handleAddWallet = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -149,8 +83,7 @@ export default function WalletModal({
       await addWallet(user.uid, name.trim(), parsedBudget);
       setName("");
       setBudget("");
-      fetchWallets();
-      fetchActiveWallet();
+      await refreshWallets();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add wallet");
     }
@@ -162,17 +95,21 @@ export default function WalletModal({
       await deleteWallet(user.uid, id);
       if (activeWalletId === id) {
         await setActiveWallet(user.uid, null);
-        setActiveWalletId(null);
+        setDashboardCache((current) =>
+          mergeDashboardDataCache(current, user.uid, {
+            activeWalletId: null,
+            activeWalletBudget: 0,
+          })
+        );
       }
       setConfirmDeleteId(null);
-      fetchWallets();
-      fetchActiveWallet();
+      await refreshWallets();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete wallet");
     }
   };
 
-  const handleEdit = (wallet: Wallet) => {
+  const handleEdit = (wallet: BuckWallet) => {
     setEditId(wallet.id);
     setEditName(wallet.name);
     setEditBudget(formatEditableBudget(wallet.budget));
@@ -194,7 +131,7 @@ export default function WalletModal({
       setEditName("");
       setEditBudget("");
       setError("");
-      fetchWallets();
+      await refreshWallets();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update wallet");
     }
@@ -210,16 +147,16 @@ export default function WalletModal({
   const handleSetActive = async (id: string) => {
     if (!user) return;
     await setActiveWallet(user.uid, id);
-    setActiveWalletId(id);
     setJustActivatedId(id);
     setTimeout(() => setJustActivatedId(null), 900);
 
     const newActiveWallet = wallets.find((w) => w.id === id);
-    setDashboardCache((current) => ({
-      ...current,
-      activeWalletId: id,
-      ...(newActiveWallet ? { activeWalletBudget: newActiveWallet.budget } : {}),
-    }));
+    setDashboardCache((current) =>
+      mergeDashboardDataCache(current, user.uid, {
+        activeWalletId: id,
+        ...(newActiveWallet ? { activeWalletBudget: newActiveWallet.budget } : {}),
+      })
+    );
   };
 
   const activeWallets = wallets.filter(w => !w.deletedAt);

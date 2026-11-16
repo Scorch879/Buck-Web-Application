@@ -55,8 +55,6 @@ export default function ExpenseKPICards({
       pctRemaining = 0;
     }
 
-    const pctSpent = Math.max(0, 100 - pctRemaining);
-
     let status: {
       label: string;
       color: "safe" | "warning" | "danger" | "neutral";
@@ -91,63 +89,48 @@ export default function ExpenseKPICards({
 
     return {
       spentFromWallet: spent,
-      totalWalletCapacity: capacity,
       percentRemaining: pctRemaining,
-      percentSpent: pctSpent,
       walletHealthStatus: status,
     };
   }, [activeWallet, expenses, walletBudget]);
 
-  // 2. Compute 7-Day Spending Micro-Histogram & Monthly Velocity
+  // 2. Compute 7-Day Spending Velocity & Monthly Velocity
   const { weekTotal, monthTotal } = useMemo(() => {
     const today = new Date();
-    today.setHours(23, 59, 59, 999);
-
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth();
 
-    // Last 7 days array
-    const days = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - (6 - i));
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const date = String(d.getDate()).padStart(2, "0");
-      const dateStr = `${year}-${month}-${date}`;
-      const dayLabel = d.toLocaleDateString("en-US", { weekday: "narrow" }); // M, T, W, T, F, S, S
+    const last7DateKeys = new Set(
+      Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i));
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const date = String(d.getDate()).padStart(2, "0");
+        return `${year}-${month}-${date}`;
+      })
+    );
 
-      const dayExpenses = expenses.filter((e) => e.date === dateStr);
-      const dayAmount = dayExpenses.reduce(
-        (sum, e) => sum + toNumber(e.amount),
-        0
-      );
-
-      return {
-        dateStr,
-        dayLabel,
-        dayAmount,
-      };
-    });
-
-    const maxSpend = Math.max(...days.map((d) => d.dayAmount), 1);
-    const sumWeek = days.reduce((sum, d) => sum + d.dayAmount, 0);
-
-    // Month Total
-    const sumMonth = expenses
-      .filter((e) => {
-        if (!e.date) return false;
+    let sumWeek = 0;
+    let sumMonth = 0;
+    for (const e of expenses) {
+      const amt = toNumber(e.amount);
+      if (e.date && last7DateKeys.has(e.date)) {
+        sumWeek += amt;
+      }
+      if (e.date) {
         const d = e.date.includes("T") ? new Date(e.date) : new Date(`${e.date}T00:00:00`);
-        return (
+        if (
           !Number.isNaN(d.getTime()) &&
           d.getFullYear() === currentYear &&
           d.getMonth() === currentMonth
-        );
-      })
-      .reduce((sum, e) => sum + toNumber(e.amount), 0);
+        ) {
+          sumMonth += amt;
+        }
+      }
+    }
 
     return {
-      last7Days: days,
-      maxDailySpend: maxSpend,
       weekTotal: sumWeek,
       monthTotal: sumMonth,
     };
@@ -160,7 +143,6 @@ export default function ExpenseKPICards({
         minExpense: 0,
         maxExpense: 0,
         maxExpenseItem: null,
-        positionRatio: 50,
       };
     }
 
@@ -179,19 +161,13 @@ export default function ExpenseKPICards({
 
     const safeMin = Number.isFinite(min) ? min : 0;
     const safeMax = Number.isFinite(max) ? max : 0;
-    const range = safeMax - safeMin;
-    const ratio =
-      range > 0
-        ? Math.min(100, Math.max(5, ((averageExpense - safeMin) / range) * 100))
-        : 50;
 
     return {
       minExpense: safeMin,
       maxExpense: safeMax,
       maxExpenseItem: topItem,
-      positionRatio: ratio,
     };
-  }, [averageExpense, expenses]);
+  }, [expenses]);
 
   return (
     <section className="expenses-kpi-grid" aria-label="Expenses KPI and Data Visualizations">

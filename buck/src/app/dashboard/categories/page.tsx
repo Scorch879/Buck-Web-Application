@@ -32,19 +32,16 @@ import {
   deleteCategoryAndReassign,
   ensureDefaultCategories,
   incomeSources,
-  listExpenses,
   listIncomeCategories,
-  listIncomes,
   renameCategory,
   setExpenseCategory,
   setIncomeCategory,
   UNCATEGORIZED_EXPENSE,
   UNCATEGORIZED_INCOME,
   type BuckCategory,
-  type BuckExpense,
-  type BuckIncome,
   type CategoryKind,
 } from "@/utils/supabaseData";
+import { useUserTable } from "@/hooks/useUserTable";
 
 type EntryItemSummary = {
   id: string;
@@ -107,8 +104,10 @@ export default function CategoriesPage() {
   );
   // null = income categories unavailable (migration 202610130002 not applied).
   const [incomeCategories, setIncomeCategories] = useState<BuckCategory[] | null>([]);
-  const [expenses, setExpenses] = useState<BuckExpense[]>(() => userCache.expenses ?? []);
-  const [incomes, setIncomes] = useState<BuckIncome[]>(() => userCache.incomes ?? []);
+  const { data: expensesData, refresh: refreshExpenses } = useUserTable("expenses");
+  const { data: incomesData, refresh: refreshIncomes } = useUserTable("incomes");
+  const expenses = useMemo(() => expensesData ?? [], [expensesData]);
+  const incomes = useMemo(() => incomesData ?? [], [incomesData]);
   const [loading, setLoading] = useState(
     () => !(userCache.categories && userCache.expenses)
   );
@@ -131,22 +130,16 @@ export default function CategoriesPage() {
   const hadCache = useRef(Boolean(userCache.categories && userCache.expenses));
 
   const load = useCallback(async () => {
-    const [cats, incCats, exps, incs] = await Promise.all([
+    const [cats, incCats] = await Promise.all([
       ensureDefaultCategories(user.uid),
       listIncomeCategories(user.uid),
-      listExpenses(user.uid),
-      listIncomes(user.uid),
     ]);
     const sortedCats = [...cats].sort((a, b) => a.name.localeCompare(b.name));
     setExpenseCategories(sortedCats);
     setIncomeCategories(incCats);
-    setExpenses(exps);
-    setIncomes(incs ?? []);
     setDashboardCache((current) =>
       mergeDashboardDataCache(current, user.uid, {
         categories: sortedCats,
-        expenses: exps,
-        ...(incs !== null ? { incomes: incs } : {}),
       })
     );
   }, [setDashboardCache, user.uid]);
@@ -343,7 +336,7 @@ export default function CategoriesPage() {
         }
         filed += 1;
       }
-      await load();
+      await Promise.all([load(), refreshExpenses(), refreshIncomes()]);
       const left = uncategorized.length - filed;
       const msg =
         `AI filed ${filed} of ${batch.length} checked. ${left} still uncategorized` +
@@ -392,7 +385,7 @@ export default function CategoriesPage() {
     const loadingToastId = toast.loading(`Renaming "${row.category.name}" to "${name}"…`);
     try {
       await renameCategory(user.uid, { ...row.category, kind }, name);
-      await load();
+      await Promise.all([load(), refreshExpenses(), refreshIncomes()]);
       setEditingId(null);
       toast.dismiss(loadingToastId);
       toast(`Renamed to "${name}"`, "success");
@@ -409,7 +402,7 @@ export default function CategoriesPage() {
     try {
       const moved = await deleteCategoryAndReassign(user.uid, { ...row.category, kind }, fallback);
       setPendingDelete(null);
-      await load();
+      await Promise.all([load(), refreshExpenses(), refreshIncomes()]);
       toast(
         moved > 0
           ? `Deleted "${row.category.name}"; ${moved} moved to ${fallbackName}`

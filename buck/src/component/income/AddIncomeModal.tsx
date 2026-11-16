@@ -9,7 +9,6 @@ import CustomSelect from "@/component/CustomSelect";
 import { useToast } from "@/component/toast/ToastContext";
 import { useFinancial } from "@/context/FinancialContext";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
-import { refreshWalletCache } from "@/hooks/useIncomes";
 import { useIsClient } from "@/hooks/useIsClient";
 import { toLocalDateString } from "@/utils/cashFlow";
 import { formatCurrency, parseMoneyInput } from "@/utils/formatters";
@@ -34,7 +33,7 @@ export default function AddIncomeModal({
   onSaved?: () => void;
 }) {
   const { toast } = useToast();
-  const { setDashboardCache } = useFinancial();
+  const { refreshTable } = useFinancial();
   const isClient = useIsClient();
   const [wallet, setWallet] = useState<BuckWallet | null>(null);
   const [walletLoading, setWalletLoading] = useState(true);
@@ -129,7 +128,7 @@ export default function AddIncomeModal({
         description,
         date,
       });
-      await refreshWalletCache(userId, setDashboardCache);
+      await refreshTable("wallets");
       toast(`Added ${formatCurrency(value)} to ${wallet.name}`, "success");
       onSaved?.();
       onClose();

@@ -16,6 +16,8 @@ import {
   FaTag,
 } from "react-icons/fa";
 
+import { DEFAULT_CATEGORY_COLOR, getCategoryColor } from "@/utils/categoryUtils";
+
 export interface CategoryTheme {
   color: string;
   bg: string;
@@ -23,103 +25,58 @@ export interface CategoryTheme {
   icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
 }
 
+function hexToRgba(hex: string, alpha: number): string {
+  const clean = hex.replace("#", "");
+  const full =
+    clean.length === 3
+      ? clean
+          .split("")
+          .map((ch) => ch + ch)
+          .join("")
+      : clean;
+  const r = Number.parseInt(full.slice(0, 2), 16);
+  const g = Number.parseInt(full.slice(2, 4), 16);
+  const b = Number.parseInt(full.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function buildTheme(
+  name: string,
+  icon: CategoryTheme["icon"],
+  bgAlpha = 0.12,
+  borderAlpha = 0.3
+): CategoryTheme {
+  const color = getCategoryColor(name);
+  return {
+    color,
+    bg: hexToRgba(color, bgAlpha),
+    border: hexToRgba(color, borderAlpha),
+    icon,
+  };
+}
+
 const CATEGORY_MAP: Record<string, CategoryTheme> = {
-  Food: {
-    color: "#f47536",
-    bg: "rgba(244, 117, 54, 0.12)",
-    border: "rgba(244, 117, 54, 0.3)",
-    icon: FaUtensils,
-  },
-  Transportation: {
-    color: "#3b82f6",
-    bg: "rgba(59, 130, 246, 0.12)",
-    border: "rgba(59, 130, 246, 0.3)",
-    icon: FaCar,
-  },
-  Shopping: {
-    color: "#ec4899",
-    bg: "rgba(236, 72, 153, 0.12)",
-    border: "rgba(236, 72, 153, 0.3)",
-    icon: FaShoppingBag,
-  },
-  Bills: {
-    color: "#eab308",
-    bg: "rgba(234, 179, 8, 0.12)",
-    border: "rgba(234, 179, 8, 0.3)",
-    icon: FaFileInvoiceDollar,
-  },
-  Education: {
-    color: "#8b5cf6",
-    bg: "rgba(139, 92, 246, 0.12)",
-    border: "rgba(139, 92, 246, 0.3)",
-    icon: FaBook,
-  },
-  Electronics: {
-    color: "#06b6d4",
-    bg: "rgba(6, 182, 212, 0.12)",
-    border: "rgba(6, 182, 212, 0.3)",
-    icon: FaLaptop,
-  },
-  Entertainment: {
-    color: "#f97316",
-    bg: "rgba(249, 115, 22, 0.12)",
-    border: "rgba(249, 115, 22, 0.3)",
-    icon: FaCoins,
-  },
-  Health: {
-    color: "#ef4444",
-    bg: "rgba(239, 68, 68, 0.12)",
-    border: "rgba(239, 68, 68, 0.3)",
-    icon: FaHeartbeat,
-  },
-  Home: {
-    color: "#10b981",
-    bg: "rgba(16, 185, 129, 0.12)",
-    border: "rgba(16, 185, 129, 0.3)",
-    icon: FaHome,
-  },
-  Insurance: {
-    color: "#6366f1",
-    bg: "rgba(99, 102, 241, 0.12)",
-    border: "rgba(99, 102, 241, 0.3)",
-    icon: FaShieldAlt,
-  },
-  Social: {
-    color: "#14b8a6",
-    bg: "rgba(20, 184, 166, 0.12)",
-    border: "rgba(20, 184, 166, 0.3)",
-    icon: FaUsers,
-  },
-  Sport: {
-    color: "#84cc16",
-    bg: "rgba(132, 204, 22, 0.12)",
-    border: "rgba(132, 204, 22, 0.3)",
-    icon: FaRunning,
-  },
-  Telephone: {
-    color: "#0ea5e9",
-    bg: "rgba(14, 165, 233, 0.12)",
-    border: "rgba(14, 165, 233, 0.3)",
-    icon: FaPhone,
-  },
-  "Goal Transfer": {
-    color: "#ffc547",
-    bg: "rgba(255, 197, 71, 0.16)",
-    border: "rgba(255, 197, 71, 0.35)",
-    icon: FaCoins,
-  },
-  Uncategorized: {
-    color: "#a8a29e",
-    bg: "rgba(168, 162, 158, 0.12)",
-    border: "rgba(168, 162, 158, 0.28)",
-    icon: FaTag,
-  },
+  Food: buildTheme("Food", FaUtensils),
+  Transportation: buildTheme("Transportation", FaCar),
+  Shopping: buildTheme("Shopping", FaShoppingBag),
+  Bills: buildTheme("Bills", FaFileInvoiceDollar),
+  Education: buildTheme("Education", FaBook),
+  Electronics: buildTheme("Electronics", FaLaptop),
+  Entertainment: buildTheme("Entertainment", FaCoins),
+  Health: buildTheme("Health", FaHeartbeat),
+  Home: buildTheme("Home", FaHome),
+  Insurance: buildTheme("Insurance", FaShieldAlt),
+  Social: buildTheme("Social", FaUsers),
+  Sport: buildTheme("Sport", FaRunning),
+  Telephone: buildTheme("Telephone", FaPhone),
+  "Goal Transfer": buildTheme("Goal Transfer", FaCoins, 0.16, 0.35),
+  Uncategorized: buildTheme("Uncategorized", FaTag, 0.12, 0.28),
 };
 
 const DEFAULT_THEME: CategoryTheme = {
-  color: "#f47536",
-  bg: "rgba(244, 117, 54, 0.12)",
-  border: "rgba(244, 117, 54, 0.28)",
+  color: DEFAULT_CATEGORY_COLOR,
+  bg: hexToRgba(DEFAULT_CATEGORY_COLOR, 0.12),
+  border: hexToRgba(DEFAULT_CATEGORY_COLOR, 0.28),
   icon: FaTag,
 };
 

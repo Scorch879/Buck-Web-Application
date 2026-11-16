@@ -9,7 +9,12 @@ import IncomeList from "@/component/income/IncomeList";
 import MonthlyCashFlowCard from "@/component/income/MonthlyCashFlowCard";
 import { useIncomes } from "@/hooks/useIncomes";
 import { useUserTable } from "@/hooks/useUserTable";
-import { formatCurrency } from "@/utils/formatters";
+import {
+  formatCurrency,
+  formatEditableBudget,
+  parseBudgetInput,
+  sanitizeBudgetInput,
+} from "@/utils/formatters";
 import {
   deleteWallet,
   setActiveWallet,
@@ -26,8 +31,6 @@ import {
   FaSearch,
   FaTimes,
   FaMoneyBillWave,
-  FaChevronLeft,
-  FaChevronRight,
   FaSpinner,
 } from "react-icons/fa";
 import { motion } from "framer-motion";
@@ -35,165 +38,49 @@ import { DURATION, EASE_OUT } from "@/utils/motion";
 import "../settings/style.css";
 import WalletModal from "./WalletModal";
 import DangerDeleteDialog from "@/component/DangerDeleteDialog";
-import CustomSelect from "@/component/CustomSelect";
+import CustomSelect, { type SelectOption } from "@/component/CustomSelect";
+import Pagination, { type PaginationClassNames } from "@/component/Pagination";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 
 const WALLETS_PAGE_SIZE = 4;
 const HISTORY_PAGE_SIZE = 4;
 
-function sanitizeBudgetInput(raw: string): string {
-  const cleaned = raw.replace(/[^0-9.,]/g, "");
-  const firstDot = cleaned.indexOf(".");
-  if (firstDot === -1) return cleaned;
-  return (
-    cleaned.slice(0, firstDot + 1) +
-    cleaned.slice(firstDot + 1).replace(/\./g, "")
-  );
-}
+type WalletSortOption =
+  | "Highest Budget"
+  | "Lowest Budget"
+  | "A-Z"
+  | "Newest - Oldest"
+  | "Oldest - Newest";
 
-function parseBudgetInput(raw: string): number {
-  return Number(raw.replace(/,/g, "").trim());
-}
+type WalletHistoryFilter = "All" | "Active Only" | "Archived Only";
 
-function formatEditableBudget(value: number): string {
-  const num = Number(value) || 0;
-  return num.toLocaleString("en-US", {
-    minimumFractionDigits: num % 1 !== 0 ? 2 : 0,
-    maximumFractionDigits: 2,
-  });
-}
+const WALLET_SORT_OPTIONS: SelectOption<WalletSortOption>[] = [
+  { value: "Highest Budget", label: "Highest Budget" },
+  { value: "Lowest Budget", label: "Lowest Budget" },
+  { value: "A-Z", label: "A-Z" },
+  { value: "Newest - Oldest", label: "Newest - Oldest" },
+  { value: "Oldest - Newest", label: "Oldest - Newest" },
+];
 
-function getPaginationPages(
-  current: number,
-  total: number
-): (number | "ellipsis-start" | "ellipsis-end")[] {
-  if (total <= 7) {
-    return Array.from({ length: total }, (_, i) => i + 1);
-  }
-  if (current <= 4) {
-    return [1, 2, 3, 4, 5, "ellipsis-end", total];
-  }
-  if (current >= total - 3) {
-    return [
-      1,
-      "ellipsis-start",
-      total - 4,
-      total - 3,
-      total - 2,
-      total - 1,
-      total,
-    ];
-  }
-  return [
-    1,
-    "ellipsis-start",
-    current - 1,
-    current,
-    current + 1,
-    "ellipsis-end",
-    total,
-  ];
-}
+const WALLET_HISTORY_OPTIONS: SelectOption<WalletHistoryFilter>[] = [
+  { value: "All", label: "All" },
+  { value: "Active Only", label: "Active Only" },
+  { value: "Archived Only", label: "Archived Only" },
+];
 
-function WalletPagination({
-  currentPage,
-  totalPages,
-  totalItems,
-  startIndex,
-  endIndex,
-  onPageChange,
-  ariaLabel,
-}: {
-  currentPage: number;
-  totalPages: number;
-  totalItems: number;
-  startIndex: number;
-  endIndex: number;
-  onPageChange: (page: number) => void;
-  ariaLabel: string;
-}) {
-  if (totalItems === 0) return null;
-
-  return (
-    <div className="wallet-pagination" role="navigation" aria-label={ariaLabel}>
-      <div className="wallet-pagination-spacer" aria-hidden="true" />
-
-      <div className="wallet-pagination-nav">
-        <motion.button
-          type="button"
-          className="wallet-page-btn wallet-page-btn--nav"
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage <= 1}
-          aria-label="Previous page"
-          title="Previous page"
-          whileHover={currentPage <= 1 ? undefined : { scale: 1.03 }}
-          whileTap={currentPage <= 1 ? undefined : { scale: 0.96 }}
-        >
-          <FaChevronLeft aria-hidden="true" />
-          <span>Prev</span>
-        </motion.button>
-
-        <div className="wallet-page-numbers">
-          {getPaginationPages(currentPage, totalPages).map((p, idx) => {
-            if (typeof p === "string") {
-              return (
-                <span
-                  key={`${p}-${idx}`}
-                  className="wallet-page-ellipsis"
-                  aria-hidden="true"
-                >
-                  …
-                </span>
-              );
-            }
-            const isActive = p === currentPage;
-            return (
-              <motion.button
-                key={p}
-                type="button"
-                className={`wallet-page-btn ${
-                  isActive ? "wallet-page-btn--active" : ""
-                }`}
-                onClick={() => onPageChange(p)}
-                aria-label={`Page ${p}`}
-                aria-current={isActive ? "page" : undefined}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                {p}
-              </motion.button>
-            );
-          })}
-        </div>
-
-        <motion.button
-          type="button"
-          className="wallet-page-btn wallet-page-btn--nav"
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
-          aria-label="Next page"
-          title="Next page"
-          whileHover={currentPage >= totalPages ? undefined : { scale: 1.03 }}
-          whileTap={currentPage >= totalPages ? undefined : { scale: 0.96 }}
-        >
-          <span>Next</span>
-          <FaChevronRight aria-hidden="true" />
-        </motion.button>
-      </div>
-
-      <div className="wallet-pagination-info">
-        <span className="wallet-pagination-info-full">
-          Showing <strong>{startIndex + 1}</strong>–<strong>{endIndex}</strong> of{" "}
-          <strong>{totalItems}</strong>
-        </span>
-        <span className="wallet-pagination-info-short">
-          <strong>{startIndex + 1}</strong>–<strong>{endIndex}</strong> of{" "}
-          <strong>{totalItems}</strong>
-        </span>
-      </div>
-    </div>
-  );
-}
+const WALLET_PAGINATION_CLASSES: PaginationClassNames = {
+  root: "wallet-pagination",
+  spacer: "wallet-pagination-spacer",
+  nav: "wallet-pagination-nav",
+  navButton: "wallet-page-btn wallet-page-btn--nav",
+  numbers: "wallet-page-numbers",
+  pageButton: "wallet-page-btn",
+  activePageButton: "wallet-page-btn--active",
+  ellipsis: "wallet-page-ellipsis",
+  info: "wallet-pagination-info",
+  infoFull: "wallet-pagination-info-full",
+  infoShort: "wallet-pagination-info-short",
+};
 
 export default function WalletPage() {
   const user = useOptionalDashboardUser();
@@ -237,17 +124,17 @@ export default function WalletPage() {
   const [incomeSearchQuery, setIncomeSearchQuery] = useState("");
 
   const [activeSearchQuery, setActiveSearchQuery] = useState("");
-  const [activeSort, setActiveSort] = useState("Highest Budget");
+  const [activeSort, setActiveSort] = useState<WalletSortOption>("Highest Budget");
   const [activePage, setActivePage] = useState(1);
   const [historySearchQuery, setHistorySearchQuery] = useState("");
-  const [historyFilter, setHistoryFilter] = useState("All");
+  const [historyFilter, setHistoryFilter] = useState<WalletHistoryFilter>("All");
   const [historyPage, setHistoryPage] = useState(1);
 
   const handleActiveSearchChange = (value: string) => {
     setActiveSearchQuery(value);
     setActivePage(1);
   };
-  const handleActiveSortChange = (value: string) => {
+  const handleActiveSortChange = (value: WalletSortOption) => {
     setActiveSort(value);
     setActivePage(1);
   };
@@ -255,7 +142,7 @@ export default function WalletPage() {
     setHistorySearchQuery(value);
     setHistoryPage(1);
   };
-  const handleHistoryFilterChange = (value: string) => {
+  const handleHistoryFilterChange = (value: WalletHistoryFilter) => {
     setHistoryFilter(value);
     setHistoryPage(1);
   };
@@ -287,7 +174,7 @@ export default function WalletPage() {
   const handleEditSave = async (id: string) => {
     if (!user || savingEditId) return;
     const parsedBudget = parseBudgetInput(editBudget);
-    if (!editName.trim() || !editBudget.trim() || isNaN(parsedBudget) || parsedBudget <= 0) {
+    if (!editName.trim() || !editBudget.trim() || parsedBudget === null || parsedBudget <= 0) {
       setActionError("Please enter a valid name and a budget greater than 0.");
       toast("Please enter a valid name and a budget greater than 0.", "error");
       return;
@@ -535,14 +422,8 @@ export default function WalletPage() {
                     <CustomSelect
                       fit
                       value={activeSort}
-                      onChange={(val) => handleActiveSortChange(val)}
-                      options={[
-                        { value: "Highest Budget", label: "Highest Budget" },
-                        { value: "Lowest Budget", label: "Lowest Budget" },
-                        { value: "A-Z", label: "A-Z" },
-                        { value: "Newest - Oldest", label: "Newest - Oldest" },
-                        { value: "Oldest - Newest", label: "Oldest - Newest" },
-                      ]}
+                      onChange={handleActiveSortChange}
+                      options={WALLET_SORT_OPTIONS}
                     />
                   </div>
                 </div>
@@ -701,7 +582,7 @@ export default function WalletPage() {
                   )}
                 </motion.div>
 
-                <WalletPagination
+                <Pagination
                   currentPage={safeActivePage}
                   totalPages={activeTotalPages}
                   totalItems={activeTotalItems}
@@ -709,6 +590,7 @@ export default function WalletPage() {
                   endIndex={activeEndIndex}
                   onPageChange={handleActivePageChange}
                   ariaLabel="Manage your wallets pagination"
+                  classNames={WALLET_PAGINATION_CLASSES}
                 />
               </article>
 
@@ -753,12 +635,8 @@ export default function WalletPage() {
                     <CustomSelect
                       fit
                       value={historyFilter}
-                      onChange={(val) => handleHistoryFilterChange(val)}
-                      options={[
-                        { value: "All", label: "All" },
-                        { value: "Active Only", label: "Active Only" },
-                        { value: "Archived Only", label: "Archived Only" },
-                      ]}
+                      onChange={handleHistoryFilterChange}
+                      options={WALLET_HISTORY_OPTIONS}
                     />
                   </div>
                 </div>
@@ -802,7 +680,7 @@ export default function WalletPage() {
                   )}
                 </motion.div>
 
-                <WalletPagination
+                <Pagination
                   currentPage={safeHistoryPage}
                   totalPages={historyTotalPages}
                   totalItems={historyTotalItems}
@@ -810,6 +688,7 @@ export default function WalletPage() {
                   endIndex={historyEndIndex}
                   onPageChange={handleHistoryPageChange}
                   ariaLabel="Wallet history pagination"
+                  classNames={WALLET_PAGINATION_CLASSES}
                 />
               </article>
             </div>

@@ -4,22 +4,11 @@ import React, { useId } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import './progress-bar.css';
 import { formatCurrency } from "@/utils/formatters";
-
-interface Goal {
-  id: string;
-  goalName: string;
-  targetAmount: number;
-  currentAmount?: number;
-  targetDate?: string;
-  createdAt: string;
-  attitude?: string;
-  isActive?: boolean;
-  completed?: boolean;
-}
+import type { BuckGoal } from "@/utils/supabaseData";
 
 interface ProgressBarCardProps {
-  goal: Goal;
-  onAddProgress: (goal: Goal) => void;
+  goal: BuckGoal;
+  onAddProgress: (goal: BuckGoal) => void;
 }
 
 // 2-period seamless repeating wave paths across 280px width (140px wavelength)
