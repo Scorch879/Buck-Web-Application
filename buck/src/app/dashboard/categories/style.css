@@ -1101,16 +1101,25 @@ html[data-buck-theme="dark"] .cat-page-btn--active {
 
   .cat-segmented {
     display: flex;
+    flex-wrap: wrap;
+    width: 100%;
   }
 
   .cat-segmented-btn {
-    flex: 1;
+    flex: 1 1 auto;
     justify-content: center;
+    padding: 0 0.65rem;
+    font-size: 0.85rem;
   }
 
   .cat-toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .cat-search {
+    flex: 1 1 auto;
+    width: 100%;
   }
 
   .cat-toolbar-actions {
@@ -1120,6 +1129,31 @@ html[data-buck-theme="dark"] .cat-page-btn--active {
 
   .cat-toolbar-actions > * {
     flex: 1 1 auto;
+  }
+
+  .cat-add-slot,
+  .cat-add-inline {
+    width: 100%;
+  }
+
+  .cat-add-inline input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+  }
+
+  .cat-ai-tooltip-wrap {
+    width: 100%;
+  }
+
+  .cat-ai-tooltip-wrap > button {
+    width: 100%;
+  }
+
+  .cat-ai-tooltip {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
   }
 
   .cat-filter-dropdown > div,
@@ -1160,6 +1194,13 @@ html[data-buck-theme="dark"] .cat-page-btn--active {
     display: none;
   }
 
+  .cat-pagination-nav,
+  .cat-page-numbers {
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 100%;
+  }
+
   .cat-pagination-info {
     justify-self: center;
     text-align: center;
@@ -1172,9 +1213,34 @@ html[data-buck-theme="dark"] .cat-page-btn--active {
     display: none;
   }
 
+  .cat-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .cat-table th,
   .cat-table td {
     padding-right: 0.6rem;
     padding-left: 0.6rem;
+  }
+
+  .cat-name-wrap {
+    max-width: 100%;
+  }
+
+  .cat-name {
+    min-width: 0;
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .cat-rename {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+
+  .cat-rename input {
+    width: min(120px, 100%);
+    min-width: 80px;
   }
 }

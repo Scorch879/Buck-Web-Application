@@ -103,6 +103,7 @@ html[data-buck-theme="dark"] .goals-pill--completed {
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
+  min-width: 0;
   max-height: calc(100dvh - 2rem);
   padding: 1rem;
   overflow: hidden;
@@ -209,6 +210,7 @@ html[data-buck-theme="dark"] .goals-card.selected {
 .goals-card-meta {
   display: flex;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.5rem;
   color: var(--buck-muted);
   font-size: 0.8rem;
@@ -379,6 +381,7 @@ html[data-buck-theme="dark"] .goals-card.selected {
   display: grid;
   align-content: center;
   gap: 0.15rem;
+  min-width: 0;
   padding: 0.7rem 0.85rem;
   border: 1px solid var(--buck-line);
   border-radius: 8px;
@@ -662,6 +665,7 @@ html[data-buck-theme="dark"] .goals-segmented-btn[aria-pressed="true"] {
 .goals-forecast-progress-row {
   display: flex;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.75rem;
   color: var(--buck-muted);
   font-size: 0.85rem;
@@ -952,6 +956,10 @@ html[data-buck-theme="dark"] .goals-restore-btn:hover:not(:disabled) {
   position: absolute;
   top: 0.85rem;
   right: 0.85rem;
+  display: inline-grid;
+  place-items: center;
+  min-width: 36px;
+  min-height: 36px;
   color: var(--buck-orange);
   background: transparent;
   border: 0;
@@ -1280,6 +1288,14 @@ html[data-buck-theme="dark"] .goals-pill--moderate {
 }
 
 @media (max-width: 560px) {
+  .goal-detail-title {
+    width: 100%;
+  }
+
+  .goal-detail-name {
+    flex-wrap: wrap;
+  }
+
   .goal-facts {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
@@ -1288,12 +1304,25 @@ html[data-buck-theme="dark"] .goals-pill--moderate {
   .goals-bottom-buttons,
   .goals-modal-footer {
     width: 100%;
+    flex-wrap: wrap;
   }
 
   .goal-detail-actions > *,
   .goals-bottom-buttons > *,
   .goals-modal-footer > * {
-    flex: 1;
+    flex: 1 1 auto;
+  }
+
+  .goals-segmented {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .goals-segmented-btn {
+    flex: 1 1 auto;
+    padding: 0 0.65rem;
+    font-size: 0.85rem;
   }
 
   .goals-forecast-select {
@@ -1302,5 +1331,11 @@ html[data-buck-theme="dark"] .goals-pill--moderate {
 
   .goals-forecast-chart {
     height: 240px;
+  }
+}
+
+@media (max-width: 380px) {
+  .goal-facts {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -204,6 +204,10 @@ html[data-buck-theme="dark"] .dashboard-topbar--welcome {
   margin: 0;
 }
 
+.dashboard-topbar > * {
+  min-width: 0;
+}
+
 .dashboard-topbar > div:first-child {
   min-width: 0;
   display: flex;
@@ -858,10 +862,35 @@ html[data-buck-theme="dark"] .mobile-dropdown {
 
   .mobile-dropdown {
     right: 0.75rem;
+    max-height: calc(100dvh - 80px);
+    overflow-y: auto;
   }
 
   .mobile-dropdown .nav-button {
     justify-content: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+  }
+
+  .dashboard-topbar > * {
+    min-width: 0;
+  }
+
+  .dashboard-topbar-actions {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .dashboard-topbar-actions > span {
+    text-align: left;
   }
 }
 
@@ -886,9 +915,10 @@ html[data-buck-theme="dark"] .mobile-dropdown {
   }
 
   .dashboard-wallet-pill {
-    padding: 0.55rem 1rem;
-    font-size: 0.95rem;
-    margin-top: 0.25rem;
+    max-width: 100%;
+    margin-top: 0;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.9rem;
   }
 
   .dashboard-tagline {
