@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { isAdminUser } from "@/utils/adminAccess";
 import {
   getSupabaseEnv,
   isSupabaseConfigured,
@@ -31,4 +32,19 @@ export async function createSupabaseServerClient() {
       },
     },
   });
+}
+
+/** Verifies the SSR cookie session and evaluates admin access (`isAdminUser`). */
+export async function getAdminServerSession() {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  return {
+    supabase,
+    user,
+    isAdmin: !error && isAdminUser(user),
+  };
 }

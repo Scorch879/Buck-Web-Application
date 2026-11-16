@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { copyResponseCookies, setNoStoreHeaders } from "@/utils/httpResponse";
 import {
   isSupabaseConfigured,
   supabaseAnonKey,
@@ -10,22 +11,6 @@ import {
 const avatarBucketName = "profile-avatars";
 const fallbackAvatarPath = "/BuckMascot.png";
 const avatarFileNamePattern = /^[A-Za-z0-9._-]+\.(?:jpe?g|png|webp)$/i;
-
-function copyResponseCookies(source: NextResponse, target: NextResponse) {
-  source.cookies.getAll().forEach((cookie) => {
-    target.cookies.set(cookie);
-  });
-
-  return target;
-}
-
-function setNoStoreHeaders(response: NextResponse) {
-  response.headers.set("Cache-Control", "no-store, max-age=0");
-  response.headers.set("Pragma", "no-cache");
-  response.headers.set("Expires", "0");
-
-  return response;
-}
 
 function createFallbackAvatarResponse(
   request: NextRequest,

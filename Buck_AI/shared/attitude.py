@@ -37,10 +37,6 @@ WEEK, MONTH = 7, 30
 log = logging.getLogger("buck_ai.attitude")
 
 
-def _m(value: float) -> float:
-    return round(max(0.0, float(value)), 2)
-
-
 def attitude_inputs(expenses: Iterable[tuple[date, float]], incomes: Iterable[tuple[date, float]],
                     today: date) -> dict[str, Any]:
     """Usual daily spending and income per day from raw `(day, amount)` rows.
@@ -93,7 +89,7 @@ def _choose(cut: float, current: str | None) -> str:
 
 
 def _periods(per_day: float) -> dict[str, float]:
-    return {"perDay": _m(per_day), "perWeek": _m(per_day * WEEK), "perMonth": _m(per_day * MONTH)}
+    return {"perDay": money(per_day), "perWeek": money(per_day * WEEK), "perMonth": money(per_day * MONTH)}
 
 
 def day_label(day: date) -> str:
@@ -121,15 +117,15 @@ def detect_attitude(*, typical_daily: float, income_daily: float | None, remaini
 
 def _detect(typical_daily: float, income_daily: float | None, remaining: float, target_date: str | None,
             today: date, current: str | None) -> dict[str, Any]:
-    remaining = _m(remaining)
+    remaining = money(remaining)
     try:
         days_left = (date.fromisoformat(target_date[:10]) - today).days if target_date else None
     except ValueError:
         days_left = None
     base: dict[str, Any] = {
         "asOf": today.isoformat(), "remaining": remaining, "daysLeft": days_left,
-        "typicalDailySpending": _m(typical_daily),
-        "incomePerDay": _m(income_daily) if income_daily else None,
+        "typicalDailySpending": money(typical_daily),
+        "incomePerDay": money(income_daily) if income_daily else None,
         "assumesBreakEven": not income_daily,
         "requiredSavingPerDay": None, "cutNeeded": None, "feasible": True,
     }
@@ -140,7 +136,7 @@ def _detect(typical_daily: float, income_daily: float | None, remaining: float, 
         return {**base, "attitude": "Aggressive", "feasible": False,
                 "reason": "The target date has passed. Pick a new date to get a plan."}
     required = remaining / days_left
-    base["requiredSavingPerDay"] = _m(required)
+    base["requiredSavingPerDay"] = money(required)
     if typical_daily <= 0:
         return {**base, "attitude": current if current in ATTITUDES else "Normal",
                 "reason": "Not enough spending logged yet to judge. Log a few days of spending first."}
@@ -167,7 +163,7 @@ def _detect(typical_daily: float, income_daily: float | None, remaining: float, 
     if attitude != ATTITUDES[_level(cut)]:  # held by the margin
         reason += f" You're close to the line, so Buck keeps your {attitude} plan for now."
     return {**base, "attitude": attitude, "cutNeeded": round(cut, 3), "feasible": feasible,
-            "spendAllowancePerDay": _m(allowance), "reason": reason}
+            "spendAllowancePerDay": money(allowance), "reason": reason}
 
 
 def goal_plan(detection: dict[str, Any]) -> dict[str, Any] | None:

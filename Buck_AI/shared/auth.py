@@ -33,6 +33,7 @@ from fastapi import HTTPException, Request
 
 from .config import get_settings
 from .http import get_http
+from .supabase import UserDb
 
 TOKEN_CACHE_TTL_SECONDS = 60
 TOKEN_CACHE_MAX = 2048
@@ -145,3 +146,11 @@ async def current_user(request: Request) -> AuthUser:
 def clear_auth_cache() -> None:
     with _lock:
         _cache.clear()
+
+
+def user_db(user: AuthUser) -> UserDb:
+    return UserDb(user.id, user.token)
+
+
+def db_unavailable() -> HTTPException:
+    return HTTPException(503, "Could not read your data right now. Try again shortly.")

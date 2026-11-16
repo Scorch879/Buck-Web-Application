@@ -1,10 +1,11 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { hashSha256Hex, matchesSha256Hex } from "@/utils/secureCompare";
 
 /** Shared by the /api/auth/mfa/* routes and /account/mfa/recover/confirm. */
 
 export { EMAIL_RECOVERY_CONFIRM_PATH } from "@/utils/mfa/assurance";
+export { getSiteOrigin } from "@/utils/httpResponse";
 
 const DEFAULT_EMAIL_RECOVERY_DELAY_HOURS = 24;
 export const EMAIL_RECOVERY_CONFIRM_MINUTES = 30;
@@ -47,30 +48,11 @@ export function getEmailRecoveryDelayMs() {
 }
 
 export function hashRecoveryToken(token: string) {
-  return createHash("sha256").update(token).digest("hex");
+  return hashSha256Hex(token);
 }
 
 export function recoveryTokenMatches(token: string, expectedHash: string) {
-  const actual = Buffer.from(hashRecoveryToken(token), "hex");
-  const expected = Buffer.from(expectedHash, "hex");
-
-  return actual.length === expected.length && timingSafeEqual(actual, expected);
-}
-
-export function getSiteOrigin(request: Request) {
-  if (process.env.NODE_ENV !== "development") {
-    const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-
-    if (configured) {
-      try {
-        return new URL(/^https?:\/\//i.test(configured) ? configured : `https://${configured}`).origin;
-      } catch {
-        console.warn("NEXT_PUBLIC_SITE_URL is not a valid URL.");
-      }
-    }
-  }
-
-  return new URL(request.url).origin;
+  return matchesSha256Hex(token, expectedHash);
 }
 
 /** The user's single open (not completed, not canceled) email recovery. */

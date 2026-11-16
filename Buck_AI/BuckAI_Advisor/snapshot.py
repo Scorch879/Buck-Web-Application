@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from shared.attitude import attitude_inputs, detect_attitude, goal_plan
-from shared.money import ATTITUDES, PH_TZ, money, month_bounds, today_ph  # noqa: F401  (re-exported)
+from shared.money import ATTITUDES, PH_TZ, money, month_bounds, parse_day, today_ph  # noqa: F401  (re-exported)
 from shared.safety import clean_text
 from shared.supabase import DbError, UserDb
 
@@ -37,13 +37,6 @@ class Snapshot:
 # A wallet whose name says it holds savings ("Emergency & Savings Fund", "BDO Savings",
 # "Ipon") is never the one to spend from day to day, even when it is the active wallet.
 _SAVINGS_NAME = re.compile(r"\b(sav(e|es|ing|ings)|emergency|ipon|reserve|buffer|goal|fund)\b", re.I)
-
-
-def _day(value: Any) -> date | None:
-    try:
-        return date.fromisoformat(str(value)[:10])
-    except ValueError:
-        return None
 
 
 def wallet_kind(name: str) -> str:
@@ -112,11 +105,8 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
     spend_days: list[tuple[date, float]] = []
     for row in expense_rows:
         amount = money(row.get("amount"))
-        try:
-            spent_on = date.fromisoformat(str(row.get("spent_on"))[:10])
-        except ValueError:
-            continue
-        if spent_on > today:
+        spent_on = parse_day(row.get("spent_on"))
+        if spent_on is None or spent_on > today:
             continue
         spend_days.append((spent_on, amount))
         if spent_on >= month_start:
@@ -139,7 +129,7 @@ async def build_snapshot(db: UserDb, today: date | None = None) -> Snapshot:
     projected = spent_month + avg_daily * (days_total - days_elapsed)
 
     income_days = [(d, money(r.get("amount"))) for r in (income_rows or [])
-                   if (d := _day(r.get("received_on"))) and d <= today]
+                   if (d := parse_day(r.get("received_on"))) and d <= today]
     income = (round(sum(a for d, a in income_days if d >= month_start), 2)
               if income_rows is not None else None)
 

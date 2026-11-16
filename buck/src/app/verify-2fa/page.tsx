@@ -10,6 +10,7 @@ import TotpCodeInput from "@/component/mfa/TotpCodeInput";
 import { signOutUser } from "@/component/authentication";
 import { useToast } from "@/component/toast";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
+import { formatMediumDateTime } from "@/utils/formatters";
 import {
   MfaRequestError,
   completeEmailRecovery,
@@ -48,11 +49,7 @@ const EMAIL_RECOVERY_NOTICES: Record<string, { tone: "info" | "error"; text: str
 };
 
 function formatLocalTime(value: string) {
-  const date = new Date(value);
-
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+  return formatMediumDateTime(value) ?? value;
 }
 
 function Shell({ dark, busy = false, children }: { dark: boolean; busy?: boolean; children: ReactNode }) {

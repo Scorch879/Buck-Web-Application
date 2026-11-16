@@ -1,29 +1,18 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
+import { randomBytes, randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
+import { getSiteOrigin } from "@/utils/httpResponse";
+import { hashSha256Hex } from "@/utils/secureCompare";
 import { createSupabaseAdminClient } from "@/utils/supabase/admin";
 import { createSupabaseServerClient } from "@/utils/supabase/server";
+import { createSupabaseStatelessClient } from "@/utils/supabase/stateless";
 import { getMfaState, hasFreshStepUp } from "@/utils/mfa/assurance";
 import {
   isSupabaseAdminConfigured,
   isSupabaseConfigured,
-  supabaseAnonKey,
-  supabaseUrl,
 } from "@/utils/supabaseConfig";
 
 const CONFIRMATION_WINDOW_MINUTES = 60;
 const DELETE_CONFIRM_TEXT = "DELETE";
-
-function hashToken(token: string) {
-  return createHash("sha256").update(token).digest("hex");
-}
-
-function getOrigin(request: NextRequest) {
-  if (process.env.NODE_ENV !== "development") {
-    return process.env.NEXT_PUBLIC_SITE_URL?.trim() || request.nextUrl.origin;
-  }
-  return request.nextUrl.origin;
-}
 
 function getDeletionErrorMessage(error: unknown) {
   console.error("Account deletion request failed:", error);
@@ -36,12 +25,7 @@ async function verifyCurrentPassword(email: string, password: string) {
     return false;
   }
 
-  const verifier = createClient(supabaseUrl!, supabaseAnonKey!, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  const verifier = createSupabaseStatelessClient();
   const { error } = await verifier.auth.signInWithPassword({ email, password });
 
   return !error;
@@ -169,7 +153,7 @@ export async function POST(request: NextRequest) {
       id: requestId,
       user_id: user.id,
       email: user.email,
-      token_hash: hashToken(token),
+      token_hash: hashSha256Hex(token),
       requested_at: now.toISOString(),
       confirmation_expires_at: confirmationExpiresAt,
       confirmed_at: null,
@@ -186,19 +170,14 @@ export async function POST(request: NextRequest) {
       throw new Error(upsertError.message);
     }
 
-    const origin = getOrigin(request);
+    const origin = getSiteOrigin(request);
     const nextPath = `/account/delete/confirm?request=${encodeURIComponent(
       requestId
     )}&token=${encodeURIComponent(token)}`;
     const callbackUrl = new URL("/auth/callback", origin);
     callbackUrl.searchParams.set("next", nextPath);
 
-    const mailClient = createClient(supabaseUrl!, supabaseAnonKey!, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
+    const mailClient = createSupabaseStatelessClient();
     const { error: otpError } = await mailClient.auth.signInWithOtp({
       email: user.email,
       options: {

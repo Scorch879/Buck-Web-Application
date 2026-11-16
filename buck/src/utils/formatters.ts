@@ -71,3 +71,19 @@ export function formatMediumDateTime(
     includeTime ? { dateStyle: "medium", timeStyle: "short" } : { dateStyle: "medium" }
   ).format(date);
 }
+
+/** Escapes `%`, `_`, and `\` so PostgREST ILIKE filters match literally. */
+export function escapeIlikePattern(value: string): string {
+  return value.trim().replace(/[\\%_]/g, (match) => `\\${match}`);
+}
+
+/** Type guard for non-array plain objects when validating JSON payloads. */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Parses a finite non-negative number from an env/config string, falling back cleanly. */
+export function getPositiveNumber(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}

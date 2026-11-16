@@ -5,8 +5,9 @@ calibrated to the user's saving attitude. It does not forecast; projections
 belong to BuckAI_Forecast.
 """
 
-import json
 from typing import Any
+
+from shared.safety import fence
 
 SHARED_RULES = """Rules you always follow:
 - Only discuss this user's personal finances inside Buck. Politely decline anything else in one sentence.
@@ -23,10 +24,6 @@ ATTITUDE_RULES = """Saving attitude calibrates every target you give:
 ROLE = """You are Buck's AI Financial Advisor for a budgeting app used in the Philippines.
 Your job: explain where the user's money goes and give specific, doable next steps for budgeting, saving and reaching goals. Every recommendation names a ₱ amount and a time period.
 You do not forecast. If asked for projections or "when will I reach…", answer in one line from the data and suggest Buck's AI Forecaster for the full projection."""
-
-
-def fence(tag: str, data: Any) -> str:
-    return f"<{tag}>\n{json.dumps(data, ensure_ascii=False, separators=(',', ':'))}\n</{tag}>"
 
 
 def chat_system_prompt(snapshot_data: dict[str, Any], saved_advice: dict[str, Any] | None) -> str:

@@ -2,7 +2,7 @@
 
 Keys are camelCase: this dict is the API response (web and mobile) and is
 saved as `ai_forecasts.metadata.forecast`. Every amount is in PHP, rounded to
-2 decimals and never negative. `ai_view` is the part Gemini sees: numbers and
+2 decimals and never negative. `ai_view` is the part the narrative model (Groq) sees: numbers and
 category names only, no descriptions or ids.
 """
 
@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 
 from shared.attitude import goal_plan
-from shared.money import ATTITUDES, SPEND_MULTIPLIER, month_bounds, peso
+from shared.money import ATTITUDES, SPEND_MULTIPLIER, money, month_bounds, peso
 
 from .model import (BACKTEST_DAYS, MIN_DAYS, MIN_EXPENSES, SIMULATIONS, WINDOWS, Expense, Income,
                     backtest, find_outliers, find_recurring, first_day, fit, head, recurring_dates, seed_for,
@@ -34,13 +34,9 @@ class History:
     detection: dict[str, Any] | None = None  # shared.attitude.detect_attitude for the goal
 
 
-def _m(value: float) -> float:
-    return round(max(0.0, float(value)), 2)
-
-
 def _band(values: np.ndarray) -> dict[str, float]:
     p10, p50, p90 = np.percentile(values, [10, 50, 90])
-    return {"p10": _m(p10), "p50": _m(p50), "p90": _m(p90)}
+    return {"p10": money(p10), "p50": money(p50), "p90": money(p90)}
 
 
 def _avg(expenses: list[Expense], start: date, end: date) -> float:
@@ -82,9 +78,9 @@ def build_forecast(h: History, horizon: int = 30) -> dict[str, Any]:
             fixed_by_day[d] += item.amount
 
     day_rows = [
-        {"date": d.isoformat(), "p10": _m(lo[i]), "p50": _m(mid[i]), "p90": _m(hi[i]), "expected": _m(mean[i]),
-         "cumulative": {"p10": _m(clo[i]), "p50": _m(cmid[i]), "p90": _m(chi[i])},
-         "recurring": _m(fixed_by_day[d])}
+        {"date": d.isoformat(), "p10": money(lo[i]), "p50": money(mid[i]), "p90": money(hi[i]), "expected": money(mean[i]),
+         "cumulative": {"p10": money(clo[i]), "p50": money(cmid[i]), "p90": money(chi[i])},
+         "recurring": money(fixed_by_day[d])}
         for i, d in enumerate(days)
     ]
 
@@ -103,13 +99,13 @@ def build_forecast(h: History, horizon: int = 30) -> dict[str, Any]:
         surplus = {k: round(against - rest[k], 2) for k in ("p10", "p50", "p90")}
     month = {
         "start": month_start.isoformat(), "end": month_end.isoformat(), "daysLeft": left,
-        "spentSoFar": _m(spent_month),
+        "spentSoFar": money(spent_month),
         "restOfMonth": rest,
-        "projectedTotal": {k: _m(spent_month + v) for k, v in rest.items()},
+        "projectedTotal": {k: money(spent_month + v) for k, v in rest.items()},
         # p10 spending gives the best surplus; keep "low/likely/high" meaning for the UI.
         "surplus": {"low": surplus["p90"], "likely": surplus["p50"], "high": surplus["p10"]},
         "surplusBasis": basis,
-        "surplusAgainst": _m(against),
+        "surplusAgainst": money(against),
     }
 
     # ---- categories
@@ -121,8 +117,8 @@ def build_forecast(h: History, horizon: int = 30) -> dict[str, Any]:
     grand = sum(totals.values()) or 1.0
     recurring_cats = {r.category for r in recurring}
     categories = sorted(
-        ({"name": c, "expected": _m(t), "share": round(t / grand * 100, 1),
-          "restOfMonth": _m(sim.by_category[c][:, :left].sum(axis=1).mean()) if left else 0.0,
+        ({"name": c, "expected": money(t), "share": round(t / grand * 100, 1),
+          "restOfMonth": money(sim.by_category[c][:, :left].sum(axis=1).mean()) if left else 0.0,
           "trend": _trend(trend_now[c], trend_before[c], observed), "recurring": c in recurring_cats}
          for c, t in totals.items() if t > 0),
         key=lambda r: r["expected"], reverse=True)
@@ -134,19 +130,19 @@ def build_forecast(h: History, horizon: int = 30) -> dict[str, Any]:
     expected_daily = float(mean.mean())
     multiplier = SPEND_MULTIPLIER[attitude]
     target = {"attitude": attitude, "multiplier": multiplier,
-              "expectedDaily": _m(expected_daily), "dailyTarget": _m(expected_daily * multiplier),
+              "expectedDaily": money(expected_daily), "dailyTarget": money(expected_daily * multiplier),
               # Target = expected x multiplier, so the gap is the attitude's ask, not a forecast miss.
-              "gapPerDay": _m(expected_daily * (1 - multiplier)),
-              "restOfMonthTarget": _m(float(mean[:left].sum()) * multiplier)}
+              "gapPerDay": money(expected_daily * (1 - multiplier)),
+              "restOfMonthTarget": money(float(mean[:left].sum()) * multiplier)}
 
     goal = _goal(h, observed, full)
     gap = _logging_gap(past, usual, today, observed)
     habits = _habits(model, recurring, usual, today, observed, gap["gap"])
-    excluded = [{"date": past[i].day.isoformat(), "category": past[i].category, "amount": _m(past[i].amount),
+    excluded = [{"date": past[i].day.isoformat(), "category": past[i].category, "amount": money(past[i].amount),
                  "label": past[i].label, "reason": "emergency" if past[i].emergency else "one-off"}
                 for i in sorted(outliers, key=lambda i: past[i].day, reverse=True)][:10]
     # One-offs excluded, like the baseline.
-    moving = {f"d{w}": (_m(_avg(usual, today - timedelta(days=w - 1), today)) if observed >= w else None)
+    moving = {f"d{w}": (money(_avg(usual, today - timedelta(days=w - 1), today)) if observed >= w else None)
               for w in WINDOWS}
 
     if test.error is None:
@@ -168,7 +164,7 @@ def build_forecast(h: History, horizon: int = 30) -> dict[str, Any]:
         "target": target,
         "goal": goal,
         "habits": habits,
-        "recurring": [{"category": r.category, "label": r.label, "cadence": r.cadence, "amount": _m(r.amount),
+        "recurring": [{"category": r.category, "label": r.label, "cadence": r.cadence, "amount": money(r.amount),
                        "nextDue": r.next_due.isoformat()} for r in recurring],
         "excluded": excluded,
         "movingAverages": moving,
@@ -224,7 +220,7 @@ def _wallets(h: History, past: list[Expense], skip: set[int], recurring, sim, da
             def when(k: float) -> str | None:
                 return days[int(k)].isoformat() if k < horizon else None
             runway = {"early": when(early), "likely": when(likely), "late": when(late)}
-        out.append({"name": w["name"], "active": bool(w.get("active")), "balance": _m(w["balance"]),
+        out.append({"name": w["name"], "active": bool(w.get("active")), "balance": money(w["balance"]),
                     "projectedSpend": spend, "runsOut": runway,
                     # Already empty, but spending usually comes out of it.
                     "empty": w["balance"] <= 0 and spend["p50"] > 0})
@@ -237,14 +233,14 @@ def _goal(h: History, observed: int, sim) -> dict[str, Any] | None:
         return None
     # The whole simulated stretch, so the 30- and 60-day views give the same goal block.
     expected_daily = float(sim.total.mean())
-    remaining = _m(g["targetAmount"] - g["savedAmount"])
+    remaining = money(g["targetAmount"] - g["savedAmount"])
     target_date = g.get("targetDate")
     days_left = (date.fromisoformat(target_date) - h.today).days if target_date else None
     out: dict[str, Any] = {"name": g["name"], "remaining": remaining, "targetDate": target_date,
-                           "requiredPerDay": _m(remaining / days_left) if days_left and days_left > 0 else None,
+                           "requiredPerDay": money(remaining / days_left) if days_left and days_left > 0 else None,
                            "freeCashPerDay": None, "reachBy": None, "onTrack": None,
                            "attitude": h.attitude, "attitudeReason": None, "feasible": None, "plan": None,
-                           "forecastDailySpending": _m(expected_daily), "withinPlan": None}
+                           "forecastDailySpending": money(expected_daily), "withinPlan": None}
     if h.detection:
         # Spending and saving per day / week / month for the detected attitude, and
         # whether the forecast spending fits inside it (1% slack for rounding).

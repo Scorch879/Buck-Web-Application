@@ -1,24 +1,10 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
+import { matchesSha256Hex } from "@/utils/secureCompare";
 import { createSupabaseAdminClient } from "@/utils/supabase/admin";
 import { createSupabaseServerClient } from "@/utils/supabase/server";
 import { isSupabaseAdminConfigured } from "@/utils/supabaseConfig";
 
 const RECOVERY_WINDOW_DAYS = 10;
-
-function hashToken(token: string) {
-  return createHash("sha256").update(token).digest("hex");
-}
-
-function tokensMatch(token: string, hash: string) {
-  const tokenHash = Buffer.from(hashToken(token), "hex");
-  const expectedHash = Buffer.from(hash, "hex");
-
-  return (
-    tokenHash.length === expectedHash.length &&
-    timingSafeEqual(tokenHash, expectedHash)
-  );
-}
 
 function createSignInRedirect(request: NextRequest, reason: string) {
   const redirectUrl = new URL("/sign-in", request.nextUrl.origin);
@@ -81,7 +67,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (!tokensMatch(token, data.token_hash)) {
+  if (!matchesSha256Hex(token, data.token_hash)) {
     return NextResponse.redirect(
       createSignInRedirect(request, "account-deletion-invalid-link")
     );

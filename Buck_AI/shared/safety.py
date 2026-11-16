@@ -1,6 +1,8 @@
 """Text hygiene for anything that reaches Gemini or comes back from it."""
 
+import json
 import re
+from typing import Any
 
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 # Bounded parts (RFC 5321 limits) and a lookbehind so a match can only start at
@@ -34,3 +36,7 @@ def limit_sentences(text: str, count: int) -> str:
     """Keeps at most `count` sentences; models occasionally run long."""
     sentences = [s for s in _SENTENCE_SPLIT.split(text.strip()) if s]
     return " ".join(sentences[:count])
+
+
+def fence(tag: str, data: Any) -> str:
+    return f"<{tag}>\n{json.dumps(data, ensure_ascii=False, separators=(',', ':'))}\n</{tag}>"

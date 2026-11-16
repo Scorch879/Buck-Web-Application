@@ -11,19 +11,10 @@ import FinancialAdvisorSkeleton from "./FinancialAdvisorSkeleton";
 import ForecastSkeleton from "./ForecastSkeleton";
 import AdminSkeleton from "./AdminSkeleton";
 import CategoriesSkeleton from "./CategoriesSkeleton";
+import type { DashboardSkeletonVariant } from "@/utils/dashboardRoutes";
 import "./skeletons.css";
 
-export type DashboardSkeletonVariant =
-  | "home"
-  | "goals"
-  | "statistics"
-  | "settings"
-  | "expenses"
-  | "wallet"
-  | "financial-advisor"
-  | "forecast"
-  | "admin"
-  | "categories";
+export type { DashboardSkeletonVariant };
 
 export {
   ExpensesSkeleton,

@@ -22,7 +22,7 @@ from typing import Any
 from shared import gemini, groq
 from shared.attitude import day_label, detect_attitude, goal_plan, load_inputs, save_detected
 from shared.config import get_settings
-from shared.money import peso
+from shared.money import parse_ts, peso
 from shared.safety import clean_text, limit_sentences
 from shared.supabase import DbError, UserDb
 
@@ -56,14 +56,6 @@ INSIGHT_GROQ_TIMEOUT = 10
 PREFER_RECENT_MODEL = timedelta(days=3)
 
 _SAVED_COLUMNS = "id,title,suggestion,advice,financial_health_score,priority,metadata,created_at,valid_until,model_name"
-
-
-def _parse_ts(value: Any) -> datetime:
-    try:
-        ts = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-        return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
-    except ValueError:
-        return datetime.min.replace(tzinfo=timezone.utc)
 
 
 async def latest_saved(db: UserDb) -> dict[str, Any] | None:
@@ -200,7 +192,7 @@ async def _write_with_ai(snapshot: Snapshot, previous: dict[str, Any] | None,
 
 def _recent_model(saved: dict[str, Any] | None, now: datetime) -> str | None:
     """The model that wrote the saved card, if recent: it likely answers again, so it goes first."""
-    if saved and now - _parse_ts(saved.get("created_at")) < PREFER_RECENT_MODEL:
+    if saved and now - parse_ts(saved.get("created_at")) < PREFER_RECENT_MODEL:
         return saved.get("model_name")
     return None
 
@@ -219,8 +211,8 @@ async def get_insight(db: UserDb, refresh: bool = False) -> dict[str, Any]:
     if latest:
         meta = latest.get("metadata") or {}
         same_data = meta.get("fingerprint") == fp
-        still_valid = _parse_ts(latest.get("valid_until")) > now
-        age = now - _parse_ts(latest.get("created_at"))
+        still_valid = parse_ts(latest.get("valid_until")) > now
+        age = now - parse_ts(latest.get("created_at"))
         # Rule-based advice is upgraded to AI advice once an AI is available.
         good_enough = (meta.get("generated_with") in ("gemini", "groq") and _saved_card_ok(latest, snapshot))             or not ai_on
         if not refresh and same_data and still_valid and (good_enough or age < DATA_CHANGE_COOLDOWN):

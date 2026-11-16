@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSiteOrigin } from "@/utils/httpResponse";
+import { createSupabaseStatelessClient } from "@/utils/supabase/stateless";
 import {
   isSupabaseConfigured,
-  supabaseAnonKey,
   supabaseConfigError,
-  supabaseUrl,
 } from "@/utils/supabaseConfig";
 import {
   createSupabaseAdminClient,
@@ -55,27 +54,6 @@ const passwordResetIpDayLimit = 40;
 const passwordResetEmailWindowMs = 60 * 60 * 1000;
 const passwordResetEmailLimit = 5;
 const passwordResetEmailCooldownMs = 60 * 1000;
-
-function normalizeOrigin(value: string) {
-  const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
-  return new URL(withProtocol).origin;
-}
-
-function getSiteOrigin(request: Request) {
-  if (process.env.NODE_ENV !== "development") {
-    const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-
-    if (configuredSiteUrl) {
-      try {
-        return normalizeOrigin(configuredSiteUrl);
-      } catch {
-        console.warn("NEXT_PUBLIC_SITE_URL is not a valid URL.");
-      }
-    }
-  }
-
-  return new URL(request.url).origin;
-}
 
 function getPasswordResetRedirectUrl(request: Request) {
   const params = new URLSearchParams({
@@ -396,12 +374,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = createClient(supabaseUrl!, supabaseAnonKey!, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  const supabase = createSupabaseStatelessClient();
 
   const { error } = await supabase.auth.resetPasswordForEmail(
     securityContext.normalizedEmail,

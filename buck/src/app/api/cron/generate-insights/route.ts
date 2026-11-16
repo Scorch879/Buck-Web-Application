@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseAdminClient } from "@/utils/supabase/admin";
 import { isBearerAuthorized } from "@/utils/secureCompare";
 import {
+  buildRuleForecastRow,
   fetchUserFinancialContext,
   generateForecastInsights,
 } from "@/utils/aiInsightsGenerator";
@@ -27,28 +28,18 @@ async function processUser(
   // ai_advisories and refreshed when the data changes), so the cron only
   // refreshes the rule-based forecast.
   const context = await fetchUserFinancialContext(userId);
-  const goalId = context.activeGoal?.id ?? null;
-
   const forecast = generateForecastInsights(context);
-  const { error: forecastError } = await adminClient.from("ai_forecasts").insert({
-    user_id: userId,
-    goal_id: goalId,
-    period_type: forecast.periodType,
-    period_start: forecast.periodStart,
-    period_end: forecast.periodEnd,
-    projected_spending: forecast.projectedSpending,
-    projected_savings: forecast.projectedSavings,
-    ai_recommended_budget: forecast.aiRecommendedBudget,
-    daily_forecast: forecast.dailyForecast,
-    actual_spending_snapshot: forecast.actualSpendingSnapshot,
-    summary: forecast.summary,
-    warnings: forecast.warnings,
-    confidence_score: forecast.confidenceScore,
-    model_name: "rules",
-    generated_by: "cron",
-    metadata: forecast.metadata,
-    expires_at: new Date(Date.now() + WEEK_MS).toISOString(),
-  });
+  const { error: forecastError } = await adminClient
+    .from("ai_forecasts")
+    .insert(
+      buildRuleForecastRow(
+        userId,
+        context,
+        forecast,
+        "cron",
+        new Date(Date.now() + WEEK_MS).toISOString()
+      )
+    );
 
   if (forecastError) {
     throw new Error(`forecast insert: ${forecastError.message}`);
