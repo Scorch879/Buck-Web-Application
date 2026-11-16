@@ -566,6 +566,76 @@ html[data-buck-theme="dark"] .CA-Background .CA-Btn {
   border: 1px solid rgba(239, 154, 154, 0.28);
 }
 
+.CA-ConflictCard {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.88rem 1rem;
+  margin-top: 0.35rem;
+  color: #ffe7a3;
+  background: rgba(244, 117, 54, 0.16);
+  border: 1px solid rgba(255, 197, 71, 0.36);
+  border-radius: 8px;
+}
+
+.CA-ConflictCard p {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.CA-ConflictActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.CA-ConflictBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 40px;
+  padding: 0.5rem 0.9rem;
+  color: #fff8ed;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 850;
+  text-decoration: none;
+  background: rgba(18, 13, 10, 0.56);
+  border: 1px solid rgba(255, 197, 71, 0.44);
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.CA-ConflictBtn:hover:not(:disabled) {
+  border-color: rgba(255, 197, 71, 0.72);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+  transform: translateY(-1px);
+}
+
+.CA-ConflictBtn:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.CA-ConflictLink {
+  color: #ffc547;
+  font-size: 0.88rem;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.CA-ConflictLink:hover {
+  color: #ffe7a3;
+  text-decoration: underline;
+}
+
 /* Light theme overrides */
 html[data-buck-theme="light"] .CA-Background .CA-Brand strong,
 html[data-buck-theme="light"] .CA-Background .CA-HeroCopy h1,
@@ -732,6 +802,31 @@ html[data-buck-theme="light"] .CA-Background .error-message {
   color: #b83324;
   background: rgba(255, 56, 56, 0.1);
   border-color: rgba(255, 56, 56, 0.2);
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-ConflictCard {
+  color: #7b2e1d;
+  background: rgba(255, 197, 71, 0.2);
+  border-color: rgba(244, 117, 54, 0.36);
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-ConflictBtn {
+  color: #2b2523;
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(184, 51, 36, 0.3);
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-ConflictBtn:hover:not(:disabled) {
+  border-color: rgba(184, 51, 36, 0.55);
+  box-shadow: 0 10px 24px rgba(94, 59, 34, 0.14);
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-ConflictLink {
+  color: #b83324;
+}
+
+html[data-buck-theme="light"] .CA-Background .CA-ConflictLink:hover {
+  color: #ff3838;
 }
 
 /* Responsive layout */

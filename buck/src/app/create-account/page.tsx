@@ -5,7 +5,7 @@ import type { ChangeEvent, CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signInWithGoogle, signUpUser } from "@/component/authentication";
+import { signInWithGoogle, signUpUser, type AuthResult } from "@/component/authentication";
 import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
 import { evaluatePasswordPolicy } from "@/utils/passwordPolicy";
 import {
@@ -32,6 +32,20 @@ type CreateAccountHighlight = {
   title: string;
   description: string;
 };
+
+type AuthErrorCode =
+  | "google_account_exists"
+  | "email_account_exists"
+  | "email_not_confirmed"
+  | "recovery_unavailable"
+  | "rate_limited";
+
+type ExtendedAuthResult = AuthResult & {
+  errorCode?: AuthErrorCode;
+  providerConflict?: "google" | "email";
+};
+
+const PENDING_CONFIRMATION_EMAIL_KEY = "buck-pending-confirmation-email";
 
 const createAccountHighlights: CreateAccountHighlight[] = [
   {
@@ -61,6 +75,7 @@ const CreateAccount = () => {
   });
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [providerConflict, setProviderConflict] = useState<"google" | "email" | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
@@ -89,6 +104,10 @@ const CreateAccount = () => {
   useRedirectIfAuthenticated();
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.id === "email" && providerConflict) {
+      setProviderConflict(null);
+      setError("");
+    }
     setForm({ ...form, [e.target.id]: e.target.value });
   };
 
@@ -99,6 +118,7 @@ const CreateAccount = () => {
 
     setError("");
     setMessage("");
+    setProviderConflict(null);
 
     if (
       !form.username.trim() ||
@@ -129,7 +149,7 @@ const CreateAccount = () => {
     setMessage("Creating your Buck account...");
 
     const normalizedEmail = normalizeEmailAddress(form.email);
-    const result = await signUpUser(
+    const result: ExtendedAuthResult = await signUpUser(
       normalizedEmail,
       form.password,
       form.username
@@ -139,6 +159,14 @@ const CreateAccount = () => {
       setForm({ username: "", email: "", password: "", confirm: "" });
 
       if (result.needsEmailConfirmation) {
+        try {
+          window.sessionStorage.setItem(
+            PENDING_CONFIRMATION_EMAIL_KEY,
+            normalizedEmail
+          );
+        } catch {
+          // Session storage fallback is optional.
+        }
         router.push(`/check-email?email=${encodeURIComponent(normalizedEmail)}`);
         return;
       }
@@ -146,7 +174,28 @@ const CreateAccount = () => {
       setMessage("Account created! Redirecting to your dashboard...");
       window.location.assign("/dashboard/home");
     } else {
-      setError(result.message || "Account creation failed.");
+      const conflict =
+        result.providerConflict ??
+        (result.errorCode === "google_account_exists"
+          ? "google"
+          : result.errorCode === "email_account_exists"
+            ? "email"
+            : null);
+
+      setProviderConflict(conflict);
+      if (conflict === "google") {
+        setError(
+          result.message ||
+            "This email is already registered with Continue with Google. Sign in with Google instead."
+        );
+      } else if (conflict === "email") {
+        setError(
+          result.message ||
+            "An account with this email already exists. Sign in or reset your password instead."
+        );
+      } else {
+        setError(result.message || "Account creation failed.");
+      }
       setMessage("");
       setIsCreatingAccount(false);
     }
@@ -445,8 +494,50 @@ const CreateAccount = () => {
                 )}
               </motion.button>
 
-              {message && <div className="success-message">{message}</div>}
-              {error && <div className="error-message">{error}</div>}
+              {message && (
+                <div className="success-message" role="status">
+                  {message}
+                </div>
+              )}
+              {error ? (
+                providerConflict ? (
+                  <div className="CA-ConflictCard" role="alert">
+                    <p>{error}</p>
+                    <div className="CA-ConflictActions">
+                      {providerConflict === "google" ? (
+                        <button
+                          type="button"
+                          className="CA-ConflictBtn"
+                          onClick={handleGoogleSignIn}
+                          disabled={isAuthBusy}
+                        >
+                          <Image
+                            src="/Google.png"
+                            alt=""
+                            width={18}
+                            height={18}
+                            className="CA-Google-Icon"
+                          />
+                          {isGoogleLoading ? "Opening Google..." : "Continue with Google"}
+                        </button>
+                      ) : (
+                        <>
+                          <Link href="/sign-in" className="CA-ConflictBtn">
+                            Go to Sign In
+                          </Link>
+                          <Link href="/forgot-password" className="CA-ConflictLink">
+                            Forgot password?
+                          </Link>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="error-message" role="alert">
+                    {error}
+                  </div>
+                )
+              ) : null}
             </form>
 
             <div className="CA-Footer">

@@ -496,6 +496,29 @@ html[data-buck-theme="dark"] .FP-Background .FP-Btn {
   font-size: 0.95rem;
 }
 
+.FP-Verifying {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  margin-top: 1.35rem;
+  padding: 1rem;
+  color: #d9c7b6;
+  background: rgba(255, 248, 237, 0.06);
+  border: 1px solid rgba(255, 211, 154, 0.16);
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.FP-ProviderHint {
+  margin: 1rem 0 0;
+  color: #d9c7b6;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
 /* Light theme overrides */
 html[data-buck-theme="light"] .FP-Background .FP-Brand strong,
 html[data-buck-theme="light"] .FP-Background .FP-HeroCopy h1,
@@ -621,6 +644,16 @@ html[data-buck-theme="light"] .FP-Background .forgot-error {
   color: #b83324;
   background: rgba(255, 56, 56, 0.1);
   border-color: rgba(255, 56, 56, 0.2);
+}
+
+html[data-buck-theme="light"] .FP-Background .FP-Verifying {
+  color: #625750;
+  background: rgba(255, 255, 255, 0.68);
+  border-color: rgba(184, 51, 36, 0.16);
+}
+
+html[data-buck-theme="light"] .FP-Background .FP-ProviderHint {
+  color: #625750;
 }
 
 /* Responsive layout */
