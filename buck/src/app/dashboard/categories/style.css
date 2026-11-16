@@ -375,11 +375,15 @@ html[data-buck-theme="dark"] .cat-rename input {
 }
 
 .cat-add-slot {
+  position: relative;
   display: inline-flex;
   align-items: center;
+  min-height: 40px;
 }
 
 .cat-add-inline {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;

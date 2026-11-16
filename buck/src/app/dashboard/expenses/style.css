@@ -1357,27 +1357,21 @@ html[data-buck-theme="light"] .expenses-modal-backdrop {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 1.15rem;
-  width: min(520px, 94vw);
-  max-height: min(88dvh, 760px);
-  padding: clamp(1.2rem, 3vw, 1.6rem);
+  width: min(520px, 100%);
+  max-height: min(82dvh, 760px);
   color: var(--buck-ink);
   background: var(--buck-surface);
   border: 1px solid var(--buck-line);
   border-radius: 12px;
   box-shadow: 0 24px 56px rgba(0, 0, 0, 0.45);
-  overflow-y: auto;
+  overflow: hidden;
 }
 
-.expenses-modal::before {
-  position: absolute;
-  top: 0;
-  left: 1.25rem;
-  right: 1.25rem;
-  height: 3px;
-  content: "";
-  background: linear-gradient(90deg, var(--buck-orange), var(--buck-gold));
-  border-radius: 0 0 8px 8px;
+.expenses-modal-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  padding: clamp(1.2rem, 3vw, 1.6rem);
 }
 
 .expenses-modal-header {
@@ -1399,8 +1393,8 @@ html[data-buck-theme="light"] .expenses-modal-backdrop {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   background: rgba(0, 0, 0, 0.05);
   border: 1px solid var(--buck-line);
   border-radius: 8px;

@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { DURATION, EASE_OUT, SPRING } from "@/utils/motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { DURATION, EASE_IN, EASE_OUT, INSTANT, SPRING } from "@/utils/motion";
 import {
   FaCheck,
   FaEdit,
@@ -128,6 +128,14 @@ export default function CategoriesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageDirection, setPageDirection] = useState(0);
   const hadCache = useRef(Boolean(userCache.categories && userCache.expenses));
+  const addInputRef = useRef<HTMLInputElement>(null);
+  const prefersReducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (isAddOpen) {
+      addInputRef.current?.focus({ preventScroll: true });
+    }
+  }, [isAddOpen]);
 
   const load = useCallback(async () => {
     const [cats, incCats] = await Promise.all([
@@ -500,18 +508,35 @@ export default function CategoriesPage() {
 
             {canEdit && (
               <div className="cat-add-slot">
-                <AnimatePresence mode="wait" initial={false}>
+                <AnimatePresence mode="popLayout" initial={false}>
                   {isAddOpen ? (
                     <motion.form
                       key="add-form"
                       className="cat-add-inline"
                       onSubmit={handleAdd}
-                      initial={{ opacity: 0, scale: 0.98 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.98 }}
-                      transition={SPRING}
+                      initial={
+                        prefersReducedMotion
+                          ? { opacity: 0 }
+                          : { opacity: 0, y: -4, scale: 0.98 }
+                      }
+                      animate={{
+                        opacity: 1,
+                        y: 0,
+                        scale: 1,
+                        transition: prefersReducedMotion
+                          ? INSTANT
+                          : { duration: DURATION.fast, ease: EASE_OUT },
+                      }}
+                      exit={{
+                        opacity: 0,
+                        ...(prefersReducedMotion ? {} : { y: -2, scale: 0.98 }),
+                        transition: prefersReducedMotion
+                          ? INSTANT
+                          : { duration: 0.1, ease: EASE_IN },
+                      }}
                     >
                       <input
+                        ref={addInputRef}
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
                         placeholder={`New ${noun} category...`}
@@ -529,8 +554,8 @@ export default function CategoriesPage() {
                         type="submit"
                         className="cat-primary-btn cat-add-submit-btn"
                         disabled={!newName.trim() || adding}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.97 }}
+                        whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }}
+                        whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}
                       >
                         {adding ? (
                           <FaSpinner aria-hidden="true" className="cat-spin" />
@@ -547,8 +572,8 @@ export default function CategoriesPage() {
                           setIsAddOpen(false);
                           setNewName("");
                         }}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileHover={prefersReducedMotion ? undefined : { scale: 1.05 }}
+                        whileTap={prefersReducedMotion ? undefined : { scale: 0.95 }}
                       >
                         <FaTimes aria-hidden="true" />
                       </motion.button>
@@ -559,12 +584,28 @@ export default function CategoriesPage() {
                       type="button"
                       className="cat-secondary-btn cat-add-trigger-btn"
                       onClick={() => setIsAddOpen(true)}
-                      initial={{ opacity: 0, scale: 0.98 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.98 }}
-                      whileHover={{ scale: 1.02, y: -1 }}
-                      whileTap={{ scale: 0.97 }}
-                      transition={SPRING}
+                      initial={
+                        prefersReducedMotion
+                          ? { opacity: 0 }
+                          : { opacity: 0, y: -4, scale: 0.98 }
+                      }
+                      animate={{
+                        opacity: 1,
+                        y: 0,
+                        scale: 1,
+                        transition: prefersReducedMotion
+                          ? INSTANT
+                          : { duration: DURATION.fast, ease: EASE_OUT },
+                      }}
+                      exit={{
+                        opacity: 0,
+                        ...(prefersReducedMotion ? {} : { scale: 0.97 }),
+                        transition: prefersReducedMotion
+                          ? INSTANT
+                          : { duration: 0.08, ease: EASE_IN },
+                      }}
+                      whileHover={prefersReducedMotion ? undefined : { scale: 1.02, y: -1 }}
+                      whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}
                     >
                       <FaPlus aria-hidden="true" /> Add {nounCapitalized} Category
                     </motion.button>
