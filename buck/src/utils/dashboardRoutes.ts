@@ -10,7 +10,18 @@ import {
   FaTags,
   FaWallet,
 } from "react-icons/fa";
-import type { DashboardSkeletonVariant } from "@/component/DashboardSkeletons";
+
+export type DashboardSkeletonVariant =
+  | "home"
+  | "goals"
+  | "statistics"
+  | "settings"
+  | "expenses"
+  | "wallet"
+  | "financial-advisor"
+  | "forecast"
+  | "admin"
+  | "categories";
 
 export interface DashboardPageChrome {
   title: string;

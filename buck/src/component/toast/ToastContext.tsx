@@ -52,11 +52,11 @@ type DismissListener = (id?: string) => void;
 const toastListeners = new Set<ToastListener>();
 const dismissListeners = new Set<DismissListener>();
 
-export function emitGlobalToast(toast: ToastItemData) {
+function emitGlobalToast(toast: ToastItemData) {
   toastListeners.forEach((fn) => fn(toast));
 }
 
-export function emitGlobalDismiss(id?: string) {
+function emitGlobalDismiss(id?: string) {
   dismissListeners.forEach((fn) => fn(id));
 }
 

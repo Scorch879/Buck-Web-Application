@@ -128,13 +128,20 @@ export default function ForecastPage() {
   );
 
   // Run once per user and horizon, not whenever the callbacks change identity.
-  const actionsRef = useRef({ loadForecast, followUpExplanation });
-  actionsRef.current = { loadForecast, followUpExplanation };
+  const actionsRef = useRef({ loadForecast, followUpExplanation, insights });
+  actionsRef.current = { loadForecast, followUpExplanation, insights };
 
-  // A cached forecast shows at once; the fresh numbers (fast, no AI call)
-  // replace it, and a pending explanation is asked for again (requests are shared).
+  // Reuse cached forecasts on tab/horizon switches unless missing or stale;
+  // still follow up on any pending AI explanation.
   useEffect(() => {
-    void actionsRef.current.loadForecast(horizon);
+    const cached = actionsRef.current.insights;
+    if (!cached || cached.stale) {
+      void actionsRef.current.loadForecast(horizon);
+      return;
+    }
+    if (cached.explanationPending) {
+      actionsRef.current.followUpExplanation(horizon, cached);
+    }
   }, [horizon, user.uid]);
 
   // Refresh waits out Buck_AI's explanation cooldown; the timer re-enables it.

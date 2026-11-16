@@ -3,8 +3,15 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import styles from "./WalletModal.module.css";
-import { AnimatePresence, motion } from "framer-motion";
-import { backdropMotion, panelMotion } from "@/utils/motion";
+import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "framer-motion";
+import {
+  backdropMotion,
+  DURATION,
+  EASE_OUT,
+  INSTANT,
+  panelMotion,
+  SPRING,
+} from "@/utils/motion";
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { mergeDashboardDataCache, useFinancial } from "@/context/FinancialContext";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
@@ -39,8 +46,9 @@ export default function WalletModal({
   const [editName, setEditName] = useState("");
   const [editBudget, setEditBudget] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [justActivatedId, setJustActivatedId] = useState<string | null>(null);
+  const [activatingId, setActivatingId] = useState<string | null>(null);
   const isClient = useIsClient();
+  const prefersReducedMotion = useReducedMotion();
 
   const user = useOptionalDashboardUser();
   const { dashboardCache, setDashboardCache } = useFinancial();
@@ -145,18 +153,23 @@ export default function WalletModal({
   };
 
   const handleSetActive = async (id: string) => {
-    if (!user) return;
-    await setActiveWallet(user.uid, id);
-    setJustActivatedId(id);
-    setTimeout(() => setJustActivatedId(null), 900);
-
-    const newActiveWallet = wallets.find((w) => w.id === id);
-    setDashboardCache((current) =>
-      mergeDashboardDataCache(current, user.uid, {
-        activeWalletId: id,
-        ...(newActiveWallet ? { activeWalletBudget: newActiveWallet.budget } : {}),
-      })
-    );
+    if (!user || activatingId) return;
+    setError("");
+    setActivatingId(id);
+    try {
+      await setActiveWallet(user.uid, id);
+      const newActiveWallet = wallets.find((w) => w.id === id);
+      setDashboardCache((current) =>
+        mergeDashboardDataCache(current, user.uid, {
+          activeWalletId: id,
+          ...(newActiveWallet ? { activeWalletBudget: newActiveWallet.budget } : {}),
+        })
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to set active wallet");
+    } finally {
+      setActivatingId(null);
+    }
   };
 
   const activeWallets = wallets.filter(w => !w.deletedAt);
@@ -181,14 +194,15 @@ export default function WalletModal({
             {...backdropMotion}
           >
             <motion.div
-              className={styles.modal}
+              className={`${styles.modal} buck-modal-panel buck-modal-accent`}
               role="dialog"
               aria-modal="true"
               aria-label="Manage wallets"
               onClick={(e) => e.stopPropagation()}
               {...panelMotion}
             >
-        <h2 className={`${styles.title} buck-modal-title`}>Wallets</h2>
+              <div className={`${styles.modalBody} buck-modal-scroll`}>
+                <h2 className={`${styles.title} buck-modal-title`}>Wallets</h2>
         <p className={`${styles.totalBudget} buck-modal-subtitle`}>
           Total budget: <span>{formatCurrency(totalBudget)}</span>
         </p>
@@ -226,95 +240,148 @@ export default function WalletModal({
           ) : activeWallets.length === 0 ? (
             <div className={styles.emptyState}>No active wallets yet.</div>
           ) : (
-            <ul className={styles.list}>
-              {sortedWallets.map((w) => (
-                <li
-                  key={w.id}
-                  className={
-                    w.id === activeWalletId
-                      ? `${styles.listItem} ${styles.active} ${justActivatedId === w.id ? styles.justActivated : ''}`
-                      : styles.listItem
-                  }
-                >
-                  {editId === w.id ? (
-                    <>
-                      <input
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        className={styles.editInput}
+            <LayoutGroup id="wallet-modal-list">
+              <ul className={styles.list}>
+                {sortedWallets.map((w) => {
+                  const isActive = w.id === activeWalletId;
+                  const isEditing = editId === w.id;
+                  return (
+                    <motion.li
+                      key={w.id}
+                      layout={!prefersReducedMotion}
+                      transition={prefersReducedMotion ? INSTANT : { layout: SPRING }}
+                      style={{ zIndex: isActive ? 2 : 1 }}
+                      className={
+                        isActive ? `${styles.listItem} ${styles.active}` : styles.listItem
+                      }
+                    >
+                      <motion.span
+                        aria-hidden="true"
+                        className={styles.activeOverlay}
+                        initial={false}
+                        animate={{ opacity: isActive ? 1 : 0 }}
+                        transition={
+                          prefersReducedMotion
+                            ? INSTANT
+                            : { duration: DURATION.base, ease: EASE_OUT }
+                        }
                       />
-                      <input
-                        value={editBudget}
-                        onChange={(e) => setEditBudget(sanitizeBudgetInput(e.target.value))}
-                        type="text"
-                        inputMode="decimal"
-                        className={styles.editInput}
-                      />
-                      <div className={styles.actions}>
-                        <button
-                          onClick={() => handleEditSave(w.id)}
-                          className={styles.saveBtn}
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={handleEditCancel}
-                          className={styles.cancelBtn}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <span className={styles.nameBalance}>
-                        <span className={styles.name}>{w.name}</span> -{" "}
-                        <span className={styles.balance}>
-                          {formatCurrency(w.budget)}
-                        </span>
-                        {w.id === activeWalletId && (
-                          <span className={styles.activeLabel}>(Active)</span>
-                        )}
-                      </span>
-                      <div className={`${styles.actions} ${styles.actionsMargin}`}>
-                        <button
-                          onClick={() => handleSetActive(w.id)}
-                          className={styles.setActiveBtn}
-                          disabled={w.id === activeWalletId}
-                        >
-                          Set Active
-                        </button>
-                        <button
-                          onClick={() => handleEdit(w)}
-                          className={styles.editBtn}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => setConfirmDeleteId(w.id)}
-                          className={styles.deleteBtn}
-                          disabled={w.budget > 0}
-                          title={w.budget > 0 ? "Empty wallet first to delete" : ""}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </li>
-              ))}
-            </ul>
+                      {isEditing ? (
+                        <>
+                          <motion.div
+                            layout={prefersReducedMotion ? false : "position"}
+                            className={styles.editFields}
+                          >
+                            <input
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              aria-label="Wallet name"
+                              className={styles.editInput}
+                            />
+                            <input
+                              value={editBudget}
+                              onChange={(e) => setEditBudget(sanitizeBudgetInput(e.target.value))}
+                              type="text"
+                              inputMode="decimal"
+                              aria-label="Budget (PHP)"
+                              className={styles.editInput}
+                            />
+                          </motion.div>
+                          <motion.div
+                            layout={prefersReducedMotion ? false : "position"}
+                            className={styles.actions}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleEditSave(w.id)}
+                              className={styles.saveBtn}
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleEditCancel}
+                              className={styles.cancelBtn}
+                            >
+                              Cancel
+                            </button>
+                          </motion.div>
+                        </>
+                      ) : (
+                        <>
+                          <motion.span
+                            layout={prefersReducedMotion ? false : "position"}
+                            className={styles.nameBalance}
+                          >
+                            <span className={styles.name}>{w.name}</span>
+                            <span aria-hidden="true"> - </span>
+                            <span className={styles.balance}>
+                              {formatCurrency(w.budget)}
+                            </span>
+                            {isActive && (
+                              <motion.span
+                                initial={prefersReducedMotion ? false : { opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={
+                                  prefersReducedMotion
+                                    ? INSTANT
+                                    : { duration: DURATION.fast, ease: EASE_OUT }
+                                }
+                                className={styles.activeLabel}
+                              >
+                                (Active)
+                              </motion.span>
+                            )}
+                          </motion.span>
+                          <motion.div
+                            layout={prefersReducedMotion ? false : "position"}
+                            className={`${styles.actions} ${styles.actionsMargin}`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleSetActive(w.id)}
+                              className={styles.setActiveBtn}
+                              disabled={isActive}
+                              aria-busy={activatingId === w.id}
+                            >
+                              Set Active
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleEdit(w)}
+                              className={styles.editBtn}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteId(w.id)}
+                              className={styles.deleteBtn}
+                              disabled={w.budget > 0}
+                              title={w.budget > 0 ? "Empty wallet first to delete" : ""}
+                            >
+                              Delete
+                            </button>
+                          </motion.div>
+                        </>
+                      )}
+                    </motion.li>
+                  );
+                })}
+              </ul>
+            </LayoutGroup>
           )}
         </div>
-        <div className="buck-modal-actions">
-          <button
-            type="button"
-            onClick={onClose}
-            className="buck-modal-btn buck-modal-btn--secondary"
-          >
-            Close
-          </button>
-        </div>
+                <div className="buck-modal-actions">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="buck-modal-btn buck-modal-btn--secondary"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}

@@ -173,9 +173,9 @@ Returns a composite score (0 to 5) and localized validation messages.
   - Provides a dedicated `← Others` quick-return button in the title pillbox group.
 - **1:1 Skeletal Loading Parity**: Synchronized `HomeSkeleton` in [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx) with the `Categories` eyebrow (`85px × 12px`) and `Financial Summary` heading (`175px × 22px`), maintaining zero CLS.
 
-### 3.10 Dashboard Subroute Loading Boundaries & Skeletal Layout Parity ([`DashboardClientLayout.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardClientLayout.tsx), [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx))
-- **Dedicated Route Loading Boundaries**: Created individual Next.js App Router `loading.tsx` boundary files for each dashboard subroute (`expenses/loading.tsx`, `wallet/loading.tsx`, `financial-advisor/loading.tsx`, `forecast/loading.tsx`, `admin/loading.tsx`), resolving the issue where absent route boundaries defaulted to the parent `/dashboard/loading.tsx` and flashed the `HomeSkeleton` on all tabs.
-- **Client Layout Dispatch Alignment**: Fixed `getSkeletonVariant` in [`DashboardClientLayout.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardClientLayout.tsx) to map each path directly to its true variant (`expenses`, `wallet`, `financial-advisor`, `forecast`, `goals`, `statistics`, `settings`, `admin`, `home`), eliminating cross-tab layout misdirection.
+### 3.10 Dashboard Route Loading Boundaries & Skeletal Layout Parity ([`DashboardClientLayout.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardClientLayout.tsx), [`skeletons/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/))
+- **Consolidated Route Loading Boundary & Router Caching**: Replaced per-tab `loading.tsx` files with the shared [`app/dashboard/loading.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/loading.tsx) boundary paired with `experimental.staleTimes` (`dynamic: 300, static: 300`) in [`next.config.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/next.config.ts) so visited dashboard tabs stay warm in the Next.js router cache without skeleton flashes.
+- **Client Layout Dispatch Alignment**: `getSkeletonVariant` in [`DashboardClientLayout.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardClientLayout.tsx) maps each path directly to its matching skeleton variant (`expenses`, `wallet`, `financial-advisor`, `forecast`, `goals`, `statistics`, `categories`, `settings`, `admin`, `home`) rendered via [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx).
 - **1:1 Geometry Parity Across Skeletons**:
   - `HomeSkeleton`: Implemented `.graph-container` grid with `.graph-y-axis-wrap` (displaying "Amount (₱)" and 7 numeric tick line placeholders) and `.graph-x-axis-footer` ("Day of the Week"), matching `WeeklyBarChart` layout and eliminating shift upon hydration.
   - `FinancialAdvisorSkeleton`: Added circular `.advisor-score` badge ($128\text{px} \times 128\text{px}$) in `.advisor-hero`, 3 cards in `.advisor-grid`, and 2 wide cards in `.advisor-ai-grid`.
@@ -368,7 +368,7 @@ Returns a composite score (0 to 5) and localized validation messages.
   - Configured `@media (max-width: 680px)` in [`home/style.css:432-449`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/home/style.css#L432-L449) to stack `.spending-card-header` vertically (`flex-direction: column; align-items: stretch; gap: 1rem;`), reset `card-heading` to `min-height: auto; max-width: 100%;`, and center `.spending-timeframe-container` across 100% width, matching `.spending-pie-layout`'s mobile stacking.
 - **1:1 Skeletal Loading Parity**:
   - Synchronized [`HomeSkeleton.tsx:20-33`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/HomeSkeleton.tsx#L20-L33) to use `.spending-card-header`, `.card-heading` with `.pie-day-filter-slot`, and `.spending-timeframe-container`.
-  - Updated `.home-skeleton-content` in [`skeletons.css:315-320`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/skeletons.css#L315-L320) to `grid-template-columns: minmax(0, 0.94fr) minmax(0, 1.06fr);` matching `.dashboard-content`.
+  - Updated `.home-skeleton-content` styling in [`skeletons.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/skeletons.css) to `grid-template-columns: minmax(0, 0.94fr) minmax(0, 1.06fr);` matching `.dashboard-content`.
 
 ### 3.25 Dashboard Topbar Bottom Spacing Relaxation & Typography Clearance Architecture ([`dashboard.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/dashboard.css))
 - **Relaxed Asymmetric Padding Engine**:
@@ -476,18 +476,18 @@ Returns a composite score (0 to 5) and localized validation messages.
   - Guarantees 0px Cumulative Layout Shift (CLS = 0) during route transitions and hydration.
 
 
-### 3.29 Buck_AI: AI Financial Advisor on Gemini ([`Buck_AI/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/), [`AIChat.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/AIChat.tsx))
-- Rationale: Design.md ADR-043. Service guide: `Buck_AI/README.md`.
-- **Buck_AI**: `main.py` (FastAPI, CORS, health); `shared/` (`config`, `auth`, `http`, `supabase`, `gemini`, `safety`, `rate_limit`); `BuckAI_Advisor/` (`snapshot`, `fingerprint`, `rules`, `prompts`, `tools`, `service`, `categorize`, `router`); `BuckAI_Forecast/` (placeholder).
+### 3.29 Buck_AI: AI Financial Advisor (Gemini) & AI Forecaster (Groq) ([`Buck_AI/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/), [`AIChat.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/AIChat.tsx))
+- Rationale: Design.md ADR-043, ADR-052, ADR-053. Service guide: `Buck_AI/README.md`.
+- **Buck_AI**: `main.py` (FastAPI, CORS, health); `shared/` (`config`, `auth`, `http`, `supabase`, `gemini`, `groq`, `money`, `attitude`, `safety`, `rate_limit`); `BuckAI_Advisor/` (`snapshot`, `fingerprint`, `plan`, `rules`, `prompts`, `tools`, `service`, `categorize`, `router`); `BuckAI_Forecast/` (`model`, `forecast`, `history`, `prompts`, `service`, `router`).
 - **Web**:
-  - New `utils/buckAi.ts`; `advisorApi.ts` and `aiApi.ts` now call Buck_AI.
+  - [`utils/buckAi.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/buckAi.ts), [`utils/advisorApi.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/advisorApi.ts), [`utils/forecastApi.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/forecastApi.ts) (falls back to `/api/forecast`), and [`utils/aiApi.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/aiApi.ts).
   - `AIChat` is Advisor-only, with `AIChatSkeleton` for parity.
-  - New `utils/goalForecast.ts` (plain math) for the Goals and Statistics charts.
+  - `utils/goalForecast.ts` provides deterministic plain-math fallback helpers alongside the live Forecaster.
   - CSP allows the Buck_AI origin.
-  - Auto-categorize now calls the Advisor (`/advisor/categorize`) from the Categories tab (one batched request of up to 25), Add Expense and the Goals expense modal.
-  - `/api/forecast` and the cron are rule-engine only.
+  - Auto-categorize calls the Advisor (`POST /advisor/categorize`) from the Categories tab (one batched request of up to 25), Add Expense, and the Goals expense modal.
+  - `/api/forecast` and `/api/cron/generate-insights` provide rule-engine fallback rows (`ai_forecasts`) when `Buck_AI` is unreachable.
 - **Removed**: `buck/src/server/ai/`, `/api/ai/*`, `/api/advisor`, `@google/genai`, and the Forecaster chat on the Forecast tab.
-- **Verification (2026-10-14)**:
+- **Initial Milestone Verification (2026-10-14; later expanded in ADR-052–057)**:
   - Buck_AI: `python -m unittest` 19/19. The tests cover auth, every query sent with the user's token, saving, reuse while data is unchanged, regeneration with the previous advice, small-change tolerance, cooldown, rules fallback, auto-categorize (no invented categories, fallback never offered, AI-down nulls, batch limit), chat SSE and its fallback, validation, rate limits, the tool loop and thought signatures.
   - Web: `vitest` 44/44 and `tsc` clean.
   - Live local run: health OK. Missing and forged tokens get 401 on all Advisor routes; the forged token was rejected by the real Supabase Auth. CORS allows `localhost:3000` and refuses unknown origins.
@@ -530,5 +530,5 @@ Returns a composite score (0 to 5) and localized validation messages.
 | **Deletion Confirm** | Strict uppercase string match `"DELETE"` | [`deletion/request/route.ts:14`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/account/deletion/request/route.ts#L14) |
 | **Rate Limiting** | Max 8 password resets per IP per 15 min; 40 per IP per 24 hr; 5 per email per 1 hr; 60s email cooldown | [`password-reset/route.ts:45-51`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/auth/password-reset/route.ts#L45-L51) |
 | **Modal Bounds** | Desktop max width: `min(880px, 100%)`, max height: `min(82dvh, 760px)` | [`globals.css:780`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/globals.css) |
-| **Currency Token** | Hardcoded to Philippine Peso (`PHP`, `₱`) across UI formatters and AI prompts | [`formatters.ts:4`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/formatters.ts#L4), [`ai_models.py:123`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/ai_models.py#L123) |
+| **Currency Token** | Hardcoded to Philippine Peso (`PHP`, `₱`) across UI formatters and AI prompts | [`formatters.ts:4`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/formatters.ts#L4), [`money.py:27-28`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/shared/money.py#L27-L28), [`prompts.py:14`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/prompts.py#L14) |
 | **Toast Queue** | Maximum 4 concurrent toasts; default duration 4,000ms; viewport offset top-right 24px (mobile top-center 16px) | [`ToastContext.tsx:14`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/toast/ToastContext.tsx#L14), [`toast.module.css:4-16`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/toast/toast.module.css#L4-L16) |

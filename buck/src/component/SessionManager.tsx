@@ -7,12 +7,12 @@ import {
   SESSION_FORCE_SIGN_OUT_KEY,
   SESSION_LAST_ACTIVITY_KEY,
   getClientIdleTimeoutMs,
-  getPositiveNumber,
   readStoredTimestamp,
   removeStoredValue,
   signOutUser,
   writeStoredValue,
 } from "@/component/authentication";
+import { getPositiveNumber } from "@/utils/formatters";
 import { isSupabaseConfigured, supabase } from "@/utils/supabase";
 
 const SESSION_CHANNEL = "buck-session";

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseAdminClient } from "@/utils/supabase/admin";
 import { getRequestAuth, mfaRequiredResponse } from "@/utils/apiAuth";
 import {
+  buildRuleForecastRow,
   fetchUserFinancialContext,
   generateForecastInsights,
 } from "@/utils/aiInsightsGenerator";
@@ -89,25 +90,15 @@ export async function POST(req: NextRequest) {
     // 3. Persist to ai_forecasts
     const { data: saved, error: insertError } = await adminClient
       .from("ai_forecasts")
-      .insert({
-        user_id: userId,
-        goal_id: context.activeGoal?.id ?? null,
-        period_type: forecast.periodType,
-        period_start: forecast.periodStart,
-        period_end: forecast.periodEnd,
-        projected_spending: forecast.projectedSpending,
-        projected_savings: forecast.projectedSavings,
-        ai_recommended_budget: forecast.aiRecommendedBudget,
-        daily_forecast: forecast.dailyForecast,
-        actual_spending_snapshot: forecast.actualSpendingSnapshot,
-        summary: forecast.summary,
-        warnings: forecast.warnings,
-        confidence_score: forecast.confidenceScore,
-        model_name: "rules",
-        generated_by: "on_demand",
-        metadata: forecast.metadata,
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      })
+      .insert(
+        buildRuleForecastRow(
+          userId,
+          context,
+          forecast,
+          "on_demand",
+          new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+        )
+      )
       .select("*")
       .single();
 

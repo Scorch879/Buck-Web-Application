@@ -29,6 +29,7 @@ import {
   FaUser,
 } from "react-icons/fa";
 import {
+  sendPasswordReset,
   signOutUser,
   updateEmailAddress,
   updatePassword,
@@ -36,6 +37,7 @@ import {
 } from "@/component/authentication";
 import FadeInImage from "@/component/FadeInImage";
 import ConnectedAppsSection from "@/component/ConnectedAppsSection";
+import DangerDeleteDialog from "@/component/DangerDeleteDialog";
 import { DashboardPageSkeleton } from "@/component/DashboardSkeletons";
 import PasskeysSection from "@/component/mfa/PasskeysSection";
 import TotpCodeInput from "@/component/mfa/TotpCodeInput";
@@ -116,15 +118,60 @@ function getAvatarFileValidationError(file: File) {
 }
 
 function getProviderLabel(providers: string[]) {
-  if (providers.includes("google")) {
+  const hasGoogle = providers.includes("google");
+  const hasEmail = providers.includes("email");
+
+  if (hasGoogle && hasEmail) {
+    return "Google + Email";
+  }
+
+  if (hasGoogle) {
     return "Google";
   }
 
-  if (providers.includes("email")) {
-    return "Email and password";
+  if (hasEmail) {
+    return "Email & Password";
   }
 
   return "Supabase Auth";
+}
+
+type AccountCredentialsState = {
+  isPasswordUser: boolean;
+  isGoogleOnlyUser: boolean;
+  hasPasskey: boolean;
+  canResetPassword: boolean;
+};
+
+async function fetchAccountCredentials(): Promise<AccountCredentialsState | null> {
+  try {
+    const response = await fetch("/api/auth/credentials", {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as Partial<AccountCredentialsState>;
+    if (
+      typeof payload.isPasswordUser !== "boolean" ||
+      typeof payload.isGoogleOnlyUser !== "boolean" ||
+      typeof payload.hasPasskey !== "boolean" ||
+      typeof payload.canResetPassword !== "boolean"
+    ) {
+      return null;
+    }
+
+    return {
+      isPasswordUser: payload.isPasswordUser,
+      isGoogleOnlyUser: payload.isGoogleOnlyUser,
+      hasPasskey: payload.hasPasskey,
+      canResetPassword: payload.canResetPassword,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function getSettingsErrorMessage(error: unknown) {
@@ -200,7 +247,7 @@ export default function SettingsPage() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [deletePassword, setDeletePassword] = useState("");
-  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [feedbackCategory, setFeedbackCategory] = useState("feature");
   const [feedbackTitle, setFeedbackTitle] = useState("");
   const [feedbackDetails, setFeedbackDetails] = useState("");
@@ -210,10 +257,19 @@ export default function SettingsPage() {
   const [stepUpRequired, setStepUpRequired] = useState(false);
   const [stepUpCode, setStepUpCode] = useState("");
   const [stepUpError, setStepUpError] = useState("");
+  const [credentials, setCredentials] = useState<AccountCredentialsState | null>(null);
+  const [sendingPasswordReset, setSendingPasswordReset] = useState(false);
+  const [modalResetNotice, setModalResetNotice] = useState("");
+  const [modalResetError, setModalResetError] = useState("");
   const hadInitialSettingsData = useRef(hasInitialSettingsData);
 
   const providerLabel = getProviderLabel(user.authProviders);
-  const canManageCredentials = user.isPasswordUser;
+  const isPasswordUser = credentials?.isPasswordUser ?? user.isPasswordUser;
+  const isGoogleOnlyUser = credentials?.isGoogleOnlyUser ?? user.isGoogleOnlyUser;
+  const hasPasskey = Boolean(credentials?.hasPasskey);
+  const canResetPassword =
+    credentials?.canResetPassword ?? (isPasswordUser || hasPasskey);
+  const canManageCredentials = isPasswordUser;
   const passwordPolicy = evaluatePasswordPolicy(newPassword, {
     email,
     username: displayName,
@@ -263,10 +319,12 @@ export default function SettingsPage() {
       setError("");
 
       try {
-        const [loadedProfile, loadedDeletionStatus] = await Promise.all([
-          getUserProfile(user.uid),
-          getAccountDeletionStatus(user.uid),
-        ]);
+        const [loadedProfile, loadedDeletionStatus, loadedCredentials] =
+          await Promise.all([
+            getUserProfile(user.uid),
+            getAccountDeletionStatus(user.uid),
+            fetchAccountCredentials(),
+          ]);
 
         if (!active) {
           return;
@@ -276,6 +334,9 @@ export default function SettingsPage() {
         setDisplayName(loadedProfile.username || user.displayName || "");
         setEmail(loadedProfile.email || user.email || "");
         setDeletionStatus(loadedDeletionStatus);
+        if (loadedCredentials) {
+          setCredentials(loadedCredentials);
+        }
         setDashboardCache((currentCache) =>
           mergeDashboardDataCache(currentCache, user.uid, {
             profile: loadedProfile,
@@ -345,6 +406,8 @@ export default function SettingsPage() {
     clearMessages();
     setEmail(profile?.email || user.email || "");
     setEmailPassword("");
+    setModalResetNotice("");
+    setModalResetError("");
     setEmailModalOpen(true);
   };
 
@@ -356,6 +419,8 @@ export default function SettingsPage() {
     setEmailModalOpen(false);
     setEmail(profile?.email || user.email || "");
     setEmailPassword("");
+    setModalResetNotice("");
+    setModalResetError("");
   };
 
   const openPasswordModal = () => {
@@ -363,6 +428,8 @@ export default function SettingsPage() {
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
+    setModalResetNotice("");
+    setModalResetError("");
     setPasswordModalOpen(true);
   };
 
@@ -375,6 +442,62 @@ export default function SettingsPage() {
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
+    setModalResetNotice("");
+    setModalResetError("");
+  };
+
+  const handleSendResetFromSettings = async (inModal = false) => {
+    if (sendingPasswordReset || !canResetPassword) {
+      return;
+    }
+
+    if (!accountEmail) {
+      const missingMsg = "No email address is available for this account.";
+      if (inModal) {
+        setModalResetError(missingMsg);
+      } else {
+        setError(missingMsg);
+      }
+      toast(missingMsg, "error");
+      return;
+    }
+
+    if (inModal) {
+      setModalResetNotice("");
+      setModalResetError("");
+    } else {
+      clearMessages();
+    }
+
+    setSendingPasswordReset(true);
+
+    try {
+      const result = await sendPasswordReset(accountEmail);
+
+      if (!result.success) {
+        const msg =
+          result.message || "Could not send a password reset link right now.";
+        if (inModal) {
+          setModalResetError(msg);
+        } else {
+          setError(msg);
+        }
+        toast(msg, "error");
+        return;
+      }
+
+      const successMsg =
+        result.message ||
+        "Password reset link sent. Check your inbox to continue.";
+      if (inModal) {
+        setModalResetNotice(successMsg);
+      } else {
+        setNotice(successMsg);
+      }
+      toast(successMsg, "success");
+    } finally {
+      setSendingPasswordReset(false);
+    }
   };
 
   const handleProfileSubmit = async (event: FormEvent) => {
@@ -588,7 +711,7 @@ export default function SettingsPage() {
     }
   };
 
-  const handleDeletionRequest = async (event: FormEvent) => {
+  const handleDeletionRequest = (event: FormEvent) => {
     event.preventDefault();
 
     if (requestingDeletion || deletionConfirmed) {
@@ -597,19 +720,13 @@ export default function SettingsPage() {
 
     clearMessages();
 
-    if (deleteConfirmText.trim().toUpperCase() !== "DELETE") {
-      setError("Type DELETE to request account deletion.");
-      toast("Type DELETE to request account deletion.", "warning");
-      return;
-    }
-
     if (canManageCredentials && !deletePassword) {
       setError("Enter your current password before requesting deletion.");
       toast("Enter your current password before requesting deletion.", "warning");
       return;
     }
 
-    await sendDeletionRequest();
+    setDeleteDialogOpen(true);
   };
 
   const sendDeletionRequest = async () => {
@@ -623,13 +740,14 @@ export default function SettingsPage() {
         },
         body: JSON.stringify({
           currentPassword: canManageCredentials ? deletePassword : undefined,
-          confirmText: deleteConfirmText,
+          confirmText: "DELETE",
         }),
       });
       const result = await readActionResponse(response);
 
       if (!result.success) {
         if (response.status === 403 && result.error === "mfa_step_up_required") {
+          setDeleteDialogOpen(false);
           setStepUpRequired(true);
           setStepUpCode("");
           setStepUpError("");
@@ -637,15 +755,16 @@ export default function SettingsPage() {
           return;
         }
 
+        setDeleteDialogOpen(false);
         setError(result.message);
         toast(result.message, "error");
         return;
       }
 
+      setDeleteDialogOpen(false);
       setStepUpRequired(false);
       setStepUpCode("");
       setDeletePassword("");
-      setDeleteConfirmText("");
       setNotice(result.message);
       toast(result.message || "Account deletion confirmation sent.", "warning");
       const nextDeletionStatus = await getAccountDeletionStatus(user.uid);
@@ -1036,6 +1155,26 @@ export default function SettingsPage() {
                         Change password
                       </button>
                     </div>
+                  ) : isGoogleOnlyUser && hasPasskey ? (
+                    <div className="settings-action-panel">
+                      <div>
+                        <strong>Passkey enabled</strong>
+                        <p>
+                          You can set or reset a Buck password by email because
+                          this account has a verified passkey.
+                        </p>
+                      </div>
+                      <button
+                        className="settings-button settings-button--primary"
+                        type="button"
+                        onClick={() => void handleSendResetFromSettings(false)}
+                        disabled={isBusy || sendingPasswordReset}
+                      >
+                        {sendingPasswordReset
+                          ? "Sending reset link..."
+                          : "Set / Reset password via email"}
+                      </button>
+                    </div>
                   ) : (
                     <div className="settings-provider-note">
                       <FaGoogle aria-hidden="true" />
@@ -1134,14 +1273,15 @@ export default function SettingsPage() {
                     onSubmit={handleDeletionRequest}
                   >
                     <p>
-                      Buck sends a confirmation email first. After confirmation,
-                      your account enters a 10-day recovery window before the
-                      scheduled purge can permanently erase it.
+                      After our 3-step confirmation dialog, Buck emails a final
+                      4th-step link to <strong>{accountEmail || "your inbox"}</strong>.
+                      Once confirmed, your account is deleted in 10 days — signing
+                      back in during those 10 days cancels deletion automatically.
                     </p>
                     {deletionPendingConfirmation ? (
                       <p className="settings-confirm-hint">
-                        A deletion confirmation email is pending until{" "}
-                        {confirmationExpiresLabel}.
+                        A 4th-step deletion confirmation email is pending until{" "}
+                        {confirmationExpiresLabel}. Open it to start the 10-day window.
                       </p>
                     ) : null}
                     <div className="settings-field-row settings-field-row--delete">
@@ -1162,28 +1302,15 @@ export default function SettingsPage() {
                           />
                         </div>
                       ) : null}
-                      <div className="settings-field">
-                        <label htmlFor="settings-delete-confirm">
-                          Type DELETE
-                        </label>
-                        <input
-                          id="settings-delete-confirm"
-                          value={deleteConfirmText}
-                          onChange={(event) =>
-                            setDeleteConfirmText(event.target.value)
-                          }
-                          placeholder="DELETE"
-                          disabled={isBusy}
-                        />
-                      </div>
                       <button
                         className="settings-button settings-button--danger"
                         type="submit"
                         disabled={isBusy}
                       >
+                        <FaTrash aria-hidden="true" />
                         {requestingDeletion
                           ? "Sending confirmation..."
-                          : "Request deletion"}
+                          : "Delete account"}
                       </button>
                     </div>
                     {stepUpRequired ? (
@@ -1331,7 +1458,7 @@ export default function SettingsPage() {
         >
           <motion.section
             {...panelMotion}
-            className="settings-modal"
+            className="settings-modal buck-modal-panel buck-modal-accent"
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-email-modal-title"
@@ -1356,6 +1483,7 @@ export default function SettingsPage() {
               </button>
             </div>
 
+            <div className="buck-modal-scroll settings-modal-scroll">
             <form
               className="settings-form settings-modal-form buck-modal-form"
               onSubmit={handleEmailSubmit}
@@ -1383,9 +1511,32 @@ export default function SettingsPage() {
                   placeholder="Confirm before changing email"
                   disabled={isBusy}
                 />
-                <a className="settings-modal-help-link" href="/forgot-password">
-                  Forgot current password?
-                </a>
+                <button
+                  type="button"
+                  className="settings-modal-help-link"
+                  onClick={() => void handleSendResetFromSettings(true)}
+                  disabled={isBusy || sendingPasswordReset}
+                >
+                  {sendingPasswordReset
+                    ? "Sending reset link..."
+                    : "Forgot current password? Send reset link"}
+                </button>
+                {modalResetNotice ? (
+                  <p
+                    className="settings-modal-inline-status settings-modal-inline-status--success"
+                    role="status"
+                  >
+                    {modalResetNotice}
+                  </p>
+                ) : null}
+                {modalResetError ? (
+                  <p
+                    className="settings-modal-inline-status settings-modal-inline-status--error"
+                    role="alert"
+                  >
+                    {modalResetError}
+                  </p>
+                ) : null}
               </div>
               <div className="buck-modal-actions">
                 <button
@@ -1405,6 +1556,7 @@ export default function SettingsPage() {
                 </button>
               </div>
             </form>
+            </div>
           </motion.section>
         </motion.div>
       ) : null}
@@ -1425,7 +1577,7 @@ export default function SettingsPage() {
         >
           <motion.section
             {...panelMotion}
-            className="settings-modal"
+            className="settings-modal buck-modal-panel buck-modal-accent"
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-password-modal-title"
@@ -1450,6 +1602,7 @@ export default function SettingsPage() {
               </button>
             </div>
 
+            <div className="buck-modal-scroll settings-modal-scroll">
             <form
               className="settings-form settings-modal-form buck-modal-form"
               onSubmit={handlePasswordSubmit}
@@ -1468,9 +1621,32 @@ export default function SettingsPage() {
                   autoComplete="current-password"
                   disabled={isBusy}
                 />
-                <a className="settings-modal-help-link" href="/forgot-password">
-                  Forgot current password?
-                </a>
+                <button
+                  type="button"
+                  className="settings-modal-help-link"
+                  onClick={() => void handleSendResetFromSettings(true)}
+                  disabled={isBusy || sendingPasswordReset}
+                >
+                  {sendingPasswordReset
+                    ? "Sending reset link..."
+                    : "Forgot current password? Send reset link"}
+                </button>
+                {modalResetNotice ? (
+                  <p
+                    className="settings-modal-inline-status settings-modal-inline-status--success"
+                    role="status"
+                  >
+                    {modalResetNotice}
+                  </p>
+                ) : null}
+                {modalResetError ? (
+                  <p
+                    className="settings-modal-inline-status settings-modal-inline-status--error"
+                    role="alert"
+                  >
+                    {modalResetError}
+                  </p>
+                ) : null}
               </div>
               <div className="settings-field buck-modal-field">
                 <label htmlFor="settings-new-password">New password</label>
@@ -1546,10 +1722,29 @@ export default function SettingsPage() {
                 </button>
               </div>
             </form>
+            </div>
           </motion.section>
         </motion.div>
       ) : null}
       </AnimatePresence>
+
+      <DangerDeleteDialog
+        open={deleteDialogOpen}
+        itemType="account"
+        itemName="DELETE"
+        warning="Step 1 of 4: Deleting your Buck account will schedule permanent removal after email confirmation."
+        consequences={[
+          `Step 4 (Final confirmation): Buck will send a confirmation link to ${accountEmail || "your email"} before scheduling deletion.`,
+          "Once confirmed, your account is scheduled for permanent purge in 10 days.",
+          "Signing back in to this Buck account during those 10 days cancels deletion automatically and notifies you.",
+        ]}
+        onConfirm={sendDeletionRequest}
+        onCancel={() => {
+          if (!requestingDeletion) {
+            setDeleteDialogOpen(false);
+          }
+        }}
+      />
     </div>
   );
 }

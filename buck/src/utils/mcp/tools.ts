@@ -49,7 +49,7 @@ const percent = (part: number, whole: number) => (whole > 0 ? round2((part / who
 export type Period = { from: string; to: string };
 
 /** Validates a requested period, defaulting to `fallback`. Throws McpDataError. */
-export function resolvePeriod(from: string | undefined, to: string | undefined, fallback: Period): Period {
+function resolvePeriod(from: string | undefined, to: string | undefined, fallback: Period): Period {
   const period = { from: from ?? fallback.from, to: to ?? fallback.to };
 
   if (!isDayKey(period.from) || !isDayKey(period.to)) {
@@ -69,7 +69,7 @@ export type GroupBy = "category" | "wallet" | "month" | "day";
 
 export type SpendingGroup = { key: string; spent: number; sharePercent: number; count: number };
 
-export function groupSpending(
+function groupSpending(
   expenses: ExpenseRow[],
   groupBy: GroupBy,
   names: { wallets: Map<string, string>; categories: Map<string, string> }
@@ -105,7 +105,7 @@ export function groupSpending(
     : result.sort((a, b) => b.spent - a.spent || a.key.localeCompare(b.key));
 }
 
-export function describeGoal(goal: GoalRow, today: string) {
+function describeGoal(goal: GoalRow, today: string) {
   const remaining = round2(Math.max(goal.target - goal.saved, 0));
   const daysLeft = goal.targetDate ? daysInclusive(today, goal.targetDate) - 1 : null;
   const open = !goal.completed && remaining > 0;
@@ -127,7 +127,7 @@ export function describeGoal(goal: GoalRow, today: string) {
   };
 }
 
-export function mergeTransactions(
+function mergeTransactions(
   expenses: ExpenseRow[],
   incomes: IncomeRow[],
   names: { wallets: Map<string, string>; categories: Map<string, string> },

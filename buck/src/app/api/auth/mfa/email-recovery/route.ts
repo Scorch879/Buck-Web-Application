@@ -1,8 +1,7 @@
 import { randomBytes } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
 import { getRequestAuth, mfaRequiredResponse } from "@/utils/apiAuth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/utils/supabase/admin";
-import { supabaseAnonKey, supabaseUrl } from "@/utils/supabaseConfig";
+import { createSupabaseStatelessClient } from "@/utils/supabase/stateless";
 import {
   countSecurityEvents,
   getRetryAfterSeconds,
@@ -115,9 +114,7 @@ export async function POST(request: Request) {
     const callbackUrl = new URL("/auth/callback", getSiteOrigin(request));
     callbackUrl.searchParams.set("next", confirmPath);
 
-    const mailClient = createClient(supabaseUrl!, supabaseAnonKey!, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+    const mailClient = createSupabaseStatelessClient();
     const { error: otpError } = await mailClient.auth.signInWithOtp({
       email: auth.user.email,
       options: { emailRedirectTo: callbackUrl.toString(), shouldCreateUser: false },

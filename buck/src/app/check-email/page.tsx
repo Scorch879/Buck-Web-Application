@@ -4,13 +4,62 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { FaArrowRight, FaEnvelope, FaShieldAlt } from "react-icons/fa";
-import { resendSignUpConfirmation } from "@/component/authentication";
+import { FaArrowRight, FaEnvelope, FaExclamationTriangle, FaShieldAlt } from "react-icons/fa";
+import { resendSignUpConfirmation, type AuthResult } from "@/component/authentication";
+import {
+  getEmailValidationMessage,
+  normalizeEmailAddress,
+} from "@/utils/emailValidation";
 import { useAuthPageTheme } from "@/hooks/useAuthPageTheme";
 import "./style.css";
 
+const PENDING_CONFIRMATION_EMAIL_KEY = "buck-pending-confirmation-email";
+
+type ExtendedAuthResult = AuthResult & {
+  errorCode?: string;
+  providerConflict?: "google" | "email";
+};
+
+function getLinkErrorBanner(
+  errorParam: string | null,
+  errorCodeParam: string | null,
+  errorDescriptionParam: string | null
+) {
+  if (
+    errorParam === "email-verification-expired" ||
+    errorCodeParam === "otp_expired"
+  ) {
+    return {
+      isExpired: true,
+      message:
+        "Your verification link has expired. Enter your email below and request a fresh confirmation link.",
+    };
+  }
+
+  if (
+    errorParam === "email-verification-failed" ||
+    errorParam === "access_denied" ||
+    errorCodeParam
+  ) {
+    return {
+      isExpired: false,
+      message:
+        errorDescriptionParam ||
+        "We could not verify that confirmation link. Request a fresh confirmation email below.",
+    };
+  }
+
+  return null;
+}
+
 export default function CheckEmailPage() {
   const [email, setEmail] = useState("");
+  const [hasUrlEmail, setHasUrlEmail] = useState(false);
+  const [linkError, setLinkError] = useState<{
+    isExpired: boolean;
+    message: string;
+  } | null>(null);
+  const [googleConflict, setGoogleConflict] = useState(false);
   const [resendStatus, setResendStatus] = useState("");
   const [resendError, setResendError] = useState("");
   const [resending, setResending] = useState(false);
@@ -18,29 +67,87 @@ export default function CheckEmailPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setEmail(params.get("email") ?? "");
+    const hashParams = new URLSearchParams(
+      window.location.hash.startsWith("#")
+        ? window.location.hash.slice(1)
+        : window.location.hash
+    );
+
+    const queryEmail = params.get("email")?.trim() ?? "";
+    let resolvedEmail = queryEmail;
+    if (!resolvedEmail) {
+      try {
+        resolvedEmail =
+          window.sessionStorage.getItem(PENDING_CONFIRMATION_EMAIL_KEY)?.trim() ??
+          "";
+      } catch {
+        resolvedEmail = "";
+      }
+    }
+
+    setEmail(resolvedEmail);
+    setHasUrlEmail(Boolean(queryEmail));
+
+    const banner = getLinkErrorBanner(
+      params.get("error") ?? hashParams.get("error"),
+      params.get("error_code") ?? hashParams.get("error_code"),
+      params.get("error_description") ?? hashParams.get("error_description")
+    );
+    setLinkError(banner);
   }, []);
 
   const handleResendConfirmation = async () => {
+    if (resending) {
+      return;
+    }
+
     setResendStatus("");
     setResendError("");
+    setGoogleConflict(false);
 
-    if (!email) {
-      setResendError("Open this page from account creation so Buck knows where to resend.");
+    const normalizedEmail = normalizeEmailAddress(email);
+    if (!normalizedEmail) {
+      setResendError("Enter your email address so Buck knows where to resend.");
+      return;
+    }
+
+    const emailValidationMessage = getEmailValidationMessage(normalizedEmail);
+    if (emailValidationMessage) {
+      setResendError(emailValidationMessage);
       return;
     }
 
     setResending(true);
-    const result = await resendSignUpConfirmation(email);
+    const result: ExtendedAuthResult = await resendSignUpConfirmation(normalizedEmail);
     setResending(false);
 
     if (result.success) {
-      setResendStatus(result.message || "Confirmation email sent again.");
+      try {
+        window.sessionStorage.setItem(
+          PENDING_CONFIRMATION_EMAIL_KEY,
+          normalizedEmail
+        );
+      } catch {
+        // Session storage fallback is optional.
+      }
+      setLinkError(null);
+      setResendStatus(
+        result.message || "Confirmation email sent again. Check your inbox."
+      );
       return;
+    }
+
+    if (
+      result.errorCode === "google_account_exists" ||
+      result.providerConflict === "google"
+    ) {
+      setGoogleConflict(true);
     }
 
     setResendError(result.message || "Could not resend confirmation email.");
   };
+
+  const showEmailInput = !hasUrlEmail || Boolean(linkError);
 
   return (
     <div className={`CE-Background${isDarkTheme ? " CE-Dark" : ""}`}>
@@ -67,17 +174,47 @@ export default function CheckEmailPage() {
           </span>
         </Link>
 
-        <div className="CE-Icon" aria-hidden="true">
-          <FaEnvelope />
+        <div className={`CE-Icon${linkError ? " CE-Icon--warning" : ""}`} aria-hidden="true">
+          {linkError ? <FaExclamationTriangle /> : <FaEnvelope />}
         </div>
 
-        <p className="CE-Kicker">Account created</p>
-        <h1>Check your email to activate Buck.</h1>
-        <p className="CE-Copy">
-          We sent a confirmation link{email ? ` to ${email}` : ""}. Open it to
-          verify your account, then you can sign in and start tracking your
-          budget.
+        <p className="CE-Kicker">
+          {linkError?.isExpired
+            ? "Verification link expired"
+            : linkError
+              ? "Verification issue"
+              : "Account created"}
         </p>
+        <h1>
+          {linkError?.isExpired
+            ? "Request a fresh confirmation link."
+            : linkError
+              ? "Verify your email to activate Buck."
+              : "Check your email to activate Buck."}
+        </h1>
+        <p className="CE-Copy">
+          {linkError
+            ? linkError.message
+            : `We sent a confirmation link${email ? ` to ${email}` : ""}. Open it to verify your account, then you can sign in and start tracking your budget.`}
+        </p>
+
+        {showEmailInput ? (
+          <div className="CE-EmailField">
+            <label htmlFor="check-email-input" className="CE-EmailLabel">
+              Email address
+            </label>
+            <input
+              id="check-email-input"
+              type="email"
+              className="CE-EmailInput"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
+              disabled={resending}
+            />
+          </div>
+        ) : null}
 
         <div className="CE-Note">
           <FaShieldAlt aria-hidden="true" />
@@ -111,9 +248,14 @@ export default function CheckEmailPage() {
           </p>
         ) : null}
         {resendError ? (
-          <p className="CE-Message CE-Message--error" role="alert">
-            {resendError}
-          </p>
+          <div className="CE-Message CE-Message--error" role="alert">
+            <p>{resendError}</p>
+            {googleConflict ? (
+              <Link href="/sign-in" className="CE-InlineLink">
+                Go to Sign In and use Continue with Google
+              </Link>
+            ) : null}
+          </div>
         ) : null}
       </motion.main>
     </div>

@@ -13,6 +13,7 @@ import {
 } from "react-icons/fa";
 import { BUDGET_WARNING_REMAINING_PCT, getBudgetLevel } from "@/utils/categoryUtils";
 import { formatCurrency, toNumber } from "@/utils/formatters";
+import { toDayKey } from "@/utils/periods";
 import type { BuckExpense, BuckWallet } from "@/utils/supabaseData";
 
 interface ExpenseKPICardsProps {
@@ -104,10 +105,7 @@ export default function ExpenseKPICards({
       Array.from({ length: 7 }, (_, i) => {
         const d = new Date();
         d.setDate(d.getDate() - (6 - i));
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, "0");
-        const date = String(d.getDate()).padStart(2, "0");
-        return `${year}-${month}-${date}`;
+        return toDayKey(d);
       })
     );
 

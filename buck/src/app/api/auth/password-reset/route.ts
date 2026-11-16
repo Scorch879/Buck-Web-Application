@@ -1,11 +1,8 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSiteOrigin } from "@/utils/httpResponse";
+import { createSupabaseStatelessClient } from "@/utils/supabase/stateless";
 import {
   isSupabaseConfigured,
-  supabaseAnonKey,
   supabaseConfigError,
-  supabaseUrl,
 } from "@/utils/supabaseConfig";
 import {
   createSupabaseAdminClient,
@@ -16,66 +13,38 @@ import {
   normalizeEmailAddress,
 } from "@/utils/emailValidation";
 import {
-  getClientIp,
-  getRetryAfterSeconds,
-  hashIdentifier,
-  toIsoDate,
+  checkEmailActionRateLimit,
+  createAuthJsonResponse,
+  getEmailActionSecurityContext,
+  recordSecurityEvent,
+  type EmailActionRateLimitConfig,
+  type EmailActionSecurityContext,
 } from "@/utils/authRateLimit";
+import {
+  canAccountResetPassword,
+  getAuthAccountCapabilitiesByEmail,
+} from "@/utils/authCapabilities";
 
 type PasswordResetRequest = {
   email?: unknown;
 };
 
-type PasswordResetOutcome =
-  | "sent"
-  | "not_found"
-  | "rate_limited"
-  | "provider_error"
-  | "lookup_error";
-
-type PasswordResetSecurityContext = {
-  emailHash: string;
-  ipHash: string;
-  normalizedEmail: string;
-};
-
-type RateLimitDecision =
-  | { limited: false }
-  | { limited: true; message: string; retryAfterSeconds: number };
-
-// Identical for existing and unknown addresses so the endpoint cannot be used
-// to discover which e-mails have a Buck account.
+// Identical for unknown addresses and ineligible Google-only accounts so the
+// endpoint cannot be used to enumerate accounts or auth providers (SEC-020).
 const resetRequestMessage =
-  "If a Buck account exists for that email, a reset link is on its way. Check your inbox.";
-const passwordResetEventType = "password_reset";
-const passwordResetIpWindowMs = 15 * 60 * 1000;
-const passwordResetIpLimit = 8;
-const passwordResetIpDayWindowMs = 24 * 60 * 60 * 1000;
-const passwordResetIpDayLimit = 40;
-const passwordResetEmailWindowMs = 60 * 60 * 1000;
-const passwordResetEmailLimit = 5;
-const passwordResetEmailCooldownMs = 60 * 1000;
+  "If password reset is available for that email, a reset link is on its way. Check your inbox.";
 
-function normalizeOrigin(value: string) {
-  const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
-  return new URL(withProtocol).origin;
-}
-
-function getSiteOrigin(request: Request) {
-  if (process.env.NODE_ENV !== "development") {
-    const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-
-    if (configuredSiteUrl) {
-      try {
-        return normalizeOrigin(configuredSiteUrl);
-      } catch {
-        console.warn("NEXT_PUBLIC_SITE_URL is not a valid URL.");
-      }
-    }
-  }
-
-  return new URL(request.url).origin;
-}
+const PASSWORD_RESET_LIMITS: EmailActionRateLimitConfig = {
+  eventType: "password_reset",
+  ipWindowMs: 15 * 60 * 1000,
+  ipLimit: 8,
+  ipDayWindowMs: 24 * 60 * 60 * 1000,
+  ipDayLimit: 40,
+  emailWindowMs: 60 * 60 * 1000,
+  emailLimit: 5,
+  emailCooldownMs: 60 * 1000,
+  actionNoun: "reset",
+};
 
 function getPasswordResetRedirectUrl(request: Request) {
   const params = new URLSearchParams({
@@ -83,21 +52,6 @@ function getPasswordResetRedirectUrl(request: Request) {
   });
 
   return `${getSiteOrigin(request)}/auth/callback?${params.toString()}`;
-}
-
-function createPasswordResetResponse(
-  payload: { success: boolean; message: string },
-  init: { status: number; retryAfterSeconds?: number }
-) {
-  const response = NextResponse.json(payload, { status: init.status });
-
-  response.headers.set("Cache-Control", "no-store, max-age=0");
-
-  if (init.retryAfterSeconds) {
-    response.headers.set("Retry-After", String(init.retryAfterSeconds));
-  }
-
-  return response;
 }
 
 async function readRequestBody(request: Request) {
@@ -108,179 +62,9 @@ async function readRequestBody(request: Request) {
   }
 }
 
-function getPasswordResetSecurityContext(
-  request: Request,
-  email: string
-): PasswordResetSecurityContext {
-  const normalizedEmail = normalizeEmailAddress(email);
-
-  return {
-    normalizedEmail,
-    emailHash: hashIdentifier(`email:${normalizedEmail}`),
-    ipHash: hashIdentifier(`ip:${getClientIp(request)}`),
-  };
-}
-
-function getResetLimitMessage(minutes: number) {
-  return `Too many reset attempts. Please wait about ${minutes} minute${
-    minutes === 1 ? "" : "s"
-  } and try again.`;
-}
-
-async function countPasswordResetEvents(
-  supabaseAdmin: SupabaseClient,
-  filters: { since: string; ipHash?: string; emailHash?: string }
-) {
-  let query = supabaseAdmin
-    .from("auth_security_events")
-    .select("id", { count: "exact", head: true })
-    .eq("event_type", passwordResetEventType)
-    .gte("created_at", filters.since)
-    .neq("outcome", "rate_limited");
-
-  if (filters.ipHash) {
-    query = query.eq("ip_hash", filters.ipHash);
-  }
-
-  if (filters.emailHash) {
-    query = query.eq("email_hash", filters.emailHash);
-  }
-
-  const { count, error } = await query;
-
-  if (error) {
-    throw error;
-  }
-
-  return count ?? 0;
-}
-
-async function getLatestEmailResetAttemptMs(
-  supabaseAdmin: SupabaseClient,
-  emailHash: string
-) {
-  const { data, error } = await supabaseAdmin
-    .from("auth_security_events")
-    .select("created_at")
-    .eq("event_type", passwordResetEventType)
-    .eq("email_hash", emailHash)
-    .gte("created_at", toIsoDate(passwordResetEmailCooldownMs))
-    .neq("outcome", "rate_limited")
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  if (error) {
-    throw error;
-  }
-
-  const latestAttempt = data?.[0]?.created_at;
-
-  return typeof latestAttempt === "string" ? Date.parse(latestAttempt) : null;
-}
-
-async function getPasswordResetRateLimit(
-  supabaseAdmin: SupabaseClient,
-  context: PasswordResetSecurityContext
-): Promise<RateLimitDecision> {
-  const [ipWindowCount, ipDayCount, emailWindowCount, latestEmailAttemptMs] =
-    await Promise.all([
-      countPasswordResetEvents(supabaseAdmin, {
-        ipHash: context.ipHash,
-        since: toIsoDate(passwordResetIpWindowMs),
-      }),
-      countPasswordResetEvents(supabaseAdmin, {
-        ipHash: context.ipHash,
-        since: toIsoDate(passwordResetIpDayWindowMs),
-      }),
-      countPasswordResetEvents(supabaseAdmin, {
-        emailHash: context.emailHash,
-        since: toIsoDate(passwordResetEmailWindowMs),
-      }),
-      getLatestEmailResetAttemptMs(supabaseAdmin, context.emailHash),
-    ]);
-
-  if (ipDayCount >= passwordResetIpDayLimit) {
-    return {
-      limited: true,
-      message: "Too many reset attempts today. Please try again tomorrow.",
-      retryAfterSeconds: getRetryAfterSeconds(passwordResetIpDayWindowMs),
-    };
-  }
-
-  if (ipWindowCount >= passwordResetIpLimit) {
-    return {
-      limited: true,
-      message: getResetLimitMessage(15),
-      retryAfterSeconds: getRetryAfterSeconds(passwordResetIpWindowMs),
-    };
-  }
-
-  if (emailWindowCount >= passwordResetEmailLimit) {
-    return {
-      limited: true,
-      message: getResetLimitMessage(60),
-      retryAfterSeconds: getRetryAfterSeconds(passwordResetEmailWindowMs),
-    };
-  }
-
-  if (latestEmailAttemptMs) {
-    const cooldownRemaining =
-      passwordResetEmailCooldownMs - (Date.now() - latestEmailAttemptMs);
-
-    if (cooldownRemaining > 0) {
-      return {
-        limited: true,
-        message: getResetLimitMessage(1),
-        retryAfterSeconds: getRetryAfterSeconds(cooldownRemaining),
-      };
-    }
-  }
-
-  return { limited: false };
-}
-
-async function recordPasswordResetEvent(
-  supabaseAdmin: SupabaseClient,
-  context: PasswordResetSecurityContext,
-  outcome: PasswordResetOutcome
-) {
-  const { error } = await supabaseAdmin.from("auth_security_events").insert({
-    event_type: passwordResetEventType,
-    ip_hash: context.ipHash,
-    email_hash: context.emailHash,
-    outcome,
-  });
-
-  if (error) {
-    console.warn(
-      "Could not record password reset security event:",
-      error.message
-    );
-  }
-}
-
-async function findBuckAccountByEmail(
-  supabaseAdmin: SupabaseClient,
-  email: string
-) {
-  const normalizedEmail = normalizeEmailAddress(email);
-  const emailCandidates = Array.from(new Set([email, normalizedEmail]));
-  const { data, error } = await supabaseAdmin
-    .from("profiles")
-    .select("id")
-    .in("email", emailCandidates)
-    .limit(1);
-
-  if (error) {
-    throw error;
-  }
-
-  return Boolean(data?.length);
-}
-
 export async function POST(request: Request) {
   if (!isSupabaseConfigured) {
-    return createPasswordResetResponse(
+    return createAuthJsonResponse(
       { success: false, message: supabaseConfigError },
       { status: 500 }
     );
@@ -291,14 +75,14 @@ export async function POST(request: Request) {
   const emailValidationMessage = getEmailValidationMessage(email);
 
   if (emailValidationMessage) {
-    return createPasswordResetResponse(
+    return createAuthJsonResponse(
       { success: false, message: emailValidationMessage },
       { status: 400 }
     );
   }
 
   if (!isSupabaseAdminConfigured) {
-    return createPasswordResetResponse(
+    return createAuthJsonResponse(
       {
         success: false,
         message:
@@ -308,15 +92,18 @@ export async function POST(request: Request) {
     );
   }
 
-  let securityContext: PasswordResetSecurityContext;
+  let securityContext: EmailActionSecurityContext;
   const supabaseAdmin = createSupabaseAdminClient();
 
   try {
-    securityContext = getPasswordResetSecurityContext(request, email);
+    securityContext = getEmailActionSecurityContext(
+      request,
+      normalizeEmailAddress(email)
+    );
   } catch (error) {
     console.error("Password reset throttling is not configured:", error);
 
-    return createPasswordResetResponse(
+    return createAuthJsonResponse(
       {
         success: false,
         message:
@@ -327,20 +114,26 @@ export async function POST(request: Request) {
   }
 
   try {
-    const rateLimit = await getPasswordResetRateLimit(
+    const rateLimit = await checkEmailActionRateLimit(
       supabaseAdmin,
-      securityContext
+      securityContext,
+      PASSWORD_RESET_LIMITS
     );
 
     if (rateLimit.limited) {
-      await recordPasswordResetEvent(
-        supabaseAdmin,
-        securityContext,
-        "rate_limited"
-      );
+      await recordSecurityEvent(supabaseAdmin, {
+        eventType: "password_reset",
+        ipHash: securityContext.ipHash,
+        emailHash: securityContext.emailHash,
+        outcome: "rate_limited",
+      });
 
-      return createPasswordResetResponse(
-        { success: false, message: rateLimit.message },
+      return createAuthJsonResponse(
+        {
+          success: false,
+          errorCode: "rate_limited",
+          message: rateLimit.message,
+        },
         {
           status: 429,
           retryAfterSeconds: rateLimit.retryAfterSeconds,
@@ -350,7 +143,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Password reset rate limit failed:", error);
 
-    return createPasswordResetResponse(
+    return createAuthJsonResponse(
       {
         success: false,
         message:
@@ -361,32 +154,48 @@ export async function POST(request: Request) {
   }
 
   try {
-    const accountExists = await findBuckAccountByEmail(
+    const capabilities = await getAuthAccountCapabilitiesByEmail(
       supabaseAdmin,
       securityContext.normalizedEmail
     );
 
-    if (!accountExists) {
-      await recordPasswordResetEvent(
-        supabaseAdmin,
-        securityContext,
-        "not_found"
-      );
+    if (!capabilities.exists) {
+      await recordSecurityEvent(supabaseAdmin, {
+        eventType: "password_reset",
+        ipHash: securityContext.ipHash,
+        emailHash: securityContext.emailHash,
+        outcome: "not_found",
+      });
 
-      return createPasswordResetResponse(
+      return createAuthJsonResponse(
+        { success: true, message: resetRequestMessage },
+        { status: 200 }
+      );
+    }
+
+    if (!canAccountResetPassword(capabilities)) {
+      await recordSecurityEvent(supabaseAdmin, {
+        eventType: "password_reset",
+        ipHash: securityContext.ipHash,
+        emailHash: securityContext.emailHash,
+        outcome: "blocked_provider",
+      });
+
+      return createAuthJsonResponse(
         { success: true, message: resetRequestMessage },
         { status: 200 }
       );
     }
   } catch (error) {
     console.error("Password reset account lookup failed:", error);
-    await recordPasswordResetEvent(
-      supabaseAdmin,
-      securityContext,
-      "lookup_error"
-    );
+    await recordSecurityEvent(supabaseAdmin, {
+      eventType: "password_reset",
+      ipHash: securityContext.ipHash,
+      emailHash: securityContext.emailHash,
+      outcome: "lookup_error",
+    });
 
-    return createPasswordResetResponse(
+    return createAuthJsonResponse(
       {
         success: false,
         message:
@@ -396,12 +205,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = createClient(supabaseUrl!, supabaseAnonKey!, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  const supabase = createSupabaseStatelessClient();
 
   const { error } = await supabase.auth.resetPasswordForEmail(
     securityContext.normalizedEmail,
@@ -412,23 +216,29 @@ export async function POST(request: Request) {
 
   if (error) {
     console.error("Password reset request failed:", error.message);
-    await recordPasswordResetEvent(
-      supabaseAdmin,
-      securityContext,
-      "provider_error"
-    );
+    await recordSecurityEvent(supabaseAdmin, {
+      eventType: "password_reset",
+      ipHash: securityContext.ipHash,
+      emailHash: securityContext.emailHash,
+      outcome: "provider_error",
+    });
 
-    // Only reachable for real accounts, so a distinct error would reveal
+    // Only reachable for eligible accounts, so a distinct error would reveal
     // existence. Rate limits (429) are checked earlier and apply to every address.
-    return createPasswordResetResponse(
+    return createAuthJsonResponse(
       { success: true, message: resetRequestMessage },
       { status: 200 }
     );
   }
 
-  await recordPasswordResetEvent(supabaseAdmin, securityContext, "sent");
+  await recordSecurityEvent(supabaseAdmin, {
+    eventType: "password_reset",
+    ipHash: securityContext.ipHash,
+    emailHash: securityContext.emailHash,
+    outcome: "sent",
+  });
 
-  return createPasswordResetResponse(
+  return createAuthJsonResponse(
     {
       success: true,
       message: resetRequestMessage,

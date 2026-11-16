@@ -95,7 +95,7 @@ flowchart TD
 1. **Next.js 15 Web Client**:
    - Implements React 19 Server Components and Client Components within the App Router (`buck/src/app/`).
    - Utilizes [`FinancialContext.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/context/FinancialContext.tsx) to provide high-speed in-memory client data caching with Supabase Realtime synchronization, eliminating repeated table fetches during navigation.
-   - Enforces responsive modal bounds (`width: min(880px, 100%)`, max-height `min(82dvh, 760px)`) and strict **1:1 Skeletal Loading Parity** ([`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx)) for zero Cumulative Layout Shift (CLS).
+   - Enforces responsive modal bounds (`width: min(880px, 100%)`, max-height `min(82dvh, 760px)`) and strict **1:1 Skeletal Loading Parity** ([`component/skeletons/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/) via [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx)) for zero Cumulative Layout Shift (CLS).
 2. **Flutter Mobile Client**:
    - Independent cross-platform client (Android 8.0+ and iOS 13.0+) adhering to the BLoC state pattern.
    - Interfaces directly with native device camera hardware for high-resolution receipt capture.
@@ -332,14 +332,14 @@ d:/VS Code/Buck-Budget-Tracker/Buck-Web-Application/
 ├── docs/                               # All project documentation (map: docs/README.md)
 │   ├── README.md                       # Documentation map: which doc answers what
 │   ├── Skills.md                       # Function catalog: Supabase data layer, API routes, Buck_AI endpoints, hooks
-│   ├── Design.md                       # Architecture, ERDs, data flows, ADR-001 to ADR-052
+│   ├── Design.md                       # Architecture, ERDs, data flows, ADR-001 to ADR-057
 │   ├── Implementation.md               # Setup, environment variables, execution logic, constraints
 │   ├── QA_Report.md                    # Defect catalog, security audit, test strategy
 │   ├── requirements/                   # SRS.md, Buck_SRS.docx
 │   ├── project/                        # Buck_Project_Schedule_Gantt_Chart.xlsx (9-week schedule)
 │   └── guides/                         # frontend/ change notes, supabase/ e-mail templates
 │
-├── Buck_AI/                            # Python FastAPI + Gemini AI service (see Buck_AI/README.md)
+├── Buck_AI/                            # Python FastAPI AI service (Gemini Advisor, Groq Forecaster; see Buck_AI/README.md)
 │
 └── buck/                               # Core Next.js Web Application & Backend Subsystem
     ├── CLAUDE.md                       # Subdirectory Claude reference mirror
@@ -364,32 +364,33 @@ d:/VS Code/Buck-Budget-Tracker/Buck-Web-Application/
         │   │
         │   ├── dashboard/              # Authenticated Dashboard Route Segments
         │   │   ├── layout.tsx          # Dashboard layout wrapping FinancialProvider and navigation chrome
-        │   │   ├── home/               # Overview view: Net worth, WeeklyPieChart, 7-day bars, AI placeholder
-        │   │   ├── expenses/           # Transaction view: ExpenseKPICards, CategoryVisualizer, table/filter
+        │   │   ├── home/               # Overview view: Net worth, WeeklyPieChart, 7-day bars, AI Advisor card
+        │   │   ├── expenses/           # Transaction view: ExpenseKPICards, ExpenseCategoryVisualizer, table/filter
+        │   │   ├── categories/         # Category & Income Category management + AI auto-categorize
         │   │   ├── wallet/             # Multi-wallet view: Active cards, inter-wallet transfer modal, history
-        │   │   ├── goals/              # Savings view: Goal list, funding allocation, progress indicators
+        │   │   ├── goals/              # Savings view: Goal list, funding allocation, progress & soft-delete recovery
         │   │   ├── statistics/         # Analytics view: Cash flow velocity, category spending breakdown
-        │   │   ├── settings/           # Profile view: Attitude selector, dark/light theme, account deletion
+        │   │   ├── settings/           # Profile, 2FA/passkeys, connected apps, theme, account deletion
         │   │   ├── admin/              # Admin view: System telemetry, Supabase/Vercel status, feedback triage
         │   │   ├── financial-advisor/  # Dedicated AI Advisor recommendation view
         │   │   └── forecast/           # Dedicated AI Time-Series spending forecast view
         │   │
         │   └── api/                    # Server-Side API Route Handlers
-        │       ├── auth/               # /api/auth/password-reset (rate-limited), /api/auth/sign-out
+        │       ├── auth/               # password-reset, sign-out, mfa/* (status, recovery-codes, email-recovery)
         │       ├── account/deletion/   # /request, /recover, and cron-triggered /purge endpoints
-        │       ├── advisor/route.ts    # AI Advisor recommendation proxy endpoint
-        │       ├── forecast/route.ts   # Time-series spending forecasting proxy endpoint
-        │       └── admin/              # Supabase management and Vercel telemetry proxy routes
+        │       ├── cron/               # /api/cron/generate-insights (rule-based forecast generator)
+        │       ├── forecast/route.ts   # Rule-engine spending forecast fallback endpoint
+        │       ├── mcp/route.ts        # Stateless Buck MCP server (ADR-050)
+        │       ├── oauth/              # Connected-app consent approvals & same-origin app-logo proxy
+        │       ├── profile/avatar/     # Authenticated private avatar streaming proxy
+        │       └── admin/              # Overview, Supabase management, Vercel telemetry, and admin MFA reset
         │
         ├── component/                  # Reusable UI Components & Widgets
         │   ├── dashboard.css           # Global dashboard layout, card styling, and grid rules
         │   ├── DashboardClientLayout.tsx # Responsive desktop/mobile navigation shell
-        │   ├── DashboardSkeletons.tsx  # 1:1 Parity skeletons for zero CLS (Expenses, Wallets, Home, etc.)
+        │   ├── DashboardSkeletons.tsx  # Backward-compatible barrel re-exporting component/skeletons/*
+        │   ├── skeletons/              # Modular 1:1 parity skeleton components and skeletons.css
         │   ├── SessionManager.tsx      # 30-min idle timeout detector & BroadcastChannel cross-tab synchronizer
-        │   ├── ExpenseKPICards.tsx     # KPI metrics: Wallet capacity meter, cumulative stats, benchmark track
-        │   ├── ExpenseCategoryVisualizer.tsx # Proportional category allocation bar & filter chip pills
-        │   ├── WeeklyPieChart.tsx      # Donut chart with Top-4 + Others 5-slice cap and interpretation card
-        │   ├── AIAdvisorPlaceholderCard.tsx # Shimmering Generative AI status card with telemetry chips
         │   └── toast/                  # Global Toaster Subsystem
         │       ├── ToastContext.tsx    # Toast provider and dispatch hooks (toast.success, toast.error, etc.)
         │       ├── Toaster.tsx         # Framer Motion animated viewport container (max 4 concurrent items)
@@ -401,14 +402,22 @@ d:/VS Code/Buck-Budget-Tracker/Buck-Web-Application/
         │   └── FinancialProvider.tsx   # Global provider orchestrating data fetching and realtime subscriptions
         │
         ├── hooks/                      # Custom React Hooks
-        │   └── usePointerGradient.ts   # Interactive mouse pointer radial gradient lighting for cards/modals
+        │   ├── useAuthPageTheme.ts     # Auth page light/dark theme binding and button glow gradient
+        │   ├── useClickOutside.ts      # Click-outside listener for dropdowns and popovers
+        │   ├── useEscapeKey.ts         # Escape key dismiss hook for dialogs/menus
+        │   ├── useIncomes.ts           # Income records state & Realtime subscription helper
+        │   ├── useIsClient.ts          # SSR-safe hydration check (`useSyncExternalStore`)
+        │   ├── usePointerGradient.ts   # Interactive mouse pointer radial gradient lighting for cards/modals
+        │   └── useUserTable.ts         # Generic subscription/read hook for user-owned tables
         │
         └── utils/                      # Data Services, Clients & Helpers
-            ├── supabaseClient.ts       # Browser-side Supabase client singleton
-            ├── supabaseServer.ts       # Server-side Supabase client with cookie forwarding
+            ├── supabase.ts             # Browser-side Supabase client singleton
+            ├── supabaseConfig.ts       # Shared public Supabase URL/anon env checks & cookie options
+            ├── supabase/               # Server (`server.ts`), admin (`admin.ts`), stateless (`stateless.ts`) clients
             ├── supabaseData.ts         # Centralized data access layer (profiles, wallets, expenses, goals, feedback)
-            ├── sessionActivity.ts      # HMAC cookie signing and session activity validation utilities
-            └── formatters.ts           # Standardized Philippine Peso currency (`₱`) and date formatters
+            ├── httpResponse.ts         # Edge-safe no-store headers, cookie forwarding, origin resolution
+            ├── secureCompare.ts        # SHA-256 hashing and constant-time secret/token comparison
+            └── formatters.ts           # Standardized Philippine Peso currency (`₱`), ILIKE escaping, and date formatters
 ```
 
 ---
@@ -483,7 +492,7 @@ flowchart TD
 - **Modal Bounds Standard**: All desktop modals must conform to `width: min(880px, 100%)` and `max-height: min(82dvh, 760px)`.
 - **Dropdown Standard (ADR-040)**: Every dropdown uses `@/component/CustomSelect` (no native `<select>`). Option items are regular weight (`400`); the selected option is `500` and marked by colour and background, never bold; the trigger is `600`. Toolbar filters and sorts pass `fit` so the trigger sizes to its longest option and never truncates labels with "…". Do not give them fixed widths.
 - **Deletion Standard (ADR-041)**: Every user-facing delete uses `@/component/DangerDeleteDialog`, a three-step GitHub-style flow: (1) a warning plus slide-to-delete, (2) a red "I understand, continue" button or Cancel, (3) typing the item's exact name to enable the final red Delete. Never use `window.confirm` or a single-click confirm. Destructive buttons are always red-tinted with hit targets of at least 36px. Settings account deletion keeps its stronger flow (DELETE, password, email confirmation, 10-day recovery).
-- **1:1 Skeletal Loading Parity Policy**: Loading skeletons in [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx) must have 1:1 layout, geometry, card anatomy, and toolbar parity with rendered screens (especially Expenses and Wallets) to eliminate Cumulative Layout Shift (CLS).
+- **1:1 Skeletal Loading Parity Policy**: Loading skeletons in [`component/skeletons/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/) (re-exported via [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx)) must have 1:1 layout, geometry, card anatomy, and toolbar parity with rendered screens (especially Expenses and Wallets) to eliminate Cumulative Layout Shift (CLS).
 
 ### 4.3 Backend & ML Engineer
 - **Responsibilities**: The Python [`Buck_AI/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/) service (`BuckAI_Advisor`, `BuckAI_Forecast`, `shared`) and the Next.js API routes ([`buck/src/app/api/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/)).
@@ -516,6 +525,9 @@ flowchart TD
 | **ADR-052** | AI Forecaster | No trained model: per-user intermittent-demand model (weekday, payday, recurring) fitted per request, 1,000 Monte Carlo paths → P10/P50/P90, window picked by a 14-day backtest that also sets confidence. `GET /forecast` = numbers now; `POST /forecast/explain` = AI text, saved in `ai_forecasts`. |
 | **ADR-053** | Forecaster Explanation on Groq | The Forecaster's text moves from Gemini to Groq (`openai/gpt-oss-120b` → `llama-3.3-70b-versatile` → `openai/gpt-oss-20b`, `shared/groq.py`): free with no billing account, ~1 s, strict JSON schema; warm, no-jargon voice. Advisor stays on Gemini. `GROQ_API_KEY` lives only in Buck_AI. |
 | **ADR-054** | One Motion and Scrollbar System | Shared presets in `utils/motion.ts` (one spring, ease-out in, ease-in out) for every modal, popover and the sidebar; `MotionConfig reducedMotion="user"`; sidebar state set before first paint so it never slides on load; profile pictures fade in via `FadeInImage`; one Buck-orange scrollbar for every scroll area in `globals.css`. |
+| **ADR-055** | Detected Saving Attitude and Forecast Goal Plan | AI Advisor detects the goal's saving attitude via `POST /advisor/attitude` (`shared/attitude.py`) and shares the plan with Goals UI and AI Forecaster. |
+| **ADR-056** | Goal Soft-Delete & User-Initiated Recovery | Added `goals.deleted_at` soft-delete (`deleteGoalRecord`, `restoreGoalRecord`, `listDeletedGoals`) preserving saved progress and linked expenses. |
+| **ADR-057** | First-Run "Getting started" Checklist on Home | `NewUserGuide` / `GettingStarted` checklist backed by `getOnboardingStatus(userId)` count reads and Realtime listeners. |
 | **ADR-005** | Zero-Knowledge Password Reset Rate Limiting | Rate limiting tracked via SHA-256 HMAC hashes in `auth_security_events` (zero plaintext PII). |
 | **ADR-006** | Database Policy Consolidation & Hardening | Applied `(select auth.uid())` initplan caching and revoked trigger execution from public roles. |
 | **ADR-007** | Weekly Spending Donut with 5-Slice Cap | Donut chart capped at Top-4 categories + 5th "Others" slice, paired with contextual interpretation card. |
@@ -523,7 +535,7 @@ flowchart TD
 | **ADR-009** | Symmetrical Wallet Card Refactor | Standardized wallet cards to strictly two 50%/50% action buttons (`[Edit]`, `[Delete]`) and emerald active status badge. |
 | **ADR-010** | Category Breakdown Timeframe Filter & AI Card | Segmented filter (`[All Time] [This Month] [This Week]`) and `AIAdvisorPlaceholderCard.tsx`. |
 | **ADR-011** | Global Modular Toaster Architecture | Unified token-driven toast system (`buck/src/component/toast/`), completely removing native `alert()` calls. |
-| **ADR-012** | 1:1 Skeletal Loading Parity Standard | Mandatory anatomical parity in `DashboardSkeletons.tsx` matching live cards for zero CLS. |
+| **ADR-012** | 1:1 Skeletal Loading Parity Standard | Mandatory anatomical parity in `component/skeletons/` matching live cards for zero CLS. |
 | **ADR-013** | Typographic Hierarchy Audit & Font Softening | Balanced heavy weights (`800`/`900` down to `600`/`650`/`700`), grouped card titles, and normalized margins. |
 
 ---
@@ -635,7 +647,7 @@ The web app reads `NEXT_PUBLIC_BUCK_AI_URL` (default `http://localhost:8000`). R
    - Never mutate React state directly; use functional state updaters and immutable array/object operations.
 
 2. **Zero Layout Shift (CLS) Mandate**:
-   - Any modifications to dashboard views ([`expenses/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/expenses/page.tsx), [`wallet/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/wallet/page.tsx), etc.) must be reflected 1:1 in [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx). Skeletons must mirror exact card anatomy, toolbar button counts, and grid geometry.
+   - Any modifications to dashboard views ([`expenses/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/expenses/page.tsx), [`wallet/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/wallet/page.tsx), etc.) must be reflected 1:1 in [`component/skeletons/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/) (re-exported via [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx)). Skeletons must mirror exact card anatomy, toolbar button counts, and grid geometry.
 
 3. **Data Layer Discipline**:
    - Always route database interactions through [`buck/src/utils/supabaseData.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts) or [`FinancialContext.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/context/FinancialContext.tsx). Never write inline ad-hoc Supabase queries directly inside components.

@@ -36,61 +36,6 @@ const COLUMNS: { key: SortKey | null; label: string; className?: string }[] = [
   { key: "amount", label: "Amount", className: styles.colAmount },
 ];
 
-/** Loading twin of the table: same classes and row anatomy for zero layout shift. */
-export function IncomeListSkeleton({ embedded = false }: { embedded?: boolean } = {}) {
-  return (
-    <section aria-hidden="true" className={styles.incomeSection}>
-      {!embedded && (
-        <div className={styles.listHeader}>
-          <div>
-            <p className={styles.eyebrow}>
-              <span className="skeleton-text">Income</span>
-            </p>
-            <h2 className={styles.listTitle}>
-              <span className="skeleton-text">Income history</span>
-            </h2>
-          </div>
-          <span className={`${styles.primaryBtn} skeleton-text`}>+ Add Income</span>
-        </div>
-      )}
-      <div className={styles.summary}>
-        {["Entries", "Total", "Average", "Largest"].map((label) => (
-          <div key={label} className={styles.summaryStat}>
-            <span className={styles.summaryLabel}><span className="skeleton-text">{label}</span></span>
-            <span className={styles.summaryValue}><span className="skeleton-text">₱00,000</span></span>
-          </div>
-        ))}
-      </div>
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              {COLUMNS.map((c) => (
-                <th key={c.label} className={c.className}>
-                  <span className="skeleton-text">{c.label}</span>
-                </th>
-              ))}
-              <th className={styles.colAction} />
-            </tr>
-          </thead>
-          <tbody>
-            {[0, 1, 2, 3].map((row) => (
-              <tr key={row}>
-                <td><span className="skeleton-text">Oct 1, 2026</span></td>
-                <td><span className={`${styles.categoryPill} skeleton-text`}>Salary</span></td>
-                <td className={styles.colDesc}><span className="skeleton-text">Salary payout</span></td>
-                <td className={styles.colWallet}><span className="skeleton-text">Main wallet</span></td>
-                <td className={styles.colAmount}><span className="skeleton-text">+₱00,000.00</span></td>
-                <td className={styles.colAction}><span className={`${styles.deleteBtn} skeleton-text`} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
-}
-
 export default function IncomeList({
   userId,
   incomes,

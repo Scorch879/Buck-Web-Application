@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { escapeIlikePattern, toNumber } from "@/utils/formatters";
 
 /**
  * Read-only queries for the Buck MCP server (ADR-050). Every query runs with
@@ -60,11 +61,6 @@ function fail(what: string, error: { message: string }): never {
   throw new McpDataError(`Buck couldn't read your ${what} right now. Try again.`);
 }
 
-const toNumber = (value: unknown) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
 /** Pages through a query until it runs out or hits `max` rows. */
 async function fetchAllRows<T>(
   what: string,
@@ -81,11 +77,6 @@ async function fetchAllRows<T>(
   }
 
   return { rows, truncated: true };
-}
-
-/** `%` and `_` are wildcards in ILIKE; match them literally. */
-export function escapeLike(value: string) {
-  return value.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
 
 export async function canReadData(db: SupabaseClient): Promise<boolean> {
@@ -172,8 +163,8 @@ function expenseQuery(db: SupabaseClient, filter: TransactionFilter) {
     .gte("spent_on", filter.from)
     .lte("spent_on", filter.to);
   if (filter.walletId) query = query.eq("wallet_id", filter.walletId);
-  if (filter.categoryName) query = query.ilike("category_name", escapeLike(filter.categoryName));
-  if (filter.search) query = query.ilike("description", `%${escapeLike(filter.search)}%`);
+  if (filter.categoryName) query = query.ilike("category_name", escapeIlikePattern(filter.categoryName));
+  if (filter.search) query = query.ilike("description", `%${escapeIlikePattern(filter.search)}%`);
   return query.order("spent_on", { ascending: false }).order("created_at", { ascending: false });
 }
 
@@ -185,7 +176,7 @@ function incomeQuery(db: SupabaseClient, filter: TransactionFilter) {
     .lte("received_on", filter.to);
   if (filter.walletId) query = query.eq("wallet_id", filter.walletId);
   if (filter.categoryIds) query = query.in("category_id", filter.categoryIds);
-  if (filter.search) query = query.ilike("description", `%${escapeLike(filter.search)}%`);
+  if (filter.search) query = query.ilike("description", `%${escapeIlikePattern(filter.search)}%`);
   return query.order("received_on", { ascending: false }).order("created_at", { ascending: false });
 }
 

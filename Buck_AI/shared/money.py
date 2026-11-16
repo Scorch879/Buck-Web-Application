@@ -32,3 +32,18 @@ def month_bounds(day: date) -> tuple[date, date]:
     start = day.replace(day=1)
     next_month = (start + timedelta(days=32)).replace(day=1)
     return start, next_month - timedelta(days=1)
+
+
+def parse_day(value: Any) -> date | None:
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def parse_ts(value: Any) -> datetime:
+    try:
+        ts = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return datetime.min.replace(tzinfo=timezone.utc)

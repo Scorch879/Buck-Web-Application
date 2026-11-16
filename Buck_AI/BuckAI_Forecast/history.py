@@ -5,19 +5,12 @@ from datetime import date, timedelta
 from typing import Any
 
 from shared.attitude import attitude_inputs, detect_attitude
-from shared.money import ATTITUDES, money, today_ph
+from shared.money import ATTITUDES, money, parse_day, today_ph
 from shared.safety import clean_text
 from shared.supabase import DbError, UserDb
 
 from .forecast import History
 from .model import HISTORY_DAYS, Expense, Income
-
-
-def _day(value: Any) -> date | None:
-    try:
-        return date.fromisoformat(str(value)[:10])
-    except ValueError:
-        return None
 
 
 async def load_history(db: UserDb, today: date | None = None) -> tuple[History, dict[str, str | None]]:
@@ -53,7 +46,7 @@ async def load_history(db: UserDb, today: date | None = None) -> tuple[History, 
     expenses = []
     raw_spending: list[tuple[date, float]] = []  # every expense, as the Advisor's detector sees them
     for row in expense_rows:
-        day, amount = _day(row.get("spent_on")), money(row.get("amount"))
+        day, amount = parse_day(row.get("spent_on")), money(row.get("amount"))
         if not day or amount <= 0:
             continue
         raw_spending.append((day, amount))
@@ -62,7 +55,7 @@ async def load_history(db: UserDb, today: date | None = None) -> tuple[History, 
                                 row.get("wallet_id"), clean_text(row.get("description"), 60),
                                 bool(meta.get("is_emergency"))))
     incomes_out = [Income(d, money(r.get("amount"))) for r in income_rows
-                   if (d := _day(r.get("received_on"))) and money(r.get("amount")) > 0]
+                   if (d := parse_day(r.get("received_on"))) and money(r.get("amount")) > 0]
 
     # Active goal: only the one the user set active (one per user, kept by the database).
     goal_row = next((g for g in goal_rows if g.get("is_active") and not g.get("completed")), None)

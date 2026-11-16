@@ -20,6 +20,7 @@
 .expenses-card,
 .expenses-kpi-card,
 .expenses-category-visualizer {
+  min-width: 0;
   color: var(--buck-ink);
   background: var(--buck-surface);
   border: 1px solid var(--buck-line);
@@ -278,7 +279,7 @@ html[data-buck-theme="dark"] .expenses-kpi-tick {
 /* Dual Stat Grid (Cards 2 & 3) */
 .expenses-kpi-stat-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.65rem;
   width: 100%;
 }
@@ -427,6 +428,7 @@ html[data-buck-theme="dark"] .expenses-kpi-range-pin {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.5rem;
   font-size: 0.74rem;
   color: var(--buck-muted);
@@ -483,6 +485,7 @@ html[data-buck-theme="dark"] .expenses-kpi-range-pin {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.75rem;
 }
 
@@ -1089,6 +1092,7 @@ html[data-buck-theme="dark"] .expenses-list-item {
 .expenses-list-item-sub {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.45rem;
   margin-top: 0.15rem;
 }
@@ -1125,8 +1129,10 @@ html[data-buck-theme="dark"] .expenses-list-item {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
   color: var(--buck-coral);
   background: rgba(255, 56, 56, 0.08);
   border: 1px solid rgba(255, 56, 56, 0.22);
@@ -1351,27 +1357,21 @@ html[data-buck-theme="light"] .expenses-modal-backdrop {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 1.15rem;
-  width: min(520px, 94vw);
-  max-height: min(88dvh, 760px);
-  padding: clamp(1.2rem, 3vw, 1.6rem);
+  width: min(520px, 100%);
+  max-height: min(82dvh, 760px);
   color: var(--buck-ink);
   background: var(--buck-surface);
   border: 1px solid var(--buck-line);
   border-radius: 12px;
   box-shadow: 0 24px 56px rgba(0, 0, 0, 0.45);
-  overflow-y: auto;
+  overflow: hidden;
 }
 
-.expenses-modal::before {
-  position: absolute;
-  top: 0;
-  left: 1.25rem;
-  right: 1.25rem;
-  height: 3px;
-  content: "";
-  background: linear-gradient(90deg, var(--buck-orange), var(--buck-gold));
-  border-radius: 0 0 8px 8px;
+.expenses-modal-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  padding: clamp(1.2rem, 3vw, 1.6rem);
 }
 
 .expenses-modal-header {
@@ -1393,8 +1393,8 @@ html[data-buck-theme="light"] .expenses-modal-backdrop {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   background: rgba(0, 0, 0, 0.05);
   border: 1px solid var(--buck-line);
   border-radius: 8px;
@@ -1569,7 +1569,8 @@ html[data-buck-theme="dark"] .expenses-modal-cancel-btn:hover {
    ========================================================================== */
 
 @media (max-width: 980px) {
-  .expenses-page {
+  .expenses-page,
+  .expenses-layout {
     /* minmax(0, …): a plain 1fr grows to the widest card's content and
        pushed the page past a 375px screen. */
     grid-template-columns: minmax(0, 1fr);
@@ -1589,6 +1590,7 @@ html[data-buck-theme="dark"] .expenses-modal-cancel-btn:hover {
 
   .expenses-list-header-actions {
     width: 100%;
+    flex-wrap: wrap;
     justify-content: space-between;
   }
 
@@ -1610,6 +1612,24 @@ html[data-buck-theme="dark"] .expenses-modal-cancel-btn:hover {
   .expenses-list-item-actions {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .expenses-modal-footer {
+    flex-wrap: wrap;
+  }
+
+  .expenses-modal-footer > * {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .expenses-kpi-card {
+    padding: 0.9rem;
+  }
+
+  .expenses-kpi-header {
+    flex-wrap: wrap;
   }
 }
 

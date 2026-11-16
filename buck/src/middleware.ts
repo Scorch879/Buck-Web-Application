@@ -14,9 +14,19 @@ import {
   MFA_VERIFY_PATH,
   OAUTH_CONSENT_PATH,
 } from "@/utils/mfa/assurance";
+import {
+  clearActivityCookie,
+  clearAuthCookies,
+  copyResponseCookies,
+  SESSION_ACTIVITY_COOKIE,
+  setNoStoreHeaders,
+} from "@/utils/httpResponse";
+import {
+  DEFAULT_IDLE_TIMEOUT_MINUTES,
+  getSafeRedirectPath,
+} from "@/utils/authUser";
+import { getPositiveNumber } from "@/utils/formatters";
 
-const SESSION_ACTIVITY_COOKIE = "buck-session-activity";
-const DEFAULT_IDLE_TIMEOUT_MINUTES = 30;
 const AUTH_ROUTES = new Set(["/sign-in", "/create-account", "/forgot-password"]);
 // API routes that authenticate by other means (anonymous flow or bearer secret).
 const NON_SESSION_API_PREFIXES = [
@@ -33,16 +43,6 @@ type SessionActivity = {
   sub: string;
   ts: number;
 };
-
-function getPositiveNumber(value: string | undefined, fallback: number) {
-  const parsed = Number(value);
-
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return fallback;
-  }
-
-  return parsed;
-}
 
 function getIdleTimeoutMs() {
   const minutes = getPositiveNumber(
@@ -61,14 +61,6 @@ function getIdleTimeoutMs() {
 
 function getSessionCookieSecret() {
   return process.env.SESSION_COOKIE_SECRET?.trim() ?? "";
-}
-
-function getSafeRedirectPath(path: string | null) {
-  if (!path || !path.startsWith("/") || path.startsWith("//")) {
-    return "/dashboard/home";
-  }
-
-  return path;
 }
 
 function createSignInUrl(
@@ -132,6 +124,7 @@ function isRootAuthReturn(request: NextRequest) {
 
   return (
     params.has("code") ||
+    params.has("token_hash") ||
     params.has("error") ||
     params.has("error_code") ||
     params.has("error_description")
@@ -144,30 +137,14 @@ function createAuthCallbackRedirect(request: NextRequest) {
   redirectUrl.pathname = "/auth/callback";
 
   if (!redirectUrl.searchParams.has("next")) {
-    redirectUrl.searchParams.set("next", "/dashboard/home");
+    const nextPath =
+      redirectUrl.searchParams.get("type") === "recovery"
+        ? "/forgot-password?type=recovery"
+        : "/dashboard/home";
+    redirectUrl.searchParams.set("next", nextPath);
   }
 
   return redirectUrl;
-}
-
-function copyResponseCookies(source: NextResponse, target: NextResponse) {
-  source.cookies.getAll().forEach((cookie) => {
-    target.cookies.set(cookie);
-  });
-
-  ["cache-control", "expires", "pragma"].forEach((header) => {
-    const value = source.headers.get(header);
-
-    if (value) {
-      target.headers.set(header, value);
-    }
-  });
-}
-
-function setNoStoreHeaders(response: NextResponse) {
-  response.headers.set("Cache-Control", "no-store, max-age=0");
-  response.headers.set("Pragma", "no-cache");
-  response.headers.set("Expires", "0");
 }
 
 function getCookieOptions() {
@@ -342,33 +319,6 @@ async function refreshActivityCookie(response: NextResponse, userId: string) {
   );
 }
 
-function clearActivityCookie(response: NextResponse) {
-  response.cookies.set(SESSION_ACTIVITY_COOKIE, "", {
-    ...getCookieOptions(),
-    maxAge: 0,
-  });
-}
-
-function clearCookie(response: NextResponse, name: string) {
-  response.cookies.set(name, "", {
-    ...getCookieOptions(),
-    maxAge: 0,
-  });
-}
-
-function clearSupabaseAuthCookies(request: NextRequest, response: NextResponse) {
-  clearActivityCookie(response);
-
-  request.cookies.getAll().forEach(({ name }) => {
-    const isSupabaseAuthCookie =
-      name.startsWith("sb-") && name.includes("auth-token");
-
-    if (isSupabaseAuthCookie) {
-      clearCookie(response, name);
-    }
-  });
-}
-
 export async function middleware(request: NextRequest) {
   // Per-request CSP nonce: the CSP travels on the forwarded request headers so
   // Next can stamp its own scripts, and on the response for the browser.
@@ -445,7 +395,7 @@ async function handleRequest(request: NextRequest, requestHeaders: Headers) {
     const redirectResponse = NextResponse.redirect(
       createSignInUrl(request, { error: "session-security-not-configured" })
     );
-    clearSupabaseAuthCookies(request, redirectResponse);
+    clearAuthCookies(request, redirectResponse, true);
     setNoStoreHeaders(redirectResponse);
 
     return redirectResponse;
@@ -519,7 +469,7 @@ async function handleRequest(request: NextRequest, requestHeaders: Headers) {
       } catch {
         // The response still clears Buck's server-side activity cookie.
       }
-      clearSupabaseAuthCookies(request, response);
+      clearAuthCookies(request, response, true);
       setNoStoreHeaders(response);
 
       return response;
@@ -592,7 +542,8 @@ async function handleRequest(request: NextRequest, requestHeaders: Headers) {
 
     const isRecoveryMode =
       pathname === "/forgot-password" &&
-      request.nextUrl.searchParams.get("type") === "recovery";
+      (request.nextUrl.searchParams.get("type") === "recovery" ||
+        request.nextUrl.searchParams.has("error"));
 
     if (!isRecoveryMode) {
       if (shouldEnforceServerIdle && (await isSessionIdleExpired(request, user))) {
@@ -601,7 +552,7 @@ async function handleRequest(request: NextRequest, requestHeaders: Headers) {
         } catch {
           // The response still clears Buck's server-side activity cookie.
         }
-        clearSupabaseAuthCookies(request, response);
+        clearAuthCookies(request, response, true);
         setNoStoreHeaders(response);
 
         return response;

@@ -1,29 +1,22 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
+import { randomBytes, randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
+import { getSiteOrigin } from "@/utils/httpResponse";
+import {
+  isSmtpConfigured,
+  sendAccountDeletionConfirmationEmail,
+} from "@/utils/mailer";
+import { hashSha256Hex } from "@/utils/secureCompare";
 import { createSupabaseAdminClient } from "@/utils/supabase/admin";
 import { createSupabaseServerClient } from "@/utils/supabase/server";
+import { createSupabaseStatelessClient } from "@/utils/supabase/stateless";
 import { getMfaState, hasFreshStepUp } from "@/utils/mfa/assurance";
 import {
   isSupabaseAdminConfigured,
   isSupabaseConfigured,
-  supabaseAnonKey,
-  supabaseUrl,
 } from "@/utils/supabaseConfig";
 
 const CONFIRMATION_WINDOW_MINUTES = 60;
 const DELETE_CONFIRM_TEXT = "DELETE";
-
-function hashToken(token: string) {
-  return createHash("sha256").update(token).digest("hex");
-}
-
-function getOrigin(request: NextRequest) {
-  if (process.env.NODE_ENV !== "development") {
-    return process.env.NEXT_PUBLIC_SITE_URL?.trim() || request.nextUrl.origin;
-  }
-  return request.nextUrl.origin;
-}
 
 function getDeletionErrorMessage(error: unknown) {
   console.error("Account deletion request failed:", error);
@@ -36,12 +29,7 @@ async function verifyCurrentPassword(email: string, password: string) {
     return false;
   }
 
-  const verifier = createClient(supabaseUrl!, supabaseAnonKey!, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  const verifier = createSupabaseStatelessClient();
   const { error } = await verifier.auth.signInWithPassword({ email, password });
 
   return !error;
@@ -169,13 +157,17 @@ export async function POST(request: NextRequest) {
       id: requestId,
       user_id: user.id,
       email: user.email,
-      token_hash: hashToken(token),
+      token_hash: hashSha256Hex(token),
       requested_at: now.toISOString(),
       confirmation_expires_at: confirmationExpiresAt,
       confirmed_at: null,
       recovery_until: null,
       canceled_at: null,
       purge_started_at: null,
+      auto_canceled_on_login: false,
+      auto_cancel_notice_dismissed_at: null,
+      cancel_reason: null,
+      cancellation_email_sent_at: null,
     };
 
     const { error: upsertError } = await admin
@@ -186,35 +178,54 @@ export async function POST(request: NextRequest) {
       throw new Error(upsertError.message);
     }
 
-    const origin = getOrigin(request);
+    const origin = getSiteOrigin(request);
     const nextPath = `/account/delete/confirm?request=${encodeURIComponent(
       requestId
     )}&token=${encodeURIComponent(token)}`;
+    const directConfirmUrl = new URL(nextPath, origin);
     const callbackUrl = new URL("/auth/callback", origin);
     callbackUrl.searchParams.set("next", nextPath);
 
-    const mailClient = createClient(supabaseUrl!, supabaseAnonKey!, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
-    const { error: otpError } = await mailClient.auth.signInWithOtp({
-      email: user.email,
-      options: {
-        emailRedirectTo: callbackUrl.toString(),
-        shouldCreateUser: false,
-      },
-    });
+    const username =
+      typeof user.user_metadata?.username === "string"
+        ? user.user_metadata.username
+        : typeof user.user_metadata?.full_name === "string"
+          ? user.user_metadata.full_name
+          : null;
 
-    if (otpError) {
-      throw new Error(otpError.message);
+    let delivered = false;
+    if (isSmtpConfigured()) {
+      try {
+        delivered = await sendAccountDeletionConfirmationEmail({
+          to: user.email,
+          username,
+          confirmUrl: directConfirmUrl.toString(),
+          expiresMinutes: CONFIRMATION_WINDOW_MINUTES,
+        });
+      } catch (smtpError) {
+        console.warn("SMTP deletion email failed, falling back to OTP mailer:", smtpError);
+      }
+    }
+
+    if (!delivered) {
+      const mailClient = createSupabaseStatelessClient();
+      const { error: otpError } = await mailClient.auth.signInWithOtp({
+        email: user.email,
+        options: {
+          emailRedirectTo: callbackUrl.toString(),
+          shouldCreateUser: false,
+        },
+      });
+
+      if (otpError) {
+        throw new Error(otpError.message);
+      }
     }
 
     return NextResponse.json({
       success: true,
       message:
-        "Confirmation email sent. Open it within 60 minutes to schedule deletion.",
+        "Confirmation email sent (Step 4 of 4). Open it within 60 minutes to schedule deletion in 10 days.",
     });
   } catch (error) {
     return NextResponse.json(

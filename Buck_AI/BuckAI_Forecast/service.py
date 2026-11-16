@@ -23,7 +23,7 @@ from typing import Any
 
 from shared import groq
 from shared.config import get_settings
-from shared.money import PH_TZ, peso
+from shared.money import PH_TZ, parse_ts, peso
 from shared.safety import clean_text, limit_sentences
 from shared.supabase import DbError, UserDb
 
@@ -45,14 +45,6 @@ NARRATIVE_ATTEMPT = 8.0
 # The card is ~300 tokens; gpt-oss reasoning shares the cap.
 NARRATIVE_TOKENS = 2048
 _COLUMNS = "id,summary,warnings,metadata,created_at,expires_at,model_name"
-
-
-def _parse_ts(value: Any) -> datetime:
-    try:
-        ts = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-        return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
-    except ValueError:
-        return datetime.min.replace(tzinfo=timezone.utc)
 
 
 def fingerprint(view: dict[str, Any]) -> str:
@@ -253,15 +245,15 @@ def _state(latest: dict[str, Any] | None, fp: str, now: datetime) -> tuple[bool,
         return False, False, None
     meta = latest.get("metadata") or {}
     same = meta.get("fingerprint") == fp
-    current = (same and _parse_ts(latest.get("expires_at")) > now
+    current = (same and parse_ts(latest.get("expires_at")) > now
                and (meta.get("generated_with", "rules") != "rules" or not get_settings().groq_configured))
-    return current, same, now - _parse_ts(latest.get("created_at"))
+    return current, same, now - parse_ts(latest.get("created_at"))
 
 
 def _cooling(latest: dict[str, Any] | None, age: timedelta | None, limit: timedelta) -> datetime | None:
     """When the cooldown on the saved row ends, or None if it is not cooling down."""
     if latest and age is not None and age < limit and (latest.get("metadata") or {}).get("narrative"):
-        return _parse_ts(latest.get("created_at")) + limit
+        return parse_ts(latest.get("created_at")) + limit
     return None
 
 

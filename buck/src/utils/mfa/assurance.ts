@@ -87,7 +87,7 @@ export function isConnectedAppToken(token: string | null | undefined) {
   return typeof clientId === "string" && clientId.length > 0;
 }
 
-export function countVerifiedFactors(user: Pick<User, "factors"> | null | undefined) {
+function countVerifiedFactors(user: Pick<User, "factors"> | null | undefined) {
   return user?.factors?.filter((factor) => factor.status === "verified").length ?? 0;
 }
 

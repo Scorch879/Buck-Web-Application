@@ -12,18 +12,34 @@
 }
 
 .dialog {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
   width: min(460px, 100%);
   max-height: min(82dvh, 760px);
-  overflow-y: auto;
-  padding: clamp(1.1rem, 3vw, 1.4rem);
+  overflow: hidden;
+  padding: 0;
   color: var(--buck-ink);
   background: var(--buck-surface);
   border: 1px solid rgba(255, 56, 56, 0.35);
   border-radius: 12px;
   box-shadow: var(--buck-shadow);
+}
+
+.dialogTop {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: clamp(1.1rem, 3vw, 1.4rem) clamp(1.1rem, 3vw, 1.4rem) 0.5rem;
+}
+
+.scrollBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0.5rem clamp(1.1rem, 3vw, 1.4rem) clamp(1.1rem, 3vw, 1.4rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 html[data-buck-theme="dark"] .dialog {

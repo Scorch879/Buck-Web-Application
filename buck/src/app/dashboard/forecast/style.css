@@ -82,8 +82,9 @@ html[data-buck-theme="dark"] .forecast-story {
   display: grid;
   align-content: start;
   gap: 0.55rem;
+  width: 100%;
   min-height: 8.5rem;
-  max-width: 62ch;
+  max-width: none;
 }
 
 /* The fallback summary is never replaced, so it needs no reserved room. */
@@ -92,30 +93,39 @@ html[data-buck-theme="dark"] .forecast-story {
 }
 
 .forecast-headline {
+  width: 100%;
+  max-width: none;
   margin: 0;
   color: var(--buck-ink);
   font-size: clamp(1.45rem, 3.4vw, 2.1rem);
   font-weight: 700;
   line-height: 1.18;
   letter-spacing: -0.2px;
-  text-wrap: balance;
+  text-wrap: pretty;
 }
 
 .forecast-explanation {
+  width: 100%;
+  max-width: none;
   margin: 0;
   color: var(--buck-muted);
   font-size: 1rem;
   line-height: 1.62;
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
 }
 
 .forecast-shimmer {
   display: grid;
+  width: 100%;
   gap: 0.6rem;
   padding-top: 0.2rem;
 }
 
 .forecast-shimmer-line {
   display: block;
+  width: 100%;
   height: 0.95rem;
   background: linear-gradient(
     90deg,
@@ -129,13 +139,13 @@ html[data-buck-theme="dark"] .forecast-story {
 }
 
 .forecast-shimmer-line--headline {
-  width: 78%;
+  width: 82%;
   height: 1.9rem;
   margin-bottom: 0.25rem;
 }
 
 .forecast-shimmer-line--short {
-  width: 55%;
+  width: 65%;
 }
 
 @keyframes forecast-shimmer {
@@ -178,8 +188,9 @@ html[data-buck-theme="dark"] .forecast-story {
 
 .forecast-ribbon {
   position: relative;
+  width: 100%;
+  max-width: none;
   height: 14px;
-  max-width: 520px;
 }
 
 .forecast-ribbon-track {
@@ -204,7 +215,9 @@ html[data-buck-theme="dark"] .forecast-story {
 .forecast-ribbon-labels {
   display: flex;
   justify-content: space-between;
-  max-width: 520px;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: none;
   color: var(--buck-muted);
   font-size: 0.8rem;
   font-weight: 600;
@@ -767,6 +780,12 @@ html[data-buck-theme="dark"] .forecast-headsup .forecast-panel-title svg {
   margin: 0;
 }
 
+.forecast-how-body p {
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+}
+
 .forecast-how-body h4 {
   margin-top: 0.3rem;
   color: var(--buck-ink);
@@ -797,11 +816,90 @@ html[data-buck-theme="dark"] .forecast-headsup .forecast-panel-title svg {
   font-weight: 600;
 }
 
+/* ---------- Skeleton control placeholders ---------- */
+
+.forecast-skeleton-segmented {
+  width: 171px;
+  height: 46px;
+  border-radius: 10px;
+}
+
+.forecast-skeleton-refresh {
+  width: 105px;
+  height: 44px;
+  border-radius: 10px;
+}
+
 /* ---------- Narrow screens ---------- */
 
 @media (max-width: 720px) {
   .forecast-tiles {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .forecast-story-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .forecast-story-controls {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .forecast-story-controls .forecast-segmented,
+  .forecast-story-controls .forecast-skeleton-segmented {
+    flex: 1 1 auto;
+    max-width: 100%;
+  }
+
+  .forecast-story-controls .forecast-skeleton-segmented {
+    width: auto;
+    min-width: 152px;
+  }
+
+  .forecast-story-controls .forecast-segmented-btn {
+    flex: 1 1 0;
+    padding: 0 0.75rem;
+  }
+
+  .forecast-story-controls .forecast-refresh-btn {
+    flex: 0 0 auto;
+    justify-content: center;
+    padding: 0 0.85rem;
+    white-space: nowrap;
+  }
+
+  .forecast-story-controls .forecast-skeleton-refresh {
+    flex: 0 0 auto;
+  }
+
+  .forecast-chart-toolbar {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem 0.75rem;
+  }
+
+  .forecast-chart-toolbar .forecast-segmented {
+    max-width: 100%;
+  }
+
+  .forecast-chart-toolbar .forecast-segmented-btn {
+    padding: 0 0.75rem;
+  }
+
+  .forecast-goal {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.65rem 0.75rem;
+  }
+
+  .forecast-goal-text {
+    flex: 1 1 220px;
   }
 }
 

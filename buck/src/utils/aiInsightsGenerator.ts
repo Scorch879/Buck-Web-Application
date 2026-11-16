@@ -1,5 +1,6 @@
 import { createSupabaseAdminClient } from "@/utils/supabase/admin";
 import { formatCurrency, toNumber } from "@/utils/formatters";
+import { parseDayKey, toDayKey } from "@/utils/periods";
 
 export interface UserFinancialContext {
   userId: string;
@@ -49,8 +50,8 @@ export async function fetchUserFinancialContext(
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const periodStart = startOfMonth.toISOString().slice(0, 10);
-  const periodEnd = endOfMonth.toISOString().slice(0, 10);
+  const periodStart = toDayKey(startOfMonth);
+  const periodEnd = toDayKey(endOfMonth);
 
   const { data: expensesData } = await adminClient
     .from("expenses")
@@ -136,7 +137,7 @@ export async function fetchUserFinancialContext(
  * The amount this month's spending is measured against: real recorded income
  * when there is any, otherwise the wallet balance as before.
  */
-export function getSpendingBase(context: UserFinancialContext) {
+function getSpendingBase(context: UserFinancialContext) {
   return context.incomeTracked && context.monthIncome > 0
     ? context.monthIncome
     : context.activeWalletBudget;
@@ -148,8 +149,8 @@ export function generateForecastInsights(context: UserFinancialContext) {
   const usesIncome = context.incomeTracked && context.monthIncome > 0;
 
   const now = new Date();
-  const start = new Date(periodStart);
-  const end = new Date(periodEnd);
+  const start = parseDayKey(periodStart);
+  const end = parseDayKey(periodEnd);
 
   const totalDays = Math.max(
     1,
@@ -168,7 +169,7 @@ export function generateForecastInsights(context: UserFinancialContext) {
   for (let i = 0; i < totalDays; i++) {
     const d = new Date(start);
     d.setDate(d.getDate() + i);
-    const dateStr = d.toISOString().slice(0, 10);
+    const dateStr = toDayKey(d);
     dailyForecast[dateStr] = Math.round(avgSpentPerDay || spendingBase / totalDays);
   }
 
@@ -241,5 +242,34 @@ export function generateForecastInsights(context: UserFinancialContext) {
       monthIncome: context.monthIncome,
       incomeTracked: context.incomeTracked,
     },
+  };
+}
+
+/** Maps a rule-engine forecast and context into an `ai_forecasts` row payload. */
+export function buildRuleForecastRow(
+  userId: string,
+  context: UserFinancialContext,
+  forecast: ReturnType<typeof generateForecastInsights>,
+  generatedBy: "on_demand" | "cron",
+  expiresAtIso: string
+) {
+  return {
+    user_id: userId,
+    goal_id: context.activeGoal?.id ?? null,
+    period_type: forecast.periodType,
+    period_start: forecast.periodStart,
+    period_end: forecast.periodEnd,
+    projected_spending: forecast.projectedSpending,
+    projected_savings: forecast.projectedSavings,
+    ai_recommended_budget: forecast.aiRecommendedBudget,
+    daily_forecast: forecast.dailyForecast,
+    actual_spending_snapshot: forecast.actualSpendingSnapshot,
+    summary: forecast.summary,
+    warnings: forecast.warnings,
+    confidence_score: forecast.confidenceScore,
+    model_name: "rules" as const,
+    generated_by: generatedBy,
+    metadata: forecast.metadata,
+    expires_at: expiresAtIso,
   };
 }

@@ -23,8 +23,8 @@ export default function ForecastSkeleton() {
         <div className="forecast-story-top">
           <h2 className="forecast-greeting"><span className="skeleton-text">Your next 30 days</span></h2>
           <div className="forecast-story-controls">
-            <span className="skeleton-button" style={{ width: 171, height: 46, borderRadius: 10 }} />
-            <span className="skeleton-button" style={{ width: 105, height: 44, borderRadius: 10 }} />
+            <span className="skeleton-button forecast-skeleton-segmented" />
+            <span className="skeleton-button forecast-skeleton-refresh" />
           </div>
         </div>
         <div className="forecast-story-text">
@@ -41,7 +41,7 @@ export default function ForecastSkeleton() {
             <span className="forecast-figure-range"><span className="skeleton-text">somewhere between ₱00,000 and ₱00,000</span></span>
           </p>
           <div className="forecast-ribbon">
-            <span className="skeleton-line" style={{ position: "absolute", inset: "4px 0", height: "auto", borderRadius: 999 }} />
+            <span className="skeleton-line" style={{ position: "absolute", inset: "4px 0", width: "100%", height: "auto", borderRadius: 999 }} />
           </div>
           <div className="forecast-ribbon-labels">
             <span className="skeleton-text">Low ₱00,000</span>
@@ -70,7 +70,7 @@ export default function ForecastSkeleton() {
         <div className="forecast-chart-block">
           <div className="forecast-chart-toolbar">
             <h3 className="forecast-panel-title"><span className="skeleton-text">How your spending adds up</span></h3>
-            <span className="skeleton-button" style={{ width: 234, height: 46, borderRadius: 10 }} />
+            <span className="skeleton-button" style={{ width: 234, maxWidth: "100%", height: 46, borderRadius: 10 }} />
           </div>
           <div className="forecast-legend">
             <Line width={104} />

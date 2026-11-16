@@ -331,7 +331,7 @@ export default function TwoFactorSection({ autoStartEnroll = false, onAutoStartH
         >
           <motion.section
             {...panelMotion}
-            className="settings-modal settings-modal--wide"
+            className="settings-modal settings-modal--wide buck-modal-panel buck-modal-accent"
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-2fa-regen-title"
@@ -361,6 +361,7 @@ export default function TwoFactorSection({ autoStartEnroll = false, onAutoStartH
               ) : null}
             </div>
 
+            <div className="buck-modal-scroll settings-modal-scroll">
             {regenCodes.length > 0 || regenError ? (
               <RecoveryCodesPanel
                 codes={regenCodes}
@@ -388,6 +389,7 @@ export default function TwoFactorSection({ autoStartEnroll = false, onAutoStartH
                 </button>
               </div>
             )}
+            </div>
           </motion.section>
         </motion.div>
       ) : null}

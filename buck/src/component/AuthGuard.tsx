@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { DashboardUserProvider } from "@/context/DashboardUserContext";
+import { useIsClient } from "@/hooks/useIsClient";
 import type { BuckUser } from "@/utils/authUser";
 import { useAuthGuard } from "@/utils/useAuthGuard";
 
@@ -17,11 +18,7 @@ export default function AuthGuard({
   initialUser = null,
 }: AuthGuardProps) {
   const { user, loading } = useAuthGuard(initialUser);
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
+  const isHydrated = useIsClient();
 
   if (!isHydrated || loading || !user) {
     const isRedirectingOut = isHydrated && !loading && !user;

@@ -3,7 +3,7 @@ import { FaCompass } from "react-icons/fa";
 import styles from "./newUserGuide.module.css";
 
 /** Home URL that reopens the Getting started checklist, even if it was hidden. */
-export const GUIDE_HREF = "/dashboard/home?guide=1";
+const GUIDE_HREF = "/dashboard/home?guide=1";
 
 /**
  * Friendly empty state for a new account. Pages that have nothing to show

@@ -7,7 +7,7 @@ import {
   designPreviewUserId,
   isDesignPreviewMode,
 } from "@/utils/designPreview";
-import { toNumber } from "@/utils/formatters";
+import { escapeIlikePattern, toNumber } from "@/utils/formatters";
 
 /** Expense and income categories share one table (Design.md ADR-042). */
 export type CategoryKind = "expense" | "income";
@@ -269,10 +269,6 @@ function assertUuid(value: string, label: string) {
   }
 
   return value;
-}
-
-function escapeIlikePattern(value: string) {
-  return value.trim().replace(/[\\%_]/g, (match) => `\\${match}`);
 }
 
 function mapCategory(row: Record<string, unknown>): BuckCategory {
@@ -1430,40 +1426,6 @@ export async function addGoalProgressRecord(goalId: string, amount: number) {
     completed: Boolean(row?.completed),
     isActive: Boolean(row?.is_active),
   };
-}
-
-export async function updateGoalRecord(
-  goalId: string,
-  goalName: string,
-  targetAmount: string,
-  attitude: string,
-  targetDate: string,
-  aiRecommendation = ""
-) {
-  if (isDesignPreviewMode) {
-    return;
-  }
-
-  const userId = await getCurrentUserId();
-  const safeGoalId = assertUuid(goalId, "goal id");
-  const supabase = getSupabaseClient();
-  const { error } = await supabase
-    .from("goals")
-    .update({
-      goal_name: goalName,
-      target_amount: Number(targetAmount),
-      attitude,
-      target_date: targetDate,
-      ai_recommendation: aiRecommendation,
-    })
-    .eq("id", safeGoalId)
-    .eq("user_id", userId);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  bumpDataEpoch();
 }
 
 async function fetchListWallets(userId: string) {
