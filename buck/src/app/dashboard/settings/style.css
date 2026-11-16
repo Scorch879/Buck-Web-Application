@@ -999,20 +999,61 @@ html[data-buck-theme="dark"] .settings-modal {
 
 .settings-modal-help-link {
   justify-self: start;
+  padding: 0;
   color: var(--buck-orange);
+  background: transparent;
+  border: 0;
+  font: inherit;
   font-size: 0.82rem;
   font-weight: 500;
+  text-align: left;
   text-decoration: none;
+  cursor: pointer;
   transition:
     color 180ms ease,
-    transform 180ms ease;
+    transform 180ms ease,
+    opacity 180ms ease;
 }
 
-.settings-modal-help-link:hover,
-.settings-modal-help-link:focus-visible {
+.settings-modal-help-link:hover:not(:disabled),
+.settings-modal-help-link:focus-visible:not(:disabled) {
   color: var(--buck-coral);
   text-decoration: underline;
   transform: translateY(-1px);
+}
+
+.settings-modal-help-link:disabled {
+  cursor: progress;
+  opacity: 0.65;
+}
+
+.settings-modal-inline-status {
+  margin: 0.15rem 0 0;
+  padding: 0.5rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 550;
+  line-height: 1.4;
+}
+
+.settings-modal-inline-status--success {
+  color: #1f5f32;
+  background: rgba(82, 184, 106, 0.14);
+  border: 1px solid rgba(82, 184, 106, 0.34);
+}
+
+.settings-modal-inline-status--error {
+  color: #a81919;
+  background: rgba(255, 56, 56, 0.14);
+  border: 1px solid rgba(255, 56, 56, 0.32);
+}
+
+html[data-buck-theme="dark"] .settings-modal-inline-status--success {
+  color: #b8f2c4;
+}
+
+html[data-buck-theme="dark"] .settings-modal-inline-status--error {
+  color: #ffd1d1;
 }
 
 .settings-modal-form .settings-button {
