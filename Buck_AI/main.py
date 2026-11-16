@@ -4,7 +4,7 @@ Two AIs for two jobs:
 - BuckAI_Advisor   AI Financial Advisor (live): saved, self-updating advice,
                    chat and goal tips.
 - BuckAI_Forecast  AI Forecaster (live): per-user daily spending forecast
-                   with ranges, explained by Gemini.
+                   with ranges, explained by Groq.
 
 Deployed as its own Vercel project (root directory `Buck_AI`). Vercel finds
 the FastAPI `app` in this file. Local run: `uvicorn main:app --reload --port 8000`.

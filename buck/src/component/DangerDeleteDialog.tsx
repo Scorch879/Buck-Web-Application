@@ -105,34 +105,37 @@ export default function DangerDeleteDialog({
           onClick={(e) => e.stopPropagation()}
         >
           <motion.div
-            className={styles.dialog}
+            className={`${styles.dialog} buck-modal-panel`}
             role="alertdialog"
             aria-modal="true"
             aria-labelledby={titleId}
             {...panelMotion}
           >
-            <div className={styles.header}>
-              <span className={styles.headerIcon} aria-hidden="true">
-                <FaExclamationTriangle />
-              </span>
-              <div className={styles.headerText}>
-                <h3 id={titleId} className="buck-modal-title">{verb} {itemType}</h3>
-                <p className={styles.itemName} title={itemName}>
-                  {itemName}
-                </p>
+            <div className={styles.dialogTop}>
+              <div className={styles.header}>
+                <span className={styles.headerIcon} aria-hidden="true">
+                  <FaExclamationTriangle />
+                </span>
+                <div className={styles.headerText}>
+                  <h3 id={titleId} className="buck-modal-title">{verb} {itemType}</h3>
+                  <p className={styles.itemName} title={itemName}>
+                    {itemName}
+                  </p>
+                </div>
               </div>
+
+              <ol className={styles.steps} aria-label={`Step ${step} of 3`}>
+                {[1, 2, 3].map((n) => (
+                  <li
+                    key={n}
+                    className={`${styles.stepDot} ${n <= step ? styles.stepDotDone : ""}`}
+                    aria-current={n === step ? "step" : undefined}
+                  />
+                ))}
+              </ol>
             </div>
 
-            <ol className={styles.steps} aria-label={`Step ${step} of 3`}>
-              {[1, 2, 3].map((n) => (
-                <li
-                  key={n}
-                  className={`${styles.stepDot} ${n <= step ? styles.stepDotDone : ""}`}
-                  aria-current={n === step ? "step" : undefined}
-                />
-              ))}
-            </ol>
-
+            <div className={`buck-modal-scroll ${styles.scrollBody}`}>
             {step === 1 && (
               <div className={styles.body}>
                 <p className={styles.warning}>
@@ -211,6 +214,7 @@ export default function DangerDeleteDialog({
                 </div>
               </form>
             )}
+            </div>
           </motion.div>
         </motion.div>
       )}

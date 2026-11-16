@@ -12,6 +12,7 @@
 .graph-card,
 .summary-card,
 .interpretation-card {
+  min-width: 0;
   color: var(--buck-ink);
   background: var(--buck-surface);
   border: 1px solid var(--buck-line);
@@ -598,7 +599,7 @@ html[data-buck-theme="dark"] .spending-circle {
 
 .interpretation-metrics-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
   gap: 0.85rem;
   margin-bottom: 1.25rem;
 }
@@ -607,6 +608,7 @@ html[data-buck-theme="dark"] .spending-circle {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+  min-width: 0;
   padding: 0.85rem 1rem;
   background: rgba(255, 197, 71, 0.06);
   border: 1px solid rgba(244, 117, 54, 0.18);
@@ -734,9 +736,11 @@ html[data-buck-theme="dark"] .interpretation-narrative-box {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  min-width: 0;
   color: var(--buck-ink);
   font-size: 0.93rem;
   line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .interpretation-narrative-text p {
@@ -1783,11 +1787,12 @@ html[data-buck-theme="dark"] .summary-page-btn {
 
 .summary-content {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
   gap: 0.85rem;
 }
 
 .summary-item {
+  min-width: 0;
   min-height: 150px;
   padding: 1rem;
   background: rgba(255, 240, 200, 0.42);
@@ -1828,7 +1833,7 @@ html[data-buck-theme="dark"] .summary-item {
   }
 
   .dashboard-content {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .spending-card {
@@ -1836,13 +1841,55 @@ html[data-buck-theme="dark"] .summary-item {
   }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 640px) {
+  .spending-card,
   .graph-card,
   .summary-card,
-  .spending-card {
+  .interpretation-card {
+    min-width: 0;
     padding: 1rem;
   }
 
+  .spending-card-header,
+  .graph-card-header-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .graph-card-header-row .card-heading {
+    flex: 0 0 auto;
+    max-width: 100%;
+  }
+
+  .spending-timeframe-container {
+    width: 100%;
+    max-width: 100%;
+    justify-content: flex-start;
+  }
+
+  .graph-card-controls {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .summary-table-pagination {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .summary-pagination-nav,
+  .summary-page-numbers {
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
   .spending-circle {
     width: 170px;
     height: 170px;
@@ -1850,11 +1897,23 @@ html[data-buck-theme="dark"] .summary-item {
 
   .graph-container {
     grid-template-columns: auto minmax(0, 1fr);
-    gap: 0.5rem;
+    gap: 0.45rem;
+  }
+
+  .graph-y-axis-wrap {
+    gap: 0.35rem;
+  }
+
+  .graph-axis {
+    font-size: 0.7rem;
+  }
+
+  .graph-bar-label {
+    font-size: 0.68rem;
   }
 
   .graph-col {
-    padding: 0 0.15rem;
+    padding: 0 0.12rem;
   }
 }
 
@@ -2307,6 +2366,7 @@ html[data-buck-theme="dark"] .summary-filter-back-btn {
   position: relative;
   display: flex;
   gap: 0.95rem;
+  min-width: 0;
   padding: clamp(1rem, 2vw, 1.25rem);
   background: rgba(255, 240, 200, 0.35);
   border: 1px solid rgba(244, 117, 54, 0.18);
@@ -2382,13 +2442,55 @@ html[data-buck-theme="dark"] .home-ai-card {
   min-height: 60px;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
+  .timeframe-toggle-group {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 100%;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+
+  .timeframe-btn {
+    flex: 1 1 auto;
+    padding: 0.42rem 0.6rem;
+    font-size: 0.8rem;
+    text-align: center;
+  }
+
+  .graph-granularity-toggle {
+    display: inline-flex;
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+
+  .graph-granularity-btn {
+    flex: 1 1 auto;
+    padding: 0 0.55rem;
+    text-align: center;
+  }
+
   .home-ai-header {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    gap: 0.85rem;
+    min-width: 0;
   }
+
+  .home-ai-header-info {
+    min-width: 0;
+    max-width: none;
+  }
+
   .home-ai-header-actions {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .home-ai-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.85rem;
+    min-width: 0;
   }
 }

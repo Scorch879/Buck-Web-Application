@@ -21,6 +21,7 @@
 .advisor-message,
 .advisor-hero,
 .advisor-card {
+  min-width: 0;
   color: var(--buck-ink);
   background: var(--buck-surface);
   border: 1px solid var(--buck-line);
@@ -92,13 +93,16 @@ html[data-buck-theme="dark"] .advisor-eyebrow--gold {
 .advisor-hero__side {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 1rem;
+  min-width: 0;
 }
 
 .advisor-hero__actions {
   display: grid;
   justify-items: end;
   gap: 0.6rem;
+  min-width: 0;
 }
 
 .advisor-pill {
@@ -590,6 +594,17 @@ html[data-buck-theme="dark"] .info-tip__bubble {
 @media (max-width: 560px) {
   .advisor-page {
     padding: 0.75rem;
+  }
+
+  .advisor-hero__side {
+    gap: 0.75rem;
+  }
+
+  .advisor-pill,
+  .advisor-refresh,
+  .advisor-next__ask {
+    max-width: 100%;
+    white-space: normal;
   }
 
   .advisor-score {

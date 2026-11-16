@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { isAdminUser } from "@/utils/adminAccess";
-import { createSupabaseServerClient } from "@/utils/supabase/server";
+import { getAdminServerSession } from "@/utils/supabase/server";
+import { isSupabaseConfigured } from "@/utils/supabaseConfig";
 import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
@@ -83,24 +83,18 @@ async function probeBuckAiHealth(): Promise<
 }
 
 export async function GET() {
-  const authStart = performance.now();
-  let supabase;
-  try {
-    supabase = await createSupabaseServerClient();
-  } catch {
+  if (!isSupabaseConfigured) {
     return NextResponse.json(
       { error: "Supabase is not configured." },
       { status: 500 }
     );
   }
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const authStart = performance.now();
+  const { supabase, isAdmin } = await getAdminServerSession();
   const authLatencyMs = Math.round(performance.now() - authStart);
 
-  if (authError || !isAdminUser(user)) {
+  if (!isAdmin) {
     return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
   }
 

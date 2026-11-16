@@ -3,7 +3,7 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 10000;
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -12,22 +12,34 @@
 }
 
 .confirmBackdrop {
-  z-index: 10001;
+  z-index: 1001;
 }
 
 .modal {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
   width: min(560px, 100%);
   max-height: min(82dvh, 760px);
-  padding: clamp(1.1rem, 3vw, 1.6rem);
-  overflow: auto;
+  overflow: hidden;
   color: var(--buck-ink);
   background: var(--buck-surface);
   border: 1px solid var(--buck-line);
   border-radius: 8px;
   box-shadow: var(--buck-shadow);
+}
+
+.modalScroll {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: clamp(1.1rem, 3vw, 1.6rem);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .title {

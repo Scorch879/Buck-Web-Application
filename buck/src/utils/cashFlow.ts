@@ -1,4 +1,5 @@
 import { formatCurrency } from "@/utils/formatters";
+import { toDayKey } from "@/utils/periods";
 
 /**
  * Monthly cash-flow figures. The formulas mirror the Buck mobile app's
@@ -46,9 +47,7 @@ export function parseLocalDate(value: string): Date | null {
 
 /** Local `YYYY-MM-DD` for a date (never goes through UTC). */
 export function toLocalDateString(date: Date) {
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${month}-${day}`;
+  return toDayKey(date);
 }
 
 function sumInRange(

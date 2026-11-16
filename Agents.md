@@ -9,8 +9,8 @@ This document defines the roles, responsibilities, operational boundaries, and w
 | Agent Role | Primary Focus Area | System Scope | Tool Access Level |
 |---|---|---|---|
 | **Senior QA & Documentation Engineer** | Code quality, traceability, architecture documentation, defect auditing | Whole repository (`buck/`, `docs/`, root) | Read / Documentation Write |
-| **Frontend UI/UX Architect** | Next.js App Router, Framer Motion, CSS Design System, Responsive Modals | `buck/src/app/`, `buck/src/component/`, `buck/src/styles/` | Full Workspace Write |
-| **Backend & AI Engineer** | Buck_AI Python service on Gemini: AI Financial Advisor (live), AI Forecaster (planned), prompts, tools, persistence | `Buck_AI/`, `buck/src/app/api/` |
+| **Frontend UI/UX Architect** | Next.js App Router, Framer Motion, CSS Design System, Responsive Modals | `buck/src/app/`, `buck/src/component/` | Full Workspace Write |
+| **Backend & AI Engineer** | Buck_AI Python service (Advisor on Gemini, Forecaster on Groq): prompts, tools, persistence | `Buck_AI/`, `buck/src/app/api/` | Full Workspace Write |
 | **Security & Data Auditor** | Supabase RLS, Session security, Password hashing, Auth flow, Account purge | `buck/supabase/`, `buck/src/middleware.ts`, `buck/src/utils/` | Full Workspace Write |
 
 ---
@@ -50,18 +50,21 @@ Maintains and enhances user-facing components, design tokens, responsive layouts
 - **Dashboard Views**:
   - Home ([`app/dashboard/home/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/home/page.tsx))
   - Expenses ([`app/dashboard/expenses/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/expenses/page.tsx))
+  - Categories ([`app/dashboard/categories/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/categories/page.tsx))
   - Goals ([`app/dashboard/goals/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/goals/page.tsx))
   - Wallets ([`app/dashboard/wallet/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/wallet/page.tsx))
   - Statistics ([`app/dashboard/statistics/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/statistics/page.tsx))
+  - Financial Advisor ([`app/dashboard/financial-advisor/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/financial-advisor/page.tsx))
+  - Forecast ([`app/dashboard/forecast/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/forecast/page.tsx))
   - Settings ([`app/dashboard/settings/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/settings/page.tsx))
   - Admin ([`app/dashboard/admin/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/admin/page.tsx))
-- **Skeletal Loading Architecture**: [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx) maintaining 1:1 layout, geometry, and component parity across all dashboard views (Expenses, Wallets, Home, Goals, Statistics, Settings, Financial Advisor, Forecast).
+- **Skeletal Loading Architecture**: [`component/skeletons/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/) (re-exported via [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx)) maintaining 1:1 layout, geometry, and component parity across all dashboard views (Home, Expenses, Categories, Wallets, Goals, Statistics, Financial Advisor, Forecast, Settings, Admin).
 
 #### Operational Boundaries
 - Must not bypass [`FinancialContext`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/context/FinancialContext.tsx) caching for high-frequency navigation routes.
 - Must ensure all modals conform to maximum desktop bounds (`width: min(880px, 100%)`, max-height `min(82dvh, 760px)`).
 - Must adhere strictly to CSS design tokens defined in [`globals.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/globals.css) and [`dashboard.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/dashboard.css).
-- **1:1 Skeletal Loading Parity Policy**: Must ensure all loading skeletons ([`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx)) are accurate and true to the visual format, grid geometry, card anatomy, and toolbar arrangements of each specific tab (especially in the **Expenses** and **Wallet** tabs). Skeletons must reflect genuine UI elements (KPI bars/sparklines, search/sort toolbars, symmetrical card buttons, category visualizer bars, and active badges) to completely eliminate Cumulative Layout Shift (CLS) and visual jumpiness during hydration.
+- **1:1 Skeletal Loading Parity Policy**: Must ensure all loading skeletons ([`component/skeletons/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/) via [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx)) are accurate and true to the visual format, grid geometry, card anatomy, and toolbar arrangements of each specific tab (especially in the **Expenses** and **Wallet** tabs). Skeletons must reflect genuine UI elements (KPI bars/sparklines, search/sort toolbars, symmetrical card buttons, category visualizer bars, and active badges) to completely eliminate Cumulative Layout Shift (CLS) and visual jumpiness during hydration.
 
 ---
 
@@ -72,7 +75,7 @@ Maintains the Python [`Buck_AI/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-
 
 #### Core Subsystems Owned
 - **AI Financial Advisor** (`Buck_AI/BuckAI_Advisor`): advice saved in `ai_advisories` and regenerated only when the data fingerprint changes, streaming chat with read-only tools, goal tips, and auto-categorize (`categorize.py`, user's own categories only).
-- **AI Forecaster** (`Buck_AI/BuckAI_Forecast`): planned, separate AI. Until then the rule engine (`/api/forecast`) and `utils/goalForecast.ts`.
+- **AI Forecaster** (`Buck_AI/BuckAI_Forecast`): live, separate AI with a per-user intermittent-demand model + Monte Carlo ranges and Groq narrative explanations (ADR-052/053); `/api/forecast` rule engine fallback and `utils/goalForecast.ts` plain math.
 - **Next.js Route Handlers**: `/api/forecast`, `/api/cron/generate-insights` (forecast only), `/api/admin/*`, auth and account routes.
 
 #### Operational Boundaries

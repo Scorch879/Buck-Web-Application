@@ -1,5 +1,6 @@
 import type { GoalPlan, SavingAttitude } from "@/utils/goalAttitude";
 import { buckAiError, buckAiFetch } from "@/utils/buckAi";
+import { isRecord } from "@/utils/formatters";
 
 /** Low / likely / high: the 80% range (P10-P90) and the median. */
 export interface ForecastBand {
@@ -188,10 +189,6 @@ export interface AIForecastInsights {
   stale?: boolean;
   /** A new explanation is held back until this ISO time (refresh or data-change cooldown). */
   cooldownUntil?: string | null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isFiniteNumber(value: unknown): value is number {

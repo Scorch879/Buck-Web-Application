@@ -82,6 +82,32 @@ function writeStoredDashboardCache(cache: DashboardDataCache) {
   }
 }
 
+function markForecastsStale(
+  prev: DashboardDataCache,
+  targetUserId: string
+): DashboardDataCache {
+  if (prev.userId !== targetUserId || !prev.forecastByHorizon) {
+    return prev;
+  }
+
+  let changed = false;
+  const nextEntries = Object.entries(prev.forecastByHorizon).map(([key, entry]) => {
+    if (!entry || entry.stale) {
+      return [key, entry] as const;
+    }
+    changed = true;
+    return [key, { ...entry, stale: true }] as const;
+  });
+
+  if (!changed) {
+    return prev;
+  }
+
+  return mergeDashboardDataCache(prev, targetUserId, {
+    forecastByHorizon: Object.fromEntries(nextEntries) as DashboardDataCache["forecastByHorizon"],
+  });
+}
+
 async function loadTablePatch(
   userId: string,
   table: UserTableName
@@ -191,18 +217,21 @@ export default function FinancialProvider({ children }: { children: React.ReactN
 
     const unsubs = [
       subscribeUserTable("expenses", userId, () => {
+        setDashboardCache((prev) => markForecastsStale(prev, userId));
         void refreshTable("expenses");
       }),
       subscribeUserTable("incomes", userId, () => {
         void refreshTable("incomes");
       }),
       subscribeUserTable("goals", userId, () => {
+        setDashboardCache((prev) => markForecastsStale(prev, userId));
         void refreshTable("goals");
       }),
       subscribeUserTable("categories", userId, () => {
         void refreshTable("categories");
       }),
       subscribeUserTable("wallets", userId, () => {
+        setDashboardCache((prev) => markForecastsStale(prev, userId));
         void refreshTable("wallets");
       }),
       subscribeUserTable("profiles", userId, () => {

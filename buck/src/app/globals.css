@@ -142,7 +142,7 @@ body::-webkit-scrollbar {
 *::-webkit-scrollbar-thumb {
   background-color: var(--buck-scroll-thumb);
   background-clip: padding-box;
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   border-radius: 999px;
   transition: background-color 160ms ease;
 }
@@ -162,6 +162,10 @@ body::-webkit-scrollbar {
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    transition: none;
   }
 
   .buck-fade-img.is-loaded,
@@ -3301,4 +3305,103 @@ html[data-buck-theme="dark"] .session-timeout-actions button:last-child {
     flex-direction: column-reverse;
     align-items: stretch;
   }
+}
+
+/* ==========================================================================
+   Shared modal scrollbar & pinned top accent highlight (ADR-054)
+   ========================================================================== */
+
+/* Every modal dialog and its scrolling descendants share the 6px pill
+   scrollbar (8px track with 1px transparent padding border) and hover fade. */
+:is([role="dialog"], [role="alertdialog"], [aria-modal="true"])::-webkit-scrollbar,
+:is([role="dialog"], [role="alertdialog"], [aria-modal="true"]) *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+:is([role="dialog"], [role="alertdialog"], [aria-modal="true"])::-webkit-scrollbar-track,
+:is([role="dialog"], [role="alertdialog"], [aria-modal="true"])::-webkit-scrollbar-corner,
+:is([role="dialog"], [role="alertdialog"], [aria-modal="true"]) *::-webkit-scrollbar-track,
+:is([role="dialog"], [role="alertdialog"], [aria-modal="true"]) *::-webkit-scrollbar-corner {
+  background: transparent;
+  margin-block: 6px;
+}
+
+:is([role="dialog"], [role="alertdialog"], [aria-modal="true"])::-webkit-scrollbar-thumb,
+:is([role="dialog"], [role="alertdialog"], [aria-modal="true"]) *::-webkit-scrollbar-thumb {
+  background-color: var(--buck-scroll-thumb);
+  background-clip: padding-box;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  transition: background-color 160ms ease;
+}
+
+:is([role="dialog"], [role="alertdialog"], [aria-modal="true"])::-webkit-scrollbar-thumb:hover,
+:is([role="dialog"], [role="alertdialog"], [aria-modal="true"])::-webkit-scrollbar-thumb:active,
+:is([role="dialog"], [role="alertdialog"], [aria-modal="true"]) *::-webkit-scrollbar-thumb:hover,
+:is([role="dialog"], [role="alertdialog"], [aria-modal="true"]) *::-webkit-scrollbar-thumb:active {
+  background-color: var(--buck-scroll-thumb-hover);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  :is([role="dialog"], [role="alertdialog"], [aria-modal="true"]),
+  :is([role="dialog"], [role="alertdialog"], [aria-modal="true"]) * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--buck-scroll-thumb) transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is([role="dialog"], [role="alertdialog"], [aria-modal="true"])::-webkit-scrollbar-thumb,
+  :is([role="dialog"], [role="alertdialog"], [aria-modal="true"]) *::-webkit-scrollbar-thumb {
+    transition: none;
+  }
+}
+
+/* Two-layer modal shell so the top accent bar never scrolls away:
+   1) .buck-modal-panel.buck-modal-accent sits on the non-scrolling dialog shell.
+   2) .buck-modal-scroll wraps the scrollable modal body inside it.
+   Alternative for single-container modals: .buck-modal-accent-bar (sticky). */
+:is([role="dialog"], [role="alertdialog"], [aria-modal="true"]).buck-modal-panel,
+.buck-modal-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-width: min(880px, 100%);
+  max-height: min(82dvh, 760px);
+}
+
+:is([role="dialog"], [role="alertdialog"], [aria-modal="true"]).buck-modal-accent::before,
+.buck-modal-panel.buck-modal-accent::before {
+  position: absolute;
+  top: 0;
+  left: 1.25rem;
+  right: 1.25rem;
+  z-index: 3;
+  height: 3px;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, var(--buck-orange), var(--buck-gold));
+  border-radius: 0 0 8px 8px;
+}
+
+[aria-modal="true"] .buck-modal-scroll,
+.buck-modal-panel > .buck-modal-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.buck-modal-accent-bar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  flex-shrink: 0;
+  height: 3px;
+  margin: 0 1.25rem;
+  pointer-events: none;
+  background: linear-gradient(90deg, var(--buck-orange), var(--buck-gold));
+  border-radius: 0 0 8px 8px;
 }

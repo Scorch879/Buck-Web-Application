@@ -30,7 +30,7 @@ export function formatLongDate(iso: string | null | undefined): string {
 }
 
 /** formatCurrency with a leading minus for negatives: "−₱500". */
-export function formatSignedCurrency(value: number): string {
+function formatSignedCurrency(value: number): string {
   return value < 0 ? `−${formatCurrency(-value)}` : formatCurrency(value);
 }
 

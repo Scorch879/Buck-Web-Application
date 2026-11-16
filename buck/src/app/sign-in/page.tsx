@@ -4,6 +4,7 @@ import type { CSSProperties, FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { clearClientAuthStorage, resetClientSessionActivity, signInUser, signInWithGoogle } from "@/component/authentication";
+import { getSafeAppPath } from "@/utils/authUser";
 import { useRedirectIfAuthenticated } from "@/utils/useAuthGuard";
 import { OAUTH_CONSENT_PATH, createMfaVerifyPath } from "@/utils/mfa/assurance";
 import { supabase } from "@/utils/supabase";
@@ -50,32 +51,6 @@ const signInHighlights: SignInHighlight[] = [
     description: "Turn spending patterns into calm, practical next steps.",
   },
 ];
-
-function getSafeRedirectPath(redirectTo: string | null) {
-  if (!redirectTo) return "/dashboard/home";
-
-  try {
-    // We use a dummy base URL strictly for parsing purposes to utilize the native URL object.
-    // This ensures the value is a relative path. If the attacker provides an absolute URL 
-    // (e.g. "https://evil.com"), the origin will NOT match the dummy base, and it will be rejected.
-    // This works flawlessly in production because it only returns the relative pathname.
-    const parsedUrl = new URL(redirectTo, "http://dummy.local");
-    
-    // Check if it's strictly a relative path going to the dashboard, or to the
-    // connected-app consent page a third-party app sent the user to (ADR-049)
-    if (
-      parsedUrl.origin === "http://dummy.local" &&
-      (parsedUrl.pathname.startsWith("/dashboard") || parsedUrl.pathname === OAUTH_CONSENT_PATH)
-    ) {
-      // Return pathname + search (preserves query params, but ignores potential malicious fragments)
-      return parsedUrl.pathname + parsedUrl.search;
-    }
-  } catch {
-    // If parsing fails, fall through to default
-  }
-
-  return "/dashboard/home";
-}
 
 function getAuthNotice(reason: string | null) {
   switch (reason) {
@@ -149,7 +124,9 @@ const SignIn = () => {
 
     const searchParams = new URLSearchParams(window.location.search);
 
-    setRedirectTo(getSafeRedirectPath(searchParams.get("redirectTo")));
+    setRedirectTo(
+      getSafeAppPath(searchParams.get("redirectTo"), [OAUTH_CONSENT_PATH])
+    );
 
     setMsg(getAuthNotice(searchParams.get("reason")));
     setError(getAuthError(searchParams.get("error")));

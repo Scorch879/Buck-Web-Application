@@ -1,5 +1,50 @@
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
+export const DEFAULT_IDLE_TIMEOUT_MINUTES = 30;
+
+/** Ensures internal post-auth redirects stay same-origin and never protocol-relative (`//`). */
+export function getSafeRedirectPath(
+  value: string | null | undefined,
+  fallback = "/dashboard/home"
+): string {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return fallback;
+  }
+
+  return value;
+}
+
+/**
+ * Validates a relative app redirect against an explicit allowlist of exact paths and prefixes,
+ * preserving pathname + search while dropping URL fragments and cross-origin URLs.
+ */
+export function getSafeAppPath(
+  value: string | null | undefined,
+  allowedPaths: readonly string[],
+  allowedPrefixes: readonly string[] = ["/dashboard"],
+  fallback = "/dashboard/home"
+): string {
+  if (!value) {
+    return fallback;
+  }
+
+  try {
+    const parsedUrl = new URL(value, "http://dummy.local");
+    const matchesPrefix = allowedPrefixes.some((prefix) =>
+      parsedUrl.pathname.startsWith(prefix)
+    );
+    const matchesExact = allowedPaths.includes(parsedUrl.pathname);
+
+    if (parsedUrl.origin === "http://dummy.local" && (matchesPrefix || matchesExact)) {
+      return parsedUrl.pathname + parsedUrl.search;
+    }
+  } catch {
+    // Malformed redirect strings fall back to the dashboard home route.
+  }
+
+  return fallback;
+}
+
 export type BuckUser = SupabaseUser & {
   uid: string;
   displayName: string | null;
@@ -16,7 +61,7 @@ function getMetadataValue(user: SupabaseUser, key: string) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-export function getAuthProviders(user: SupabaseUser) {
+function getAuthProviders(user: SupabaseUser) {
   const providers = new Set<string>();
 
   if (typeof user.app_metadata?.provider === "string") {
@@ -32,7 +77,7 @@ export function getAuthProviders(user: SupabaseUser) {
   return Array.from(providers);
 }
 
-export function getUserDisplayName(user: SupabaseUser) {
+function getUserDisplayName(user: SupabaseUser) {
   return (
     getMetadataValue(user, "username") ||
     getMetadataValue(user, "full_name") ||

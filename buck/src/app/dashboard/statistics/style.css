@@ -314,6 +314,7 @@ html[data-buck-theme="dark"] .stats-segmented-btn[aria-pressed="true"] {
 }
 
 .stats-figures div {
+  min-width: 0;
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--buck-line);
   border-radius: 8px;
@@ -409,6 +410,7 @@ html[data-buck-theme="dark"] .stats-level--caution {
 .stats-category-amount {
   display: inline-flex;
   align-items: baseline;
+  flex-shrink: 0;
   gap: 0.5rem;
   font-size: 0.88rem;
   font-weight: 700;
@@ -707,6 +709,7 @@ html[data-buck-theme="dark"] .stats-swatch--limit {
 }
 
 .stats-recent-amount {
+  flex-shrink: 0;
   font-size: 0.88rem;
   font-weight: 700;
   white-space: nowrap;
@@ -814,14 +817,18 @@ html[data-buck-theme="dark"] .stats-swatch--limit {
 
   .stats-segmented {
     display: flex;
+    flex-wrap: wrap;
+    width: 100%;
   }
 
   .stats-segmented-btn {
-    flex: 1;
+    flex: 1 1 auto;
+    padding: 0 0.65rem;
   }
 
   .stats-stepper {
     justify-content: space-between;
+    flex-wrap: wrap;
   }
 
   .stats-stepper-label {
@@ -829,8 +836,30 @@ html[data-buck-theme="dark"] .stats-swatch--limit {
     min-width: 0;
   }
 
+  .stats-trend-controls {
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .stats-trend-pager-bar {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .stats-mini-segmented {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+
   .stats-trend-chart,
   .stats-forecast-chart {
     height: 220px;
+  }
+}
+
+@media (max-width: 420px) {
+  .stats-segmented-btn {
+    padding: 0 0.5rem;
+    font-size: 0.84rem;
   }
 }

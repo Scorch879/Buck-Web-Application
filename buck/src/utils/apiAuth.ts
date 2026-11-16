@@ -1,7 +1,8 @@
-import { createClient, type User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/utils/supabase/server";
-import { isSupabaseConfigured, supabaseAnonKey, supabaseUrl } from "@/utils/supabaseConfig";
+import { createSupabaseStatelessClient } from "@/utils/supabase/stateless";
+import { isSupabaseConfigured } from "@/utils/supabaseConfig";
 import { getMfaState, isConnectedAppToken, type MfaState } from "@/utils/mfa/assurance";
 
 export type RequestAuth = {
@@ -59,9 +60,7 @@ export async function getRequestAuth(req: Request): Promise<RequestAuth | null> 
   if (!isSupabaseConfigured || isConnectedAppToken(token)) return null;
 
   try {
-    const supabase = createClient(supabaseUrl!, supabaseAnonKey!, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+    const supabase = createSupabaseStatelessClient();
     const {
       data: { user },
       error,

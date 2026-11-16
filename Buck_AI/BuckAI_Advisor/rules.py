@@ -2,10 +2,9 @@
 free quota exhausted). Every number comes straight from the snapshot, so the
 fallback is always accurate, just less personal."""
 
-from .snapshot import Snapshot, wallet_kind
+from shared.money import peso
 
-def peso(amount: float) -> str:
-    return f"₱{amount:,.2f}"
+from .snapshot import Snapshot, wallet_kind
 
 
 def priority_for(snapshot: Snapshot) -> str:

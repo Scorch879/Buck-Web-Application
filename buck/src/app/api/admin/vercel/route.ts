@@ -1,25 +1,15 @@
 import { NextResponse } from "next/server";
-import { isAdminUser } from "@/utils/adminAccess";
-import { createServerClient } from "@supabase/ssr";
-import { getSupabaseEnv, supabaseCookieOptions } from "@/utils/supabaseConfig";
-import { cookies } from "next/headers";
+import { getAdminServerSession } from "@/utils/supabase/server";
+import { isSupabaseConfigured } from "@/utils/supabaseConfig";
 
 export async function GET() {
-  const { url, anonKey } = getSupabaseEnv();
-  const cookieStore = await cookies();
-  const supabase = createServerClient(url, anonKey, {
-    cookieOptions: supabaseCookieOptions,
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll() {}
-    },
-  });
+  if (!isSupabaseConfigured) {
+    return NextResponse.json({ error: "Supabase is not configured." }, { status: 500 });
+  }
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { isAdmin } = await getAdminServerSession();
 
-  if (!isAdminUser(user)) {
+  if (!isAdmin) {
     return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
   }
 

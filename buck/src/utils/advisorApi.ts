@@ -1,4 +1,5 @@
 import { buckAiError, buckAiFetch } from "@/utils/buckAi";
+import { isRecord } from "@/utils/formatters";
 
 /** A saved advisory from Buck_AI's AI Financial Advisor (`ai_advisories`). */
 export interface AIAdvisorInsights {
@@ -23,10 +24,6 @@ export interface AIAdvisorInsights {
   cached?: boolean;
   /** The data changed but regeneration is cooling down; a fresh one comes shortly. */
   stale?: boolean;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**

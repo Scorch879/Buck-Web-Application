@@ -214,7 +214,7 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
     >
       <motion.section
         {...panelMotion}
-        className="settings-modal settings-modal--wide"
+        className="settings-modal settings-modal--wide buck-modal-panel buck-modal-accent"
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-2fa-modal-title"
@@ -255,6 +255,7 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
           ) : null}
         </div>
 
+        <div className="buck-modal-scroll settings-modal-scroll">
         {step === "name" ? (
           <form className="settings-form settings-modal-form buck-modal-form" onSubmit={(event) => void startEnroll(event)} noValidate>
             <div className="settings-field buck-modal-field">
@@ -377,6 +378,7 @@ export default function TwoFactorEnrollModal({ isFirstFactor: isFirstFactorProp,
             onDone={onClose}
           />
         ) : null}
+        </div>
       </motion.section>
     </motion.div>
   );

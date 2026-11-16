@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { isAdminUser } from "@/utils/adminAccess";
 import { isDesignPreviewMode } from "@/utils/designPreview";
-import { createSupabaseServerClient } from "@/utils/supabase/server";
+import { getAdminServerSession } from "@/utils/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -10,12 +9,9 @@ export const dynamic = "force-dynamic";
 // re-checks on the server so the page is protected even if the matcher changes.
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   if (!isDesignPreviewMode) {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { isAdmin } = await getAdminServerSession();
 
-    if (!isAdminUser(user)) {
+    if (!isAdmin) {
       redirect("/dashboard/home");
     }
   }

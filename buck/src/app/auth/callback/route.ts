@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { Session } from "@supabase/supabase-js";
+import { getSafeAppPath } from "@/utils/authUser";
 import {
   createMfaVerifyPath,
   EMAIL_RECOVERY_CONFIRM_PATH,
@@ -14,34 +15,18 @@ import {
   supabaseUrl,
 } from "@/utils/supabaseConfig";
 
+const CALLBACK_ALLOWED_PATHS = [
+  "/forgot-password",
+  // Account-deletion confirmation link (sent by /api/account/deletion/request).
+  "/account/delete/confirm",
+  // 2FA email recovery link (sent by /api/auth/mfa/email-recovery).
+  EMAIL_RECOVERY_CONFIRM_PATH,
+  // Connected-app consent, after Google or magic-link sign-in (ADR-049).
+  OAUTH_CONSENT_PATH,
+];
+
 function getSafeNextPath(value: string | null) {
-  if (!value) return "/dashboard/home";
-
-  try {
-    // We use a dummy base URL strictly for parsing purposes to utilize the native URL object.
-    // This ensures the value is a relative path. If the attacker provides an absolute URL 
-    // (e.g. "https://evil.com"), the origin will NOT match the dummy base, and it will be rejected.
-    // This works flawlessly in production because it only returns the relative pathname.
-    const parsedUrl = new URL(value, "http://dummy.local");
-    
-    if (
-      parsedUrl.origin === "http://dummy.local" && 
-      (parsedUrl.pathname.startsWith("/dashboard") ||
-        parsedUrl.pathname === "/forgot-password" ||
-        // Account-deletion confirmation link (sent by /api/account/deletion/request).
-        parsedUrl.pathname === "/account/delete/confirm" ||
-        // 2FA email recovery link (sent by /api/auth/mfa/email-recovery).
-        parsedUrl.pathname === EMAIL_RECOVERY_CONFIRM_PATH ||
-        // Connected-app consent, after Google or magic-link sign-in (ADR-049).
-        parsedUrl.pathname === OAUTH_CONSENT_PATH)
-    ) {
-      return parsedUrl.pathname + parsedUrl.search;
-    }
-  } catch {
-    // If parsing fails, fall through to default
-  }
-
-  return "/dashboard/home";
+  return getSafeAppPath(value, CALLBACK_ALLOWED_PATHS);
 }
 
 function createAppRedirect(request: NextRequest, path: string) {

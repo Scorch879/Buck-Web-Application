@@ -8,11 +8,11 @@ This document tracks identified bugs, architectural discrepancies, security vuln
 
 | Metric | Assessment | Notes |
 |---|---|---|
-| **Overall Code Health** | ⚠️ **Moderate (Action Required)** | Core frontend UI and Supabase database architecture are robust; significant discrepancies exist in AI microservice integration. |
-| **Authentication & RLS** | 🟢 **Strong** | Strict PostgreSQL Row-Level Security, HMAC-SHA256 session activity cookies, 30m idle timeouts, and rate-limited reset flow. |
-| **Frontend State & Motion** | 🟢 **Strong** | High-performance in-memory cache in `FinancialContext`, clean Framer Motion integration, smooth modal glow math. |
-| **AI Microservice Integrity** | 🟠 **Improved (auth added, 2026-10-12)** | Now authenticated, rate limited and stateless (SEC-002). Still open: dead `processExpense` route (BUG-001) and web callers not yet sending `expenses` (BUG-003 follow-up). |
-| **Automated Test Coverage** | 🟡 **Partial** | Vitest covers cash-flow, income data and security helpers (29 tests); FastAPI has 11 security tests. No E2E and no middleware tests. |
+| **Overall Code Health** | 🟢 **Healthy** | Next.js frontend, Supabase RLS/auth, and Python `Buck_AI` service are verified by ESLint, TypeScript, and unit test suites. |
+| **Authentication & RLS** | 🟢 **Strong** | Strict PostgreSQL Row-Level Security, 2FA/passkeys, HMAC-SHA256 session activity cookies, 30m idle timeouts, and rate-limited reset flow. |
+| **Frontend State & Motion** | 🟢 **Strong** | High-performance in-memory cache in `FinancialContext`, Framer Motion system (`ADR-054`), and 1:1 modular skeletons (`component/skeletons/`). |
+| **AI Microservice Integrity** | 🟢 **Operational (`Buck_AI` live)** | `Buck_AI` hosts `BuckAI_Advisor` (Gemini) and `BuckAI_Forecast` (per-user model + Groq, `ADR-052`/`ADR-053`) with rule fallbacks; legacy Render backend (`BUG-001`) removed. |
+| **Automated Test Coverage** | 🟢 **Strong (unit/integration)** | `buck/` Vitest runs 24 test files (248 tests); `Buck_AI/` Python `unittest` runs 131 tests; `npx tsc --noEmit` and `npm run lint` pass clean. |
 
 ---
 
@@ -20,22 +20,21 @@ This document tracks identified bugs, architectural discrepancies, security vuln
 
 ### 🔴 Critical Severity
 
-#### BUG-001: Dead Endpoint Invocation in `aiApi.ts`
-- **Location**: [`buck/src/utils/aiApi.ts:17-28`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/aiApi.ts#L17-L28)
-- **Impact**: Any invocation of `processExpense()` fails with an HTTP 404 error.
-- **Root Cause**: `aiApi.ts` targets `https://buck-web-application.onrender.com/process_expense/`. In the FastAPI backend ([`buck/BuckAI_Backend/main.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/main.py)), the route is named `/ai/categorize_expense/` or `/expenses/`. Route `/process_expense/` does not exist.
-- **Remediation**: Align the API endpoint naming between `aiApi.ts` and `main.py`.
+#### BUG-001: [RESOLVED (superseded by ADR-043 / `Buck_AI`)] Dead Endpoint Invocation in `aiApi.ts`
+- **Location**: [`buck/src/utils/aiApi.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/aiApi.ts)
+- **Impact**: Legacy invocations targeted the retired Render FastAPI `/process_expense/` route.
+- **Resolution**: Legacy `BuckAI_Backend/` was removed in ADR-043; [`categorizeItems`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/aiApi.ts#L18) now calls `Buck_AI` `POST /advisor/categorize`.
 
 ---
 
 ### 🔐 Backend Security Audit (2026-10-12)
 
-Findings from the backend audit (middleware, `/api/*`, FastAPI). Status reflects code in this branch; none of it is deployed yet.
+Findings from the backend audit (middleware, `/api/*`, FastAPI).
 
 | ID | Severity | Finding | Status |
 |---|---|---|---|
-| **SEC-001** | 🔴 Critical | `/api/advisor` and `/api/forecast` trusted `body.userId` and queried with the service-role client (IDOR, RLS bypass; reachable unauthenticated). | **Resolved.** User id comes only from the SSR session via [`getSessionUserId`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/apiAuth.ts); 401 otherwise; `periodType` whitelisted; `any` removed. |
-| **SEC-002** | 🔴 Critical | FastAPI had no authentication, rate limiting or input limits; `GET /expenses/{user_id}/{goal_id}/` was an IDOR; unbounded `expenses_db`; paid LLM endpoints open to anyone. | **Resolved.** [`auth.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/auth.py) verifies the Supabase bearer token against `/auth/v1/user` (60 s hashed cache), per-user sliding-window limit (20/60 s, env-tunable), typed/bounded Pydantic models, forecast horizon cap, stateless `/expenses/` endpoints removed, CORS narrowed (no credentials), docs/OpenAPI disabled, generic 502/500 errors. **Deploy needs** `SUPABASE_URL` + `SUPABASE_ANON_KEY` on Render. |
+| **SEC-001** | 🔴 Critical | `/api/advisor` and `/api/forecast` trusted `body.userId` and queried with the service-role client (IDOR, RLS bypass; reachable unauthenticated). | **Resolved.** User id comes only from the SSR session via [`getSessionUserId`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/apiAuth.ts); 401 otherwise; `periodType` whitelisted; `any` removed. (`/api/advisor` was later removed in ADR-043.) |
+| **SEC-002** | 🔴 Critical | Legacy FastAPI had no authentication, rate limiting or input limits; `GET /expenses/{user_id}/{goal_id}/` was an IDOR; unbounded `expenses_db`; paid LLM endpoints open to anyone. | **Resolved & Superseded.** Replaced by [`Buck_AI/shared/auth.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/shared/auth.py) and [`Buck_AI/shared/rate_limit.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/shared/rate_limit.py) (legacy `buck/BuckAI_Backend/` removed in ADR-043). |
 | **SEC-003** | 🟠 High | Cron route ran open when `CRON_SECRET` was unset; sequential per-user loop; insert errors ignored. | **Resolved.** Fails closed via [`isBearerAuthorized`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/secureCompare.ts) (constant-time); batches of 5 with `Promise.allSettled`; insert errors surfaced; `maxDuration = 300`; no error text in the response. **Cron secrets (2026-10-12):** `CRON_SECRET` and `ACCOUNT_PURGE_SECRET` were added in Vercel (production + preview, sensitive). `vercel.json` now also schedules `/api/account/deletion/purge` daily at 20:00 UTC (04:00 PHT); the route accepts `GET` (Vercel Cron, `CRON_SECRET`) and `POST` (manual, `CRON_SECRET` or `ACCOUNT_PURGE_SECRET`). Effective after the next deploy. Before this, expired accounts were never purged. **Accepted:** `fetchUserFinancialContext` still issues ~5 queries per user (5 users in parallel, so ~25 in flight). Fine at 8 users; batch the queries per user set before the user base grows. |
 | **SEC-004** | 🟠 High | Idle timeout bypass: a missing `buck-session-activity` cookie (cleared / browser restart) counted as "not expired", so an old refresh token minted a fresh window. | **Resolved.** A missing cookie is accepted only while `last_sign_in_at` is inside the idle window. |
 | **SEC-005** | 🟡 Medium | `/api/*` skipped idle enforcement. | **Resolved.** Session API routes return `401 session-expired` after the window (excluded: `/api/auth/*`, `/api/cron/*`, `/api/account/deletion/purge`). API calls validate but never extend the window. |
@@ -502,21 +501,21 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
 - **Impact**: AI forecast and AI saving tip requests are routed to different Render deployment instances (`buck-web-application` vs `buck-web-application-1`).
 - **Root Cause**: Hardcoded URLs in source files instead of utilizing a unified `NEXT_PUBLIC_AI_BACKEND_URL` environment variable.
 - **Remediation**: Create a centralized environment configuration `process.env.NEXT_PUBLIC_AI_BACKEND_URL` and reference it everywhere.
-- **Resolution**: every browser call now goes through [`buck/src/utils/aiBackend.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/aiBackend.ts) (`AI_BACKEND_URL`, falls back to `buck-web-application-1`). Set `NEXT_PUBLIC_AI_BACKEND_URL` on Vercel to override.
+- **Resolution**: Legacy `buck/src/utils/aiBackend.ts` and the Render deployment were retired in ADR-043; every browser AI call now goes through [`buck/src/utils/buckAi.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/buckAi.ts) (`NEXT_PUBLIC_BUCK_AI_URL`).
 
-#### BUG-003: [RESOLVED 2026-10-12] FastAPI In-Memory Storage Desynchronization & Data Loss
-- **Location**: [`buck/BuckAI_Backend/main.py:19-20, 114-128`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/main.py#L19-L20)
-- **Impact**: The AI forecast endpoint `/ai/forecast/` calculates historical spending trends from `expenses_db.get(key, [])`, which is always empty.
-- **Root Cause**: Expenses are inserted directly into Supabase PostgreSQL from the Next.js frontend via [`supabaseData.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts). The FastAPI backend maintains an isolated in-memory Python dictionary `expenses_db: Dict[str, List[dict]] = {}` that is never populated and resets on every server spin-down.
-- **Remediation**: Pass historical expense records directly in the `/ai/forecast/` request payload from the frontend or connect FastAPI directly to Supabase using a service client.
-- **Resolution**: `expenses_db` and the `/expenses/` endpoints were removed (see SEC-002). `/ai/forecast/` now takes an optional `expenses: [{date, amount}]` list (max 2,000). **Follow-up:** web callers do not send `expenses` yet, so `spent` is still `0` until they do.
+#### BUG-003: [RESOLVED 2026-10-12; Legacy Service Retired] FastAPI In-Memory Storage Desynchronization & Data Loss
+- **Location**: Legacy `buck/BuckAI_Backend/main.py` (removed in ADR-043; superseded by [`Buck_AI/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/))
+- **Impact**: The legacy AI forecast endpoint `/ai/forecast/` previously read from an empty in-memory `expenses_db` dictionary.
+- **Root Cause**: Expenses live in Supabase PostgreSQL (`supabaseData.ts`), while the legacy Render FastAPI backend maintained an isolated `expenses_db` dictionary.
+- **Remediation**: Replaced with stateless PostgREST RLS queries per request inside `Buck_AI/`.
+- **Resolution**: `BuckAI_Backend/` was removed and replaced by `Buck_AI/` (ADR-043, ADR-052).
 
 ---
 
 ### 🟡 Medium Severity
 
 #### BUG-004: [RESOLVED] Stubbed Next.js AI Route Handlers
-- **Location**: [`buck/src/app/api/advisor/route.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/advisor/route.ts) and [`buck/src/app/api/forecast/route.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/forecast/route.ts)
+- **Location**: Legacy `/api/advisor/route.ts` (removed in ADR-043) and [`buck/src/app/api/forecast/route.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/forecast/route.ts)
 - **Resolution**: Fully implemented cache-first route handlers connected to Supabase tables `ai_advisories` and `ai_forecasts`. Handlers execute context generation via [`aiInsightsGenerator.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/aiInsightsGenerator.ts), calculating burn rates, financial health scores, projected savings in PHP, and persistent database storage with user-level RLS. Vercel Cron endpoint [`/api/cron/generate-insights`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/cron/generate-insights/route.ts) provides automated weekly batch computation.
 
 #### BUG-008: [RESOLVED] Home Category Breakdown Pie Card Overflow & Truncated Category Names
@@ -848,11 +847,10 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
 - **Root Cause**: The workspace contains a bare `package.json` at root without npm workspace configuration pointing to `buck/`.
 - **Remediation**: Define `"workspaces": ["buck"]` in the root `package.json` or consolidate project configuration.
 
-#### BUG-007: Unused Dependencies & Dead Imports in `ai_models.py`
-- **Location**: [`buck/BuckAI_Backend/ai_models.py:2,13,15`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/BuckAI_Backend/ai_models.py#L2)
-- **Impact**: Unnecessary dependency bloat and confusion over active LLM providers.
-- **Root Cause**: Code imports `openai` and mentions OpenAI embedding model comments, but actually calls the Together AI HTTP endpoint using `requests`.
-- **Remediation**: Clean up unused imports and align documentation with the Together AI integration.
+#### BUG-007: [RESOLVED (superseded by ADR-043 / `Buck_AI`)] Unused Dependencies & Dead Imports in `ai_models.py`
+- **Location**: Legacy `buck/BuckAI_Backend/ai_models.py` (removed in ADR-043)
+- **Impact**: Legacy Render service imported unused dependencies (`openai`) alongside Together AI calls.
+- **Resolution**: `BuckAI_Backend/` was retired and replaced by [`Buck_AI/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/).
 
 #### BUG-023: [PARTIALLY RESOLVED 2026-10-12] `Skills.md` Route Tables Drifted from Code
 - **Location**: [`Skills.md`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/docs/Skills.md) sections 2 and 3, found while reconciling the `buck/docs/` mirrors.
@@ -1169,8 +1167,8 @@ flowchart LR
       - [ ] Confirm Category Spending Allocation card renders with 7-segment multi-color allocation bar and 8 filter chips.
       - [ ] Confirm 2-column main workspace renders Add Spending form (all inputs, quick add chips, submit button) on left, and Expense tracker (toolbar + transaction rows with icons and delete buttons) on right.
       - [ ] Confirm zero layout collapse, zero left-margin line stacking, and zero Cumulative Layout Shift (CLS) when data finishes loading.
-    - [ ] Verify all 9 modular skeleton files exist in [`src/component/skeletons/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/) (`ExpensesSkeleton`, `HomeSkeleton`, `WalletSkeleton`, `GoalsSkeleton`, `StatisticsSkeleton`, `SettingsSkeleton`, `FinancialAdvisorSkeleton`, `ForecastSkeleton`, `AdminSkeleton`, `index.tsx`, `skeletons.css`).
-    - [ ] Verify [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx) proxies exports without broken references across the entire app.
+    - [ ] Verify the 14 modular skeleton files exist in [`src/component/skeletons/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/) (`AdminSkeleton`, `AIChatSkeleton`, `CategoriesSkeleton`, `ExpensesSkeleton`, `FinancialAdvisorSkeleton`, `ForecastSkeleton`, `GoalsSkeleton`, `HomeSkeleton`, `SettingsSkeleton`, `StatisticsSkeleton`, `WalletSkeleton`, `SkeletonPrimitives.tsx`, `index.tsx`, `skeletons.css`).
+    - [ ] Verify [`DashboardSkeletons.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/DashboardSkeletons.tsx) re-exports all modular skeletons without broken references across the entire app.
 15. **Pie Chart Dynamic Slice Zoom Animation, Tooltip True-Color Indicator & Bidirectional Anti-Clipping Verification**:
     - [ ] Navigate to `/dashboard/home` $\rightarrow$ inspect Category Breakdown Pie Chart:
       - [ ] In default unselected state, confirm all slices render with equal $100\%$ outer radius and zero offset.

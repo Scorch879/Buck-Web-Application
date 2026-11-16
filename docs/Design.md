@@ -17,7 +17,7 @@ flowchart TB
 
     subgraph AppServer ["Next.js Server Layer (Vercel / Node.js)"]
         Middleware["Next.js Middleware\n(SSR Auth Guard, HMAC Activity Cookie)"]
-        RouteHandlers["API Route Handlers\n(/api/auth, /api/account, /api/admin, /api/advisor, /api/forecast)"]
+        RouteHandlers["API Route Handlers\n(/api/auth, /api/account, /api/admin, /api/cron, /api/forecast, /api/mcp, /api/oauth, /api/profile)"]
         SSRClient["@supabase/ssr Server Client"]
     end
 
@@ -28,11 +28,11 @@ flowchart TB
         SupaRealtime[Realtime Replication Channel]
     end
 
-    subgraph AIMicroservice ["AI Microservice (FastAPI on Render)"]
-        FastAPIServer[FastAPI Server Engine]
-        TogetherAI["Together AI API\n(LLaMA 3.3 70B Turbo)"]
-        ProphetModel[Facebook Prophet Time-Series]
-        XGBoostMap[Attitude Multiplier Logic]
+    subgraph AIMicroservice ["Buck_AI Microservice (Python FastAPI on Vercel)"]
+        FastAPIServer[FastAPI Service (`BuckAI_Advisor`, `BuckAI_Forecast`)]
+        GeminiAI["Google Gemini Flash\n(Advisor Card, Chat, Goal Tips, Categorize)"]
+        GroqAI["Groq LLM\n(Forecaster Narrative Explanations)"]
+        ForecastModel[Per-User Intermittent Model & Monte Carlo]
     end
 
     ClientLayer <-->|HTTP / SSR Cookies / JSON| AppServer
@@ -40,8 +40,10 @@ flowchart TB
     AppServer <-->|SQL / PostgREST / Admin Service Role| PgDB
     AppServer <-->|JWT / Auth Tokens| SupaAuth
     AppServer <-->|Private Object Stream| SupaStorage
-    ClientLayer -.->|Direct AI Invocations| AIMicroservice
-    AIMicroservice <-->|Inference Requests| TogetherAI
+    ClientLayer -.->|Bearer JWT Invocations| AIMicroservice
+    AIMicroservice <-->|RLS PostgREST Queries| PgDB
+    AIMicroservice <-->|Advisor Inference| GeminiAI
+    AIMicroservice <-->|Forecast Narrative| GroqAI
 ```
 
 ---
@@ -522,14 +524,7 @@ Buck-Web-Application/
      - `ForecastSkeleton`: Rendered an inaccurate 14-bar chart instead of the 3 prediction cards and 2 wide forecast cards (`.forecast-ai-grid`), causing major layout shift.
      - `AdminSkeleton`: Did not exist, forcing admin page loads into a home fallback.
 - **Decision**:
-  1. **Comprehensive Subroute Loading Boundaries**:
-     - Created dedicated `loading.tsx` files for every subroute:
-       - `buck/src/app/dashboard/expenses/loading.tsx` (`variant="expenses"`)
-       - `buck/src/app/dashboard/wallet/loading.tsx` (`variant="wallet"`)
-       - `buck/src/app/dashboard/financial-advisor/loading.tsx` (`variant="financial-advisor"`)
-       - `buck/src/app/dashboard/forecast/loading.tsx` (`variant="forecast"`)
-       - `buck/src/app/dashboard/admin/loading.tsx` (`variant="admin"`)
-     - Ensures Next.js App Router renders the exact skeleton matching the destination route during any server suspense or client transition.
+  1. **Subroute Loading Boundaries & Consolidation**: Initially created dedicated `loading.tsx` files per dashboard subroute (`expenses`, `wallet`, `financial-advisor`, `forecast`, `admin`); later consolidated to [`app/dashboard/loading.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/loading.tsx) + `experimental.staleTimes` (`dynamic: 300, static: 300`) in [`next.config.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/next.config.ts) paired with modular skeletons in [`component/skeletons/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/).
   2. **Accurate Client Layout Routing (`DashboardClientLayout.tsx`)**:
      - Fixed `getSkeletonVariant(pathname)` to map every route directly to its corresponding variant: `expenses`, `wallet`, `financial-advisor`, `forecast`, `goals`, `statistics`, `settings`, `admin`, and `home`.
   3. **High-Fidelity Skeleton Synchronizations (`DashboardSkeletons.tsx`)**:
@@ -883,7 +878,7 @@ Buck-Web-Application/
      - Configured `@media (max-width: 680px)` in [`home/style.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/home/style.css#L432-L449) to stack `.spending-card-header` vertically (`flex-direction: column; align-items: stretch; gap: 1rem;`), reset heading `min-height: auto; max-width: 100%;`, and expand `.spending-timeframe-container` to `width: 100%; justify-content: center;`, harmonizing with `.spending-pie-layout`'s column-reverse stacking.
   5. **1:1 Skeletal Loading Parity**:
      - Updated [`HomeSkeleton.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/HomeSkeleton.tsx#L20-L33) to mirror `.spending-card-header`, `.card-heading` with `.pie-day-filter-slot`, and `.spending-timeframe-container`.
-     - Synchronized `.home-skeleton-content` in [`skeletons.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/skeletons.css#L315-L320) with `.dashboard-content` grid columns `minmax(0, 0.94fr) minmax(0, 1.06fr)`.
+     - Synchronized `.home-skeleton-content` styling in [`skeletons.css`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/skeletons/skeletons.css) with `.dashboard-content` grid columns `minmax(0, 0.94fr) minmax(0, 1.06fr)`.
 - **Consequences**:
   Completely eliminates the disruptive vertical layout shift when clicking or clearing weekday bars in the bar chart, keeps the Day filter badge organized and legible directly underneath the Category Breakdown heading, ensures the timeframe pillbox toggle remains reliably centered over the pie graph circle, and preserves strict 1:1 skeleton hydration parity.
 
@@ -1204,11 +1199,11 @@ Buck-Web-Application/
   2. **Fallback buckets are protected**: "Uncategorized" (expense) and "Other" (income) cannot be renamed or deleted, because the AI categorizer and `add_expense_atomic` fall back to them. Everything else is user-editable.
   3. **Data layer** (`supabaseData.ts`):
      - Types and constants: `CategoryKind`, `UNCATEGORIZED_EXPENSE`, `UNCATEGORIZED_INCOME`.
-     - Kind-aware `listCategories` (expense) and `listIncomeCategories` (seeds on first use; returns `null` when the migration is missing). `addCategory(userId, name, kind)`.
+     - Kind-aware internal `listCategories` (expense) and exported `listIncomeCategories` (seeds on first use; returns `null` when the migration is missing), plus `addCategory(userId, name, kind)`.
      - `renameCategory` (syncs history), and `deleteCategoryAndReassign` (moves items to the fallback first, so nothing is orphaned).
-     - `listUncategorizedExpenses`, `listUncategorizedIncomes`, `setExpenseCategory`, `setIncomeCategory`.
+     - `setExpenseCategory` and `setIncomeCategory`.
      - Before the migration, a missing `kind` column (Postgres `42703`) falls back to legacy expense-only queries.
-  4. **AI hook** (`aiApi.ts`): `categorizeItem(kind, description, categories)` posts `{ description, kind, categories }` to `/ai/categorize_expense/`. It only accepts an answer that matches one of the user's categories (case-insensitive); otherwise it returns `null` and the item stays in the fallback bucket.
+  4. **AI hook** (`aiApi.ts`): `categorizeItems(kind, descriptions)` sends batches (up to 25) to `Buck_AI` `POST /advisor/categorize`. It only accepts an answer that matches one of the user's categories; otherwise it returns `null` and the item stays in the fallback bucket.
   5. **Categories tab** (`/dashboard/categories`, sidebar "Categories"):
      - A header card with an Expense | Income switch.
      - A consolidated table toolbar ordered left-to-right: Search bar (`.cat-search`), animated `+ Add Expense/Income Category` trigger/inline form, and **Auto-categorize with AI** button (`.cat-ai-btn`) with count badge and Framer Motion hover tooltip (`.cat-ai-tooltip`) detailing uncategorized entries and total amount (replacing the standalone "Needs a category" card).
@@ -1221,7 +1216,7 @@ Buck-Web-Application/
      - The Add Income dialog lists the user's income categories.
 - **Consequences**: The `CLAUDE.md` "17 canonical categories" rule now describes seeded defaults, not a closed list. AI classification must use each user's own categories.
 
-### ADR-043: Buck_AI, a Python Gemini Service with Two AIs (Advisor Live, Forecaster Planned)
+### ADR-043: Buck_AI, a Python AI Service with Two Specialists (Advisor Live; Forecaster Completed in ADR-052/053)
 
 - **Status**: AI Financial Advisor implemented in `Buck_AI/BuckAI_Advisor`. AI Forecaster implemented 2026-10-30 in `Buck_AI/BuckAI_Forecast` (ADR-052). Supersedes ADR-004 and the short-lived TypeScript Gemini draft. No database migration.
 - **Context**:
@@ -1259,9 +1254,9 @@ Buck-Web-Application/
      - The browser calls Buck_AI directly (`utils/buckAi.ts`; `NEXT_PUBLIC_BUCK_AI_URL` is added to CSP `connect-src`; CORS is limited to `ALLOWED_ORIGINS`).
      - The Advisor tab card, the home card and the chat use it.
      - The TypeScript Gemini code (`src/server/ai`, `/api/ai/*`, `/api/advisor`, `@google/genai`) is removed.
-  8. **Until BuckAI_Forecast exists**:
-     - `/api/forecast` and the cron use the rule engine only.
-     - Goal charts use `utils/goalForecast.ts` (plain math).
+  8. **Forecaster Fallback (Superseded in part by ADR-052/053)**:
+     - `BuckAI_Forecast` (`GET /forecast`, `POST /forecast/explain` on Groq) now serves live forecasts.
+     - `/api/forecast` and the cron remain rule-engine fallbacks when `Buck_AI` is unreachable, and Goal charts still use `utils/goalForecast.ts` (plain math) alongside the Forecaster goal strip.
 - **Consequences**:
   - Web and mobile share one AI implementation and contract.
   - Advice reads are database-fast, and Gemini runs only when the advice would change.
@@ -1466,7 +1461,7 @@ Buck-Web-Application/
   - There is no server-side cache: each user's first view per day costs one outbound fetch.
 ---
 
-### ADR-052: AI Forecaster: a Per-User Spending Model with Monte Carlo Ranges, Explained by Gemini
+### ADR-052: AI Forecaster: a Per-User Spending Model with Monte Carlo Ranges (Amended by ADR-053: Groq Explanations)
 
 - **Status**: Implemented 2026-10-30 in [`Buck_AI/BuckAI_Forecast/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/). Completes the Forecaster half of ADR-043. Migration [`202610300001_ai_forecaster_support.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202610300001_ai_forecaster_support.sql) (adds the `forecast` rate-limit bucket; `model_name` defaults to `'rules'`). The page redesign (chart, wallet and category cards) is handed to Buck | Frontend.
 - **Context**:
@@ -1547,7 +1542,7 @@ Buck-Web-Application/
 
 - **Status**: Implemented 2026-11-11 in migration [`202611110002_soft_delete_goals.sql`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202611110002_soft_delete_goals.sql) (applied live to `glnuzqmnmzuxgujmxigx`), [`buck/src/utils/supabaseData.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts), [`buck/src/component/goals.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/goals.tsx), [`buck/src/app/dashboard/goals/page.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/goals/page.tsx), and [`Buck_AI/`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/). Extends ADR-003 (soft-delete architecture) and ADR-055 (goal activation invariants) to `public.goals`.
 - **Context**:
-  1. **Broken Funded Goal Deletion**: [`deleteGoalRecord`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L1493) previously executed a hard `DELETE FROM public.goals`. Whenever a goal had saved progress (`current_amount > 0`), the database trigger `trg_check_goal_deletion` (`check_goal_deletion()` from `202606130001_strict_deletions.sql`) raised an exception: `Cannot delete a goal that has funds allocated to it (current_amount > 0).`, causing goal deletion on `/dashboard/goals` to fail completely for funded goals.
+  1. **Broken Funded Goal Deletion**: [`deleteGoalRecord`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L1307) previously executed a hard `DELETE FROM public.goals`. Whenever a goal had saved progress (`current_amount > 0`), the database trigger `trg_check_goal_deletion` (`check_goal_deletion()` from `202606130001_strict_deletions.sql`) raised an exception: `Cannot delete a goal that has funds allocated to it (current_amount > 0).`, causing goal deletion on `/dashboard/goals` to fail completely for funded goals.
   2. **Permanent Loss of Linked Expenses & Goal Progress**: For goals with `current_amount = 0`, hard deletion permanently destroyed the row and triggered `expenses.goal_id ON DELETE SET NULL`, severing linked expenses with no way for the user to recover the goal.
 - **Decision**:
   1. **Schema & Constraint Parity with Wallets (`202611110002_soft_delete_goals.sql`)**:
@@ -1556,11 +1551,11 @@ Buck-Web-Application/
      - Updated `public.goals_activation()` trigger so setting `deleted_at` automatically forces `is_active = false`, and clearing `deleted_at` (restore) on an unfinished goal automatically promotes it to `is_active = true` when the user has no other non-deleted active goal.
      - Scoped `public.set_active_goal()`, `public.add_goal_progress()`, `public.save_goal_attitude()`, and `public.get_admin_telemetry()` goal counts to `deleted_at is null`.
      - Kept `trg_check_goal_deletion` (`BEFORE DELETE`) on `old.current_amount > 0 and old.deleted_at is null` as a database-level guard against accidental raw hard `DELETE`s while allowing soft-delete `UPDATE`s on any goal.
-  2. **Data Layer & Cache Invalidation (`supabaseData.ts`, `goals.tsx`)**:
-     - [`fetchListGoals`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L1390-L1411) filters `.is("deleted_at", null)`.
-     - Added [`fetchListDeletedGoals`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L1413-L1437) and cached [`listDeletedGoals`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L2426-L2428) querying `.not("deleted_at", "is", null).order("deleted_at", { ascending: false })`.
-     - [`deleteGoalRecord`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L1493-L1516) performs `.update({ deleted_at: new Date().toISOString(), is_active: false }).eq("id", safeGoalId).eq("user_id", userId).is("deleted_at", null)` and calls `bumpDataEpoch()`.
-     - Added [`restoreGoalRecord`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L1518-L1545) and [`restoreGoal`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/goals.tsx#L71-L85) updating `{ deleted_at: null, is_active: false }`, calling `bumpDataEpoch()`, and returning the restored `BuckGoal`.
+  2. **Data Layer & Cache Invalidation (`supabaseData.ts`, `goals/page.tsx`)**:
+     - [`fetchListGoals`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L1204) filters `.is("deleted_at", null)`.
+     - Added [`fetchListDeletedGoals`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L1227) and cached [`listDeletedGoals`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L1939) querying `.not("deleted_at", "is", null).order("deleted_at", { ascending: false })`.
+     - [`deleteGoalRecord`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L1307) performs `.update({ deleted_at: new Date().toISOString(), is_active: false }).eq("id", safeGoalId).eq("user_id", userId).is("deleted_at", null)` and calls `bumpDataEpoch()`.
+     - Added [`restoreGoalRecord`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/supabaseData.ts#L1332) (invoked via [`handleRestoreGoal`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/dashboard/goals/page.tsx#L183)) updating `{ deleted_at: null, is_active: false }`, calling `bumpDataEpoch()`, and returning the restored `BuckGoal`.
   3. **AI & MCP Exclusion of Soft-Deleted Goals**:
      - Added `.is_("deleted_at", "null")` / `.is("deleted_at", null)` filters across [`Buck_AI/BuckAI_Advisor/snapshot.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/snapshot.py#L96), [`Buck_AI/BuckAI_Advisor/tools.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/tools.py#L119), [`Buck_AI/BuckAI_Advisor/service.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/service.py#L242-L287) (`goal_tip` and `goal_attitude`), [`Buck_AI/BuckAI_Forecast/history.py`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Forecast/history.py#L43), [`buck/src/utils/aiInsightsGenerator.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/aiInsightsGenerator.ts#L107), and [`buck/src/utils/mcp/buckData.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/mcp/buckData.ts#L214).
   4. **Goals UI Soft-Delete & Recovery (`app/dashboard/goals/page.tsx`, `style.css`)**:

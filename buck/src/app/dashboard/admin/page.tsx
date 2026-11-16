@@ -20,6 +20,7 @@ import {
 import { useOptionalDashboardUser } from "@/context/DashboardUserContext";
 import { useFinancial } from "@/context/FinancialContext";
 import { getAdminFeedback } from "@/utils/supabaseData";
+import { formatMediumDateTime } from "@/utils/formatters";
 import "@/app/dashboard/settings/style.css";
 import "./style.css";
 import CustomSelect, { type SelectOption } from "@/component/CustomSelect";
@@ -49,10 +50,7 @@ function formatAdminDate(value: string | number) {
       ? new Date(value / 1000)
       : new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return formatMediumDateTime(date.toISOString()) ?? "—";
 }
 
 function formatCategoryLabel(category: string) {

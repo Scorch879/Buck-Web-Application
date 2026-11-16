@@ -160,174 +160,176 @@ export default function AddExpenseModal({
           role="presentation"
         >
           <motion.div
-            className="expenses-modal"
+            className="expenses-modal buck-modal-panel buck-modal-accent"
             role="dialog"
             aria-modal="true"
             aria-labelledby="add-expense-modal-title"
             {...panelMotion}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="expenses-modal-header">
-              <div>
-                <p className="expenses-eyebrow">New Expense</p>
-                <h2 id="add-expense-modal-title" className="buck-modal-title">Add Spending</h2>
-              </div>
-              <button
-                type="button"
-                className="expenses-modal-close-btn"
-                onClick={onClose}
-                disabled={saving}
-                aria-label="Close add spending dialog"
-              >
-                <FaTimes aria-hidden="true" />
-              </button>
-            </div>
-
-            {/* Error callout */}
-            {error && (
-              <div className="expenses-modal-error" role="alert">
-                <FaExclamationTriangle aria-hidden="true" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="expenses-modal-form buck-modal-form">
-              {/* Amount */}
-              <label className="buck-modal-field">
-                <span>Amount (PHP)</span>
-                <input
-                  type="text"
-                  value={amount}
-                  inputMode="decimal"
-                  onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
-                  placeholder="0.00"
-                  disabled={saving}
-                  ref={amountInputRef}
-                  maxLength={15}
-                  pattern="\d{1,12}(\.\d{1,2})?"
-                  title="Up to 12 digits and 2 decimals"
-                />
-              </label>
-
-              {/* Quick Amount Presets */}
-              <div className="expenses-quick-amounts" aria-label="Quick amount presets">
-                <span className="expenses-quick-label">Quick add:</span>
-                <div className="expenses-quick-chips">
-                  {QUICK_AMOUNTS.map((val) => (
-                    <button
-                      key={val}
-                      type="button"
-                      className="expenses-quick-chip"
-                      onClick={() => handleQuickAdd(val)}
-                      disabled={saving}
-                    >
-                      +{val}
-                    </button>
-                  ))}
-                  {amount ? (
-                    <button
-                      type="button"
-                      className="expenses-quick-chip expenses-quick-chip--clear"
-                      onClick={() => setAmount("")}
-                      disabled={saving}
-                      title="Clear amount"
-                    >
-                      Clear
-                    </button>
-                  ) : null}
+            <div className="expenses-modal-scroll buck-modal-scroll">
+              {/* Header */}
+              <div className="expenses-modal-header">
+                <div>
+                  <p className="expenses-eyebrow">New Expense</p>
+                  <h2 id="add-expense-modal-title" className="buck-modal-title">Add Spending</h2>
                 </div>
-              </div>
-
-              {/* Budget Warning */}
-              {isOverBudget && (
-                <motion.div
-                  className="expenses-overbudget-alert"
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
-                  <FaExclamationTriangle aria-hidden="true" />
-                  <span>
-                    Amount exceeds current wallet balance ({formatCurrency(walletBudget)}).
-                  </span>
-                </motion.div>
-              )}
-
-              {/* Category. Adding, renaming and deleting live on the Categories
-                  tab; the modal only picks one. */}
-              <div className="expenses-modal-category">
-                <label className="buck-modal-field">
-                  <span>Category</span>
-                  <CustomSelect
-                    value={categoryName}
-                    onChange={(val) => setCategoryName(val)}
-                    disabled={saving}
-                    options={[
-                      ...categories.map((c) => ({ value: c.name, label: c.name })),
-                      ...(!categories.some((c) => c.name === "Uncategorized")
-                        ? [{ value: "Uncategorized", label: "Uncategorized" }]
-                        : []),
-                    ]}
-                  />
-                </label>
-                <Link
-                  href="/dashboard/categories"
-                  className="expenses-modal-manage-link"
-                  onClick={onClose}
-                >
-                  Manage categories
-                </Link>
-              </div>
-
-              {/* Date */}
-              <label className="buck-modal-field">
-                <span>Date</span>
-                <CustomDatePicker
-                  value={spentOn}
-                  onChange={(val) => setSpentOn(val)}
-                />
-              </label>
-
-              {/* Description */}
-              <label className="buck-modal-field">
-                <span>Description</span>
-                <input
-                  type="text"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Lunch, fare, grocery, coffee..."
-                  disabled={saving}
-                />
-              </label>
-
-              {/* Footer Actions */}
-              <div className="expenses-modal-footer buck-modal-actions">
                 <button
                   type="button"
-                  className="expenses-modal-cancel-btn buck-modal-btn buck-modal-btn--secondary"
+                  className="expenses-modal-close-btn"
                   onClick={onClose}
                   disabled={saving}
+                  aria-label="Close add spending dialog"
                 >
-                  Cancel
+                  <FaTimes aria-hidden="true" />
                 </button>
-                <motion.button
-                  type="submit"
-                  className="expenses-modal-submit-btn buck-modal-btn buck-modal-btn--primary"
-                  disabled={saving}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  {saving ? (
-                    "Adding..."
-                  ) : (
-                    <span className="expenses-btn-content">
-                      <FaPlus aria-hidden="true" /> Add Expense
-                    </span>
-                  )}
-                </motion.button>
               </div>
-            </form>
+
+              {/* Error callout */}
+              {error && (
+                <div className="expenses-modal-error" role="alert">
+                  <FaExclamationTriangle aria-hidden="true" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {/* Form */}
+              <form onSubmit={handleSubmit} className="expenses-modal-form buck-modal-form">
+                {/* Amount */}
+                <label className="buck-modal-field">
+                  <span>Amount (PHP)</span>
+                  <input
+                    type="text"
+                    value={amount}
+                    inputMode="decimal"
+                    onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
+                    placeholder="0.00"
+                    disabled={saving}
+                    ref={amountInputRef}
+                    maxLength={15}
+                    pattern="\d{1,12}(\.\d{1,2})?"
+                    title="Up to 12 digits and 2 decimals"
+                  />
+                </label>
+
+                {/* Quick Amount Presets */}
+                <div className="expenses-quick-amounts" aria-label="Quick amount presets">
+                  <span className="expenses-quick-label">Quick add:</span>
+                  <div className="expenses-quick-chips">
+                    {QUICK_AMOUNTS.map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        className="expenses-quick-chip"
+                        onClick={() => handleQuickAdd(val)}
+                        disabled={saving}
+                      >
+                        +{val}
+                      </button>
+                    ))}
+                    {amount ? (
+                      <button
+                        type="button"
+                        className="expenses-quick-chip expenses-quick-chip--clear"
+                        onClick={() => setAmount("")}
+                        disabled={saving}
+                        title="Clear amount"
+                      >
+                        Clear
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {/* Budget Warning */}
+                {isOverBudget && (
+                  <motion.div
+                    className="expenses-overbudget-alert"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <FaExclamationTriangle aria-hidden="true" />
+                    <span>
+                      Amount exceeds current wallet balance ({formatCurrency(walletBudget)}).
+                    </span>
+                  </motion.div>
+                )}
+
+                {/* Category. Adding, renaming and deleting live on the Categories
+                    tab; the modal only picks one. */}
+                <div className="expenses-modal-category">
+                  <div className="buck-modal-field">
+                    <span>Category</span>
+                    <CustomSelect
+                      value={categoryName}
+                      onChange={(val) => setCategoryName(val)}
+                      disabled={saving}
+                      options={[
+                        ...categories.map((c) => ({ value: c.name, label: c.name })),
+                        ...(!categories.some((c) => c.name === "Uncategorized")
+                          ? [{ value: "Uncategorized", label: "Uncategorized" }]
+                          : []),
+                      ]}
+                    />
+                  </div>
+                  <Link
+                    href="/dashboard/categories"
+                    className="expenses-modal-manage-link"
+                    onClick={onClose}
+                  >
+                    Manage categories
+                  </Link>
+                </div>
+
+                {/* Date */}
+                <div className="buck-modal-field">
+                  <span>Date</span>
+                  <CustomDatePicker
+                    value={spentOn}
+                    onChange={(val) => setSpentOn(val)}
+                  />
+                </div>
+
+                {/* Description */}
+                <label className="buck-modal-field">
+                  <span>Description</span>
+                  <input
+                    type="text"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Lunch, fare, grocery, coffee..."
+                    disabled={saving}
+                  />
+                </label>
+
+                {/* Footer Actions */}
+                <div className="expenses-modal-footer buck-modal-actions">
+                  <button
+                    type="button"
+                    className="expenses-modal-cancel-btn buck-modal-btn buck-modal-btn--secondary"
+                    onClick={onClose}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </button>
+                  <motion.button
+                    type="submit"
+                    className="expenses-modal-submit-btn buck-modal-btn buck-modal-btn--primary"
+                    disabled={saving}
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    {saving ? (
+                      "Adding..."
+                    ) : (
+                      <span className="expenses-btn-content">
+                        <FaPlus aria-hidden="true" /> Add Expense
+                      </span>
+                    )}
+                  </motion.button>
+                </div>
+              </form>
+            </div>
           </motion.div>
         </motion.div>
       )}

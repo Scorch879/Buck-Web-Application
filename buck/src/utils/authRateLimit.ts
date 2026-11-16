@@ -37,7 +37,7 @@ export function getClientIp(request: Request) {
   return candidate.slice(0, 128);
 }
 
-export function getRateLimitSecret() {
+function getRateLimitSecret() {
   const secret =
     process.env.AUTH_RATE_LIMIT_SECRET?.trim() ||
     process.env.SESSION_COOKIE_SECRET?.trim();

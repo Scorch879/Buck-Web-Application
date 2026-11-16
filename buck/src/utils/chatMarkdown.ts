@@ -10,7 +10,7 @@ export type ChatBlock =
   | { kind: "paragraph"; spans: InlineSpan[] }
   | { kind: "list"; ordered: boolean; items: InlineSpan[][] };
 
-export function parseInline(text: string): InlineSpan[] {
+function parseInline(text: string): InlineSpan[] {
   const spans: InlineSpan[] = [];
   const pattern = /\*\*(.+?)\*\*/g;
   let last = 0;

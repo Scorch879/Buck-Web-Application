@@ -10,6 +10,11 @@ import {
   getEmailValidationMessage,
   normalizeEmailAddress,
 } from "@/utils/emailValidation";
+import {
+  DEFAULT_IDLE_TIMEOUT_MINUTES,
+  getSafeRedirectPath,
+} from "@/utils/authUser";
+import { getPositiveNumber } from "@/utils/formatters";
 
 export type AuthResult = {
   success: boolean;
@@ -22,7 +27,6 @@ export type AuthResult = {
 export const SESSION_LAST_ACTIVITY_KEY = "buck-session-last-activity";
 export const SESSION_FORCE_SIGN_OUT_KEY = "buck-session-force-signout";
 const DASHBOARD_CACHE_KEY = "buck-dashboard-cache-v1";
-export const DEFAULT_IDLE_TIMEOUT_MINUTES = 30;
 
 const CLIENT_AUTH_STORAGE_KEYS = [
   DASHBOARD_CACHE_KEY,
@@ -33,16 +37,6 @@ const CLIENT_AUTH_STORAGE_KEYS = [
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong.";
-}
-
-export function getPositiveNumber(value: string | undefined, fallback: number) {
-  const parsed = Number(value);
-
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return fallback;
-  }
-
-  return parsed;
 }
 
 export function getClientIdleTimeoutMs() {
@@ -150,14 +144,6 @@ function getSiteUrl() {
   }
 
   return window.location.origin;
-}
-
-function getSafeRedirectPath(redirectTo: string) {
-  if (!redirectTo.startsWith("/") || redirectTo.startsWith("//")) {
-    return "/dashboard/home";
-  }
-
-  return redirectTo;
 }
 
 function getAuthCallbackUrl(redirectTo = "/dashboard/home") {

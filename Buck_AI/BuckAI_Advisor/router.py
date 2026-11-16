@@ -18,9 +18,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
 
 from shared import rate_limit
-from shared.auth import AuthUser, current_user
+from shared.auth import AuthUser, current_user, db_unavailable, user_db
 from shared.safety import clean_text
-from shared.supabase import DbError, UserDb
+from shared.supabase import DbError
 
 from . import categorize as categorizer
 from . import service
@@ -28,29 +28,21 @@ from . import service
 router = APIRouter(prefix="/advisor", tags=["AI Financial Advisor"])
 
 
-def _db(user: AuthUser) -> UserDb:
-    return UserDb(user.id, user.token)
-
-
-def _unavailable() -> HTTPException:
-    return HTTPException(503, "Could not read your data right now. Try again shortly.")
-
-
 @router.get("/insight")
 async def insight(refresh: bool = False, user: AuthUser = Depends(current_user)):
-    await rate_limit.enforce(_db(user), "insight")
+    await rate_limit.enforce(user_db(user), "insight")
     try:
-        return await service.get_insight(_db(user), refresh=refresh)
+        return await service.get_insight(user_db(user), refresh=refresh)
     except DbError:
-        raise _unavailable()
+        raise db_unavailable()
 
 
 @router.get("/history")
 async def history(limit: int = Query(10, ge=1, le=20), user: AuthUser = Depends(current_user)):
     try:
-        return await service.saved_history(_db(user), limit)
+        return await service.saved_history(user_db(user), limit)
     except DbError:
-        raise _unavailable()
+        raise db_unavailable()
 
 
 class ChatTurn(BaseModel):
@@ -65,7 +57,7 @@ class ChatInput(BaseModel):
 
 @router.post("/chat")
 async def chat(body: ChatInput, user: AuthUser = Depends(current_user)):
-    await rate_limit.enforce(_db(user), "chat")
+    await rate_limit.enforce(user_db(user), "chat")
     question = clean_text(body.question, 500)
     if not question:
         raise HTTPException(422, "Ask a question first.")
@@ -74,7 +66,7 @@ async def chat(body: ChatInput, user: AuthUser = Depends(current_user)):
     while turns and turns[0]["role"] == "assistant":  # Gemini expects a user turn first
         turns.pop(0)
     return StreamingResponse(
-        service.chat_events(_db(user), question, turns),
+        service.chat_events(user_db(user), question, turns),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
     )
@@ -100,7 +92,7 @@ class GoalTipInput(BaseModel):
 
 @router.post("/goal-tip")
 async def goal_tip(body: GoalTipInput, user: AuthUser = Depends(current_user)):
-    await rate_limit.enforce(_db(user), "tip")
+    await rate_limit.enforce(user_db(user), "tip")
     goal = (
         {"goal_id": body.goal_id}
         if body.goal_id
@@ -108,11 +100,11 @@ async def goal_tip(body: GoalTipInput, user: AuthUser = Depends(current_user)):
               "attitude": body.attitude, "target_date": body.target_date}
     )
     try:
-        return await service.goal_tip(_db(user), goal)
+        return await service.goal_tip(user_db(user), goal)
     except LookupError:
         raise HTTPException(404, "Goal not found.")
     except DbError:
-        raise _unavailable()
+        raise db_unavailable()
 
 
 class AttitudeInput(BaseModel):
@@ -137,16 +129,16 @@ async def attitude(body: AttitudeInput, user: AuthUser = Depends(current_user)):
     """The saving attitude a goal needs (Normal / Moderate / Aggressive), why,
     and the daily / weekly / monthly spending and saving plan it implies.
     Deterministic: no Gemini call, so it works when the AI is busy."""
-    await rate_limit.enforce(_db(user), "tip")
+    await rate_limit.enforce(user_db(user), "tip")
     goal = ({"goal_id": body.goal_id} if body.goal_id else
             {"target_amount": body.target_amount, "saved_amount": body.saved_amount,
              "target_date": body.target_date})
     try:
-        return await service.goal_attitude(_db(user), goal)
+        return await service.goal_attitude(user_db(user), goal)
     except LookupError:
         raise HTTPException(404, "Goal not found.")
     except DbError:
-        raise _unavailable()
+        raise db_unavailable()
 
 
 class CategorizeInput(BaseModel):
@@ -158,9 +150,9 @@ class CategorizeInput(BaseModel):
 async def categorize(body: CategorizeInput, user: AuthUser = Depends(current_user)):
     """`{ categories: (name | null)[] }` in input order. null means "no confident
     match" (or AI unavailable): leave the item in the fallback category."""
-    await rate_limit.enforce(_db(user), "categorize")
+    await rate_limit.enforce(user_db(user), "categorize")
     try:
-        names = await categorizer.categorize(_db(user), body.kind, [d[:300] for d in body.descriptions])
+        names = await categorizer.categorize(user_db(user), body.kind, [d[:300] for d in body.descriptions])
     except DbError:
-        raise _unavailable()
+        raise db_unavailable()
     return {"categories": names}

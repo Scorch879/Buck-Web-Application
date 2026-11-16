@@ -20,7 +20,7 @@
 | **Motion & Animations** | [Framer Motion](https://www.framer.com/motion/) (GPU-accelerated springs, path tracing, scroll linking) |
 | **Styling & Design System** | Modern Vanilla CSS, CSS Variables, Theme Tokens (Dark & Light mode support) |
 | **Authentication & Database** | [Supabase](https://supabase.com/) (SSR Client, Row-Level Security, PostgreSQL) |
-| **AI Engine** | `Buck_AI/`: Python [FastAPI](https://fastapi.tiangolo.com/) on [Google Gemini](https://ai.google.dev/) Flash. AI Financial Advisor (live), AI Forecaster (planned) |
+| **AI Engine** | `Buck_AI/`: Python [FastAPI](https://fastapi.tiangolo.com/) with AI Financial Advisor ([Google Gemini](https://ai.google.dev/) Flash) and AI Forecaster (per-user model + [Groq](https://groq.com/) explanations) |
 | **Icons & Media** | [React Icons](https://react-icons.github.io/react-icons/) (FontAwesome, HeroIcons) |
 
 ---

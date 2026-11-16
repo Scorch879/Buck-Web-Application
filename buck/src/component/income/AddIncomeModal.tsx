@@ -152,104 +152,108 @@ export default function AddIncomeModal({
           {...backdropMotion}
         >
           <motion.div
-            className={styles.modal}
+            className={`${styles.modal} buck-modal-panel buck-modal-accent`}
             role="dialog"
             aria-modal="true"
             aria-label="Add income"
             onClick={(event) => event.stopPropagation()}
             {...panelMotion}
           >
-        <h2 className={`${styles.title} buck-modal-title`}>Add income</h2>
-        <p className={`${styles.subtitle} buck-modal-subtitle`}>
-          {wallet
-            ? `Credits ${wallet.name} (${formatCurrency(wallet.budget)})`
-            : walletLoading
-            ? "Loading your active wallet..."
-            : "No active wallet"}
-        </p>
+            <div className={`${styles.modalScroll} buck-modal-scroll`}>
+              <div className={styles.header}>
+                <h2 className={`${styles.title} buck-modal-title`}>Add income</h2>
+                <p className={`${styles.subtitle} buck-modal-subtitle`}>
+                  {wallet
+                    ? `Credits ${wallet.name} (${formatCurrency(wallet.budget)})`
+                    : walletLoading
+                    ? "Loading your active wallet..."
+                    : "No active wallet"}
+                </p>
+              </div>
 
-        {!walletLoading && !wallet ? (
-          <>
-            <div className={styles.notice}>
-              Create or select a wallet first to add income.
+              {!walletLoading && !wallet ? (
+                <>
+                  <div className={styles.notice}>
+                    Create or select a wallet first to add income.
+                  </div>
+                  <div className={`${styles.actions} buck-modal-actions`}>
+                    <button
+                      type="button"
+                      className={`${styles.secondaryBtn} buck-modal-btn buck-modal-btn--secondary`}
+                      onClick={onClose}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <form className={`${styles.form} buck-modal-form`} onSubmit={handleSubmit} noValidate>
+                  <label className={`${styles.field} buck-modal-field`}>
+                    Amount (PHP)
+                    <input
+                      className={styles.input}
+                      type="number"
+                      inputMode="decimal"
+                      min="0.01"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={amount}
+                      onChange={(event) => setAmount(event.target.value)}
+                      autoFocus
+                      required
+                    />
+                  </label>
+
+                  <div className={`${styles.field} buck-modal-field`}>
+                    Category
+                    <CustomSelect
+                      value={source}
+                      onChange={setSource}
+                      options={[
+                        { value: "", label: "Select a category" },
+                        ...categoryNames.map((item) => ({ value: item, label: item })),
+                      ]}
+                    />
+                  </div>
+
+                  <div className={`${styles.field} buck-modal-field`}>
+                    Date
+                    <CustomDatePicker value={date} onChange={setDate} max={today} required />
+                  </div>
+
+                  <label className={`${styles.field} buck-modal-field`}>
+                    Description (optional)
+                    <input
+                      className={styles.input}
+                      type="text"
+                      maxLength={120}
+                      placeholder="e.g. October salary"
+                      value={description}
+                      onChange={(event) => setDescription(event.target.value)}
+                    />
+                  </label>
+
+                  {error && <div className={styles.error}>{error}</div>}
+
+                  <div className={`${styles.actions} buck-modal-actions`}>
+                    <button
+                      type="button"
+                      className={`${styles.secondaryBtn} buck-modal-btn buck-modal-btn--secondary`}
+                      onClick={onClose}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className={`${styles.primaryBtn} buck-modal-btn buck-modal-btn--primary`}
+                      disabled={saving || walletLoading}
+                    >
+                      {saving ? "Adding..." : "Add income"}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
-            <div className={`${styles.actions} buck-modal-actions`}>
-              <button
-                type="button"
-                className={`${styles.secondaryBtn} buck-modal-btn buck-modal-btn--secondary`}
-                onClick={onClose}
-              >
-                Close
-              </button>
-            </div>
-          </>
-        ) : (
-          <form className={`${styles.form} buck-modal-form`} onSubmit={handleSubmit} noValidate>
-            <label className={`${styles.field} buck-modal-field`}>
-              Amount (PHP)
-              <input
-                className={styles.input}
-                type="number"
-                inputMode="decimal"
-                min="0.01"
-                step="0.01"
-                placeholder="0.00"
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-                autoFocus
-                required
-              />
-            </label>
-
-            <div className={`${styles.field} buck-modal-field`}>
-              Category
-              <CustomSelect
-                value={source}
-                onChange={setSource}
-                options={[
-                  { value: "", label: "Select a category" },
-                  ...categoryNames.map((item) => ({ value: item, label: item })),
-                ]}
-              />
-            </div>
-
-            <div className={`${styles.field} buck-modal-field`}>
-              Date
-              <CustomDatePicker value={date} onChange={setDate} max={today} required />
-            </div>
-
-            <label className={`${styles.field} buck-modal-field`}>
-              Description (optional)
-              <input
-                className={styles.input}
-                type="text"
-                maxLength={120}
-                placeholder="e.g. October salary"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-              />
-            </label>
-
-            {error && <div className={styles.error}>{error}</div>}
-
-            <div className={`${styles.actions} buck-modal-actions`}>
-              <button
-                type="button"
-                className={`${styles.secondaryBtn} buck-modal-btn buck-modal-btn--secondary`}
-                onClick={onClose}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className={`${styles.primaryBtn} buck-modal-btn buck-modal-btn--primary`}
-                disabled={saving || walletLoading}
-              >
-                {saving ? "Adding..." : "Add income"}
-              </button>
-            </div>
-          </form>
-        )}
           </motion.div>
         </motion.div>
       )}
