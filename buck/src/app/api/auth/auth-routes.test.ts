@@ -5,6 +5,7 @@ const insertSecurityEvent = vi.fn();
 const resetPasswordForEmail = vi.fn();
 const signUp = vi.fn();
 const resend = vi.fn();
+const signInWithOtp = vi.fn();
 const getRequestAuth = vi.fn();
 
 const mockEventQueryChain = () => {
@@ -61,6 +62,7 @@ vi.mock("@/utils/supabase/stateless", () => ({
       resetPasswordForEmail,
       signUp,
       resend,
+      signInWithOtp,
     },
   }),
 }));
@@ -208,9 +210,11 @@ describe("POST /api/auth/sign-up", () => {
     insertSecurityEvent.mockResolvedValue({ error: null });
     signUp.mockReset();
     resend.mockReset();
+    signInWithOtp.mockReset();
+    signInWithOtp.mockResolvedValue({ error: null });
   });
 
-  it("returns 409 google_account_exists when email belongs to Google-only OAuth user", async () => {
+  it("answers a Google-only address with the neutral 200 and e-mails its owner (SEC-046)", async () => {
     rpc.mockResolvedValue({
       data: [
         {
@@ -234,16 +238,19 @@ describe("POST /api/auth/sign-up", () => {
     );
     const body = await response.json();
 
-    expect(response.status).toBe(409);
-    expect(body).toMatchObject({
-      success: false,
-      errorCode: "google_account_exists",
-      providerConflict: "google",
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      needsEmailConfirmation: true,
+      message: "Check your email to finish creating your account.",
     });
     expect(signUp).not.toHaveBeenCalled();
+    expect(signInWithOtp).toHaveBeenCalledWith(
+      expect.objectContaining({ email: "jane@gmail.com" })
+    );
   });
 
-  it("returns 409 email_account_exists when confirmed email+password account already exists", async () => {
+  it("answers a confirmed e-mail account with the neutral 200 and e-mails its owner (SEC-046)", async () => {
     rpc.mockResolvedValue({
       data: [
         {
@@ -267,13 +274,16 @@ describe("POST /api/auth/sign-up", () => {
     );
     const body = await response.json();
 
-    expect(response.status).toBe(409);
-    expect(body).toMatchObject({
-      success: false,
-      errorCode: "email_account_exists",
-      providerConflict: "email",
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      needsEmailConfirmation: true,
+      message: "Check your email to finish creating your account.",
     });
     expect(signUp).not.toHaveBeenCalled();
+    expect(signInWithOtp).toHaveBeenCalledWith(
+      expect.objectContaining({ email: "jane@example.com" })
+    );
   });
 
   it("resends confirmation for an unconfirmed existing email account", async () => {
@@ -360,7 +370,7 @@ describe("POST /api/auth/resend-confirmation", () => {
     resend.mockReset();
   });
 
-  it("rejects Google-only emails with 409 google_account_exists", async () => {
+  it("answers Google-only emails with the same neutral 200 (SEC-046)", async () => {
     rpc.mockResolvedValue({
       data: [
         {
@@ -380,8 +390,9 @@ describe("POST /api/auth/resend-confirmation", () => {
     );
     const body = await response.json();
 
-    expect(response.status).toBe(409);
-    expect(body.errorCode).toBe("google_account_exists");
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.errorCode).toBeUndefined();
     expect(resend).not.toHaveBeenCalled();
   });
 
