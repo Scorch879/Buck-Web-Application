@@ -188,3 +188,32 @@ BODY:
     This is an automated email. Please do not reply.
   </div>
 </div>
+
+============================================================
+REAUTHENTICATION (Secure password change code)
+============================================================
+
+SUBJECT:
+Your Buck confirmation code
+
+BODY:
+<div style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#333;">
+  <div style="max-width:600px;margin:0 auto;background:#ffffff;padding:32px 28px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <img src="{{ .SiteURL }}/Buck%20Logo.png" alt="Buck The Budget Tracker" width="170" style="max-width:170px;height:auto;">
+    </div>
+
+    <p style="margin:0 0 20px;line-height:1.7;">Good day, <strong>Buck</strong> User!</p>
+    <p style="margin:0 0 20px;line-height:1.7;">A password change was started on your <strong>Buck</strong> account <strong>{{ .Email }}</strong>. To confirm it's you, enter this code in Buck:</p>
+
+    <p style="margin:32px 0;text-align:center;font-size:32px;font-weight:800;letter-spacing:6px;color:#222;">{{ .Token }}</p>
+
+    <p style="margin:0 0 20px;line-height:1.7;">The code works once and expires in 1 hour. Buck will never ask you for this code by phone, chat or e-mail.</p>
+    <p style="margin:0;line-height:1.7;">If you did not try to change your password, do not share this code. Sign in and change your password, and turn on two-factor authentication in Settings › Security.</p>
+
+    <p style="margin:28px 0 0;line-height:1.7;">Thanks,<br>the <strong>Buck</strong> team</p>
+  </div>
+  <div style="max-width:600px;margin:0 auto;padding:18px 28px;text-align:center;background:#edf0f3;color:#777;font-size:12px;">
+    This is an automated email. Please do not reply.
+  </div>
+</div>
