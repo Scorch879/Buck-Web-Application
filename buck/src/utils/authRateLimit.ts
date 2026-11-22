@@ -11,6 +11,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type SecurityEventType =
   | "password_reset"
+  | "password_change"
   | "sign_up"
   | "resend_confirmation"
   | "mfa_recovery_code"
