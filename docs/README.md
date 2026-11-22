@@ -46,12 +46,8 @@ Short notes written when each change shipped. They describe the change at the ti
 | Note | Topic |
 |---|---|
 | [`ui-motion-and-scroll-effects.md`](guides/frontend/ui-motion-and-scroll-effects.md) | Header scroll indicators, modal perimeter glow, hidden scrollbars |
-| [`global-ui.md`](guides/frontend/global-ui.md) | Dropdown readability, button and form styling |
 | [`wallet-layout.md`](guides/frontend/wallet-layout.md) | Wallet card layout |
-| [`wallet-search.md`](guides/frontend/wallet-search.md) | Wallet search, sort and filters |
 | [`hydration-fix.md`](guides/frontend/hydration-fix.md) | React hydration mismatch fix |
-| [`admin-dashboard.md`](guides/frontend/admin-dashboard.md) | Admin dashboard tabs, filters, caching and access control |
-| [`admin-backend-caching.md`](guides/frontend/admin-backend-caching.md) | Admin data cached in `FinancialContext` |
 
 ## READMEs next to the code
 

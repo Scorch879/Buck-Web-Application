@@ -47,7 +47,7 @@ Findings from the backend audit (middleware, `/api/*`, FastAPI).
 
 **Database advisors (2026-10-12, project `glnuzqmnmzuxgujmxigx`)**: security has only the accepted INFO-002 (leaked-password protection, free plan). Performance has 15 INFO `unused_index` notices, mostly foreign-key covering indexes on tables with a few thousand rows; keep them. RLS is enabled on all 11 public tables. (`list_tables` reported `public.categories` as 0 rows because it returns planner estimates; a `count(*)` shows 136 rows, so BUG-021's data is accurate.)
 
-**Verification**: `npx tsc --noEmit` clean; `npm test` 29/29 (incl. `securityHelpers.test.ts`); `python -m unittest test_security` 11/11 in `BuckAI_Backend/` (auth, rate limit, input bounds, error leakage, PII scrub, `<think>` stripping). **Not verified:** live middleware behaviour in a browser, the FastAPI service against a real Supabase token, and `next build`.
+**Verification**: `npx tsc --noEmit` clean; `npm test` 29/29 (incl. `securityHelpers.test.ts`); `python -m unittest test_security` 11/11 in the legacy `BuckAI_Backend/` (since removed, ADR-043) (auth, rate limit, input bounds, error leakage, PII scrub, `<think>` stripping). **Not verified:** live middleware behaviour in a browser, the FastAPI service against a real Supabase token, and `next build`.
 
 **Breaking change for other clients**: every `/ai/*` call now needs `Authorization: Bearer <Supabase access token>`. The Flutter app must send it, and `/expenses/` is gone.
 
@@ -739,7 +739,7 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
   - `tsc --noEmit` clean.
 
 #### BUG-029: [OPEN: backend + DB handoff] Categories Not User-Manageable; Income Uncategorizable; AI Ignores User Categories
-- **Location**: `buck/src/utils/supabaseData.ts`, `utils/aiApi.ts`, `app/dashboard/categories/*` (new), `component/income/IncomeList.tsx`, `AddIncomeModal.tsx`, `supabase/migrations/202610130002_income_categories.sql` (new), `BuckAI_Backend/main.py` + `ai_models.py`
+- **Location**: `buck/src/utils/supabaseData.ts`, `utils/aiApi.ts`, `app/dashboard/categories/*` (new), `component/income/IncomeList.tsx`, `AddIncomeModal.tsx`, `supabase/migrations/202610130002_income_categories.sql` (new), legacy `BuckAI_Backend/main.py` + `ai_models.py` (since removed; now `Buck_AI/BuckAI_Advisor/categorize.py`)
 - **Impact**:
   - Users had no real place to manage categories; expense category editing lived inside the Statistics "Add Expense" dialog.
   - Income could only use 7 hard-coded sources.
@@ -853,11 +853,12 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
 
 ### 🟢 Low Severity / Tech Debt
 
-#### BUG-006: Orphaned Root `package.json`
-- **Location**: [`package.json:1-6`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/package.json#L1-L6)
+#### BUG-006: [RESOLVED (2026-11-22)] Orphaned Root `package.json`
+- **Location**: Root `package.json` and `package-lock.json` (deleted)
 - **Impact**: Developers running `npm install` at the workspace root do not install the actual application dependencies located in `buck/`.
 - **Root Cause**: The workspace contains a bare `package.json` at root without npm workspace configuration pointing to `buck/`.
 - **Remediation**: Define `"workspaces": ["buck"]` in the root `package.json` or consolidate project configuration.
+- **Resolution**: The root files only declared an unused `react-icons` dependency, so they were deleted. Install from `buck/`.
 
 #### BUG-007: [RESOLVED (superseded by ADR-043 / `Buck_AI`)] Unused Dependencies & Dead Imports in `ai_models.py`
 - **Location**: Legacy `buck/BuckAI_Backend/ai_models.py` (removed in ADR-043)
