@@ -27,6 +27,11 @@ This document details runtime setup procedures, environment configurations, low-
 | `SUPABASE_PROJECT_REF` | Server Only | Optional | Project reference ID for Supabase logs endpoint. |
 | `VERCEL_ACCESS_TOKEN` | Server Only | Optional | Vercel API token for deployment metrics. |
 | `VERCEL_PROJECT_ID` | Server Only | Optional | Vercel project ID for deployment monitoring. |
+| `SMTP_HOST` | Server Only | Optional | SMTP server for Buck's own e-mails ([`mailer.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/mailer.ts)): account-deletion confirmation and auto-cancel, and the "You already have a Buck account" sign-up notice (SEC-046). SMTP counts as set only when `SMTP_HOST`, `SMTP_USER` and `SMTP_PASS` are all present; otherwise Supabase's Magic Link e-mail is the fallback. Not set in production Vercel today. |
+| `SMTP_PORT` | Server Only | Optional | Default: `587`. Port `465` uses implicit TLS. |
+| `SMTP_USER` | Server Only | Optional | SMTP login. Required with `SMTP_HOST` and `SMTP_PASS`. |
+| `SMTP_PASS` | Server Only | Optional | SMTP password. Required with `SMTP_HOST` and `SMTP_USER`. |
+| `SMTP_FROM` | Server Only | Optional | Sender. Default: `Buck The Budget Tracker <SMTP_USER>`. |
 
 ### 1.2 Buck_AI Service (`Buck_AI/.env`, or Vercel project settings)
 

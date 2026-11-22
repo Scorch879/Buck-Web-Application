@@ -350,9 +350,9 @@ d:/VS Code/Buck-Budget-Tracker/Buck-Web-Application/
     │
     ├── supabase/                       # Database Persistence Subsystem
     │   └── migrations/                 # Versioned SQL migrations (DDL, RLS policies, stored procedures)
-    │       ├── 202606010000_initial_schema.sql
+    │       ├── 202606010001_initial_buck_schema.sql      # First of many; apply all in filename order
     │       ├── 202606140001_security_and_policy_hardening.sql
-    │       └── 202609200001_transfer_funds_atomic.sql
+    │       └── 202610110001_transfer_funds_atomic.sql
     │
     └── src/                            # Application Source Code
         ├── middleware.ts               # SSR route gatekeeper, session freshness validation & HMAC cookie signing

@@ -76,6 +76,12 @@ BODY:
 MAGIC LINK OR OTP
 ============================================================
 
+NOTE: This template is shared. Supabase sends it for magic-link sign-in, as the
+account-deletion fallback, for 2FA e-mail recovery, and (SEC-046) as the notice
+to an existing account owner when someone signs up with their address and SMTP_*
+is not set (buck/src/utils/existingAccountNotice.ts). Keep the wording generic:
+do not mention sign-up, deletion or 2FA here.
+
 SUBJECT:
 Your Buck sign-in link
 
