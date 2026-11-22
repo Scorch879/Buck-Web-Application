@@ -33,6 +33,16 @@ export type AuthResult = {
   providerConflict?: "google" | "email";
 };
 
+/** Extra codes from POST /api/auth/password/update (SEC-045). */
+export type PasswordUpdateErrorCode =
+  | "weak_password"
+  | "same_password"
+  | "reauthentication_needed";
+
+export type PasswordUpdateResult = Omit<AuthResult, "errorCode"> & {
+  errorCode?: AuthErrorCode | PasswordUpdateErrorCode;
+};
+
 export const SESSION_LAST_ACTIVITY_KEY = "buck-session-last-activity";
 export const SESSION_FORCE_SIGN_OUT_KEY = "buck-session-force-signout";
 const DASHBOARD_CACHE_KEY = "buck-dashboard-cache-v1";
@@ -378,7 +388,16 @@ export async function sendPasswordReset(email: string): Promise<AuthResult> {
   }
 }
 
-export async function updatePassword(password: string): Promise<AuthResult> {
+/**
+ * Sets a new password through /api/auth/password/update. With Supabase's
+ * "Secure password change" on, a session older than 24 h gets
+ * errorCode "reauthentication_needed": call sendPasswordReauthenticationCode(),
+ * then retry with the e-mailed code as `nonce`.
+ */
+export async function updatePassword(
+  password: string,
+  options: { nonce?: string } = {}
+): Promise<PasswordUpdateResult> {
   if (!isSupabaseConfigured) {
     return getConfiguredAuthError();
   }
@@ -397,7 +416,7 @@ export async function updatePassword(password: string): Promise<AuthResult> {
     // a weak password cannot be set by skipping this page's check.
     const result = await postAuthJson(
       "/api/auth/password/update",
-      { password },
+      options.nonce?.trim() ? { password, nonce: options.nonce.trim() } : { password },
       "Could not update your password. Please try again."
     );
 
@@ -408,6 +427,32 @@ export async function updatePassword(password: string): Promise<AuthResult> {
     await getSupabaseClient().auth.signOut();
 
     return { success: true, message: "Password updated successfully." };
+  } catch (error) {
+    return { success: false, message: getErrorMessage(error) };
+  }
+}
+
+/** E-mails the signed-in user a one-time code for a password change (Supabase reauthenticate). */
+export async function sendPasswordReauthenticationCode(): Promise<AuthResult> {
+  if (!isSupabaseConfigured) {
+    return getConfiguredAuthError();
+  }
+
+  try {
+    const { error } = await getSupabaseClient().auth.reauthenticate();
+
+    if (error) {
+      const isRateLimit = error.status === 429 || /rate limit|too many/i.test(error.message);
+      return {
+        success: false,
+        errorCode: isRateLimit ? "rate_limited" : undefined,
+        message: isRateLimit
+          ? "A code was sent recently. Please wait a minute before asking for another."
+          : "Buck could not send the confirmation code. Please try again.",
+      };
+    }
+
+    return { success: true, message: "We e-mailed you a confirmation code." };
   } catch (error) {
     return { success: false, message: getErrorMessage(error) };
   }
