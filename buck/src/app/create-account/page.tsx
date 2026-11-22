@@ -355,63 +355,69 @@ const CreateAccount = () => {
                 handleCreateAccount();
               }}
             >
-              <label htmlFor="username" className="CA-Label">
-                Username
-              </label>
-              <input
-                id="username"
-                className="CA-Input"
-                type="text"
-                placeholder="Your display name"
-                value={form.username}
-                onChange={handleChange}
-                autoComplete="username"
-                disabled={isAuthBusy}
-              />
-
-              <label htmlFor="email" className="CA-Label">
-                Email address
-              </label>
-              <input
-                id="email"
-                className="CA-Input"
-                type="email"
-                placeholder="you@example.com"
-                value={form.email}
-                onChange={handleChange}
-                autoComplete="email"
-                disabled={isAuthBusy}
-              />
-
-              <label htmlFor="password" className="CA-Label">
-                Password
-              </label>
-              <div className="CA-InputWrapper">
+              <div className="CA-Field CA-Field--user">
+                <label htmlFor="username" className="CA-Label">
+                  Username
+                </label>
                 <input
-                  id="password"
+                  id="username"
                   className="CA-Input"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Create a password"
-                  value={form.password}
+                  type="text"
+                  placeholder="Your display name"
+                  value={form.username}
                   onChange={handleChange}
-                  autoComplete="new-password"
+                  autoComplete="username"
                   disabled={isAuthBusy}
                 />
-                <button
-                  type="button"
-                  className="CA-Eye-Btn"
-                  tabIndex={-1}
-                  onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+              </div>
+
+              <div className="CA-Field CA-Field--email">
+                <label htmlFor="email" className="CA-Label">
+                  Email address
+                </label>
+                <input
+                  id="email"
+                  className="CA-Input"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={form.email}
+                  onChange={handleChange}
+                  autoComplete="email"
                   disabled={isAuthBusy}
-                >
-                  <Image
-                    src={showPassword ? "/duck-eye.png" : "/duck-eye-closed.png"}
-                    alt=""
-                    width={24}
-                    height={24}
+                />
+              </div>
+
+              <div className="CA-Field CA-Field--password">
+                <label htmlFor="password" className="CA-Label">
+                  Password
+                </label>
+                <div className="CA-InputWrapper">
+                  <input
+                    id="password"
+                    className="CA-Input"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Create a password"
+                    value={form.password}
+                    onChange={handleChange}
+                    autoComplete="new-password"
+                    disabled={isAuthBusy}
                   />
-                </button>
+                  <button
+                    type="button"
+                    className="CA-Eye-Btn"
+                    tabIndex={-1}
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    disabled={isAuthBusy}
+                  >
+                    <Image
+                      src={showPassword ? "/duck-eye.png" : "/duck-eye-closed.png"}
+                      alt=""
+                      width={24}
+                      height={24}
+                    />
+                  </button>
+                </div>
               </div>
               <div
                 className={`CA-PasswordFeedback CA-PasswordFeedback--${passwordPolicy.strength}${
@@ -429,35 +435,37 @@ const CreateAccount = () => {
                 <p className="CA-PasswordHint">{passwordHint}</p>
               </div>
 
-              <label htmlFor="confirm" className="CA-Label">
-                Confirm password
-              </label>
-              <div className="CA-InputWrapper">
-                <input
-                  id="confirm"
-                  className="CA-Input"
-                  type={showConfirm ? "text" : "password"}
-                  placeholder="Confirm your password"
-                  value={form.confirm}
-                  onChange={handleChange}
-                  autoComplete="new-password"
-                  disabled={isAuthBusy}
-                />
-                <button
-                  type="button"
-                  className="CA-Eye-Btn"
-                  tabIndex={-1}
-                  onClick={() => setShowConfirm((v) => !v)}
-                  aria-label={showConfirm ? "Hide password" : "Show password"}
-                  disabled={isAuthBusy}
-                >
-                  <Image
-                    src={showConfirm ? "/duck-eye.png" : "/duck-eye-closed.png"}
-                    alt=""
-                    width={24}
-                    height={24}
+              <div className="CA-Field CA-Field--confirm">
+                <label htmlFor="confirm" className="CA-Label">
+                  Confirm password
+                </label>
+                <div className="CA-InputWrapper">
+                  <input
+                    id="confirm"
+                    className="CA-Input"
+                    type={showConfirm ? "text" : "password"}
+                    placeholder="Confirm your password"
+                    value={form.confirm}
+                    onChange={handleChange}
+                    autoComplete="new-password"
+                    disabled={isAuthBusy}
                   />
-                </button>
+                  <button
+                    type="button"
+                    className="CA-Eye-Btn"
+                    tabIndex={-1}
+                    onClick={() => setShowConfirm((v) => !v)}
+                    aria-label={showConfirm ? "Hide password" : "Show password"}
+                    disabled={isAuthBusy}
+                  >
+                    <Image
+                      src={showConfirm ? "/duck-eye.png" : "/duck-eye-closed.png"}
+                      alt=""
+                      width={24}
+                      height={24}
+                    />
+                  </button>
+                </div>
               </div>
               <p
                 className={`CA-ConfirmHint${
