@@ -393,14 +393,19 @@ export async function updatePassword(password: string): Promise<AuthResult> {
       };
     }
 
-    const supabase = getSupabaseClient();
-    const { error } = await supabase.auth.updateUser({ password });
+    // The server re-checks the policy and calls Supabase Auth (SEC-045), so
+    // a weak password cannot be set by skipping this page's check.
+    const result = await postAuthJson(
+      "/api/auth/password/update",
+      { password },
+      "Could not update your password. Please try again."
+    );
 
-    if (error) {
-      return { success: false, message: error.message };
+    if (!result.success) {
+      return result;
     }
 
-    await supabase.auth.signOut();
+    await getSupabaseClient().auth.signOut();
 
     return { success: true, message: "Password updated successfully." };
   } catch (error) {
