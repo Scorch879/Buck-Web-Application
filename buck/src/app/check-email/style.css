@@ -264,14 +264,6 @@
   margin: 0;
 }
 
-.CE-InlineLink {
-  display: inline-block;
-  margin-top: 0.45rem;
-  color: inherit;
-  font-weight: 900;
-  text-decoration: underline;
-}
-
 .CE-Message--success {
   color: #256a33;
   background: rgba(46, 125, 50, 0.12);
