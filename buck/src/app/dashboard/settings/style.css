@@ -3121,3 +3121,11 @@ html[data-buck-theme="dark"] .settings-mfa-error {
     justify-content: flex-start;
   }
 }
+
+/* Change password: e-mailed confirmation code step ("Secure password change") */
+.settings-modal-code-hint {
+  margin: 0;
+  color: var(--buck-muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
