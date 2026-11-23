@@ -20,11 +20,16 @@ import {
   recordSecurityEvent,
   type EmailActionRateLimitConfig,
   type EmailActionSecurityContext,
+  type SecurityEventOutcome,
 } from "@/utils/authRateLimit";
 import {
   getAuthAccountCapabilitiesByEmail,
   isGoogleOnlyConflict,
 } from "@/utils/authCapabilities";
+import {
+  notifyExistingAccountOwner,
+  SIGN_UP_NEUTRAL_MESSAGE,
+} from "@/utils/existingAccountNotice";
 
 type SignUpRequest = {
   username?: unknown;
@@ -41,7 +46,9 @@ const SIGN_UP_LIMITS: EmailActionRateLimitConfig = {
   emailWindowMs: 60 * 60 * 1000,
   emailLimit: 5,
   emailCooldownMs: 60 * 1000,
-  cooldownOutcomes: ["sent"],
+  // Every outcome that ends in an e-mail (or the neutral answer) starts the
+  // same cooldown, so a repeat attempt can't tell new and existing apart.
+  cooldownOutcomes: ["sent", "already_exists", "blocked_provider", "provider_error"],
   actionNoun: "sign-up",
 };
 
@@ -198,24 +205,26 @@ export async function POST(request: Request) {
     );
   }
 
-  if (isGoogleOnlyConflict(capabilities)) {
-    await recordSecurityEvent(supabaseAdmin, {
+  // SEC-046: from here on, an address that already has an account gets the
+  // same answer as a new one. Only its owner finds out, by e-mail.
+  const record = (outcome: SecurityEventOutcome) =>
+    recordSecurityEvent(supabaseAdmin, {
       eventType: "sign_up",
       ipHash: securityContext.ipHash,
       emailHash: securityContext.emailHash,
-      outcome: "blocked_provider",
+      outcome,
     });
+  const existingAccount = async (
+    provider: "email" | "google",
+    outcome: SecurityEventOutcome
+  ) => {
+    await notifyExistingAccountOwner(request, { email: normalizedEmail, provider });
+    await record(outcome);
+    return neutralResponse();
+  };
 
-    return createAuthJsonResponse(
-      {
-        success: false,
-        errorCode: "google_account_exists",
-        providerConflict: "google",
-        message:
-          "This email is already registered with Continue with Google. Sign in with Google instead.",
-      },
-      { status: 409 }
-    );
+  if (isGoogleOnlyConflict(capabilities)) {
+    return existingAccount("google", "blocked_provider");
   }
 
   if (
@@ -223,29 +232,15 @@ export async function POST(request: Request) {
     (capabilities.hasEmailIdentity || capabilities.hasPassword) &&
     capabilities.emailConfirmed
   ) {
-    await recordSecurityEvent(supabaseAdmin, {
-      eventType: "sign_up",
-      ipHash: securityContext.ipHash,
-      emailHash: securityContext.emailHash,
-      outcome: "already_exists",
-    });
-
-    return createAuthJsonResponse(
-      {
-        success: false,
-        errorCode: "email_account_exists",
-        providerConflict: "email",
-        message:
-          "An account with this email already exists. Sign in or reset your password instead.",
-      },
-      { status: 409 }
-    );
+    return existingAccount("email", "already_exists");
   }
 
   const supabase = createSupabaseStatelessClient();
   const emailRedirectTo = getSignUpCallbackUrl(request);
 
   if (capabilities.exists && !capabilities.emailConfirmed) {
+    // Awaiting verification: send a fresh confirmation, but answer exactly as
+    // for a new account, even if Supabase refuses to send right now.
     const { error } = await supabase.auth.resend({
       type: "signup",
       email: normalizedEmail,
@@ -254,44 +249,12 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error("Sign-up resend confirmation failed:", error.message);
-      await recordSecurityEvent(supabaseAdmin, {
-        eventType: "sign_up",
-        ipHash: securityContext.ipHash,
-        emailHash: securityContext.emailHash,
-        outcome: "provider_error",
-      });
-
-      const isProviderRateLimit =
-        error.status === 429 || /rate limit|too many/i.test(error.message);
-
-      return createAuthJsonResponse(
-        {
-          success: false,
-          ...(isProviderRateLimit ? { errorCode: "rate_limited" } : {}),
-          message: isProviderRateLimit
-            ? "Too many confirmation emails sent. Please wait a moment and try again."
-            : "Buck could not send the confirmation email right now. Please try again later.",
-        },
-        { status: isProviderRateLimit ? 429 : 502 }
-      );
+      await record("provider_error");
+      return neutralResponse();
     }
 
-    await recordSecurityEvent(supabaseAdmin, {
-      eventType: "sign_up",
-      ipHash: securityContext.ipHash,
-      emailHash: securityContext.emailHash,
-      outcome: "sent",
-    });
-
-    return createAuthJsonResponse(
-      {
-        success: true,
-        needsEmailConfirmation: true,
-        message:
-          "Account is awaiting verification. We sent a fresh confirmation email.",
-      },
-      { status: 200 }
-    );
+    await record("sent");
+    return neutralResponse();
   }
 
   const { data, error } = await supabase.auth.signUp({
@@ -307,26 +270,41 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    console.error("Sign-up failed:", error.message);
-    await recordSecurityEvent(supabaseAdmin, {
-      eventType: "sign_up",
-      ipHash: securityContext.ipHash,
-      emailHash: securityContext.emailHash,
-      outcome: "provider_error",
-    });
+    if (
+      error.code === "user_already_exists" ||
+      error.code === "email_exists" ||
+      /already registered|already exists/i.test(error.message)
+    ) {
+      return existingAccount("email", "already_exists");
+    }
+
+    console.error("Sign-up failed:", error.code ?? error.message);
+    await record("provider_error");
 
     const isProviderRateLimit =
       error.status === 429 || /rate limit|too many/i.test(error.message);
 
+    if (isProviderRateLimit) {
+      return createAuthJsonResponse(
+        {
+          success: false,
+          errorCode: "rate_limited",
+          message:
+            "Too many sign-up attempts right now. Please wait a moment and try again.",
+        },
+        { status: 429 }
+      );
+    }
+
     return createAuthJsonResponse(
       {
         success: false,
-        ...(isProviderRateLimit ? { errorCode: "rate_limited" } : {}),
-        message: isProviderRateLimit
-          ? "Too many sign-up attempts right now. Please wait a moment and try again."
-          : error.message || "Could not create your account.",
+        message:
+          error.code === "weak_password"
+            ? "This password is not secure enough. Choose a different one."
+            : "Could not create your account right now. Please try again later.",
       },
-      { status: isProviderRateLimit ? 429 : 400 }
+      { status: 400 }
     );
   }
 
@@ -337,37 +315,19 @@ export async function POST(request: Request) {
     Array.isArray(data.user.identities) &&
     data.user.identities.length === 0
   ) {
-    await recordSecurityEvent(supabaseAdmin, {
-      eventType: "sign_up",
-      ipHash: securityContext.ipHash,
-      emailHash: securityContext.emailHash,
-      outcome: "already_exists",
-    });
-
-    return createAuthJsonResponse(
-      {
-        success: false,
-        errorCode: "email_account_exists",
-        providerConflict: "email",
-        message:
-          "An account with this email already exists. Sign in or reset your password instead.",
-      },
-      { status: 409 }
-    );
+    return existingAccount("email", "already_exists");
   }
 
-  await recordSecurityEvent(supabaseAdmin, {
-    eventType: "sign_up",
-    ipHash: securityContext.ipHash,
-    emailHash: securityContext.emailHash,
-    outcome: "sent",
-  });
+  await record("sent");
+  return neutralResponse();
+}
 
+function neutralResponse() {
   return createAuthJsonResponse(
     {
       success: true,
-      needsEmailConfirmation: Boolean(data.user && !data.session),
-      message: "Account created! Check your email to verify your account.",
+      needsEmailConfirmation: true,
+      message: SIGN_UP_NEUTRAL_MESSAGE,
     },
     { status: 200 }
   );

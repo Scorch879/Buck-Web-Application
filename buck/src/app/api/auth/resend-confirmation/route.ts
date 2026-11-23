@@ -19,6 +19,7 @@ import {
   recordSecurityEvent,
   type EmailActionRateLimitConfig,
   type EmailActionSecurityContext,
+  type SecurityEventOutcome,
 } from "@/utils/authRateLimit";
 import {
   getAuthAccountCapabilitiesByEmail,
@@ -38,9 +39,14 @@ const RESEND_CONFIRMATION_LIMITS: EmailActionRateLimitConfig = {
   emailWindowMs: 60 * 60 * 1000,
   emailLimit: 5,
   emailCooldownMs: 60 * 1000,
-  cooldownOutcomes: ["sent"],
+  // Same cooldown whatever the account state, so a quick second try can't
+  // tell an unverified account from an unknown or verified one (SEC-046).
+  cooldownOutcomes: ["sent", "not_found", "already_exists", "blocked_provider", "provider_error"],
   actionNoun: "confirmation",
 };
+
+const RESEND_NEUTRAL_MESSAGE =
+  "If an unverified Buck account exists for that email, a confirmation email is on its way.";
 
 function getSignUpCallbackUrl(request: Request) {
   const params = new URLSearchParams({ next: "/dashboard/home" });
@@ -169,62 +175,29 @@ export async function POST(request: Request) {
     );
   }
 
-  if (isGoogleOnlyConflict(capabilities)) {
-    await recordSecurityEvent(supabaseAdmin, {
+  // SEC-046: every account state below gets the same answer, so this route
+  // can't be used to learn whether (or how) an address is registered.
+  const record = (outcome: SecurityEventOutcome) =>
+    recordSecurityEvent(supabaseAdmin, {
       eventType: "resend_confirmation",
       ipHash: securityContext.ipHash,
       emailHash: securityContext.emailHash,
-      outcome: "blocked_provider",
+      outcome,
     });
 
-    return createAuthJsonResponse(
-      {
-        success: false,
-        errorCode: "google_account_exists",
-        providerConflict: "google",
-        message:
-          "This email uses Continue with Google and does not need email confirmation. Sign in with Google instead.",
-      },
-      { status: 409 }
-    );
+  if (isGoogleOnlyConflict(capabilities)) {
+    await record("blocked_provider");
+    return neutralResponse();
   }
 
   if (capabilities.exists && capabilities.emailConfirmed) {
-    await recordSecurityEvent(supabaseAdmin, {
-      eventType: "resend_confirmation",
-      ipHash: securityContext.ipHash,
-      emailHash: securityContext.emailHash,
-      outcome: "already_exists",
-    });
-
-    return createAuthJsonResponse(
-      {
-        success: false,
-        errorCode: "email_account_exists",
-        providerConflict: "email",
-        message:
-          "This email is already verified. Sign in to your account instead.",
-      },
-      { status: 409 }
-    );
+    await record("already_exists");
+    return neutralResponse();
   }
 
   if (!capabilities.exists) {
-    await recordSecurityEvent(supabaseAdmin, {
-      eventType: "resend_confirmation",
-      ipHash: securityContext.ipHash,
-      emailHash: securityContext.emailHash,
-      outcome: "not_found",
-    });
-
-    return createAuthJsonResponse(
-      {
-        success: true,
-        message:
-          "If an unverified Buck account exists for that email, a confirmation email is on its way.",
-      },
-      { status: 200 }
-    );
+    await record("not_found");
+    return neutralResponse();
   }
 
   const supabase = createSupabaseStatelessClient();
@@ -237,41 +210,18 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    console.error("Resend confirmation failed:", error.message);
-    await recordSecurityEvent(supabaseAdmin, {
-      eventType: "resend_confirmation",
-      ipHash: securityContext.ipHash,
-      emailHash: securityContext.emailHash,
-      outcome: "provider_error",
-    });
-
-    const isProviderRateLimit =
-      error.status === 429 || /rate limit|too many/i.test(error.message);
-
-    return createAuthJsonResponse(
-      {
-        success: false,
-        ...(isProviderRateLimit ? { errorCode: "rate_limited" } : {}),
-        message: isProviderRateLimit
-          ? "Too many confirmation emails sent. Please wait a moment and try again."
-          : "Could not resend confirmation email right now. Please try again later.",
-      },
-      { status: isProviderRateLimit ? 429 : 502 }
-    );
+    console.error("Resend confirmation failed:", error.status ?? error.message);
+    await record("provider_error");
+    return neutralResponse();
   }
 
-  await recordSecurityEvent(supabaseAdmin, {
-    eventType: "resend_confirmation",
-    ipHash: securityContext.ipHash,
-    emailHash: securityContext.emailHash,
-    outcome: "sent",
-  });
+  await record("sent");
+  return neutralResponse();
+}
 
+function neutralResponse() {
   return createAuthJsonResponse(
-    {
-      success: true,
-      message: "Confirmation email sent again. Check your inbox.",
-    },
+    { success: true, message: RESEND_NEUTRAL_MESSAGE },
     { status: 200 }
   );
 }

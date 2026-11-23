@@ -10,6 +10,8 @@ export type PasswordPolicyResult = {
 };
 
 const minimumPasswordLength = 10;
+/** Supabase Auth hashes with bcrypt, which ignores everything past 72 bytes. */
+export const maximumPasswordBytes = 72;
 
 const passwordRequirements = [
   {
@@ -71,6 +73,10 @@ export function evaluatePasswordPolicy(
 
   if (username.length >= 4 && lowerPassword.includes(username)) {
     issues.push("Do not include your username");
+  }
+
+  if (new TextEncoder().encode(password).length > maximumPasswordBytes) {
+    issues.push(`Keep it to ${maximumPasswordBytes} characters or fewer`);
   }
 
   const uniqueCharacters = new Set(password).size;

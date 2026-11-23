@@ -264,14 +264,6 @@
   margin: 0;
 }
 
-.CE-InlineLink {
-  display: inline-block;
-  margin-top: 0.45rem;
-  color: inherit;
-  font-weight: 900;
-  text-decoration: underline;
-}
-
 .CE-Message--success {
   color: #256a33;
   background: rgba(46, 125, 50, 0.12);
@@ -304,5 +296,12 @@
   .CE-PrimaryAction,
   .CE-SecondaryAction {
     width: 100%;
+  }
+}
+
+/* Short windows: tighten the icon spacing so the card fits without scrolling. */
+@media (max-height: 720px) {
+  .CE-Icon {
+    margin: clamp(0.75rem, 3vh, 2rem) auto clamp(0.5rem, 1.5vh, 1rem);
   }
 }

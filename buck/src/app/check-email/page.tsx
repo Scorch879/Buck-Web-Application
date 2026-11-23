@@ -15,11 +15,6 @@ import "./style.css";
 
 const PENDING_CONFIRMATION_EMAIL_KEY = "buck-pending-confirmation-email";
 
-type ExtendedAuthResult = AuthResult & {
-  errorCode?: string;
-  providerConflict?: "google" | "email";
-};
-
 function getLinkErrorBanner(
   errorParam: string | null,
   errorCodeParam: string | null,
@@ -59,7 +54,6 @@ export default function CheckEmailPage() {
     isExpired: boolean;
     message: string;
   } | null>(null);
-  const [googleConflict, setGoogleConflict] = useState(false);
   const [resendStatus, setResendStatus] = useState("");
   const [resendError, setResendError] = useState("");
   const [resending, setResending] = useState(false);
@@ -103,7 +97,6 @@ export default function CheckEmailPage() {
 
     setResendStatus("");
     setResendError("");
-    setGoogleConflict(false);
 
     const normalizedEmail = normalizeEmailAddress(email);
     if (!normalizedEmail) {
@@ -118,7 +111,7 @@ export default function CheckEmailPage() {
     }
 
     setResending(true);
-    const result: ExtendedAuthResult = await resendSignUpConfirmation(normalizedEmail);
+    const result: AuthResult = await resendSignUpConfirmation(normalizedEmail);
     setResending(false);
 
     if (result.success) {
@@ -132,16 +125,9 @@ export default function CheckEmailPage() {
       }
       setLinkError(null);
       setResendStatus(
-        result.message || "Confirmation email sent again. Check your inbox."
+        result.message || "If that email needs confirming, a new link is on its way."
       );
       return;
-    }
-
-    if (
-      result.errorCode === "google_account_exists" ||
-      result.providerConflict === "google"
-    ) {
-      setGoogleConflict(true);
     }
 
     setResendError(result.message || "Could not resend confirmation email.");
@@ -183,7 +169,7 @@ export default function CheckEmailPage() {
             ? "Verification link expired"
             : linkError
               ? "Verification issue"
-              : "Account created"}
+              : "Almost there"}
         </p>
         <h1>
           {linkError?.isExpired
@@ -195,7 +181,7 @@ export default function CheckEmailPage() {
         <p className="CE-Copy">
           {linkError
             ? linkError.message
-            : `We sent a confirmation link${email ? ` to ${email}` : ""}. Open it to verify your account, then you can sign in and start tracking your budget.`}
+            : `We sent an email${email ? ` to ${email}` : ""}. Open the link inside to finish setting up, then sign in and start tracking your budget.`}
         </p>
 
         {showEmailInput ? (
@@ -250,11 +236,6 @@ export default function CheckEmailPage() {
         {resendError ? (
           <div className="CE-Message CE-Message--error" role="alert">
             <p>{resendError}</p>
-            {googleConflict ? (
-              <Link href="/sign-in" className="CE-InlineLink">
-                Go to Sign In and use Continue with Google
-              </Link>
-            ) : null}
           </div>
         ) : null}
       </motion.main>

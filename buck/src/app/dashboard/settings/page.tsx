@@ -29,6 +29,7 @@ import {
   FaUser,
 } from "react-icons/fa";
 import {
+  sendPasswordReauthenticationCode,
   sendPasswordReset,
   signOutUser,
   updateEmailAddress,
@@ -241,6 +242,13 @@ export default function SettingsPage() {
   const [recoveringAccount, setRecoveringAccount] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  // Supabase "Secure password change": sessions older than 24 h must confirm
+  // an e-mailed code before the password can change.
+  const [passwordCodeStep, setPasswordCodeStep] = useState(false);
+  const [passwordCode, setPasswordCode] = useState("");
+  const [passwordCodeError, setPasswordCodeError] = useState("");
+  const [passwordCodeResendIn, setPasswordCodeResendIn] = useState(0);
+  const [sendingPasswordCode, setSendingPasswordCode] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] =
     useState<SettingsTabId>("profile");
   const [isDarkTheme, setIsDarkTheme] = useState(documentThemeIsDark);
@@ -423,8 +431,48 @@ export default function SettingsPage() {
     setModalResetError("");
   };
 
+  useEffect(() => {
+    if (passwordCodeResendIn <= 0) {
+      return;
+    }
+
+    const timer = window.setTimeout(
+      () => setPasswordCodeResendIn((seconds) => Math.max(0, seconds - 1)),
+      1000
+    );
+    return () => window.clearTimeout(timer);
+  }, [passwordCodeResendIn]);
+
+  const resetPasswordCodeStep = () => {
+    setPasswordCodeStep(false);
+    setPasswordCode("");
+    setPasswordCodeError("");
+    setPasswordCodeResendIn(0);
+  };
+
+  const sendPasswordCode = async () => {
+    setSendingPasswordCode(true);
+    setPasswordCodeError("");
+
+    try {
+      const sent = await sendPasswordReauthenticationCode();
+
+      if (!sent.success) {
+        setPasswordCodeError(
+          sent.message || "Buck could not send the confirmation code. Please try again."
+        );
+      }
+
+      // Supabase allows one code a minute; a rate-limited request waits too.
+      setPasswordCodeResendIn(60);
+    } finally {
+      setSendingPasswordCode(false);
+    }
+  };
+
   const openPasswordModal = () => {
     clearMessages();
+    resetPasswordCodeStep();
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
@@ -444,6 +492,7 @@ export default function SettingsPage() {
     setConfirmPassword("");
     setModalResetNotice("");
     setModalResetError("");
+    resetPasswordCodeStep();
   };
 
   const handleSendResetFromSettings = async (inModal = false) => {
@@ -657,10 +706,56 @@ export default function SettingsPage() {
     }
   };
 
+  const finishPasswordChange = () => {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    resetPasswordCodeStep();
+    setPasswordModalOpen(false);
+    setNotice("Password updated. Buck will ask you to sign in again.");
+    toast("Password updated successfully. Please sign in with your new password.", "success");
+  };
+
+  const submitPasswordCode = async (code: string) => {
+    if (savingPassword) {
+      return;
+    }
+
+    if (code.trim().length < 6) {
+      setPasswordCodeError("Enter the 6-digit code from the e-mail.");
+      return;
+    }
+
+    setSavingPassword(true);
+    setPasswordCodeError("");
+
+    try {
+      const result = await updatePassword(newPassword, { nonce: code });
+
+      if (!result.success) {
+        setPasswordCodeError(
+          result.errorCode === "reauthentication_needed"
+            ? "That code isn't valid or has expired. Check the e-mail or send a new code."
+            : result.message || "Could not update password."
+        );
+        return;
+      }
+
+      finishPasswordChange();
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
   const handlePasswordSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
     if (!canManageCredentials || savingPassword) {
+      return;
+    }
+
+    if (passwordCodeStep) {
+      await submitPasswordCode(passwordCode);
       return;
     }
 
@@ -693,6 +788,14 @@ export default function SettingsPage() {
 
       const result = await updatePassword(newPassword);
 
+      if (!result.success && result.errorCode === "reauthentication_needed") {
+        // Keep the new password in state and switch the modal to the code step.
+        setPasswordCode("");
+        setPasswordCodeStep(true);
+        void sendPasswordCode();
+        return;
+      }
+
       if (!result.success) {
         const msg = result.message || "Could not update password.";
         setError(msg);
@@ -700,12 +803,7 @@ export default function SettingsPage() {
         return;
       }
 
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-      setPasswordModalOpen(false);
-      setNotice("Password updated. Buck will ask you to sign in again.");
-      toast("Password updated successfully. Please sign in with your new password.", "success");
+      finishPasswordChange();
     } finally {
       setSavingPassword(false);
     }
@@ -1587,8 +1685,9 @@ export default function SettingsPage() {
                 <p className="settings-eyebrow">Password security</p>
                 <h2 id="settings-password-modal-title" className="buck-modal-title">Change password</h2>
                 <p>
-                  Enter your current password first, then choose a stronger new
-                  password.
+                  {passwordCodeStep
+                    ? "One more step: confirm it's you with the code we e-mailed."
+                    : "Enter your current password first, then choose a stronger new password."}
                 </p>
               </div>
               <button
@@ -1607,103 +1706,148 @@ export default function SettingsPage() {
               className="settings-form settings-modal-form buck-modal-form"
               onSubmit={handlePasswordSubmit}
             >
-              <div className="settings-field buck-modal-field">
-                <label htmlFor="settings-current-password">
-                  Current password
-                </label>
-                <input
-                  id="settings-current-password"
-                  type="password"
-                  value={currentPassword}
-                  onChange={(event) =>
-                    setCurrentPassword(event.target.value)
-                  }
-                  autoComplete="current-password"
-                  disabled={isBusy}
-                />
-                <button
-                  type="button"
-                  className="settings-modal-help-link"
-                  onClick={() => void handleSendResetFromSettings(true)}
-                  disabled={isBusy || sendingPasswordReset}
-                >
-                  {sendingPasswordReset
-                    ? "Sending reset link..."
-                    : "Forgot current password? Send reset link"}
-                </button>
-                {modalResetNotice ? (
-                  <p
-                    className="settings-modal-inline-status settings-modal-inline-status--success"
-                    role="status"
-                  >
-                    {modalResetNotice}
+              {passwordCodeStep ? (
+                <div className="settings-field buck-modal-field">
+                  <label htmlFor="settings-password-code">Confirmation code</label>
+                  <p id="settings-password-code-hint" className="settings-modal-code-hint">
+                    {sendingPasswordCode
+                      ? "Sending a code to your e-mail..."
+                      : `We e-mailed a 6-digit code to ${accountEmail || "your e-mail"}. Enter it to confirm the change.`}
                   </p>
-                ) : null}
-                {modalResetError ? (
-                  <p
-                    className="settings-modal-inline-status settings-modal-inline-status--error"
-                    role="alert"
+                  <TotpCodeInput
+                    id="settings-password-code"
+                    className="settings-mfa-code"
+                    value={passwordCode}
+                    onChange={(next) => {
+                      setPasswordCode(next);
+                      setPasswordCodeError("");
+                    }}
+                    onComplete={(next) => void submitPasswordCode(next)}
+                    disabled={savingPassword}
+                    describedBy="settings-password-code-hint"
+                    invalid={Boolean(passwordCodeError)}
+                    autoFocus
+                  />
+                  {passwordCodeError ? (
+                    <p
+                      className="settings-modal-inline-status settings-modal-inline-status--error"
+                      role="alert"
+                    >
+                      {passwordCodeError}
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="settings-modal-help-link"
+                    onClick={() => void sendPasswordCode()}
+                    disabled={savingPassword || sendingPasswordCode || passwordCodeResendIn > 0}
                   >
-                    {modalResetError}
-                  </p>
-                ) : null}
-              </div>
-              <div className="settings-field buck-modal-field">
-                <label htmlFor="settings-new-password">New password</label>
-                <input
-                  id="settings-new-password"
-                  type="password"
-                  value={newPassword}
-                  onChange={(event) => setNewPassword(event.target.value)}
-                  autoComplete="new-password"
-                  disabled={isBusy}
-                />
-              </div>
-              <div className="settings-field buck-modal-field">
-                <label htmlFor="settings-confirm-password">
-                  Confirm password
-                </label>
-                <input
-                  id="settings-confirm-password"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(event) =>
-                    setConfirmPassword(event.target.value)
-                  }
-                  autoComplete="new-password"
-                  disabled={isBusy}
-                />
-              </div>
-              {newPassword ? (
-                <div
-                  className={`settings-password-feedback settings-password-feedback--${passwordPolicy.strength}`}
-                  aria-live="polite"
-                >
-                  <div className="settings-password-summary">
-                    <strong>{passwordPolicy.label}</strong>
-                    <span>{passwordPolicy.score}/5 checks</span>
-                  </div>
-                  <div className="settings-password-meter" aria-hidden="true">
-                    <span style={{ width: `${passwordProgress}%` }} />
-                  </div>
-                  {passwordPolicy.issues.length ? (
-                    <p>{passwordPolicy.issues.join(", ")}</p>
-                  ) : (
-                    <p>Your password meets Buck&apos;s requirements.</p>
-                  )}
+                    {passwordCodeResendIn > 0
+                      ? `Resend code in ${passwordCodeResendIn}s`
+                      : "Resend code"}
+                  </button>
                 </div>
-              ) : null}
-              {passwordConfirmMessage ? (
-                <p
-                  className={`settings-confirm-hint${
-                    newPassword === confirmPassword
-                      ? " settings-confirm-hint--match"
-                      : ""
-                  }`}
-                >
-                  {passwordConfirmMessage}
-                </p>
-              ) : null}
+              ) : (
+                <>
+                <div className="settings-field buck-modal-field">
+                  <label htmlFor="settings-current-password">
+                    Current password
+                  </label>
+                  <input
+                    id="settings-current-password"
+                    type="password"
+                    value={currentPassword}
+                    onChange={(event) =>
+                      setCurrentPassword(event.target.value)
+                    }
+                    autoComplete="current-password"
+                    disabled={isBusy}
+                  />
+                  <button
+                    type="button"
+                    className="settings-modal-help-link"
+                    onClick={() => void handleSendResetFromSettings(true)}
+                    disabled={isBusy || sendingPasswordReset}
+                  >
+                    {sendingPasswordReset
+                      ? "Sending reset link..."
+                      : "Forgot current password? Send reset link"}
+                  </button>
+                  {modalResetNotice ? (
+                    <p
+                      className="settings-modal-inline-status settings-modal-inline-status--success"
+                      role="status"
+                    >
+                      {modalResetNotice}
+                    </p>
+                  ) : null}
+                  {modalResetError ? (
+                    <p
+                      className="settings-modal-inline-status settings-modal-inline-status--error"
+                      role="alert"
+                    >
+                      {modalResetError}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="settings-field buck-modal-field">
+                  <label htmlFor="settings-new-password">New password</label>
+                  <input
+                    id="settings-new-password"
+                    type="password"
+                    value={newPassword}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    autoComplete="new-password"
+                    disabled={isBusy}
+                  />
+                </div>
+                <div className="settings-field buck-modal-field">
+                  <label htmlFor="settings-confirm-password">
+                    Confirm password
+                  </label>
+                  <input
+                    id="settings-confirm-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(event) =>
+                      setConfirmPassword(event.target.value)
+                    }
+                    autoComplete="new-password"
+                    disabled={isBusy}
+                  />
+                </div>
+                {newPassword ? (
+                  <div
+                    className={`settings-password-feedback settings-password-feedback--${passwordPolicy.strength}`}
+                    aria-live="polite"
+                  >
+                    <div className="settings-password-summary">
+                      <strong>{passwordPolicy.label}</strong>
+                      <span>{passwordPolicy.score}/5 checks</span>
+                    </div>
+                    <div className="settings-password-meter" aria-hidden="true">
+                      <span style={{ width: `${passwordProgress}%` }} />
+                    </div>
+                    {passwordPolicy.issues.length ? (
+                      <p>{passwordPolicy.issues.join(", ")}</p>
+                    ) : (
+                      <p>Your password meets Buck&apos;s requirements.</p>
+                    )}
+                  </div>
+                ) : null}
+                {passwordConfirmMessage ? (
+                  <p
+                    className={`settings-confirm-hint${
+                      newPassword === confirmPassword
+                        ? " settings-confirm-hint--match"
+                        : ""
+                    }`}
+                  >
+                    {passwordConfirmMessage}
+                  </p>
+                ) : null}
+                </>
+              )}
               <div className="buck-modal-actions">
                 <button
                   className="buck-modal-btn buck-modal-btn--secondary"
@@ -1718,7 +1862,11 @@ export default function SettingsPage() {
                   type="submit"
                   disabled={isBusy}
                 >
-                  {savingPassword ? "Updating..." : "Update password"}
+                  {savingPassword
+                    ? "Updating..."
+                    : passwordCodeStep
+                      ? "Confirm and update"
+                      : "Update password"}
                 </button>
               </div>
             </form>

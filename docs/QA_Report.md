@@ -41,13 +41,13 @@ Findings from the backend audit (middleware, `/api/*`, FastAPI).
 | **SEC-006** | 🟡 Medium | Purge set `purge_started_at` before `deleteUser`; a failed delete orphaned the request forever. Bearer compare was not constant-time. | **Resolved.** Claim is released on failure; constant-time compare; generic error text. |
 | **SEC-007** | 🟡 Medium | Raw `error.message` returned to clients (`deletion/request`, `deletion/recover`, `purge`, `cron`, FastAPI `str(e)` with HTTP 200). | **Resolved.** Detail is logged server-side only. |
 | **SEC-008** | 🟡 Medium | LLM prompts embedded raw user text; no PII scrubbing; `requests` calls had no timeout; `clean_llama_output` kept text *after* `<think>`. | **Resolved.** `sanitize_prompt_field` scrubs emails, PH mobile and 9+ digit numbers, flattens control chars/quotes, caps length; 20 s timeouts; `<think>` blocks removed properly. |
-| **SEC-009** | 🟡 Medium | Password reset reveals whether an account exists (404 message); count-then-insert limiter is not atomic; reset link falls back to the request origin if `NEXT_PUBLIC_SITE_URL` is unset. | **Partly open.** Enumeration is a product decision. `NEXT_PUBLIC_SITE_URL` is set for production and preview (verified in Vercel 2026-10-12), so the reset link no longer depends on the request origin. |
+| **SEC-009** | 🟡 Medium | Password reset reveals whether an account exists (404 message); count-then-insert limiter is not atomic; reset link falls back to the request origin if `NEXT_PUBLIC_SITE_URL` is unset. | **Partly open.** Enumeration: password reset already answers every address the same ("If password reset is available for that email…"); sign-up and resend confirmation were fixed under SEC-046 (2026-11-22). The count-then-insert limiter is still not atomic. `NEXT_PUBLIC_SITE_URL` is set for production and preview (verified in Vercel 2026-10-12), so the reset link no longer depends on the request origin. |
 | **SEC-010** | 🟢 Low | Middleware deep-imports `@supabase/ssr/dist/module/createServerClient`; `SESSION_IDLE_TIMEOUT_MINUTES=0` disabled the timeout. **Resolved.** Timeout `0` is ignored in production. The deep import was replaced with `from "@supabase/ssr"`; the middleware compiled cleanly under `next build` and the running dev server still redirected `/dashboard/home` to `/sign-in` (307). |
 | **SEC-011** | 🟢 Low | `supabaseData.ts` `select("*")` calls and a refresh flood path. | **Resolved.** `getAdminFeedback` is capped at 500 rows (the other `select("*")` sites are `limit(1)` or insert-returning). `forceRefresh` reuses any advisory or forecast younger than 60 s. |
 
 **Database advisors (2026-10-12, project `glnuzqmnmzuxgujmxigx`)**: security has only the accepted INFO-002 (leaked-password protection, free plan). Performance has 15 INFO `unused_index` notices, mostly foreign-key covering indexes on tables with a few thousand rows; keep them. RLS is enabled on all 11 public tables. (`list_tables` reported `public.categories` as 0 rows because it returns planner estimates; a `count(*)` shows 136 rows, so BUG-021's data is accurate.)
 
-**Verification**: `npx tsc --noEmit` clean; `npm test` 29/29 (incl. `securityHelpers.test.ts`); `python -m unittest test_security` 11/11 in `BuckAI_Backend/` (auth, rate limit, input bounds, error leakage, PII scrub, `<think>` stripping). **Not verified:** live middleware behaviour in a browser, the FastAPI service against a real Supabase token, and `next build`.
+**Verification**: `npx tsc --noEmit` clean; `npm test` 29/29 (incl. `securityHelpers.test.ts`); `python -m unittest test_security` 11/11 in the legacy `BuckAI_Backend/` (since removed, ADR-043) (auth, rate limit, input bounds, error leakage, PII scrub, `<think>` stripping). **Not verified:** live middleware behaviour in a browser, the FastAPI service against a real Supabase token, and `next build`.
 
 **Breaking change for other clients**: every `/ai/*` call now needs `Authorization: Bearer <Supabase access token>`. The Flutter app must send it, and `/expenses/` is gone.
 
@@ -494,6 +494,18 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
 
 **Test data**: none left. After the SEC-041 recheck the "Buck QA INFO-007" app was disconnected (0 consents, sessions and grants remain) and the client was deleted (`auth.oauth_clients.deleted_at` set, the same as the admin API's delete). Its authorize URL now returns `400 oauth_client_not_found`. Buck Admin has no 2FA factor; the 2FA setup in Settings didn't exist to run (INFO-006).
 
+### 🔑 Server-Side Password Policy (2026-11-22)
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-045** | 🟠 High | Buck's password policy ([`passwordPolicy.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/passwordPolicy.ts)) ran only in the browser for password reset and Settings › Change password. `updatePassword` in [`authentication.tsx`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/authentication.tsx) called `supabase.auth.updateUser({ password })` directly, so anyone with a session could set a password that broke the policy by calling Supabase Auth themselves. Sign-up already checked on the server. The policy also had no maximum, even though bcrypt ignores everything past 72 bytes. | **Fixed (code).** New [`POST /api/auth/password/update`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/auth/password/update/route.ts): cookie or bearer session through `getRequestAuth`, ADR-048 2FA rule (`mfa_required`), 5 attempts per user and 20 per IP in 15 min (`auth_security_events.event_type = 'password_change'`, migration [`202611220001`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/supabase/migrations/202611220001_password_change_security_event.sql)), `evaluatePasswordPolicy(password, { email, username })` returns 400 with `issues`, then `PUT /auth/v1/user` with the user's own token so Supabase's checks still apply (leaked password, `same_password`, reauthentication nonce, `insufficient_aal`). Supabase errors are mapped to Buck messages, raw text is not returned, and every response is `no-store`. `updatePassword` now calls the route and keeps `{ success, message }`. The policy rejects passwords over 72 bytes. 12 unit tests in `route.test.ts`. **Still open (needs the owner, dashboard):** a direct `PUT /auth/v1/user` still skips Buck's route until Supabase Auth › Password requirements match (min 10; lower, upper, digits, symbols). Leaked-password protection and "Secure password change" are also pending. |
+
+### 🕵️ Account Enumeration on Sign-Up (2026-11-22)
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| **SEC-046** | 🟡 Medium | Sign-up and resend confirmation told anyone whether an e-mail address had a Buck account. [`POST /api/auth/sign-up`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/auth/sign-up/route.ts) returned 409 "An account with this email already exists" or "already registered with Continue with Google", and the unverified path said "Account is awaiting verification". [`POST /api/auth/resend-confirmation`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/auth/resend-confirmation/route.ts) returned 409 "already verified" or the Google message. The 60 s per-address cooldown counted only `sent`, so even a neutral answer could be told apart by a second quick try. Sign-in and password reset already gave one answer. | **Fixed (code).** Sign-up now answers every address with 200 `{ success: true, needsEmailConfirmation: true, message: "Check your email to finish creating your account." }`: new, unverified (fresh confirmation), confirmed e-mail account, Google-only, Supabase's obfuscated `identities: []` user and `user_already_exists`. The owner of an existing account is told only by e-mail ([`existingAccountNotice.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/existingAccountNotice.ts)): Buck's own "You already have a Buck account" e-mail ([`mailer.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/mailer.ts) `sendExistingAccountSignUpEmail`, says whether to use the password or Continue with Google) when SMTP is set, otherwise Supabase's Magic Link sign-in e-mail. A failed notice or a failed resend still gets the neutral answer. Resend confirmation answers every state with "If an unverified Buck account exists for that email, a confirmation email is on its way." Both routes start the same cooldown for every outcome. Raw Supabase error text is no longer returned. Tests: `sign-up/route.test.ts` (12), `resend-confirmation/route.test.ts` (7), 3 updated in `auth-routes.test.ts`. **Still open:** (1) production has no `SMTP_*` variables in Vercel, so existing owners get the Magic Link e-mail rather than Buck's dedicated one until the owner adds them; (2) response time is not padded (both paths send one e-mail, so the gap is small); (3) `create-account/page.tsx` and `check-email/page.tsx` still branch on `google_account_exists` / `email_account_exists`, which are never returned now (dead code, Frontend). |
+
 ### 🟠 High Severity
 
 #### BUG-002: [RESOLVED 2026-10-12] Inconsistent Backend Host Domains Across Frontend Modules
@@ -727,7 +739,7 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
   - `tsc --noEmit` clean.
 
 #### BUG-029: [OPEN: backend + DB handoff] Categories Not User-Manageable; Income Uncategorizable; AI Ignores User Categories
-- **Location**: `buck/src/utils/supabaseData.ts`, `utils/aiApi.ts`, `app/dashboard/categories/*` (new), `component/income/IncomeList.tsx`, `AddIncomeModal.tsx`, `supabase/migrations/202610130002_income_categories.sql` (new), `BuckAI_Backend/main.py` + `ai_models.py`
+- **Location**: `buck/src/utils/supabaseData.ts`, `utils/aiApi.ts`, `app/dashboard/categories/*` (new), `component/income/IncomeList.tsx`, `AddIncomeModal.tsx`, `supabase/migrations/202610130002_income_categories.sql` (new), legacy `BuckAI_Backend/main.py` + `ai_models.py` (since removed; now `Buck_AI/BuckAI_Advisor/categorize.py`)
 - **Impact**:
   - Users had no real place to manage categories; expense category editing lived inside the Statistics "Add Expense" dialog.
   - Income could only use 7 hard-coded sources.
@@ -841,11 +853,12 @@ Run against `https://bucktbt.vercel.app` (release #209) and `buck-web-ai.vercel.
 
 ### 🟢 Low Severity / Tech Debt
 
-#### BUG-006: Orphaned Root `package.json`
-- **Location**: [`package.json:1-6`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/package.json#L1-L6)
+#### BUG-006: [RESOLVED (2026-11-22)] Orphaned Root `package.json`
+- **Location**: Root `package.json` and `package-lock.json` (deleted)
 - **Impact**: Developers running `npm install` at the workspace root do not install the actual application dependencies located in `buck/`.
 - **Root Cause**: The workspace contains a bare `package.json` at root without npm workspace configuration pointing to `buck/`.
 - **Remediation**: Define `"workspaces": ["buck"]` in the root `package.json` or consolidate project configuration.
+- **Resolution**: The root files only declared an unused `react-icons` dependency, so they were deleted. Install from `buck/`.
 
 #### BUG-007: [RESOLVED (superseded by ADR-043 / `Buck_AI`)] Unused Dependencies & Dead Imports in `ai_models.py`
 - **Location**: Legacy `buck/BuckAI_Backend/ai_models.py` (removed in ADR-043)

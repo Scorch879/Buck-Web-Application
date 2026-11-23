@@ -566,75 +566,13 @@ html[data-buck-theme="dark"] .CA-Background .CA-Btn {
   border: 1px solid rgba(239, 154, 154, 0.28);
 }
 
-.CA-ConflictCard {
-  display: grid;
-  gap: 0.7rem;
-  padding: 0.88rem 1rem;
-  margin-top: 0.35rem;
-  color: #ffe7a3;
-  background: rgba(244, 117, 54, 0.16);
-  border: 1px solid rgba(255, 197, 71, 0.36);
-  border-radius: 8px;
-}
 
-.CA-ConflictCard p {
-  margin: 0;
-  font-size: 0.9rem;
-  font-weight: 750;
-  line-height: 1.45;
-}
 
-.CA-ConflictActions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.65rem;
-}
 
-.CA-ConflictBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  min-height: 40px;
-  padding: 0.5rem 0.9rem;
-  color: #fff8ed;
-  font: inherit;
-  font-size: 0.88rem;
-  font-weight: 850;
-  text-decoration: none;
-  background: rgba(18, 13, 10, 0.56);
-  border: 1px solid rgba(255, 197, 71, 0.44);
-  border-radius: 8px;
-  cursor: pointer;
-  transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms ease;
-}
 
-.CA-ConflictBtn:hover:not(:disabled) {
-  border-color: rgba(255, 197, 71, 0.72);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
-  transform: translateY(-1px);
-}
 
-.CA-ConflictBtn:disabled {
-  opacity: 0.7;
-  cursor: progress;
-}
 
-.CA-ConflictLink {
-  color: #ffc547;
-  font-size: 0.88rem;
-  font-weight: 850;
-  text-decoration: none;
-}
 
-.CA-ConflictLink:hover {
-  color: #ffe7a3;
-  text-decoration: underline;
-}
 
 /* Light theme overrides */
 html[data-buck-theme="light"] .CA-Background .CA-Brand strong,
@@ -804,30 +742,10 @@ html[data-buck-theme="light"] .CA-Background .error-message {
   border-color: rgba(255, 56, 56, 0.2);
 }
 
-html[data-buck-theme="light"] .CA-Background .CA-ConflictCard {
-  color: #7b2e1d;
-  background: rgba(255, 197, 71, 0.2);
-  border-color: rgba(244, 117, 54, 0.36);
-}
 
-html[data-buck-theme="light"] .CA-Background .CA-ConflictBtn {
-  color: #2b2523;
-  background: rgba(255, 255, 255, 0.85);
-  border-color: rgba(184, 51, 36, 0.3);
-}
 
-html[data-buck-theme="light"] .CA-Background .CA-ConflictBtn:hover:not(:disabled) {
-  border-color: rgba(184, 51, 36, 0.55);
-  box-shadow: 0 10px 24px rgba(94, 59, 34, 0.14);
-}
 
-html[data-buck-theme="light"] .CA-Background .CA-ConflictLink {
-  color: #b83324;
-}
 
-html[data-buck-theme="light"] .CA-Background .CA-ConflictLink:hover {
-  color: #ff3838;
-}
 
 /* Responsive layout */
 @media (max-width: 980px) {
@@ -937,3 +855,176 @@ html[data-buck-theme="light"] .CA-Background .CA-ConflictLink:hover {
   }
 }
 
+
+/* Fit the viewport: on desktop the page sizes its spacing, mascot, controls
+   and heading from the screen height, so the whole page fits without
+   scrolling on common laptop heights (about 640px and up). */
+@media (min-width: 981px) {
+  .CA-Page {
+    padding-block: clamp(0.75rem, 3.5vh, 3rem);
+  }
+
+  .CA-Story {
+    min-height: 0;
+    gap: clamp(1rem, 3.4vh, 2.4rem);
+  }
+
+  .CA-HeroCopy h1 {
+    font-size: clamp(2rem, min(4.4vw, 6.4vh), 3.8rem);
+  }
+
+  .CA-HeroCopy p:not(.CA-Kicker) {
+    margin-top: clamp(0.6rem, 2vh, 1.25rem);
+    line-height: 1.55;
+  }
+
+  .CA-Highlights {
+    gap: clamp(0.5rem, 1.4vh, 0.85rem);
+  }
+
+  .CA-Container {
+    padding: clamp(1rem, 2.6vh, 1.65rem) clamp(1.1rem, 2vw, 1.65rem);
+  }
+
+  .CA-Mascot-Circle {
+    --auth-mascot: clamp(48px, 8.5vh, 82px);
+    width: var(--auth-mascot);
+    height: var(--auth-mascot);
+  }
+
+  .CA-Mascot-Img {
+    width: calc(var(--auth-mascot, 82px) * 0.8);
+    height: calc(var(--auth-mascot, 82px) * 1.17);
+    transform: translateY(calc(var(--auth-mascot, 82px) * 0.22));
+  }
+
+  .CA-Mascot-Top:hover .CA-Mascot-Img {
+    transform: translateY(calc(var(--auth-mascot, 82px) * 0.15));
+  }
+
+  .CA-PanelHeading {
+    margin-top: clamp(0.4rem, 1.4vh, 1rem);
+  }
+
+  .CA-PanelHeading p:not(.CA-Kicker) {
+    margin-top: clamp(0.3rem, 1vh, 0.65rem);
+  }
+
+  .CA-Form {
+    gap: clamp(0.4rem, 1.1vh, 0.72rem);
+  }
+
+  .CA-Input {
+    min-height: clamp(40px, 5.4vh, 46px);
+    padding-block: clamp(0.5rem, 1.2vh, 0.75rem);
+  }
+
+  .CA-Btn,
+  .CA-Google-Btn {
+    min-height: clamp(40px, 5.4vh, 46px);
+  }
+
+  .CA-Google-Btn {
+    margin-top: clamp(0.7rem, 2vh, 1.25rem);
+  }
+
+  .CA-Divider {
+    margin-block: clamp(0.55rem, 1.8vh, 1.2rem);
+  }
+
+  .CA-Footer {
+    margin-top: clamp(0.6rem, 1.8vh, 1.15rem);
+  }
+
+  /* Two columns: name | email, password | confirm, each hint under its field. */
+  .CA-Container {
+    width: min(100%, 520px);
+  }
+
+  .CA-Form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "user email"
+      "password confirm"
+      "meter hint";
+    column-gap: 0.85rem;
+  }
+
+  .CA-Form > :not(.CA-Field):not(.CA-PasswordFeedback):not(.CA-ConfirmHint) {
+    grid-column: 1 / -1;
+  }
+
+  .CA-Field--user { grid-area: user; }
+  .CA-Field--email { grid-area: email; }
+  .CA-Field--password { grid-area: password; }
+  .CA-Field--confirm { grid-area: confirm; }
+  .CA-PasswordFeedback { grid-area: meter; min-height: 0; }
+  .CA-ConfirmHint { grid-area: hint; }
+}
+
+/* Short desktop windows: drop the card subtitle (the story column already
+   says it) so the form keeps its room. */
+@media (min-width: 981px) and (max-height: 720px) {
+  .CA-PanelHeading p:not(.CA-Kicker) {
+    display: none;
+  }
+}
+
+/* Each field keeps its label and input together; one column below desktop. */
+.CA-Field {
+  display: grid;
+  gap: inherit;
+  min-width: 0;
+}
+
+/* Phones: keep the main action above the fold. Smaller mascot, no duplicate
+   subtitle (the intro above already says it), tighter spacing. */
+@media (max-width: 680px) {
+  .CA-Page {
+    gap: 0.85rem;
+    padding-top: 0.75rem;
+  }
+
+  .CA-Mascot-Circle {
+    width: 56px;
+    height: 56px;
+  }
+
+  .CA-Mascot-Img {
+    width: 45px;
+    height: 66px;
+    transform: translateY(12px);
+  }
+
+  .CA-Mascot-Top:hover .CA-Mascot-Img {
+    transform: translateY(8px);
+  }
+
+  .CA-PanelHeading {
+    margin-top: 0.5rem;
+  }
+
+  .CA-PanelHeading p:not(.CA-Kicker) {
+    display: none;
+  }
+
+  .CA-Form {
+    gap: 0.55rem;
+  }
+
+  .CA-Google-Btn {
+    margin-top: 0.85rem;
+  }
+
+  .CA-Divider {
+    margin-block: 0.75rem;
+  }
+
+  .CA-Footer {
+    margin-top: 0.8rem;
+  }
+
+  .CA-PasswordFeedback {
+    min-height: 0;
+  }
+}

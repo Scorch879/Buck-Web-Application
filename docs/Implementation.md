@@ -27,6 +27,11 @@ This document details runtime setup procedures, environment configurations, low-
 | `SUPABASE_PROJECT_REF` | Server Only | Optional | Project reference ID for Supabase logs endpoint. |
 | `VERCEL_ACCESS_TOKEN` | Server Only | Optional | Vercel API token for deployment metrics. |
 | `VERCEL_PROJECT_ID` | Server Only | Optional | Vercel project ID for deployment monitoring. |
+| `SMTP_HOST` | Server Only | Optional | SMTP server for Buck's own e-mails ([`mailer.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/mailer.ts)): account-deletion confirmation and auto-cancel, and the "You already have a Buck account" sign-up notice (SEC-046). SMTP counts as set only when `SMTP_HOST`, `SMTP_USER` and `SMTP_PASS` are all present; otherwise Supabase's Magic Link e-mail is the fallback. Not set in production Vercel today. |
+| `SMTP_PORT` | Server Only | Optional | Default: `587`. Port `465` uses implicit TLS. |
+| `SMTP_USER` | Server Only | Optional | SMTP login. Required with `SMTP_HOST` and `SMTP_PASS`. |
+| `SMTP_PASS` | Server Only | Optional | SMTP password. Required with `SMTP_HOST` and `SMTP_USER`. |
+| `SMTP_FROM` | Server Only | Optional | Sender. Default: `Buck The Budget Tracker <SMTP_USER>`. |
 
 ### 1.2 Buck_AI Service (`Buck_AI/.env`, or Vercel project settings)
 
@@ -529,6 +534,7 @@ Returns a composite score (0 to 5) and localized validation messages.
 | **Account Recovery** | Fixed 10-day recovery window (`RECOVERY_WINDOW_DAYS = 10`) | [`account/delete/confirm/route.ts:7`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/account/delete/confirm/route.ts#L7) |
 | **Deletion Confirm** | Strict uppercase string match `"DELETE"` | [`deletion/request/route.ts:14`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/account/deletion/request/route.ts#L14) |
 | **Rate Limiting** | Max 8 password resets per IP per 15 min; 40 per IP per 24 hr; 5 per email per 1 hr; 60s email cooldown | [`password-reset/route.ts:45-51`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/auth/password-reset/route.ts#L45-L51) |
+| **Password Policy** | Min 10 characters, upper + lower, a digit, a symbol, no spaces, max 72 bytes (bcrypt), no e-mail name or username, at least 5 unique characters. Enforced on the server for sign-up and password updates; changes are rate-limited to 5 per user and 20 per IP every 15 min | [`passwordPolicy.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/passwordPolicy.ts), [`password/update/route.ts`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/api/auth/password/update/route.ts) |
 | **Modal Bounds** | Desktop max width: `min(880px, 100%)`, max height: `min(82dvh, 760px)` | [`globals.css:780`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/app/globals.css) |
 | **Currency Token** | Hardcoded to Philippine Peso (`PHP`, `₱`) across UI formatters and AI prompts | [`formatters.ts:4`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/utils/formatters.ts#L4), [`money.py:27-28`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/shared/money.py#L27-L28), [`prompts.py:14`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/Buck_AI/BuckAI_Advisor/prompts.py#L14) |
 | **Toast Queue** | Maximum 4 concurrent toasts; default duration 4,000ms; viewport offset top-right 24px (mobile top-center 16px) | [`ToastContext.tsx:14`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/toast/ToastContext.tsx#L14), [`toast.module.css:4-16`](file:///d:/VS%20Code/Buck-Budget-Tracker/Buck-Web-Application/buck/src/component/toast/toast.module.css#L4-L16) |

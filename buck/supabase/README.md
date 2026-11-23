@@ -1,105 +1,63 @@
 # Buck Supabase Setup
 
-This folder contains the Supabase database setup for replacing Firebase/Firestore.
+This folder holds Buck's database schema as versioned SQL migrations. The web app, the mobile app and `Buck_AI` all use this one Supabase database.
 
 ## Run Order
 
-Run these migrations in order:
+Apply every file in [`migrations/`](./migrations/) in filename order (the timestamp prefix is the order). The first is `202606010001_initial_buck_schema.sql`. New migrations are added with a later timestamp, never by editing an applied one.
 
-```sql
-supabase/migrations/202606010001_initial_buck_schema.sql
-supabase/migrations/202606100001_profile_avatars.sql
-supabase/migrations/202606110001_account_deletion_requests.sql
-supabase/migrations/202606110002_auth_security_events.sql
-supabase/migrations/202606120001_soft_delete_wallets.sql
-supabase/migrations/202606130001_strict_deletions.sql
-supabase/migrations/202606140001_security_and_policy_hardening.sql
-```
-
-You can paste the file contents into the Supabase SQL Editor, or apply it later with the Supabase CLI.
-
-## Firebase To Supabase Mapping
-
-| Firebase path | Supabase table |
-| --- | --- |
-| `users/{uid}` | `profiles` |
-| `users/{uid}/categories` | `categories` |
-| `users/{uid}/expenses` | `expenses` |
-| `wallets/{uid}/userWallets` | `wallets` |
-| `goals/{uid}/userGoals` | `goals` |
+You can apply them with the Supabase CLI (`supabase db push`) or paste each file into the Supabase SQL Editor in order.
 
 ## Tables
 
-- `profiles`: one row per Supabase Auth user, plus the active wallet pointer.
-- `wallets`: user-owned wallets and balances.
-- `categories`: user-owned expense categories.
-- `expenses`: user-owned expenses, optionally linked to a wallet, goal, and category.
-- `goals`: user-owned saving goals, progress, and AI recommendation fields.
+All tables are in the `public` schema.
+
+- `profiles`: one row per Supabase Auth user, plus the active wallet pointer and saving attitude.
+- `wallets`: user-owned wallets and balances (soft-deleted with `deleted_at`).
+- `categories`: user-owned expense and income categories (`kind`); the `Uncategorized` and `Other` fallbacks are protected.
+- `expenses`: user-owned expenses, optionally linked to a wallet, goal and category.
+- `incomes`: user-owned income records.
+- `goals`: user-owned saving goals and progress (soft-deleted with `deleted_at`).
+- `feedback`: bug reports and feature requests, readable by admins.
+- `ai_advisories`, `ai_forecasts`, `ai_usage_events`: saved AI Advisor and Forecaster output and AI usage counts.
 - `account_deletion_requests`: server-managed deletion confirmations and 10-day recovery windows.
+- `auth_security_events`: hashed (HMAC) rate-limit events for auth e-mail actions.
+- `mfa_recovery_codes`, `mfa_email_recovery_requests`: 2FA backup codes and e-mail recovery (ADR-048).
+- `oauth_app_grants`: connected-app approvals (ADR-049).
 
 ## Security
 
-Every app table has Row Level Security enabled. The policies only allow an authenticated user to read or mutate rows where `auth.uid()` matches the row owner.
+Every app table has Row Level Security enabled. Policies only let an authenticated user read or change rows where `auth.uid()` matches the row owner. With 2FA on, RESTRICTIVE policies also require `private.mfa_satisfied()` (ADR-048).
 
-The migration also adds ownership guard triggers so a user cannot attach another user's wallet, goal, or category to their own profile or expense by guessing an ID.
+Ownership guard triggers stop a user from attaching another user's wallet, goal or category to their own profile or expense by guessing an ID.
 
-Account deletion requests are read-only to the account owner. Creating, confirming, recovering, and purging deletion requests must go through server routes that use `SUPABASE_SERVICE_ROLE_KEY`.
+Account deletion requests are read-only to the account owner. Creating, confirming, recovering and purging them goes through server routes that use `SUPABASE_SERVICE_ROLE_KEY`.
 
 ## New User Defaults
 
-The migration creates an `auth.users` trigger. When a user signs up through Supabase Auth, it automatically:
+An `auth.users` trigger runs when a user signs up. It:
 
 - creates their `profiles` row
-- copies their email and display name when available
-- seeds Buck's default categories
+- copies their e-mail and display name when available
+- seeds Buck's default expense and income categories
 
 ## Realtime
 
-Realtime publication is enabled for:
-
-- `wallets`
-- `categories`
-- `goals`
-- `expenses`
-
-This is the Supabase equivalent of the Firestore `onSnapshot` behavior currently used by the dashboard.
+The `supabase_realtime` publication includes `wallets`, `categories`, `goals`, `expenses`, `incomes` and `profiles`. `FinancialProvider` listens to these to keep the dashboard cache current.
 
 ## Account Deletion
 
 The Settings page uses a soft-delete flow:
 
 1. The user requests deletion from `/dashboard/settings`.
-2. Buck verifies the current password for email/password users.
-3. Buck sends a Supabase email confirmation link to the account email.
+2. Buck verifies the current password for e-mail/password users.
+3. Buck e-mails a confirmation link to the account address.
 4. Clicking the link schedules deletion and starts a 10-day recovery window.
-5. During the 10-day window, the user can sign in and recover from Settings.
-6. After the window ends, a scheduled job can call the purge endpoint to permanently delete the Supabase Auth user and cascade owned database rows.
+5. During the window, the user can sign in and recover from Settings.
+6. After the window ends, the purge endpoint permanently deletes the Supabase Auth user, and owned rows cascade.
 
-Required server-only environment variables:
+The purge runs daily from Vercel Cron (`buck/vercel.json`, `POST /api/account/deletion/purge`). It accepts `Authorization: Bearer <CRON_SECRET>` (Vercel Cron) or `Bearer <ACCOUNT_PURGE_SECRET>` (manual runs).
 
-```env
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-ACCOUNT_PURGE_SECRET=use-a-long-random-secret
-```
+Every deployed domain needs `/auth/callback` in Supabase Auth Redirect URLs, because the confirmation e-mail returns through the normal auth callback.
 
-Recommended Vercel Cron target:
-
-```txt
-POST /api/account/deletion/purge
-Authorization: Bearer ACCOUNT_PURGE_SECRET
-```
-
-Also make sure every deployed domain has `/auth/callback` in Supabase Auth Redirect URLs, because the deletion confirmation email returns through the normal auth callback.
-
-## Next Code Migration Step
-
-After the tables exist, replace Firebase with Supabase in this order:
-
-1. Add `@supabase/supabase-js`.
-2. Create `src/utils/supabase.ts`.
-3. Replace auth in `src/component/authentication.tsx`.
-4. Replace `useAuthGuard`.
-5. Move wallet CRUD to `wallets`.
-6. Move categories and expenses to `categories` and `expenses`.
-7. Move goals to `goals`.
-8. Remove `firebase` and `src/utils/firebase.ts` after no imports remain.
+E-mail templates to paste into Supabase are in [`docs/guides/supabase/SUPABASE_EMAIL_TEMPLATES.txt`](../../docs/guides/supabase/SUPABASE_EMAIL_TEMPLATES.txt).

@@ -218,7 +218,7 @@ test.describe("Auth & MFA UI Flows (F3, F8, F10)", () => {
 
     await page.goto("/sign-in?error=auth-callback-failed");
     await expect(page.locator(".error-message")).toHaveText(
-      "Buck could not finish Google sign in. Please try again."
+      "That verification or sign-in link is invalid or has expired. Please try again."
     );
 
     await page.goto("/sign-in");

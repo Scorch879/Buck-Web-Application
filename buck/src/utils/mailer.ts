@@ -139,6 +139,66 @@ export async function sendAccountDeletionConfirmationEmail({
   });
 }
 
+/**
+ * Sent instead of an on-screen "already registered" error when someone tries
+ * to sign up with an address that already has a Buck account (SEC-046). Only
+ * the inbox owner learns the account exists.
+ */
+export async function sendExistingAccountSignUpEmail({
+  to,
+  username,
+  provider,
+  signInUrl,
+  resetUrl,
+  logoUrl,
+}: {
+  to: string;
+  username?: string | null;
+  provider: "email" | "google";
+  signInUrl: string;
+  resetUrl: string;
+  logoUrl: string;
+}) {
+  const name = username?.trim() || "Buck User";
+  const safeName = escapeHtml(name);
+  const safeEmail = escapeHtml(to);
+  const safeSignIn = escapeHtml(signInUrl);
+  const safeReset = escapeHtml(resetUrl);
+  const safeLogo = escapeHtml(logoUrl);
+  const howToSignIn =
+    provider === "google"
+      ? "This account signs in with <strong>Continue with Google</strong>. Use that button on the sign-in page."
+      : `Sign in with your password. If you have forgotten it, you can <a href="${safeReset}" style="color:#0d7cff;">reset your password</a>.`;
+  const howToSignInText =
+    provider === "google"
+      ? "This account signs in with Continue with Google. Use that button on the sign-in page."
+      : `Sign in with your password. If you have forgotten it, reset it here: ${resetUrl}`;
+
+  return sendEmail({
+    to,
+    subject: "You already have a Buck account",
+    html: `<div style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#333;">
+  <div style="max-width:600px;margin:0 auto;background:#ffffff;padding:32px 28px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <img src="${safeLogo}" alt="Buck The Budget Tracker" width="170" style="max-width:170px;height:auto;">
+    </div>
+    <p style="margin:0 0 18px;line-height:1.7;">Good day, <strong>${safeName}</strong>!</p>
+    <p style="margin:0 0 18px;line-height:1.7;">Someone, maybe you, tried to create a new Buck account with <strong>${safeEmail}</strong>. This address already has a Buck account, so we did not create another one.</p>
+    <p style="margin:0 0 18px;line-height:1.7;">${howToSignIn}</p>
+    <p style="text-align:center;margin:28px 0;">
+      <a href="${safeSignIn}" style="display:inline-block;background:#ff7a34;color:#111;text-decoration:none;font-weight:700;padding:14px 26px;border-radius:8px;">Sign In to Buck</a>
+    </p>
+    <p style="margin:0;line-height:1.7;">If this was not you, you can ignore this email. Nothing about your account has changed.</p>
+    <p style="margin:26px 0 0;line-height:1.7;">Thanks,<br>The <strong>Buck</strong> team</p>
+  </div>
+  <div style="max-width:600px;margin:0 auto;padding:18px 28px;text-align:center;background:#edf0f3;color:#777;font-size:12px;">
+    This is an automated email. Please do not reply.
+  </div>
+</div>`,
+    text: `Good day, ${name}!\n\nSomeone, maybe you, tried to create a new Buck account with ${to}. This address already has a Buck account, so we did not create another one.\n\n${howToSignInText}\n\nSign in: ${signInUrl}\n\nIf this was not you, you can ignore this email. Nothing about your account has changed.\n`,
+  });
+}
+
 export async function sendAccountDeletionAutoCanceledEmail({
   to,
   username,
